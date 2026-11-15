@@ -501,6 +501,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 详见 _test_bundle_cluster_factors.cjs M/N 段与 FA launch* 注释）
         'launchBundleClusterSize', 'launchBundleClusterSharePct',
         'launchEqualClusterWallets', 'launchEqualClusterBnb',
+        // T141 2026-11-15 首两波两键（首块首买数/首块+≤2s 首个活跃块首买数；
+        // 详见 _test_launch_bundle_factors.cjs I-Q 段）
+        'launchFirstBlockWallets', 'launchFirstWaveWallets',
         // 2026-10-18 用户点名集合（famous 门原料）+ C96/C97 叙事键（category 透传 +
         // superIP 注入键）——并行批次追加时未同步本白名单（2026-10-20 补）
         'famousCopyWalletCircPct', 'narrativeCategory',

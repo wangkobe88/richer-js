@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 /**
- * FA launch* 出生锚定捆绑簇 4 键单测（2026-10-17 Agentum 案方向 C）——本地零 DB 零网络。
+ * FA launch* 出生锚定捆绑簇 6 键单测（2026-10-17 Agentum 案方向 C；T141 2026-11-15
+ * 增首两波两键）——本地零 DB 零网络。
  *
  * launchBundleClusterSize / launchBundleClusterSharePct / launchEqualClusterWallets /
  * launchEqualClusterBnb：出生窗（firstTickAt+launchBundleWinMs=90s）累计 + 出窗冻结。
+ * launchFirstBlockWallets / launchFirstWaveWallets（T141）：首块首买钱包数 f0 /
+ * f0+首块后 ≤2s（LAUNCH_FIRST_WAVE_MS）内第一个有交易块（buy/sell 都算活跃）的
+ * 首买钱包数——「狙击小队先头在首块+同波续单在下一块」合并计数；两键纯事实计数，
+ * f0≥2 提纯由门串组合表达（用户拍板形状 X=2s ∧ f0≥2）。
  *
  * 覆盖（Agentum 现场反证为本案核心）：
  *   A. Agentum 现场精确值：簇 A 同块 4 笔不等额（创建块）+ 中段散户 + 簇 B 跨块等额
@@ -15,6 +20,10 @@
  *   D. 尘埃等额（<0.01）不聚簇；E. 2 钱包等额不触发（FLY 形状归 10s 臂）
  *   F. 出窗冻结恒定 + 触发出窗行不入窗；G. 源码口径反证（禁 Date.now）
  *   H. getFactorKeys 探针收键 + FactorBuilder 快照透传
+ *   I-Q. T141 首两波两键：I 精确值（Agentum 形状 f0=4/wave=5）/ J X=2s 边界（≤2000
+ *      算 2001 不算）/ K 纯 sell 块算活跃且不跳过 / L f0<2 照发真值+首买跨块去重 /
+ *      M defer 乱序收敛 / N 出窗冻结+触发行不入 map / O 首块锚缺失→0、null wallet
+ *      入 map 不入首买 / P 源码口径反证 / Q v20 门串求值（挡/放全分支+装载）
  *
  * 用法：node scripts/_test_launch_bundle_factors.cjs
  */
@@ -229,6 +238,215 @@ console.log('H. 键集与快照');
     assert.strictEqual(snap.launchEqualClusterWallets, 3);
     assert.strictEqual(snap.launchBundleClusterSharePct, 40.1);
     assert.strictEqual(snap.launchBundleClusterSize, null);
+  });
+}
+
+// ═══════════════ I-Q. T141 首两波两键（2026-11-15：首块首买数 + 首块+≤2s 首个活跃块
+//     首买数；用户拍板形状 X=2s ∧ f0≥2，两键纯事实计数、f0≥2 提纯由门串组合表达）═══════════════
+console.log('I. 首两波精确值（Agentum 现场形状复用）');
+{
+  const fa = newFA();
+  feed(fa, AGENTUM.slice(0, 10));
+  const f = F(fa, T0 + 61500); // fire 时刻活值
+  const fw = (m) => ({ f0: m.launchFirstBlockWallets, wave: m.launchFirstWaveWallets });
+  check('I1 f0=4（首块 347 首买 wA1-wA4）', () => {
+    assert.deepStrictEqual(fw(f), { f0: 4, wave: 5 });
+  });
+  feed(fa, AGENTUM.slice(10)); // 簇 B 第三笔 + 后续
+  feed(fa, [{ timestamp: T0 + 100000, block_number: 600, sender_address: 'wX', trader_address: '0xeoaX', bnb_amount: 5.0 }]);
+  const fro = F(fa, T0 + 105000);
+  check('I2 出窗冻结后两键恒定（wave=5：348 是 ≤2s 最小块，其首买 wD1 一个——349 同刻但块号更大、350 gap=2000 恰界但块号更大）', () => {
+    assert.deepStrictEqual(fw(fro), { f0: 4, wave: 5 });
+  });
+}
+
+console.log('J. X=2s 块首时间差边界（≤2000 算 / 2001 不算）');
+{
+  const base = [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 0.2 },
+    { timestamp: T0 + 1000, block_number: 100, log_index: 2, sender_address: 'w2', trader_address: '0xe2', bnb_amount: 0.2 },
+  ];
+  const nxt = (ts, blk) => ([
+    { timestamp: T0 + ts, block_number: blk, log_index: 3, sender_address: 'w3', trader_address: '0xe3', bnb_amount: 0.2 },
+    { timestamp: T0 + ts, block_number: blk, log_index: 4, sender_address: 'w4', trader_address: '0xe4', bnb_amount: 0.2 },
+  ]);
+  const fw = (fa, now) => {
+    const m = F(fa, now);
+    return [m.launchFirstBlockWallets, m.launchFirstWaveWallets];
+  };
+  {
+    const fa = newFA();
+    feed(fa, base); feed(fa, nxt(3000, 101)); // gap=2000 恰界 → 算
+    check('J1 gap 恰 2000ms（≤）计入：f0=2 wave=4', () =>
+      assert.deepStrictEqual(fw(fa, T0 + 5000), [2, 4]));
+  }
+  {
+    const fa = newFA();
+    feed(fa, base); feed(fa, nxt(3001, 101)); // gap=2001 出局
+    check('J2 gap=2001ms 不计：f0=2 wave=2（首两波臂对慢一拍的续单盲——设计内，簇臂仍管）', () =>
+      assert.deepStrictEqual(fw(fa, T0 + 5000), [2, 2]));
+  }
+}
+
+console.log('K. 纯 sell 块算「有交易块」且不跳过（第一个语义）');
+{
+  const fa = newFA();
+  feed(fa, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 0.2 },
+    { timestamp: T0 + 1500, block_number: 101, log_index: 2, trade_type: 'sell', sender_address: 'wS', trader_address: '0xeS', bnb_amount: 0.3 },
+    { timestamp: T0 + 1800, block_number: 102, log_index: 3, sender_address: 'w2', trader_address: '0xe2', bnb_amount: 0.2 },
+    { timestamp: T0 + 1800, block_number: 102, log_index: 4, sender_address: 'w3', trader_address: '0xe3', bnb_amount: 0.2 },
+  ]);
+  check('K1 首块后第一个活跃块=101（纯卖）：f0=1 wave=1（101 零首买 fNext=0；若纯卖不算活跃则 wave=3——反证锁死）', () => {
+    const m = F(fa, T0 + 5000);
+    assert.deepStrictEqual([m.launchFirstBlockWallets, m.launchFirstWaveWallets], [1, 1]);
+  });
+}
+
+console.log('L. f0<2 形状键发真值（提纯归门串不归键）+ 首买跨块去重');
+{
+  const fa = newFA();
+  feed(fa, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 0.2 },
+    // w1 次块复买：首买 map 只记首块 → fNext 不重复计 w1
+    { timestamp: T0 + 1500, block_number: 101, log_index: 2, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 0.2 },
+    { timestamp: T0 + 1500, block_number: 101, log_index: 3, sender_address: 'w2', trader_address: '0xe2', bnb_amount: 0.2 },
+    { timestamp: T0 + 1500, block_number: 101, log_index: 4, sender_address: 'w3', trader_address: '0xe3', bnb_amount: 0.2 },
+  ]);
+  check('L1 f0=1（孤人首块）wave=3（次块新首买 w2/w3 两个，w1 复买不重计）——键照发真值，f0≥2 提纯由门串表达', () => {
+    const m = F(fa, T0 + 5000);
+    assert.deepStrictEqual([m.launchFirstBlockWallets, m.launchFirstWaveWallets], [1, 3]);
+  });
+}
+
+console.log('M. defer 乱序收敛（首两波两键）');
+{
+  const rows = [
+    mkTick({ timestamp: T0 + 1000, block_number: 347, log_index: 10, sender_address: 'wE1', trader_address: '0xeoaE1', bnb_amount: 0.25 }),
+    mkTick({ timestamp: T0 + 1000, block_number: 347, log_index: 20, sender_address: 'wE2', trader_address: '0xeoaE2', bnb_amount: 0.25 }),
+    mkTick({ timestamp: T0 + 2500, block_number: 348, log_index: 1, sender_address: 'wD1', trader_address: '0xeoaD1', bnb_amount: 0.5 }),
+    mkTick({ timestamp: T0 + 4000, block_number: 360, log_index: 2, sender_address: 'wF1', trader_address: '0xeoaF1', bnb_amount: 0.3 }),
+  ];
+  const seq = newFA();
+  feed(seq, rows.map(r => ({ ...r })));
+  const expected = F(seq, T0 + 6000);
+  const fa = newFA();
+  for (const t of rows) fa.processTick(t, { deferWallet: true });
+  fa.applyWalletTick(rows[2]); fa.applyWalletTick(rows[0]); fa.applyWalletTick(rows[3]); fa.applyWalletTick(rows[1]);
+  const got = F(fa, T0 + 7000);
+  check('M1 乱序回推 == 链序：f0=2 wave=3（348 gap=1500 计入，360 gap=3000 出局）', () => {
+    assert.deepStrictEqual(
+      [got.launchFirstBlockWallets, got.launchFirstWaveWallets],
+      [expected.launchFirstBlockWallets, expected.launchFirstWaveWallets]);
+    assert.deepStrictEqual([got.launchFirstBlockWallets, got.launchFirstWaveWallets], [2, 3]);
+  });
+}
+
+console.log('N. 出窗冻结 + 触发行不入活跃块 map');
+{
+  const fa = newFA();
+  feed(fa, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 0.2 },
+    { timestamp: T0 + 1000, block_number: 100, log_index: 2, sender_address: 'w2', trader_address: '0xe2', bnb_amount: 0.2 },
+    { timestamp: T0 + 1500, block_number: 101, log_index: 3, sender_address: 'w3', trader_address: '0xe3', bnb_amount: 0.2 },
+  ]);
+  const before = F(fa, T0 + 5000);
+  // 触发出窗行（新块 200）+ 冻结后假晚到头 2s 行（defer 极晚回推）
+  feed(fa, [{ timestamp: T0 + 100000, block_number: 200, sender_address: 'wX', trader_address: '0xeX', bnb_amount: 1 }]);
+  const st = fa._states.get(ADDR);
+  check('N1 触发出窗行不入活跃块 map（map 不含块 200）', () =>
+    assert.ok(!st._launchBlkFirstTs.has(200), `map=${[...st._launchBlkFirstTs.keys()]}`));
+  const fro = F(fa, T0 + 110000);
+  feed(fa, [{ timestamp: T0 + 1600, block_number: 102, sender_address: 'w9', trader_address: '0xe9', bnb_amount: 0.2 }]);
+  const after = F(fa, T0 + 120000);
+  check('N2 冻结快照恒返回：f0=2 wave=3，窗关闭后晚到头 2s 行不改值', () => {
+    assert.strictEqual(before.launchFirstWaveWallets, 3);
+    assert.deepStrictEqual(
+      [fro.launchFirstBlockWallets, fro.launchFirstWaveWallets],
+      [after.launchFirstBlockWallets, after.launchFirstWaveWallets]);
+  });
+}
+
+console.log('O. 首块锚缺失 / null wallet 行');
+{
+  const fa = newFA();
+  feed(fa, [
+    { timestamp: T0 + 1000, block_number: null, log_index: 1, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 0.2 },
+    { timestamp: T0 + 2000, block_number: null, log_index: 2, sender_address: 'w2', trader_address: '0xe2', bnb_amount: 0.2 },
+  ]);
+  const m = F(fa, T0 + 5000);
+  check('O1 全窗 block null → firstBlockNumber null → 两键 0（fail-open 放行，与 cluster 空窗 0 同向）', () => {
+    assert.deepStrictEqual([m.launchFirstBlockWallets, m.launchFirstWaveWallets], [0, 0]);
+  });
+  const fa2 = newFA();
+  feed(fa2, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: null, trader_address: null, bnb_amount: 0.5 },
+    { timestamp: T0 + 1500, block_number: 101, log_index: 2, sender_address: 'w2', trader_address: '0xe2', bnb_amount: 0.2 },
+  ]);
+  const m2 = F(fa2, T0 + 5000);
+  check('O2 null wallet 行入活跃块 map 不入首买 → f0=0，但 w2 首买在活跃块 101 → wave=1（首块证据缺席、次块事实照计）', () => {
+    assert.deepStrictEqual([m2.launchFirstBlockWallets, m2.launchFirstWaveWallets], [0, 1]);
+  });
+}
+
+console.log('P. 源码口径反证（T141）');
+{
+  check('P1 LAUNCH_FIRST_WAVE_MS=2000 常量在场（X=2s 用户裁定形状）', () => {
+    assert.ok(/const LAUNCH_FIRST_WAVE_MS = 2000;/.test(src), '常量缺失或值漂移');
+  });
+  check('P2 活跃块写点守卫=窗未关 ∧ blockNumber 非 null（触发行不入窗）', () => {
+    const m = src.match(/if \(!state\._launchWindowClosed && blockNumber !== null\) \{\s*const _lt = state\._launchBlkFirstTs\.get\(blockNumber\);[\s\S]*?\n        \}/);
+    assert.ok(m, '写点守卫段未找到');
+  });
+  check('P3 次活跃块判定=blk>首块 ∧ 块首时间差≤2000 ∧ 最小 blk（min 更新乱序收敛）', () => {
+    assert.ok(/if \(blk <= fb \|\| ts - fbTs > LAUNCH_FIRST_WAVE_MS\) continue;/.test(src), '判定行缺失');
+    assert.ok(/if \(nextBlk === null \|\| blk < nextBlk\) nextBlk = blk;/.test(src), '最小块选取行缺失');
+  });
+  check('P4 FactorBuilder 快照含两键', () => {
+    const fbSrc = fs.readFileSync(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'), 'utf8');
+    assert.ok(/launchFirstBlockWallets: factorResults\.launchFirstBlockWallets \?\? null/.test(fbSrc));
+    assert.ok(/launchFirstWaveWallets: factorResults\.launchFirstWaveWallets \?\? null/.test(fbSrc));
+  });
+  check('P5 getFactorKeys 探针收两键', () => {
+    const fa = newFA();
+    const keys = fa.getFactorKeys();
+    assert.ok(keys.has('launchFirstBlockWallets'));
+    assert.ok(keys.has('launchFirstWaveWallets'));
+  });
+}
+
+console.log('Q. v20 门串求值（提纯=门串组合表达）');
+{
+  const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
+  const { getAvailableFactorIds } = require(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'));
+  const gate = '(launchBundleClusterSize < 3 AND (launchFirstBlockWallets < 2 OR launchFirstWaveWallets < 3)) OR tokenAgeSec > 60';
+  const ev = new ConditionEvaluator();
+  check('Q1 挡：f0≥2 ∧ wave≥3 ∧ cluster<3 ∧ age≤60（狙击小队先头+同波续单）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3, tokenAgeSec: 30 }), false));
+  check('Q2 挡：簇臂独立命中（cluster≥3 ∧ age≤60，首两波无关）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 4, launchFirstBlockWallets: 0, launchFirstWaveWallets: 0, tokenAgeSec: 30 }), false));
+  check('Q3 放：f0=1 ∧ wave=3（孤人首块形状——f0≥2 提纯，误伤面全在此）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 2, launchFirstBlockWallets: 1, launchFirstWaveWallets: 3, tokenAgeSec: 30 }), true));
+  check('Q4 放：f0=2 ∧ wave=2（首块 2 人后无紧邻续单）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 1, launchFirstBlockWallets: 2, launchFirstWaveWallets: 2, tokenAgeSec: 40 }), true));
+  check('Q5 放：age>60（筹码已换手）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 9, launchFirstBlockWallets: 4, launchFirstWaveWallets: 5, tokenAgeSec: 90 }), true));
+  check('Q6 放：新票全 0（有证据零值非 null）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 0, launchFirstBlockWallets: 0, launchFirstWaveWallets: 0, tokenAgeSec: 20 }), true));
+  check('Q7 StrategyEngine 装载门串成功（新键进 FA 因子集）', () => {
+    const { StrategyEngine } = require(path.join(ROOT, 'src', 'strategies', 'StrategyEngine.js'));
+    const se = new StrategyEngine();
+    se.loadStrategies([{
+      id: 's1', name: 'wave-leg', action: 'buy', priority: 1,
+      condition: `tradeCount >= 6 AND ${gate}`,
+    }], getAvailableFactorIds());
+    assert.strictEqual(se._strategies.length, 1);
   });
 }
 
