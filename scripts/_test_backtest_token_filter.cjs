@@ -94,11 +94,11 @@ console.log('D. 引擎源码锁');
   ok(/this\._tokenAddressFilter = null;/.test(engineSrc), 'D3 缺省 null=全量现状 bit 不变');
   ok(engineSrc.includes('filterTokenMetaByAddresses(this._tokenMeta, this._tokenAddressFilter)'),
     'D4 _loadTokenMetadata 调用纯函数（_tokenMeta 单点裁剪）');
-  ok(engineSrc.includes('不在源实验 experiment_tokens（将零 ticks 零信号）'),
+  ok(engineSrc.includes('不在回测 token 集（将零 ticks 零信号）'),
     'D5 missing loud warn 接线（绝不静默）');
   ok(engineSrc.includes('filterTokenMetaByAddresses'), 'D6 纯函数在引擎文件内定义');
-  ok(/module\.exports = \{ BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet \};/.test(engineSrc),
-    'D7 导出（三件+行级过滤二修，详 F8）');
+  ok(/module\.exports = \{ BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet, buildWindowCacheScopeKey \};/.test(engineSrc),
+    'D7 导出（三件+行级过滤二修详 F8+窗口 scope key 三修详 2026-11-15 双通道）');
 }
 
 console.log('E. 工具源码锁');
@@ -138,8 +138,8 @@ console.log('F. 行级过滤纯函数（缓存 FRESH 漏点）');
     'F6 缓存路径 FRESH/STALE 行级过滤接线（滤后行数=装载语义行数）');
   ok(/return filterTickRowsByTokenSet\(raw, this\._tokenAddressFilter\);/.test(engineSrc),
     'F7 直拉路径出口统一过滤（幂等）');
-  ok(/module\.exports = \{ BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet \};/.test(engineSrc),
-    'F8 导出四件');
+  ok(/module\.exports = \{ BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet, buildWindowCacheScopeKey \};/.test(engineSrc),
+    'F8 导出五件');
 }
 
 console.log(`\n全部通过: ${n} 断言`);

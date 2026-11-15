@@ -115,6 +115,19 @@ function filterTickRowsByTokenSet(rows, filter) {
   return out;
 }
 
+/**
+ * 时间范围通道缓存 scope key（2026-11-15 回测双通道改造）：无源实验的新实验以
+ * 窗口派生 key 代替 sourceExperimentId 作 BacktestTickCache 目录名。规范化走
+ * ms→toISOString 单一出口（等价输入映射同一 key，防同窗分裂）；`win-` 前缀与
+ * UUID 目录名无碰撞。注意 key 语义=缓存分组标识非时间过滤（ticks 窗口过滤
+ * 仍是 _startTimeFilter/_endTimeFilter 内存口径，缓存「存全量、运行期过滤」
+ * 语义不变）——同窗口克隆/对照实验共用一份缓存文件（保持主工作流效率）。
+ */
+function buildWindowCacheScopeKey(startMs, endMs) {
+  const compact = (ms) => new Date(ms).toISOString().toLowerCase().replace(/[^a-z0-9]/g, '');
+  return `win-${compact(startMs)}_${compact(endMs)}`;
+}
+
 function compareByChainOrder(a, b) {
   return (a.block_number - b.block_number) || (a.log_index - b.log_index) || (a.id - b.id);
 }
@@ -130,6 +143,7 @@ class BacktestEngine extends AbstractTradingEngine {
     });
 
     this._sourceExperimentId = null;
+    this._tickCacheScopeKey = null;     // 时间范围通道缓存键（win-<start>_<end>；_initializeDataSources 新通道分支赋值）
     this._ticks = [];
     this._tokenMeta = new Map();        // tokenAddress → { symbol, name, createdAtSec, totalSupply, creator }
     this._seenTokens = new Set();       // 已落库 experiment_tokens 的 tokenAddress
@@ -222,10 +236,25 @@ class BacktestEngine extends AbstractTradingEngine {
 
   async _initializeDataSources() {
     // 1. 回测配置
+    // token 宇宙双通道（2026-11-15 用户需求「回测实验不绑定虚拟实验，只选数据时间
+    // 范围」；ticks 直连后源实验只剩提供 token 集一个实质作用）：
+    //   旧通道=sourceExperimentId 在场 → experiment_tokens（存量 bt-v* 照常重跑，
+    //   复制链经 hidden input 保真透传）；
+    //   新通道=无源 id 且 startTime+endTime 均在 → 窗口内 wss_events token_create
+    //   派生 token 集（与源实验口径语义等价：源实验集=其运行期间新创建的票）。
+    // 起止必填 fail-fast；两口径皆缺=配置错误拒启。
     const backtestConfig = this._experiment.config?.backtest || {};
     this._sourceExperimentId = backtestConfig.sourceExperimentId;
     if (!this._sourceExperimentId) {
-      throw new Error('回测实验缺少源实验ID配置 (config.backtest.sourceExperimentId)');
+      const startMs = backtestConfig.startTime ? new Date(backtestConfig.startTime).getTime() : null;
+      const endMs = backtestConfig.endTime ? new Date(backtestConfig.endTime).getTime() : null;
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+        throw new Error('回测实验缺少 token 集口径：需 sourceExperimentId（旧通道）或 startTime+endTime（新通道，二者必填）');
+      }
+      if (startMs >= endMs) {
+        throw new Error(`backtest.startTime 必须早于 endTime: ${backtestConfig.startTime} >= ${backtestConfig.endTime}`);
+      }
+      this._tickCacheScopeKey = buildWindowCacheScopeKey(startMs, endMs);
     }
     this._startTimeFilter = backtestConfig.startTime ? new Date(backtestConfig.startTime).getTime() : null;
     this._endTimeFilter = backtestConfig.endTime ? new Date(backtestConfig.endTime).getTime() : null;
@@ -255,15 +284,20 @@ class BacktestEngine extends AbstractTradingEngine {
       this._tokenAddressFilter = null;
     }
 
-    const { ExperimentFactory } = require('../factories/ExperimentFactory');
-    const sourceExp = await ExperimentFactory.getInstance().load(this._sourceExperimentId);
-    if (!sourceExp) {
-      throw new Error(`源实验不存在: ${this._sourceExperimentId}`);
+    if (this._sourceExperimentId) {
+      const { ExperimentFactory } = require('../factories/ExperimentFactory');
+      const sourceExp = await ExperimentFactory.getInstance().load(this._sourceExperimentId);
+      if (!sourceExp) {
+        throw new Error(`源实验不存在: ${this._sourceExperimentId}`);
+      }
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `📊 回测配置: 源实验=${this._sourceExperimentId}, 初始余额=${this.initialBalance}` +
+        (this._startTimeFilter ? `, 起点=${new Date(this._startTimeFilter).toISOString()}` : '') +
+        (this._endTimeFilter ? `, 终点=${new Date(this._endTimeFilter).toISOString()}` : ''));
+    } else {
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `📊 回测配置: 时间范围=${new Date(this._startTimeFilter).toISOString()} ~ ${new Date(this._endTimeFilter).toISOString()}（窗口 token_create 派生 token 集）, 初始余额=${this.initialBalance}`);
     }
-    this.logger.info(this._experimentId, 'BacktestEngine',
-      `📊 回测配置: 源实验=${this._sourceExperimentId}, 初始余额=${this.initialBalance}` +
-      (this._startTimeFilter ? `, 起点=${new Date(this._startTimeFilter).toISOString()}` : '') +
-      (this._endTimeFilter ? `, 终点=${new Date(this._endTimeFilter).toISOString()}` : ''));
 
     // 2. 代币池（FA 自带趋势序列，无需历史缓存）
     const TokenPool = require('../../core/token-pool');
@@ -869,9 +903,33 @@ class BacktestEngine extends AbstractTradingEngine {
       `EarlyParticipant 回放索引注入: ${this._ticks.length} 笔 → ${_epIdx.size} 个 token 桶`);
   }
 
-  /** 源实验 experiment_tokens → 代币元数据（FA registerToken / 落库 / totalSupply 用） */
+  /**
+   * token 宇宙元数据装载路由（FA registerToken / 落库 / totalSupply 用）。
+   * 双通道（2026-11-15）：sourceExperimentId 在场=旧通道 experiment_tokens；
+   * 否则=时间范围通道 wss_events token_create 派生。tokenAddresses 单票裁剪
+   * 在两通道汇合点统一生效（_tokenMeta 是 token 集合唯一真相源）。
+   */
   async _loadTokenMetadata() {
     const supabase = this._getClient();
+    if (this._sourceExperimentId) {
+      await this._loadTokenMetadataFromSourceExperiment(supabase);
+    } else {
+      await this._loadTokenMetadataFromEvents(supabase);
+    }
+    // 单票 token 集限定（m4ga-v12 案）：_tokenMeta 是 token 集合唯一真相源
+    //（ticks 装载/graduation/叙事预载全下游）——此处单点裁剪即全链生效
+    if (this._tokenAddressFilter) {
+      const res = filterTokenMetaByAddresses(this._tokenMeta, this._tokenAddressFilter);
+      const missNote = res.missing.length
+        ? `；⚠️ ${res.missing.length} 个限定地址不在回测 token 集（将零 ticks 零信号）: ${res.missing.join(', ')}`
+        : '';
+      this.logger.warn(this._experimentId, 'BacktestEngine',
+        `token 集限定 (backtest.tokenAddresses): token 集 ${res.before} 票 → ${res.kept} 票${missNote}`);
+    }
+  }
+
+  /** 旧通道：源实验 experiment_tokens → 代币元数据 */
+  async _loadTokenMetadataFromSourceExperiment(supabase) {
     let from = 0;
     for (;;) {
       const { data, error } = await supabase
@@ -899,15 +957,107 @@ class BacktestEngine extends AbstractTradingEngine {
       from += TICK_PAGE_SIZE;
       if (from > MAX_TICK_PAGES * TICK_PAGE_SIZE) throw new Error('源实验代币数超出分页保护上限');
     }
-    // 单票 token 集限定（m4ga-v12 案）：_tokenMeta 是 token 集合唯一真相源
-    //（ticks 装载/graduation/叙事预载全下游）——此处单点裁剪即全链生效
-    if (this._tokenAddressFilter) {
-      const res = filterTokenMetaByAddresses(this._tokenMeta, this._tokenAddressFilter);
-      const missNote = res.missing.length
-        ? `；⚠️ ${res.missing.length} 个限定地址不在源实验 experiment_tokens（将零 ticks 零信号）: ${res.missing.join(', ')}`
-        : '';
+  }
+
+  /**
+   * 时间范围通道：窗口内 wss_events kind='token_create' 事件 → 代币元数据
+   * （payload=collector info 本体，与 experiment_tokens.raw_api_data 字段名刻意
+   * 一致——FourMemeWssTradingEngine「字段名两边刻意一致」约定，映射逐键对齐旧
+   * 通道 _tokenMeta 形状）。
+   * 查询纪律（对齐 ticks 装载 _fetchPlatformTicksRows 同款）：wss_events 表禁
+   * ORDER BY 形状（同表 gang 首跑 .order('id') 组合过滤 8.2s statement timeout
+   * 实证，红线 11 同款）——count exact + 无序 limit 一次拉全并对账（count ≤ 页
+   * 上限且行数==count）；count > 上限时**不可**用 id-cursor keyset 翻页（无序页
+   * 是任意子集，afterId=max(页) 会跳过 id≤max 未返回的行——gang _loadTokenMapFromDb
+   * 的 keyset 形状安全仅因 gang token 数远小于页大小），改窗口时间中点二分递归
+   *（ms 整数分割无重无漏：左 [s,mid] lte / 右 [mid+1,e] gte）；叶子窗口（≤1s，
+   * BSC 0.75s 出块同秒千级新 token 物理不可能）仍 count>上限 / count≤上限但行数
+   * 失配 → throw fail-loud（对账机制防漏不兜底）。platform 单值 .eq 顺序循环
+   *（红线：勿 .in 多值）。
+   * 表无唯一约束（多实验并发重复行）→ 按 token_address 去重取最早 block_time 行
+   *（PrecheckFailRetryService / backtest-token-case 同口径）。
+   * flap/gang info 不带 totalSupply 键 → 固定 1e9（常量从两 collector 模块 lazy
+   * require，避免顶层引入重依赖）。
+   */
+  async _loadTokenMetadataFromEvents(supabase) {
+    const EVENT_PAGE_LIMIT = 1000; // = Supabase max-rows 硬上限（gang 同表先例同值）
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (const platform of this._platforms) {
+      const collected = new Map();   // token_address → 行（重复事件行去重取最早 block_time）
+      const absorb = (rows) => {
+        for (const row of rows) {
+          const prev = collected.get(row.token_address);
+          if (!prev || new Date(row.block_time).getTime() < new Date(prev.block_time).getTime()) {
+            collected.set(row.token_address, row);
+          }
+        }
+      };
+      const fetchWindowOnce = async (startMs, endMs) => {
+        for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
+          const res = await supabase
+            .from('wss_events')
+            .select('id, token_address, platform, payload, block_time', { count: 'exact' })
+            .eq('kind', 'token_create')
+            .eq('platform', platform)
+            .gte('block_time', new Date(startMs).toISOString())
+            .lte('block_time', new Date(endMs).toISOString())
+            .limit(EVENT_PAGE_LIMIT);
+          if (!res.error) return res;
+          if (attempt === PAGE_ATTEMPTS) {
+            throw new Error(`读取窗口 token_create 事件失败（${platform} ${new Date(startMs).toISOString()}~${new Date(endMs).toISOString()}，连续 ${PAGE_ATTEMPTS} 次）: ${res.error.message}`);
+          }
+          await sleep(1000);
+        }
+      };
+      const loadWindow = async (startMs, endMs) => {
+        const res = await fetchWindowOnce(startMs, endMs);
+        if (res.count == null) {
+          throw new Error(`wss_events token_create count 形状异常（null）: platform=${platform}`);
+        }
+        const data = res.data || [];
+        if (res.count === 0) return;
+        if (res.count <= EVENT_PAGE_LIMIT) {
+          if (data.length !== res.count) {
+            throw new Error(`窗口 token_create 对账失配（无序页 ${data.length} ≠ count ${res.count}）: platform=${platform} ${new Date(startMs).toISOString()}~${new Date(endMs).toISOString()}`);
+          }
+          absorb(data);
+          return;
+        }
+        if (endMs - startMs < 1000) {
+          throw new Error(`窗口二分到 ≤1s 仍 ${res.count} 行 > 页上限（数据形状异常，宁拒不漏）: platform=${platform} ${new Date(startMs).toISOString()}~${new Date(endMs).toISOString()}`);
+        }
+        const mid = Math.floor((startMs + endMs) / 2);
+        await loadWindow(startMs, mid);        // 左半 [start, mid]（lte）
+        await loadWindow(mid + 1, endMs);      // 右半 [mid+1, end]（gte）——ms 整数分割无重无漏
+      };
+      await loadWindow(this._startTimeFilter, this._endTimeFilter);
+      for (const [address, row] of collected) {
+        const payload = row.payload || {};
+        let totalSupply = Number(payload.totalSupply) || 0;
+        if (platform === 'flap') {
+          const { FLAP_TOTAL_SUPPLY } = require('../../collectors/flap-ankr-ws-collector');
+          totalSupply = FLAP_TOTAL_SUPPLY;
+        } else if (platform === 'gang') {
+          const { GANG_TOTAL_SUPPLY } = require('../../collectors/gang-ankr-ws-collector');
+          totalSupply = GANG_TOTAL_SUPPLY;
+        }
+        this._tokenMeta.set(address, {
+          symbol: payload.symbol || '',
+          name: payload.name || '',
+          platform: row.platform || 'fourmeme',
+          createdAtSec: row.block_time ? new Date(row.block_time).getTime() / 1000 : null,
+          totalSupply,
+          creator: payload.creator || null,
+          graduationThresholdBnb: Number(payload.gradAmtBnb) > 0
+            ? Number(payload.gradAmtBnb) : null,
+        });
+      }
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `时间范围通道 token 集 (${platform}): 窗口 token_create ${collected.size} 票`);
+    }
+    if (this._tokenMeta.size === 0) {
       this.logger.warn(this._experimentId, 'BacktestEngine',
-        `token 集限定 (backtest.tokenAddresses): 源实验 ${res.before} 票 → ${res.kept} 票${missNote}`);
+        `窗口内无 token_create 事件（${new Date(this._startTimeFilter).toISOString()} ~ ${new Date(this._endTimeFilter).toISOString()}）——空 token 集合法形状，回放将零信号`);
     }
   }
 
@@ -1000,7 +1150,10 @@ class BacktestEngine extends AbstractTradingEngine {
     const forceRefresh = btConfig.forceRefreshCache === true;
     const perPlatform = await Promise.all(this._platforms.map(async (platform) => {   // both → 两 platform 并行（缓存文件独立）
       const { rows, source } = await this._tickCache.getOrFetch({
-        sourceExperimentId: this._sourceExperimentId,
+        // 缓存 scope key 双通道：旧=源实验 id；新通道=win-<start>_<end> 窗口串
+        //（对 cache 是不透明目录名；缓存「存全量、运行期过滤」语义不变，同窗口
+        // 克隆/对照实验共用一份缓存文件）
+        sourceExperimentId: this._sourceExperimentId || this._tickCacheScopeKey,
         platform,
         addresses,
         forceRefresh,
@@ -3365,6 +3518,10 @@ class BacktestEngine extends AbstractTradingEngine {
       metrics: { ...this.metrics },
       replay: {
         sourceExperimentId: this._sourceExperimentId,
+        window: this._sourceExperimentId ? null : {
+          startTime: this._startTimeFilter ? new Date(this._startTimeFilter).toISOString() : null,
+          endTime: this._endTimeFilter ? new Date(this._endTimeFilter).toISOString() : null,
+        },
         totalTicks: this._ticks.length,
         tokenCount: this._seenTokens.size,
         debouncePending: this._buyDebouncer ? this._buyDebouncer.size : 0,
@@ -3376,4 +3533,4 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 }
 
-module.exports = { BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet };
+module.exports = { BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet, buildWindowCacheScopeKey };

@@ -63,7 +63,6 @@ async function main() {
     backtest: {
       initialBalance: S.initialBalance != null ? S.initialBalance : 100,
       sourceExperimentId: source,
-      minMaxChangePercent: 0,
       ...(start ? { startTime: start } : {}),
       ...(end ? { endTime: end } : {}),
     },

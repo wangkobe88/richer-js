@@ -516,48 +516,6 @@ class RicherJsWebServer {
 
     // ============ API路由：实验管理 ============
 
-    // 获取可回测的实验列表（必须在 /api/experiments 之前定义，避免路由冲突）
-    this.app.get('/api/experiments/backtestable', async (req, res) => {
-      try {
-        this.logger.info('WebServer', '📊 [API] 获取可回测实验列表...');
-
-        // 直接获取虚拟交易模式的实验列表
-        const experiments = await this.experimentFactory.list({
-          tradingMode: 'virtual',
-          limit: 100
-          // 不过滤状态，让用户可以选择
-        });
-
-        this.logger.info('WebServer', `📊 [API] 找到 ${experiments.length} 个虚拟交易实验`);
-
-        // 过滤出有足够运行时间的实验
-        const backtestableExperiments = experiments
-          .filter(exp => {
-            // 简单的过滤条件：实验有创建时间
-            return exp.createdAt;
-          })
-          .map(exp => ({
-            id: exp.id,
-            experiment_name: exp.experimentName,
-            trading_mode: exp.tradingMode,
-            status: exp.status,
-            blockchain: exp.blockchain,
-            created_at: exp.createdAt
-          }));
-
-        this.logger.info('WebServer', `📊 [API] 返回 ${backtestableExperiments.length} 个可回测实验`);
-
-        res.json({
-          success: true,
-          data: backtestableExperiments,
-          count: backtestableExperiments.length
-        });
-      } catch (error) {
-        this.logger.error('WebServer', '❌ [API] 获取可回测实验列表失败:', { details: error });
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
     // 获取实验列表
     this.app.get('/api/experiments', async (req, res) => {
       try {
@@ -712,11 +670,30 @@ class RicherJsWebServer {
             tradeAmount: strategy?.tradeAmount !== undefined ? parseFloat(strategy.tradeAmount) : 0.1
           };
         } else if (trading_mode === 'backtest') {
-          config.backtest = {
-            initialBalance: backtest?.initialBalance || parseFloat(initial_balance) || 100,
-            sourceExperimentId: backtest?.sourceExperimentId,
-            minMaxChangePercent: backtest?.minMaxChangePercent || 0
+          // 回测 token 宇宙双通道（2026-11-15 用户需求「回测实验不绑定虚拟实验，只选
+          // 数据时间范围」）：sourceExperimentId 在场=旧通道透传（复制链保真——存量
+          // bt-v* 复制件不漂移成 now-24h 窗口）；否则=时间范围通道，窗口内 wss_events
+          // token_create 事件派生 token 集，起止必填（引擎侧同款 fail-fast，此处 400
+          // 先拦给前端友好报错）。minMaxChangePercent 死字段随双通道改造删除（引擎
+          // 从未读取）。
+          const backtestConfig = {
+            initialBalance: backtest?.initialBalance || parseFloat(initial_balance) || 100
           };
+          if (backtest?.sourceExperimentId) {
+            backtestConfig.sourceExperimentId = backtest.sourceExperimentId;
+          } else {
+            const startMs = backtest?.startTime ? new Date(backtest.startTime).getTime() : NaN;
+            const endMs = backtest?.endTime ? new Date(backtest.endTime).getTime() : NaN;
+            if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+              return res.status(400).json({ success: false, error: '回测实验缺少数据时间范围（backtest.startTime / backtest.endTime 二者必填）' });
+            }
+            if (startMs >= endMs) {
+              return res.status(400).json({ success: false, error: 'backtest.startTime 必须早于 endTime' });
+            }
+            backtestConfig.startTime = new Date(startMs).toISOString();
+            backtestConfig.endTime = new Date(endMs).toISOString();
+          }
+          config.backtest = backtestConfig;
         } else if (trading_mode === 'live') {
           // 双平台 live（2026-10-14 改造放开）：per-platform 双 trader 同一钱包，
           // live 执行参数 both 时落 fourmemeWs.live（引擎恒读该段，见 _wsConfigSectionName）

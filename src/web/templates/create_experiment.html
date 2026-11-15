@@ -393,36 +393,39 @@
                     <p class="text-sm text-gray-600">ankr WSS 事件驱动：TokenCreate/TokenTrade/LiquidityAdded 实时订阅（BSC four.meme 内盘），无轮询频率配置。采集参数（去抖/缓冲/断流守护）见 config/default.json 的 fourmemeWs 段。</p>
                 </div>
 
-                <!-- 回测配置（仅在选择回测模式时显示） -->
+                <!-- 回测配置（仅在选择回测模式时显示）——2026-11-15 双通道改造：
+                     默认=数据时间范围（窗口内 token_create 事件派生 token 集，不再绑定
+                     源虚拟实验）；复制带 sourceExperimentId 的存量 bt 实验经 hidden
+                     input 走旧通道保真透传（时间输入不生效） -->
                 <div id="backtest-config" class="border border-gray-200 rounded-lg p-3" style="display:none;">
                     <h2 class="text-lg font-semibold text-gray-800 mb-3">📊 回测配置</h2>
+                    <!-- 复制链旧通道保真：hidden 透传源实验 id -->
+                    <input type="hidden" name="backtest_source_experiment_id" id="backtest_source_experiment_id">
+                    <div id="backtest_source_note" style="display:none;"
+                         class="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-700">
+                        沿用源实验 token 集（旧通道）：<span id="backtest_source_id_text" class="font-mono"></span>——时间范围输入不生效
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div class="md:col-span-2">
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                源实验 <span class="text-red-500">*</span>
+                                数据开始时间 <span class="text-red-500">*</span>
                             </label>
-                            <select name="backtest_source_experiment"
-                                    id="backtest_source_experiment"
-                                    required
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="">请选择源实验...</option>
-                                <!-- 动态加载可回测的实验列表 -->
-                            </select>
-                            <span class="text-xs text-gray-500">选择要基于其历史数据进行回测的源实验</span>
+                            <input type="datetime-local"
+                                   name="backtest_start_time"
+                                   id="backtest_start_time"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                数据结束时间 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="datetime-local"
+                                   name="backtest_end_time"
+                                   id="backtest_end_time"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                最低最高涨幅 (%)
-                            </label>
-                            <input type="number"
-                                   name="min_max_change_percent"
-                                   id="min_max_change_percent"
-                                   value="50"
-                                   min="0"
-                                   max="1000"
-                                   step="1"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <span class="text-xs text-gray-500">只回测最高涨幅超过此值的代币，避免处理大量无波动代币。设置为0表示回测所有代币。</span>
+                            <span class="text-xs text-gray-500">窗口内新创建的代币（token_create 事件）构成回测 token 集；默认值=创建时刻往前 24 小时。</span>
                         </div>
                     </div>
                 </div>
@@ -1254,21 +1257,30 @@
                 //（BLOCKCHAIN_* 常量已上移至脚本前段，此处链路不再有 TDZ 风险）。
 
                 // 🔥 重要：设置 trading_mode 后需要手动调用 handleTradingModeChange
-                // 来移除 backtest_source_experiment 的 required 属性
+                //（回测窗口默认值填充/配置区显隐联动）
                 await handleTradingModeChange();
                 // kline_type 字段在当前表单中不存在，跳过
                 // setFieldValue('kline_type', copyData.kline_type);
 
-                // 填充回测配置（在 handleTradingModeChange/loadBacktestableExperiments 完成后）
+                // 填充回测配置（在 handleTradingModeChange 之后——窗口默认值先填，
+                // 复制值随后覆盖）。双通道：复制带 sourceExperimentId 的存量 bt 实验
+                // =旧通道 hidden 保真透传（漏透传即复制件 token 集静默漂移成 now-24h
+                // 窗口——本次改造最危险静默回归点）；无源 id 回填窗口起止
+                //（ISO → 本地 datetime-local 格式，禁 toISOString——UTC 会偏移）。
                 if (copyData.backtest) {
                     const bt = copyData.backtest;
-                    const backtestSourceInput = document.getElementById('backtest_source_experiment');
-                    if (backtestSourceInput && bt.sourceExperimentId) {
-                        backtestSourceInput.value = bt.sourceExperimentId;
-                    }
-                    const minMaxChangeInput = document.getElementById('min_max_change_percent');
-                    if (minMaxChangeInput) {
-                        minMaxChangeInput.value = bt.minMaxChangePercent !== undefined ? bt.minMaxChangePercent : 50;
+                    const sourceIdInput = document.getElementById('backtest_source_experiment_id');
+                    if (bt.sourceExperimentId && sourceIdInput) {
+                        sourceIdInput.value = bt.sourceExperimentId;
+                        const note = document.getElementById('backtest_source_note');
+                        const noteText = document.getElementById('backtest_source_id_text');
+                        if (note) note.style.display = 'block';
+                        if (noteText) noteText.textContent = bt.sourceExperimentId;
+                    } else if (bt.startTime && bt.endTime) {
+                        const startInput = document.getElementById('backtest_start_time');
+                        const endInput = document.getElementById('backtest_end_time');
+                        if (startInput) startInput.value = toLocalInputValue(new Date(bt.startTime));
+                        if (endInput) endInput.value = toLocalInputValue(new Date(bt.endTime));
                     }
                 }
 
@@ -1785,7 +1797,6 @@
             const initialBalanceInput = document.getElementById('initial_balance');
             const walletAddressInput = document.getElementById('wallet_address');
             const privateKeyInput = document.getElementById('private_key');
-            const backtestSourceInput = document.getElementById('backtest_source_experiment');
 
             // 隐藏所有配置区域
             backtestConfig.style.display = 'none';
@@ -1796,10 +1807,9 @@
                 initialBalanceContainer.style.display = 'block';
             }
 
-            // 移除实盘和回测字段的必填属性
+            // 移除实盘字段的必填属性
             if (walletAddressInput) walletAddressInput.removeAttribute('required');
             if (privateKeyInput) privateKeyInput.removeAttribute('required');
-            if (backtestSourceInput) backtestSourceInput.removeAttribute('required');
 
             // 检查条件在所有模式下都显示（回测也支持早期参与者检查）
             const preBuyCheckGroups = document.querySelectorAll('.pre-buy-check-group');
@@ -1813,8 +1823,9 @@
                 if (initialBalanceInput.value === '100') {
                     initialBalanceInput.value = '100';
                 }
-                // 加载可回测的实验列表
-                await loadBacktestableExperiments();
+                // 窗口默认值（仅两输入均空时填——用户已改/复制回填不覆盖；复制链
+                // 回填在本函数之后，覆盖方向正确）
+                setDefaultBacktestWindow();
             } else if (tradingMode === 'live') {
                 liveConfig.style.display = 'block';
                 // 必填属性按钱包来源动态定（复用历史钱包时私钥不必填——见 applyWalletReuseState）
@@ -1836,36 +1847,24 @@
             syncPlatformAvailability();
         }
 
-        // 加载可回测的实验列表
-        async function loadBacktestableExperiments() {
-            try {
-                console.log('📊 开始加载可回测实验列表...');
-                const response = await fetch('/api/experiments/backtestable');
-                const result = await response.json();
+        // === 回测时间范围通道（2026-11-15：窗口 token_create 派生 token 集，
+        // 不再绑定源虚拟实验——loadBacktestableExperiments 源实验下拉随双通道
+        // 改造删除）===
+        // Date → datetime-local 本地输入格式（手动拼——toISOString 是 UTC 会偏移）
+        function toLocalInputValue(date) {
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        }
 
-                console.log('📊 API 响应:', result);
-
-                if (result.success && result.data) {
-                    const select = document.getElementById('backtest_source_experiment');
-                    console.log('📊 找到 select 元素:', select);
-                    console.log('📊 实验数量:', result.data.length);
-
-                    select.innerHTML = '<option value="">请选择源实验...</option>';
-
-                    result.data.forEach(exp => {
-                        const option = document.createElement('option');
-                        option.value = exp.id;
-                        option.textContent = `${exp.experiment_name} (${exp.id}) - 状态: ${exp.status}`;
-                        select.appendChild(option);
-                    });
-
-                    console.log('📊 下拉框更新完成，选项数量:', select.options.length);
-                } else {
-                    console.warn('📊 API 返回失败或无数据:', result);
-                }
-            } catch (error) {
-                console.error('❌ 加载可回测实验失败:', error);
-            }
+        // 窗口默认值=创建时刻往前 24h（幂等：仅两输入均空时填）
+        function setDefaultBacktestWindow() {
+            const startInput = document.getElementById('backtest_start_time');
+            const endInput = document.getElementById('backtest_end_time');
+            if (!startInput || !endInput) return;
+            if (startInput.value && endInput.value) return;
+            const now = new Date();
+            startInput.value = toLocalInputValue(new Date(now.getTime() - 24 * 3600 * 1000));
+            endInput.value = toLocalInputValue(now);
         }
 
         // === 腿只读渲染（2026-09-28 裁定：创建页=策略库选择器，不可编辑策略）===
@@ -2368,11 +2367,19 @@
                     initialBalance: parseFloat(formData.get('initial_balance'))
                 };
             } else if (tradingMode === 'backtest') {
-                config.backtest = {
-                    initialBalance: parseFloat(formData.get('initial_balance')),
-                    sourceExperimentId: formData.get('backtest_source_experiment'),
-                    minMaxChangePercent: parseFloat(formData.get('min_max_change_percent')) || 0
+                // 双通道：hidden 源 id 有值=旧通道透传（复制链保真）；否则时间范围
+                // 通道（datetime-local 本地值 → ISO，服务端再规范化+校验）
+                const backtestPayload = {
+                    initialBalance: parseFloat(formData.get('initial_balance'))
                 };
+                const copiedSourceId = document.getElementById('backtest_source_experiment_id')?.value;
+                if (copiedSourceId) {
+                    backtestPayload.sourceExperimentId = copiedSourceId;
+                } else {
+                    backtestPayload.startTime = new Date(formData.get('backtest_start_time')).toISOString();
+                    backtestPayload.endTime = new Date(formData.get('backtest_end_time')).toISOString();
+                }
+                config.backtest = backtestPayload;
             } else if (tradingMode === 'live') {
                 const executorSelect = document.getElementById('wallet_executor');
                 const executorId = executorSelect?.value || null;
@@ -2433,12 +2440,21 @@
 
             console.log('✅ 策略验证通过');
 
-            // 回测模式额外验证
+            // 回测模式额外验证（双通道：复制携带源 id=旧通道跳过时间校验；否则
+            // 起止必填 + start < end——服务端同款校验双拦）
             if (tradingMode === 'backtest') {
-                const sourceExperiment = document.getElementById('backtest_source_experiment').value;
-                if (!sourceExperiment) {
-                    alert('请选择源实验');
-                    return;
+                const copiedSourceId = document.getElementById('backtest_source_experiment_id')?.value;
+                if (!copiedSourceId) {
+                    const startVal = document.getElementById('backtest_start_time').value;
+                    const endVal = document.getElementById('backtest_end_time').value;
+                    if (!startVal || !endVal) {
+                        alert('请填写回测数据起止时间');
+                        return;
+                    }
+                    if (new Date(startVal).getTime() >= new Date(endVal).getTime()) {
+                        alert('回测数据开始时间必须早于结束时间');
+                        return;
+                    }
                 }
             }
 
@@ -2550,9 +2566,8 @@
 
         // 初始化区块链和平台（重建 checkbox 组 + 默认勾选第一个平台）
         handleBlockchainChange();
-        // 初始化交易模式联动（修复：非复制模式直接打开时 onchange 未触发过，
-        // 隐藏的 backtest_source_experiment 残留 required → 原生校验拦截提交
-        // "invalid form control not focusable"；复制模式已在 loadCopiedExperimentData 调过，幂等无害）
+        // 初始化交易模式联动（非复制模式直接打开时 onchange 未触发过——回测窗口
+        // 默认值等联动不会跑；复制模式已在 loadCopiedExperimentData 调过，幂等无害）
         handleTradingModeChange();
 
         // 复制模式下，handleBlockchainChange 会重建平台 checkbox 组，之后恢复勾选状态
