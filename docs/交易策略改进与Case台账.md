@@ -55,6 +55,18 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T145 ladder v22 双修：①破发豁免臂换历史锚 `launchMinVsFloorPct < 0`（滚动最低 vs min(常量,首买价)）②首两波挡臂 AND→OR 化（f0≥2 ∨ wave≥3 任一达线即挡）（2026-11-15；commit 47679974，库 version 21→22）
+
+**①豁免臂语义修正**：用户质询「launchConstVsPct 因子的含义是否表达了『价格经历过破发所以前期买入者都走了』」——v21 的 launchConstVsPct=**现价** vs 常量=「此刻破发」的**当下状态锚**，立法本意是「**经历过**破发=前期买入者已离场」的**历史事实锚**（ASTER 触发时恰仍在水下 −17%~−21% 故 v21 三窗验证未暴露；深砸后反弹回发行价上方再触发的同形状票会被现价口径漏豁免——ASTER 滚动最低实测 −38.4%（3.4183e-9 vs FL 常量 5.5463e-9），触发时刻已反弹至 −17%）。用户三裁定：「小于参照锚即可；min(常量, 首买价)；替换」。FA 新键 **launchMinVsFloorPct=100×(`_minRelPriceBnb` 滚动最低可靠价 / `floorLaunchPriceBnb(常量, _firstBuyPriceBnb)` − 1)**——分母=T130 口径地板（min(常量,首买价)），**刻意不含 T134 滚动最低**（分子已是滚动最低，分母再含则 ≤0 恒真=豁免臂无条件真废掉首两波门，首版方案讨论中用户「低很多」措辞点破的坑）；严格 `< 0` 才豁免（=0=首笔即最低从未破位不豁免；低开票盘中创任意新低即豁免=阈值取 0 的知情取舍——低开横盘形状不豁免、低开后砸新低=首买者被套离场豁免）；null=未知平台/未见可靠价宁拦不冒充；launchConstVsPct 保留 FA 纯观察（现价口径注释留档）。
+
+**②首两波挡臂 OR 化**：用户质询「`launchFirstBlockWallets < 2 OR launchFirstWaveWallets < 3` 这两个应该是与的关系吧」——字面是放行臂（任一不足就放），挡侧原本已是 AND（f0≥2 ∧ wave≥3 两证据都在才挡）；用户裁定改放行=AND（两安全条件同时满足）→ **挡=f0≥2 ∨ wave≥3 任一达线**（wave≥3 本身即「短窗 3+ 钱包涌入」的组织性证据，不必等 f0 也达线）。点名实例 0x6e3a9755…7777（bt-v134）：f0=1/wave=7/clu=1/age=23s——单先头+下一块 6 钱包涌入（2s 窗 7 钱包）被 v21 OR 放行臂放走，买入 43s 断流止损 −0.0108。
+
+**门串（v22）**：` AND ((launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR tokenAgeSec > 60 OR launchMinVsFloorPct < 0)`——挡=age≤60 ∧（簇≥3 ∨ f0≥2 ∨ wave≥3）∧ 非经历过破发；豁免臂对簇/f0/wave 三挡臂同放（同「开盘组织性进场」历史锚语义）。
+
+**对拍证据**：a) **OR 化差集**（v20 期三窗实验放行票中 f0≥2 XOR wave≥3、age≤60∧簇<3）：A 窗 9 票（成交 2 净 +0.0132）/B 窗 7 票（成交 2 净 −0.0502）/C 窗 2 票（成交 1 净 −0.0310）——合计 18 票成交 5 净 **−0.068 温和止血**、误伤正票仅 A 窗 +0.0201 一张；形状 16/18 为 f0=1∧wave≥3。b) **豁免臂换键翻面**（C 基线 bt-v124 首两波靶面 41 票三键齐筛）：v21 豁免保持 3 票（含 ASTER −38.4% 历史锚稳定豁免）；**新放行 5 票（v21 挡→v22 豁免）成交仅 1 票 +0.0375 正票**、4 票未成交=豁免面扩大零损失；**新拦截 5 票全未成交零影响**——其中 4 张 v21 深破发豁免票（−29~−39%）v22=0 被拦：开盘即深低开（首买价即最低从未创新低）形状，v22 正确区分「低开」与「砸落离场」（首买 −40% 低开的票没有「收割后砸落」形状）。B 基线（81 age≤60 票未筛靶面）方向性：新放行 3 票 −0.0710/新拦截 2 票 +0.0440。c) 两改动交互：豁免臂会把部分 XOR 差集票再放出（0x6862f5fd f0=1/wave=3/v22=−2.32 → 豁免买入 −0.0482）——量级 C 窗靶面内新放行仅 1 成交正票，知情接受。
+
+**实现注意**：deploy 脚本 CLUSTER_GATE 单点后处理（14 腿防手写漂移）；182 pull 遭三个 untracked 旧副本挡道（tmp-clone-bt-v130/factor-pre-buy-check.js FP1 旧版/_test_factor_prebuy_check.cjs ms 域旧版——均 origin/main 超集零独有内容，核对后删除放行）。单测 R 段 v22 十分支（R8=0x6e3a 形状反证）+T 段 launchMinVsFloorPct 九断言（T1 ASTER −24 简化形状历史锚钉死反弹漂移/T3-T4 低开票 0 与 −11.11 两态/T7 源码锁分母=首买价禁滚动最低）；launch_bundle 66/validate_legs 46/signal_gate 139/**fa_factors 35 全绿（顺手补登白名单三漏键：T142 launchConstVsPct+T143 factorPreBuyBlocked/factorPreBuyReason——两案落地时漏跑本件，键集 142→146）**。余留：生产引用 v22 需重启实验进程+豁免臂生产触发分布观察+A/B 窗老实验无 f0/wave 键的靶面精确对拍缺位（方向性证据替代）。
+
 ### T144 活跃度门迁因子购买前检查门（FP2）+ BP68 act 题整题退役：judgeActivityLevel low 四臂+ultra 两臂+双豁免（2026-11-15；用户裁定「活跃度低可以全部通过因子表达」+预扫描校准追裁定「只过滤极端的拿得准的情况，不要误伤；如果无论如何都很难拿得准那就不要搞了」+「Jev 的检测保持不变」；commit d2f1a0b1）
 
 **立法动机**：act=low/ultra 的票终局不交易（cheat E 通道 unhealthy / BP activity_gate 拒）——烧 cheat 16 题+BP 4 题 Jev 才得「不交易」结论；纯代码前置判定省 Jev。**预期校准**：因子门在信号落库后评估拒不返还触发计数（省 Jev ✓省信号配额 ✗——与 Jev 拒等价无恶化）。
