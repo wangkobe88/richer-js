@@ -450,5 +450,80 @@ console.log('Q. v20 门串求值（提纯=门串组合表达）');
   });
 }
 
+console.log('R. v21 门串求值（v20+破发豁免臂 OR launchConstVsPct <= 0——T142 ASTER 案）');
+{
+  const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
+  const gate = '(launchBundleClusterSize < 3 AND (launchFirstBlockWallets < 2 OR launchFirstWaveWallets < 3)) OR tokenAgeSec > 60 OR launchConstVsPct <= 0';
+  const ev = new ConditionEvaluator();
+  check('R1 ASTER 形状豁免放行：f0=2 ∧ wave=3 ∧ age≤60 ∧ 破发（constVs=−13.0）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
+      tokenAgeSec: 22, launchConstVsPct: -13 }), true));
+  check('R2 同形状未破发仍挡（constVs=+18.98——ASTER 地板锚反弹值不豁免）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
+      tokenAgeSec: 22, launchConstVsPct: 18.98 }), false));
+  check('R3 簇臂命中+破发同豁免（clu≥3 ∧ constVs≤0——豁免臂对簇门部分同放）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 4, launchFirstBlockWallets: 0, launchFirstWaveWallets: 0,
+      tokenAgeSec: 30, launchConstVsPct: -5 }), true));
+  check('R4 簇臂命中+未破发仍挡', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 4, launchFirstBlockWallets: 0, launchFirstWaveWallets: 0,
+      tokenAgeSec: 30, launchConstVsPct: 21.8 }), false));
+  check('R5 age>60 照放（原 60s 界语义不变）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 9, launchFirstBlockWallets: 4, launchFirstWaveWallets: 5,
+      tokenAgeSec: 90, launchConstVsPct: 40 }), true));
+  check('R6 constVs null（未知平台/无可靠价）恒 false 不豁免=宁拦不冒充', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 4, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
+      tokenAgeSec: 30, launchConstVsPct: null }), false));
+  check('R7 边界 0 恰好豁免（<=0 含 0）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 4, launchFirstBlockWallets: 0, launchFirstWaveWallets: 0,
+      tokenAgeSec: 30, launchConstVsPct: 0 }), true));
+}
+
+console.log('S. launchConstVsPct 键（纯常量锚，刻意不吃 T130/T134 地板）');
+{
+  const CONST = 4496173469e-18;
+  const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+  fa.registerToken(ADDR, { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+  // ASTER 现场简化形状：开盘拉高 +31% → 砸穿 −24%（滚动最低）→ 买点反弹 −16.8%
+  feed(fa, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 0, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 1.2, price_bnb: CONST * 1.313, price_usd: 5 },
+    { timestamp: T0 + 21000, block_number: 220, log_index: 0, sender_address: 'w1', trader_address: '0xe1', trade_type: 'sell', bnb_amount: 0.63, price_bnb: CONST * 0.76, price_usd: 5 },
+    { timestamp: T0 + 22000, block_number: 222, log_index: 0, sender_address: 'w2', trader_address: '0xe2', bnb_amount: 0.175, price_bnb: CONST * 0.832, price_usd: 5 },
+  ]);
+  const f = F(fa, T0 + 22000);
+  check('S1 ASTER 形状：launchConstVsPct=−16.8（现价 vs 纯常量，破发可见）', () =>
+    assert.strictEqual(f.launchConstVsPct, -16.8));
+  check('S2 同刻 currentVsLaunchPct=+9.47（地板锚=滚动最低 0.76 常量——破发被反弹掩盖，两键分离）', () =>
+    assert.strictEqual(f.currentVsLaunchPct, 9.47));
+  const fa2 = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+  fa2.registerToken(ADDR, { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null }); // 无 platform
+  feed(fa2, [{ timestamp: T0 + 1000, block_number: 100, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 1.2, price_bnb: CONST, price_usd: 5 }]);
+  check('S3 未知平台无常量 → null（裸比较恒 false 不豁免）', () =>
+    assert.strictEqual(F(fa2, T0 + 5000).launchConstVsPct, null));
+  const fa3 = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+  fa3.registerToken(ADDR, { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+  check('S4 未见任何可靠价 → null', () =>
+    assert.strictEqual(F(fa3, T0 + 5000).launchConstVsPct, null));
+  check('S5 源码锁：发射块不吃 _floorLaunchPriceBnb（纯常量直比）', () => {
+    const m = src.match(/launchConstVsPct: \(\(\) => \{[\s\S]*?\}\)\(\),/);
+    assert.ok(m, '发射块缺失');
+    assert.ok(!/_floorLaunchPriceBnb/.test(m[0]), '豁免锚不得吃地板');
+    assert.ok(/_resolveLaunchPriceBnb\(state\.platform, state\.quoteToken\)/.test(m[0]), '常量源行缺失');
+  });
+  check('S6 FactorBuilder 快照透传', () => {
+    const fbSrc = fs.readFileSync(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'), 'utf8');
+    assert.ok(/launchConstVsPct: factorResults\.launchConstVsPct \?\? null/.test(fbSrc));
+  });
+  check('S7 getFactorKeys 探针收键', () => {
+    assert.ok(newFA().getFactorKeys().has('launchConstVsPct'));
+  });
+}
+
 console.log(`\n结果: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

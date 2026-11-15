@@ -205,6 +205,22 @@
 //     （458/889 信号 bp_gate_fail、executed 仅 17）判无效行保留，充值后
 //     bt-v123 干净重跑。被挡触发不消耗 maxTriggers（condition 层 fire 前拦）。
 //
+//   v21（2026-11-15 T142 破发豁免臂，ASTER 0x31e2…7777 案，用户裁定「最前面一波
+//     已经过了，前面的所有狙击也罢什么也罢都已经离场了，价格已经完全破发，这种
+//     情况理应豁免」+豁免形状裁定「A 或 B 我觉得就行」→ A 常量锚破发）：v20 门串
+//     再加一条放行臂 `OR launchConstVsPct <= 0`——f0/wave 是出生窗历史事实锚
+//     （首两波「曾经」组织性进场，age≤60 期间恒定），对「组织进场→立刻收割→
+//     清仓→砸破发→换手完毕的重启位」误伤（ASTER：首块 f0=2（1.2B 主导钱包）+
+//     wave=3，22s 内收割清仓砸到 −24%，买点常量锚 −13% 被拦，10s 后拉到
+//     +131%）。FA 新键 launchConstVsPct=现价 vs 平台常量发行价（**纯常量、
+//     刻意不吃 T130/T134 地板**——地板被砸穿后反弹掩盖破发：ASTER 地板锚 +19%
+//     而常量锚 −13%）。豁免选型对拍（A vs B）：三窗 20 张首两波臂新增挡票里
+//     A 臂精确只放 ASTER 一张——A 窗 9 票常量锚 +24~+48%/B 窗 7 票 +7.7~+49.2%
+//     （止血 13 票零漏放）/C 窗唯 ASTER −13.0% ≤0，分离带 20pp（最近邻 YiYi
+//     +7.7%）。挡=age≤60 ∧（簇≥3 ∨（f0≥2 ∧ wave≥3））∧ constVs>0；豁免臂
+//     对簇门部分（clu≥3）同放（同「开盘组织性进场」历史锚语义：破发=换手完成）。
+//     null=未知平台/未见可靠价 → 恒 false 不豁免宁拦不冒充。
+//
 //   ⚠ 引用本条目的新实验必须显式配 buySignalMaxPerToken ≥ 15（t0 两次 +
 //   其余十三腿各 1 次触发上限；T110 默认帽 5 会截断阶梯）；并配
 //   cheatCheck.enabled=true + buyPointCheck.enabled=true（两门 disabled 时：
@@ -306,14 +322,14 @@ const LEGS = [
         '深重启臂（v11 新增；v13 量门提高 15 笔/2.5 BNB；v17 加 actTotalBnb 门）：现价较发行价 ≤+10%（含破发）——回到 almost_launch 深半区的更贴发行价入场点'),
 ];
 
-// v20（2026-11-15 T141，用户裁定「落吧，我觉得能接受」）：v19 开盘簇门扩展首两波
-// 口袋——单点后处理追加（防 14 处手写漂移；与 bt-v121/bt-v123 回测门串逐字一致，
-// 等价性单测 Q 段锁死：挡=age≤60 ∧ (簇≥3 ∨ (f0≥2 ∧ wave≥3))）。双窗证据与
-// 误伤面详头部 v20 块；被挡触发不消耗 maxTriggers（condition 层 fire 前拦）。
-const CLUSTER_GATE = ' AND ((launchBundleClusterSize < 3 AND (launchFirstBlockWallets < 2 OR launchFirstWaveWallets < 3)) OR tokenAgeSec > 60)';
+// v20（2026-11-15 T141）+ v21（同日 T142 破发豁免臂）：单点后处理追加（防 14 处手写
+// 漂移；与回测门串逐字一致，等价性单测 Q 段锁死；v21 挡=age≤60 ∧（簇≥3 ∨（f0≥2
+// ∧ wave≥3））∧ constVs>0）。双窗证据详头部 v20/v21 块；被挡触发不消耗 maxTriggers
+// （condition 层 fire 前拦）。
+const CLUSTER_GATE = ' AND ((launchBundleClusterSize < 3 AND (launchFirstBlockWallets < 2 OR launchFirstWaveWallets < 3)) OR tokenAgeSec > 60 OR launchConstVsPct <= 0)';
 for (const l of LEGS) {
     l.condition += CLUSTER_GATE;
-    l.description += '；v20/T141 首两波扩展门（首块首买钱包 f0≥2 ∧ 首两波合并 wave≥3 同挡——先头在首块+同波续单在下一块的狙击小队形状簇键抓不到，60s 后放行）';
+    l.description += '；v20/T141 首两波扩展门（首块首买钱包 f0≥2 ∧ 首两波合并 wave≥3 同挡——先头在首块+同波续单在下一块的狙击小队形状簇键抓不到，60s 后放行）；v21/T142 破发豁免臂（launchConstVsPct <= 0——现价跌破常量发行价=首两波收割完成筹码换手完毕的重启位放行，ASTER 案）';
 }
 
 const ENTRIES = [
@@ -321,7 +337,7 @@ const ENTRIES = [
         name: 'signal-source-ladder-v1',
         side: 'buy',
         legs: LEGS,
-        description: 'T117/T119 信号源阶梯 v20（2026-11-15 v20=T141 首两波扩展门立法，用户裁定「落吧，我觉得能接受」：全 14 腿 condition 尾加 AND ((launchBundleClusterSize < 3 AND (launchFirstBlockWallets < 2 OR launchFirstWaveWallets < 3)) OR tokenAgeSec > 60)——v19 簇门只抓「整簇同块」形状，漏「狙击小队先头在首块+同波续单在下一块」；两 FA 新键 launchFirstBlockWallets=f0（首块首买钱包数）/launchFirstWaveWallets（=f0+首块后 ≤2s 内第一个有交易块首买钱包数之和，6ba4562e 立法）；挡=age≤60s ∧（簇≥3 ∨（f0≥2 ∧ wave≥3）），60s 后筹码已换手放行；双窗证据 A bt-v121 71 票 +1.9382 vs v116 簇臂 Δ−0.2186（新增挡 9 票止血 +0.1227/晚入 −0.0597/门链方差漂移 −0.28 拖累）/B bt-v123 33 票 +3.2098（54.5%）vs v120 40 票 +3.0193（42.5%）Δ+0.1905≈新增挡 7 票止血 −0.1902 零误伤+漂移 +0.0058；两窗新增挡 16 票 −0.3129 全止血（正票 2/16 噜噜 +0.0987 主导）；bt-v122 跑于 TypeSafe 402 窗口判无效行保留、bt-v123 干净重跑；被挡触发不消耗 maxTriggers；2026-11-15 v19=T140 开盘簇×早入口袋门立法（用户裁定「接受误伤」）：全 14 腿加 AND (launchBundleClusterSize < 3 OR tokenAgeSec > 60)——开盘段同块捆绑簇 ≥3 ∧ 早入场 ≤60s = bots/分仓组织性进场接刀，60s 后放行；双窗 A +0.60/B −0.03 合并直接命中 31 张止血净 +0.203，胜率两窗均升；2026-11-11 v18=T135 bt-v102 因子分析案：t0/t0a 两条最早臂加 tokenAgeSec >= 15——买点年龄分桶单调（age<15s 开盘 bot 抢速盘 30 票胜率 27% 净 -0.37 / >25s 全正），拦截面净增量 +0.25（止血 24 票 -0.70 vs 误伤 12 票 +0.45），大正票与 t0 立法案票吉祥 ea78（age=24）零影响；2026-11-10 v17=T133 用户四条批量：t0 笔数门 7→6 + signalGate.maxTriggers 1→2（「允许过两次 Jev 模块」——首次门拒后再判一次；单仓语义 status=bought 阻断=无双买）+ 全 14 腿加 actTotalBnb >= 0.1（FA act* 第 9 键=10s 滑窗买卖合计，「买入不接受低活跃度」——CD 1 BNB/min 死寂线 10s 折算）+ t/N/NL 十一臂价格门 27.5→28.5（BP69 统一门同车「只稍微宽一点，再继续观察」；RL15 ≤20/RL10 ≤10 已低于上界不动）+ cheat/BP 双门 minTicks 7→6 同线；v15=T131 吉祥 ea78 开盘 25 秒窗差一笔案：t0 最早臂新增 + 双门 minTicks 8→7 配套——「之后的买入点位肯定远不如早期的」，最早入场点由 t0 接住；2026-11-09 v14=T129 价格门统一 27.5：全 t/N 系八臂 80→27.5 + NL 三臂 50→27.5（用户裁定「系统不买入涨幅超过 27.5 的任何代币」）——Top10 涨幅票前期低点全在 +23.9% 以内、+27.5 以上追高无正收益分布支撑；2026-11-08 v10=CD381 六条批量裁定：全 t/N 系七臂加价格门 ≤+80、RL15 重启臂（≤+20）新增、cheatRecheck 全删 recheckCondition 表达式接棒；v11 RL10 深重启臂；v12 t0a 更早人气臂 9 笔档；v13 五臂量门 15 笔/2.5 BNB）：14 买腿 condition=初始买入信号源（t0/t0a/t0b/t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂 + RL15/RL10 重启臂；全腿 buyPhase:first 每代币只买一次），maxTriggers t0=2 其余 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 15 + cheatCheck.enabled + buyPointCheck.enabled',
+        description: 'T117/T119 信号源阶梯 v21（2026-11-15 v21=T142 破发豁免臂，ASTER 0x31e2…7777 案，用户裁定「最前面一波已经过了……价格已经完全破发，这种情况理应豁免」+形状裁定「A 或 B 我觉得就行」→A 常量锚）：v20 门串加放行臂 `OR launchConstVsPct <= 0`——FA 新键=现价 vs 平台常量发行价（纯常量、刻意不吃 T130/T134 地板；地板被砸穿后反弹掩盖破发：ASTER 地板锚 +19% 而常量锚 −13%）；跌破发行价=首两波收割完成筹码换手完毕的重启位不按接开盘刀拦；三窗 20 张新增挡票对拍唯 ASTER（−13.0%）被豁免、A/B 窗止血 13 票常量锚全 +7.7~+49.2% 零漏放分离带 20pp；C 窗 bt-v126 20 票 +0.0675 Δ−0.2966 被 ASTER 单票反噬引出本臂；v20=T141 首两波扩展门立法，用户裁定「落吧，我觉得能接受」：全 14 腿 condition 尾加 AND ((launchBundleClusterSize < 3 AND (launchFirstBlockWallets < 2 OR launchFirstWaveWallets < 3)) OR tokenAgeSec > 60)——v19 簇门只抓「整簇同块」形状，漏「狙击小队先头在首块+同波续单在下一块」；两 FA 新键 launchFirstBlockWallets=f0（首块首买钱包数）/launchFirstWaveWallets（=f0+首块后 ≤2s 内第一个有交易块首买钱包数之和，6ba4562e 立法）；挡=age≤60s ∧（簇≥3 ∨（f0≥2 ∧ wave≥3）），60s 后筹码已换手放行；双窗证据 A bt-v121 71 票 +1.9382 vs v116 簇臂 Δ−0.2186（新增挡 9 票止血 +0.1227/晚入 −0.0597/门链方差漂移 −0.28 拖累）/B bt-v123 33 票 +3.2098（54.5%）vs v120 40 票 +3.0193（42.5%）Δ+0.1905≈新增挡 7 票止血 −0.1902 零误伤+漂移 +0.0058；两窗新增挡 16 票 −0.3129 全止血（正票 2/16 噜噜 +0.0987 主导）；bt-v122 跑于 TypeSafe 402 窗口判无效行保留、bt-v123 干净重跑；被挡触发不消耗 maxTriggers；2026-11-15 v19=T140 开盘簇×早入口袋门立法（用户裁定「接受误伤」）：全 14 腿加 AND (launchBundleClusterSize < 3 OR tokenAgeSec > 60)——开盘段同块捆绑簇 ≥3 ∧ 早入场 ≤60s = bots/分仓组织性进场接刀，60s 后放行；双窗 A +0.60/B −0.03 合并直接命中 31 张止血净 +0.203，胜率两窗均升；2026-11-11 v18=T135 bt-v102 因子分析案：t0/t0a 两条最早臂加 tokenAgeSec >= 15——买点年龄分桶单调（age<15s 开盘 bot 抢速盘 30 票胜率 27% 净 -0.37 / >25s 全正），拦截面净增量 +0.25（止血 24 票 -0.70 vs 误伤 12 票 +0.45），大正票与 t0 立法案票吉祥 ea78（age=24）零影响；2026-11-10 v17=T133 用户四条批量：t0 笔数门 7→6 + signalGate.maxTriggers 1→2（「允许过两次 Jev 模块」——首次门拒后再判一次；单仓语义 status=bought 阻断=无双买）+ 全 14 腿加 actTotalBnb >= 0.1（FA act* 第 9 键=10s 滑窗买卖合计，「买入不接受低活跃度」——CD 1 BNB/min 死寂线 10s 折算）+ t/N/NL 十一臂价格门 27.5→28.5（BP69 统一门同车「只稍微宽一点，再继续观察」；RL15 ≤20/RL10 ≤10 已低于上界不动）+ cheat/BP 双门 minTicks 7→6 同线；v15=T131 吉祥 ea78 开盘 25 秒窗差一笔案：t0 最早臂新增 + 双门 minTicks 8→7 配套——「之后的买入点位肯定远不如早期的」，最早入场点由 t0 接住；2026-11-09 v14=T129 价格门统一 27.5：全 t/N 系八臂 80→27.5 + NL 三臂 50→27.5（用户裁定「系统不买入涨幅超过 27.5 的任何代币」）——Top10 涨幅票前期低点全在 +23.9% 以内、+27.5 以上追高无正收益分布支撑；2026-11-08 v10=CD381 六条批量裁定：全 t/N 系七臂加价格门 ≤+80、RL15 重启臂（≤+20）新增、cheatRecheck 全删 recheckCondition 表达式接棒；v11 RL10 深重启臂；v12 t0a 更早人气臂 9 笔档；v13 五臂量门 15 笔/2.5 BNB）：14 买腿 condition=初始买入信号源（t0/t0a/t0b/t2-t4 热度 + N30/36/45 纯热度 + NL15/20/25 接近发行价臂 + RL15/RL10 重启臂；全腿 buyPhase:first 每代币只买一次），maxTriggers t0=2 其余 1 触发即消耗，触发后依次过作弊门（二元版）→ BP 门（good/neutral 过）两门都过才买；纯盘面无叙事层；回测经 backtest.signalGateReal=true 真调门链（缺省回测恒拒现状不变）。⚠ 引用实验须 buySignalMaxPerToken ≥ 15 + cheatCheck.enabled + buyPointCheck.enabled',
     },
     // ── T133 两条卖出臂（2026-11-10 用户裁定「3. 卖出方面，也做一下更改：
     //    买入后有 famous 钱包在 near_launch 区间内入场，立即全部卖出，代币在

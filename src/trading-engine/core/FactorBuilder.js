@@ -68,6 +68,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T122 接近发行价臂（2026-11-07）：现价较首可靠价涨幅 %（BP near_launch 同口径
     // ≤+50% 含破发）——新腿条件串主键，信号复盘需落库；旧 FA/无可靠价 → null 不掩盖
     currentVsLaunchPct: factorResults.currentVsLaunchPct ?? null,
+    // T142 破发豁免锚（2026-11-15）：现价 vs 平台常量发行价（纯常量不吃地板）——
+    // ladder v21 首两波门豁免臂主键，信号复盘须落库；旧 FA/无常量平台 → null 不掩盖
+    launchConstVsPct: factorResults.launchConstVsPct ?? null,
     // CD381 重检双键（2026-11-08）：preCheatResult=上次门链检测结果字符串原值 /
     // priceBackToAlmostLaunch=自上次检测价格回到过 almost_launch（重判条件表达式
     // 主键，signal 复盘须落库）；未检测/无锚 → null 不掩盖
