@@ -319,6 +319,10 @@ let _cheatFactorOverrides = null;
 // almost_launch=无论上次结果如何须重检，cheat 拉黑可翻案）；无锚（未检测过）
 // → null fail-closed（裸比较恒 false 不触发重检）
 let _cheatGatePriceAnchor = null;
+// T143 因子购买前检查门投影（FP1，per token 最近一次纯代码门判定 blocked/reason；
+// **独立通道**——不共用 _cheatFactorOverrides（cheat 门 _projectCheatFactors 整包
+// set 会覆盖因子键）；引擎 stop 逐 token 清（clearFactorPreBuyFactors））
+let _factorPreBuyOverrides = null;
 // almost_launch 价格级别定义（用户裁定 2026-11-09 由 20 收紧至 10：「黄金点位的
 // 意义在于：代币已经基本再次归零了……20% 代入了太多正常的波动」）——
 // 定义非调参，改=改口径须同步 BP 题面 price_level 分界与 CD/BP 两侧 reset 判据
@@ -4291,6 +4295,19 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
 
+        // ── T143 因子购买前检查门投影（FP1，2026-11-15 duanju 案立法）：最近一次
+        //    纯代码门判定（PVP 判定树+CD 四臂升格门）——blocked 0/1 + reason 字符串
+        //    码。**独立通道**（_factorPreBuyOverrides，不共用 _cheatFactorOverrides
+        //    ——cheat 门 _projectCheatFactors 整包 set 会覆盖因子键）。null=未评估
+        //    （灰度关/未到门/回测未开）——条件裸比较恒 false fail-closed；stop 逐
+        //    token 清（clearFactorPreBuyFactors，与 clearCheatFactors 同点）
+        {
+            const _fp = state.tokenAddress && _factorPreBuyOverrides
+                ? _factorPreBuyOverrides.get(state.tokenAddress) || null : null;
+            factors.factorPreBuyBlocked = _fp ? _fp.blocked : null;
+            factors.factorPreBuyReason = _fp ? _fp.reason : null;
+        }
+
         return factors;
     }
 
@@ -4487,6 +4504,28 @@ class FourMemeFactorAggregator extends EventEmitter {
     static clearCheatFactors(tokenAddress) {
         if (!_cheatFactorOverrides) return false;
         return _cheatFactorOverrides.delete(tokenAddress);
+    }
+
+    // ═══════════════ T143 因子购买前检查门投影（FP1；独立通道——cheat 门 set 整包
+    // 覆盖会冲掉因子键，见 _buildFactorMap 投影段注释）═══════════════
+
+    /** 引擎写者：因子门每次 assessed 评估点投影（blocked 0/1 + reason 字符串码）。 */
+    static setFactorPreBuyFactors(tokenAddress, snapshot) {
+        if (!tokenAddress) return false;
+        if (!_factorPreBuyOverrides) _factorPreBuyOverrides = new Map();
+        _factorPreBuyOverrides.set(tokenAddress, snapshot);
+        return true;
+    }
+
+    /** 读回（单测/诊断用；无则 null）。 */
+    static getFactorPreBuyFactors(tokenAddress) {
+        return (_factorPreBuyOverrides && _factorPreBuyOverrides.get(tokenAddress)) || null;
+    }
+
+    /** 清除（引擎 stop 清单例，与 clearCheatFactors 同点调用）。 */
+    static clearFactorPreBuyFactors(tokenAddress) {
+        if (!_factorPreBuyOverrides) return false;
+        return _factorPreBuyOverrides.delete(tokenAddress);
     }
 
     /**

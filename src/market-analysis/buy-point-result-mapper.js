@@ -97,16 +97,21 @@ const PRICE_LEVEL_LEVELS = ['almost_launch', 'near_launch', 'low', 'mid', 'high'
  * （持续拉升形状归 none 走统一位置门 28.5，独立 ≤+10 位置臂删除）+新增⑨
  * one_wave_dump 先买后卖一波流（硬拒）：①strong_backer/④early_sniper_decay/
  * ⑤blended_unremarkable/⑧golden_point 判型随 BP60 收口删除——处理与 none 完全
- * 一致（统一位置门 ≤+28.5）没必要保留；保留=②retail_pvp/③famous_monopoly/
- * ⑨one_wave_dump 三异常桶（盘型门硬拒）+none 正常盘面兜底（统一位置门 ≤+28.5））
+ * 一致（统一位置门 ≤+28.5）没必要保留；保留=③famous_monopoly/⑨one_wave_dump
+ * 两异常桶（盘型门硬拒）+none 正常盘面兜底（统一位置门 ≤+28.5）；**BP84/T143
+ * （2026-11-15 duanju 案）②retail_pvp 迁出 Jev——判据完全定死，由代码侧「因子
+ * 购买前检查门」（factor-pre-buy-check.js FP1，门链最前零 Jev）纯代码判定**；
+ * 旧档 retail_pvp 答案重放=argmax 落已删桶→_choice throw→error 行 fail-closed
+ * （设计内，BP52 同款——重跑自动用新题集新版本）
  * 演进：BP18 五类型学→BP30 六桶→BP38 七桶→BP45 八桶→BP58 二修判型恢复→
- * BP60 删⑦restart 收口四桶→BP59 ⑥退役+⑨一波流 */
-const MARKET_PATTERN_LEVELS = ['retail_pvp', 'famous_monopoly', 'one_wave_dump', 'none'];
-/** 盘型门拒买桶（BP59：retail_pvp/famous_monopoly/one_wave_dump 三异常桶硬拒；
+ * BP60 删⑦restart 收口四桶→BP59 ⑥退役+⑨一波流→BP67 ②迁代码三桶 */
+const MARKET_PATTERN_LEVELS = ['famous_monopoly', 'one_wave_dump', 'none'];
+/** 盘型门拒买桶（BP59 起：famous_monopoly/one_wave_dump 异常桶硬拒；BP67 起
+ * retail_pvp 已迁代码侧因子购买前检查门不在本表）；
  * 砸盘形状的拦截由 entry_shape crash 臂+统一位置门（BP69 起 28.5）接力（拉高拦截
  * BP68 起全归统一位置门——spike 出拦域）；⑥sustained_climb 已随 BP59 退役——
  * 持续拉升形状归 none 走统一门，原 ≤+10 独立位置臂删除） */
-const PATTERN_GATE_POOR_BUCKETS = ['retail_pvp', 'famous_monopoly', 'one_wave_dump'];
+const PATTERN_GATE_POOR_BUCKETS = ['famous_monopoly', 'one_wave_dump'];
 /** 统一参与位置界（BP58 用户裁定「现在买入点位已经不是小于 40，应该是小于
  * 27.5」——与 T129 ladder v14 触发线同线；**BP69（2026-11-10）27.5→28.5**：用户
  * 裁定「只稍微宽一点，再继续观察」——ea78 案同秒 n=8 +27.75 进 BP 锚窗被 27.5 拒

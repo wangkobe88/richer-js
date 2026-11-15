@@ -289,6 +289,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // CD381 重检双键（2026-11-08）——重判条件表达式主键，signal 复盘须落库
     preCheatResult: factorResults.preCheatResult ?? null,
     priceBackToAlmostLaunch: factorResults.priceBackToAlmostLaunch ?? null,
+    // T143 因子购买前检查门投影（FP1）：blocked 0/1 + reason 字符串码（PVP/CD 四臂
+    // 纯代码门最近一次判定）；未评估（灰度关/回测未开）→ null 不掩盖
+    factorPreBuyBlocked: factorResults.factorPreBuyBlocked ?? null,
+    factorPreBuyReason: factorResults.factorPreBuyReason ?? null,
     cheatEqualAmountSplit: factorResults.cheatEqualAmountSplit ?? null,
     cheatCoordinatedSellBack: factorResults.cheatCoordinatedSellBack ?? null,
     cheatCreatorFrontRun: factorResults.cheatCreatorFrontRun ?? null,

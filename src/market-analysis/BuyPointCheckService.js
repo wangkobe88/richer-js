@@ -55,6 +55,7 @@
 const { buildBuyPointSnapshot } = require('./buy-point-snapshot');
 const { buildBuyPointState } = require('./buy-point-state-builder');
 const { buildBuyPointObservation } = require('./buy-point-result-mapper');
+const { evaluateFactorPreBuy: evaluateFactorPreBuyJudge, FACTOR_PREBUY_VERSION } = require('./factor-pre-buy-check');
 
 const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
@@ -99,6 +100,10 @@ class BuyPointCheckService {
     this._headLimit = num(config.headLimit, DEFAULTS.headLimit, 10);
     this._gateAwaitMs = num(config.gate && config.gate.awaitMs, DEFAULTS.gateAwaitMs, 1);
     this._settleFlushMs = num(config.settleFlushMs, DEFAULTS.settleFlushMs);
+    // T143 因子购买前检查门（FP1，2026-11-15 duanju 案立法）：灰度开关缺省 false——
+    // 开=因子门（PVP 纯代码判定+CD 四臂升格门）先于 cheat/BP 门评估（引擎侧挂点）；
+    // 关/缺段=零行为（引擎 fail-open 放行进 cheat 门）。物化语义与 enabled 同款。
+    this._factorEnabled = !!(config.factorCheck && config.factorCheck.enabled === true);
     this._auditShadow = config.memSource ? config.memSource.auditShadow !== false : true;
     // 回测隔离（backtest.signalGateReal 实验专用，引擎构造时硬编码注入）：persist=false
     // 禁 _writeRow——buy_point_analyses 是全局表，回测判定行会污染生产域；判定轨迹由
@@ -123,10 +128,13 @@ class BuyPointCheckService {
       settleIdleHits: 0, settleIdleTimeouts: 0,  // waitIdle 双模观测
       shadowAudits: 0, shadowMismatches: 0, shadowErrors: 0, // mem 对拍护栏观测
       persistSkipped: 0, // persist=false 跳写计数（回测隔离观测）
+      factorNoted: 0, factorAssessed: 0, factorBlocked: 0, factorInsufficient: 0, factorErrors: 0, // T143 因子门观测
     };
   }
 
   get enabled() { return this._enabled; }
+  /** T143 因子门灰度开关（factorCheck.enabled，缺省 false——引擎 fail-open 放行进 cheat 门） */
+  get factorEnabled() { return this._factorEnabled === true; }
 
   /** 实验 stop 优雅等流（上限 maxWaitMs——settle+Jev 最长几十秒，不值得堵停机） */
   async drain(maxWaitMs = 5000) {
@@ -136,6 +144,61 @@ class BuyPointCheckService {
       Promise.allSettled(inflight),
       new Promise((r) => setTimeout(r, maxWaitMs)),
     ]);
+  }
+
+  /**
+   * T143 因子购买前检查门（FP1，门链最前——duanju 0x65aebe91…7777 案立法）：
+   * 纯代码零 Jev（PVP 判定树+CD 四臂升格门，判据=factor-pre-buy-check.js 单源）。
+   * settle→拉数（anchorMs 截窗同 BP 门）→minTicks **放行**（数据不足不双拒——
+   * BP 门 insufficient_ticks 兜底拒）→snapshot→纯判定。不落表（persist 隔离天然
+   * 继承）、无 inflight join（纯计算毫秒级幂等）、无冷却、无 Jev/state。
+   * 返回：{status:'assessed', pass, reason, version, pvp, arms, trace}
+   *      / {status:'insufficient_ticks'}（调用方放行进 cheat 门）
+   *      / {status:'disabled'|'error'}（调用方 fail-open 放行——检测层故障方向
+   *        对齐 cheat 门；灰度 factorCheck.enabled 缺省 false=关）。
+   * 内部不抛错（接线级异常→error 返回，引擎侧 fail-open）。
+   */
+  async evaluateFactorPreBuy(tokenAddress, tokenMeta = {}, context = {}, opts = {}) {
+    if (!this._factorEnabled) return { status: 'disabled', reason: 'factor_check_disabled' };
+    const token = String(tokenAddress || '').toLowerCase();
+    if (!token) return { status: 'error', reason: 'invalid_token' };
+    this.stats.factorNoted++;
+    try {
+      // settle（waitIdle 双模同 _chain——实时尾部簇落定；回测 settleDelayMs=0 直通）
+      const waitIdle = this._deps.waitIdle;
+      if (waitIdle && this._settleDelayMs > 0) {
+        await Promise.race([
+          Promise.resolve(waitIdle(token)),
+          new Promise((r) => setTimeout(r, this._settleDelayMs)),
+        ]);
+        if (!this._deps.pullTicks) await new Promise((r) => setTimeout(r, this._settleFlushMs));
+      } else if (this._settleDelayMs > 0) {
+        await new Promise((r) => setTimeout(r, this._settleDelayMs));
+      }
+      const _anchorMs = Number.isFinite(opts.anchorMs) && opts.anchorMs > 0 ? opts.anchorMs : null;
+      const pull = await this._pullTicks(token, _anchorMs);
+      if (pull.anchorTickCount < this._minTicks) {
+        this.stats.factorInsufficient++;
+        return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount };
+      }
+      const createMeta = await this._loadCreateMeta(token);
+      const meta = this._normalizeMeta(token, tokenMeta, pull, createMeta);
+      const snapshot = buildBuyPointSnapshot(pull.rows, meta, {
+        capped: pull.capped,
+        anchorTickCount: pull.anchorTickCount,
+        signalInfo: context.signalId
+          ? { signalId: context.signalId, createdAt: context.signalCreatedAt || null, firePriceBnb: context.firePriceBnb ?? null, strategyName: context.strategyName || null }
+          : null,
+      });
+      const verdict = evaluateFactorPreBuyJudge(snapshot);
+      this.stats.factorAssessed++;
+      if (!verdict.pass) this.stats.factorBlocked++;
+      return { status: 'assessed', ...verdict };
+    } catch (e) {
+      this.stats.factorErrors++;
+      this._log('warn', `因子门异常（fail-open 放行） | ${token} ${e?.message || e}`);
+      return { status: 'error', reason: e?.message || String(e) };
+    }
   }
 
   /**

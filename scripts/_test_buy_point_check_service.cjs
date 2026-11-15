@@ -515,6 +515,45 @@ function mkSvc(config, db, llm, extraDeps = {}) {
         assert.ok(!/RESTART_LAUNCH_PCT/.test(mapper) && !/STRONG_BACKER_LAUNCH_PCT/.test(mapper) && !/SNIPER_ULTRA_ROUTER_LAUNCH_PCT/.test(mapper) && !/GOLDEN_POINT_LAUNCH_PCT/.test(mapper), '随宿主桶退役的四位置臂常量绝迹');
     });
 
+    // ═══ T143 因子购买前检查门（evaluateFactorPreBuy——FP1）═══
+    console.log('FP. 因子购买前检查门（灰度开关/minTicks 放行/anchorMs 截窗/零 Jev 零表写）');
+    {
+        const mkTicks = (n, big = false) => Array.from({ length: n }, (_, i) => ({
+            block_time: new Date(1790000000000 + i * 5000).toISOString(),
+            block_number: 1000 + i, log_index: 0, trade_type: 'buy',
+            trader_address: '0xw' + (big && i === 0 ? 'BIG' : i), sender_address: '0xw' + i,
+            bnb_amount: big && i === 0 ? 0.4 : 0.02, token_amount: 1e8, price_bnb: 5e-9,
+            price_outlier: false, tx_hash: '0xt' + i, quote_token: null,
+        }));
+        await check('FP1 factorCheck 缺省关=disabled（灰度零行为）', async () => {
+            const s = mkSvc({ enabled: true }, mkDb({ ticksAsc: mkTicks(20) }), mkLlm({}));
+            const r = await s.evaluateFactorPreBuy('0xtok1', {});
+            assert.strictEqual(r.status, 'disabled'); assert.strictEqual(r.factorEnabled ?? s.factorEnabled, false);
+        });
+        await check('FP2 factorCheck.enabled 开 + minTicks 不足=insufficient_ticks（放行语义由引擎判）', async () => {
+            const s = mkSvc({ enabled: true, factorCheck: { enabled: true }, settleDelayMs: 0, minTicks: 8 }, mkDb({ ticksAsc: mkTicks(3) }), mkLlm({}));
+            const r = await s.evaluateFactorPreBuy('0xtok2', {});
+            assert.strictEqual(r.status, 'insufficient_ticks'); assert.strictEqual(r.anchorTickCount, 3);
+        });
+        await check('FP3 评估过（assessed）+ 零 Jev 零表写（inserted 空+llm 不触达）', async () => {
+            const db = mkDb({ ticksAsc: mkTicks(12, true) });
+            let llmTouched = 0;
+            const llm = mkLlm({}); llm.ask = () => { llmTouched++; throw new Error('FP 门不得触达 Jev'); };
+            const s = mkSvc({ enabled: true, factorCheck: { enabled: true }, settleDelayMs: 0, minTicks: 8 }, db, llm);
+            const r = await s.evaluateFactorPreBuy('0xtok3', {});
+            assert.strictEqual(r.status, 'assessed');
+            assert.ok(r.version === 'FP1' && typeof r.pass === 'boolean' && r.pvp && Array.isArray(r.arms));
+            assert.strictEqual(llmTouched, 0); // 零 Jev
+            assert.strictEqual(db.inserted.length, 0); // 零表写
+        });
+        await check('FP4 anchorMs 截窗（lte 传参=as-of 锚）', async () => {
+            const db = mkDb({ ticksAsc: mkTicks(30) });
+            const s = mkSvc({ enabled: true, factorCheck: { enabled: true }, settleDelayMs: 0, minTicks: 8 }, db, mkLlm({}));
+            await s.evaluateFactorPreBuy('0xtok4', {}, {}, { anchorMs: 1790000050000 });
+            assert.ok(db.lteCalls.some(([, v]) => new Date(v).getTime() === 1790000050000), 'anchorMs 未透传 lte');
+        });
+    }
+
     console.log(failed === 0 ? `\n✅ buy_point_check_service 全部通过（${passed} 断言）` : `\n❌ buy_point_check_service：${failed} 失败 / ${passed} 通过`);
     process.exit(failed === 0 ? 0 : 1);
 })().catch((e) => {

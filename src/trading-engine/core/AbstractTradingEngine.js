@@ -1777,6 +1777,89 @@ class AbstractTradingEngine extends ITradingEngine {
     }
   }
 
+  /**
+   * T143 因子购买前检查门（FP1，门链最前——duanju 案立法，用户裁定「因子门的
+   * 代价最小，在最前面」）：纯代码零 Jev（PVP 判定树+CD400/401/403/405 升格门）。
+   * 方向语义：灰度关（factorCheck.enabled 缺省 false）/insufficient_ticks/error=
+   * **fail-open 放行**（检测层故障方向对齐 cheat 门——下游 cheat/BP 门接管）；
+   * assessed 且 reason≠null=拒（`factor_gate_<code>` 域）。FA 投影两键走独立通道
+   * setFactorPreBuyFactors（cheat 门 _projectCheatFactors 整包 set 会覆盖——不共
+   * 用通道）。metadata 落 factorCheck 段。ctx.anchorMs=回测 as-of 锚（同 BP 门）。
+   */
+  async _factorGateEvaluate(tokenAddress, token, faState, signalId, ctx = {}) {
+    const svc = this._buyPointCheckService;
+    let info;
+    let pass = true;
+    if (!svc || !svc.enabled || !svc.factorEnabled) {
+      info = { status: 'disabled' }; // 灰度缺省关=零行为（不 warn——常态）
+    } else {
+      const meta = {
+        address: token.token,
+        symbol: token.symbol || null,
+        name: token.name || null,
+        platform: token.platform || faState?.platform || null,
+        createdAtMs: token.createdAt ? token.createdAt * 1000 : null,
+        creatorAddress: token.creatorAddress || null,
+        totalSupply: faState?.totalSupply ?? null,
+      };
+      try {
+        const res = await svc.evaluateFactorPreBuy(tokenAddress, meta, {
+          experimentId: this._experimentId,
+          signalId,
+          signalCreatedAt: ctx.signalCreatedAt ?? null,
+          firePriceBnb: ctx.firePriceBnb ?? null,
+          strategyName: ctx.strategyName ?? null,
+        }, Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {});
+        if (res && res.status === 'assessed') {
+          pass = res.pass === true;
+          info = {
+            status: 'assessed', pass, reason: res.reason ?? null,
+            version: res.version ?? null,
+            pvp: res.pvp ?? null, arms: res.arms ?? null, trace: res.trace ?? null,
+          };
+          this.logger.info(this._experimentId, 'SignalGate',
+            `因子门${pass ? '放行' : '拒买'} | ${token.symbol || tokenAddress.slice(0, 10)}${pass ? '' : ` ${res.reason}`}`);
+          if (!pass) {
+            await this._updateSignalStatus(signalId, 'failed',
+              { message: `因子门拒买: ${res.reason}`, reason: `factor_gate_${res.reason}` });
+          }
+        } else if (res && res.status === 'insufficient_ticks') {
+          // 数据不足放行——BP 门 insufficient_ticks 兜底拒（BP10），因子门不双拒
+          info = { status: 'insufficient_ticks', anchorTickCount: res.anchorTickCount ?? null };
+        } else {
+          // disabled（服务内二次判）/error → fail-open 放行（检测层故障，下游接管）
+          info = res ? { ...res } : { status: 'unknown' };
+        }
+      } catch (e) {
+        // 接线级异常：fail-open 放行（与 cheat 门同向——与 BP 门 fail-closed 刻意不同）
+        info = { status: 'error', reason: e?.message || String(e) };
+        this.logger.warn(this._experimentId, 'SignalGate',
+          `因子门异常（fail-open 放行） | ${token.symbol || tokenAddress.slice(0, 10)} ${info.reason}`);
+      }
+    }
+    if (info.status === 'assessed') {
+      try {
+        require('../../services/FourMemeFactorAggregator').setFactorPreBuyFactors(tokenAddress, {
+          blocked: pass ? 0 : 1, reason: info.reason,
+        });
+      } catch (projectionError) {
+        this.logger.warn(this._experimentId, 'SignalGate',
+          `因子门 FA 投影失败（已吞） | ${tokenAddress.slice(0, 10)} ${projectionError.message}`);
+      }
+    }
+    if (signalId) {
+      try {
+        await this._updateSignalMetadata(signalId, { factorCheck: info });
+      } catch (updateError) {
+        this.logger.warn(this._experimentId, 'SignalGate',
+          `更新信号元数据失败 | ${token.symbol || tokenAddress.slice(0, 10)} ${updateError.message}`);
+      }
+    }
+    return pass
+      ? { pass: true, info }
+      : { pass: false, reason: `因子门拒买（${info.reason}）` };
+  }
+
   /** FA 因子投影（grade 三键+题档+锚+CD159 观察臂；值=最近一次判定；stop 逐 token 清） */
   _projectCheatFactors(tokenAddress, res) {
     require('../../services/FourMemeFactorAggregator').setCheatFactors(tokenAddress, {

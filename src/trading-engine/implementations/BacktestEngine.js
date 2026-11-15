@@ -2261,6 +2261,18 @@ class BacktestEngine extends AbstractTradingEngine {
         // snapshot meta 的 totalSupply/platform 等锚取自 state 而非因子表（回测
         // 曾错传 factorResults → BP 市值族/CD supply 族锚恒 null，bt-v83/v84 702/702）
         const faState = this._factorAggregator.getTokenState(tokenAddress);
+
+        // T143 因子购买前检查门（FP1，门链最前——纯代码零 Jev；anchorMs=回放
+        // as-of 截窗防前视；灰度 factorCheck.enabled 缺省关=fail-open 放行）
+        const factorGate = await this._factorGateEvaluate(
+          tokenAddress, gateToken, faState, signalId, {
+            anchorMs: nowTs,
+            firePriceBnb,
+            strategyName: strategy.name,
+            signalCreatedAt: nowTs,
+          });
+        if (!factorGate.pass) return { success: false, reason: factorGate.reason };
+
         const cheatGate = await this._cheatGateEvaluateBinary(
           tokenAddress, gateToken, faState, signalId, strategy.signalGate,
           { anchorMs: nowTs, factorResults });

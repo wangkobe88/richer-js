@@ -1647,6 +1647,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         require('../../services/FourMemeFactorAggregator').clearCheatFactors(addr);
         // CD381 almost_launch 重检锚同批清（与 cheat 投影同生命周期——门链评估锚）
         require('../../services/FourMemeFactorAggregator').clearCheatGatePriceAnchor(addr);
+        // T143 因子购买前检查门投影同批清（FP1 独立通道，同门链评估生命周期）
+        require('../../services/FourMemeFactorAggregator').clearFactorPreBuyFactors(addr);
       }
       this._cheatProjectedTokens.clear();
     }
@@ -2325,6 +2327,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // preBuy/叙事直调/旧版 cheat 门/GMGN 段天然 no-op，零旧链交互
       if (strategy.signalGate) {
         this._sgRecordTrigger(tokenAddress, strategy.id);
+
+        // T143 因子购买前检查门（FP1，门链最前——纯代码零 Jev，被拒票不烧 cheat/BP
+        // 配额；灰度 factorCheck.enabled 缺省关=fail-open 放行进 cheat 门）
+        const factorGate = await this._factorGateEvaluate(
+          tokenAddress, token, faState, signalId, {
+            firePriceBnb,
+            strategyName: strategy.name,
+            signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
+          });
+        if (!factorGate.pass) return { success: false, reason: factorGate.reason };
 
         const cheatGate = await this._cheatGateEvaluateBinary(
           tokenAddress, token, faState, signalId, strategy.signalGate, { factorResults });
