@@ -36,6 +36,17 @@ const GATE_REASON_LABELS = {
   bp_gate_assessment: 'BP 门判定拒（点位评估 poor，不在放行档 good/neutral）',
   bp_gate_insufficient_ticks: 'BP 门锚窗 tick 不足拒（数据不足=挡住，BP10 翻案 2026-11-07）',
 };
+// T143 因子购买前检查门拒因映射（factor_gate_<code> 动态后缀——前缀匹配；
+// FP1 纯代码零 Jev，判定树=judgeRetailPvp 三步+CD 四臂升格门）
+const FACTOR_GATE_REASON_LABELS = [
+  [/^factor_gate_pvp_no_big_participation$/, '散户 PVP——无大户参与（买入过的 0.2 级单笔钱包 <2 且无 0.29+（0.3 视同）单笔；BP84 追裁定「只要买入过即可，不要求在场」）'],
+  [/^factor_gate_pvp_absorption_dust$/, '散户 PVP——大户持续卖且承接不在场（向小散出货无人接；承接=win30 买 ≥3 笔 ∧ ≥0.1 BNB）'],
+  [/^factor_gate_pvp_zero_absorption$/, '散户 PVP——承接归零（在场持有但买方归零/仅尘埃=对倒停摆死盘）'],
+  [/^factor_gate_cd400_dump_no_absorption$/, 'CD400 贴锚砸块零承接（锚窗末 ≤60s 达标砸块 ≥4 独立卖方 ≥0.5 BNB 且块后承接 <0.05 BNB）'],
+  [/^factor_gate_cd403_dump_low_absorption$/, 'CD403 超大量捆绑砸盘承接比（达标砸块卖方 ≥8 且承接比 <0.3=承接一成上下）'],
+  [/^factor_gate_cd401_burst_exit_sell_pressure$/, 'CD401 burst 出口段卖压（流量簇卖占比 ≥30% ∧ 卖额 ≥0.3 BNB；sbw 机械化代理线）'],
+  [/^factor_gate_cd405_burst_bundled_wave$/, 'CD405 burst 捆绑收割（波窗单块或相邻两 slot 去尘捆绑钱包 ≥7）'],
+];
 // G17 触发通道码中文映射（拒因块具体原因——前缀匹配吸收动态后缀：L_insider_sell25 /
 // N_no_retail_entry9.8 / A_strong:xxx；2026-11-07 用户要求拒因给具体原因）
 const CHEAT_CODE_LABELS = [
@@ -2755,9 +2766,34 @@ class ExperimentSignals {
     // =metadata.cheatCheck 段（拒前落段同批启用；历史拒行无段只显通用映射））
     let rejectionInfoHtml = '';
     if (isRejected && executionReason) {
-      const gateLabel = GATE_REASON_LABELS[executionReason];
+      let gateLabel = GATE_REASON_LABELS[executionReason];
+      if (!gateLabel && executionReason.startsWith('factor_gate_')) {
+        const hit = FACTOR_GATE_REASON_LABELS.find(([re]) => re.test(executionReason));
+        if (hit) gateLabel = hit[1];
+      }
       let cheatDetailHtml = '';
       const cc = (metadata || {}).cheatCheck;
+      // T143 因子门拒因明细（factor_gate_* 域）：PVP 判定分支+关键计数+CD 臂码
+      let factorRejectDetailHtml = '';
+      const fc = (metadata || {}).factorCheck;
+      if (executionReason.startsWith('factor_gate_') && fc && fc.status === 'assessed') {
+        const t = fc.trace || {};
+        const keyNums = [
+          t.volSingle != null ? `量在场单笔=${t.volSingle}` : '',
+          t.act20 != null ? `0.2 级买入过=${t.act20}` : '',
+          t.act30 != null ? `0.29+ 买入过=${t.act30}` : '',
+          t.sell60 != null ? `近60s大户卖=${t.sell60}` : '',
+          t.absorbAlive != null ? `承接在场=${t.absorbAlive}` : '',
+          t.absorbZero != null ? `承接归零=${t.absorbZero}` : '',
+        ].filter(Boolean).join(' · ');
+        factorRejectDetailHtml = `
+          <div class="text-xs text-red-900 mt-1 space-y-0.5">
+            ${fc.pvp && fc.pvp.branch ? `<div>PVP 判定分支: ${this._escapeHtml(fc.pvp.branch)}</div>` : ''}
+            ${keyNums ? `<div>${this._escapeHtml(keyNums)}</div>` : ''}
+            ${Array.isArray(fc.arms) && fc.arms.length ? `<div>CD 升格臂: ${fc.arms.map((a) => this._escapeHtml(a)).join(' · ')}</div>` : ''}
+            <div class="text-gray-600">纯代码判定（FP${this._escapeHtml(String(fc.version || '1'))}，零 Jev）</div>
+          </div>`;
+      }
       if (executionReason.startsWith('cheat_gate_') && cc && cc.grade) {
         const codeDesc = (cc.reasons || []).map((r) => {
           const hit = CHEAT_CODE_LABELS.find(([re]) => re.test(r.code || ''));
@@ -2785,6 +2821,7 @@ class ExperimentSignals {
           </div>
           ${gateLabel ? `<div class="text-xs text-red-700 mt-1">${this._escapeHtml(gateLabel)}</div>` : ''}
           ${cheatDetailHtml}
+          ${factorRejectDetailHtml}
         </div>
       `;
     }
@@ -2909,6 +2946,8 @@ class ExperimentSignals {
       // T117 信号源门链：触发行（signalGate 段）+ BP 门判定（buyPoint 段）——2026-11-07 明细展示
       const signalGateInfo = metadata.signalGate || null;
       const buyPointInfo = metadata.buyPoint || null;
+      // T143 因子购买前检查门（FP1，门链第一门·纯代码零 Jev——duanju 案立法）
+      const factorCheckInfo = metadata.factorCheck || null;
 
       // 门链触发行：legId/triggerNo/maxTriggers/bpPassLevels/cheatRecheck
       let signalGateHtml = '';
@@ -2922,9 +2961,75 @@ class ExperimentSignals {
           ${Array.isArray(sg.bpPassLevels) && sg.bpPassLevels.length ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">BP 放行档 ${this._escapeHtml(sg.bpPassLevels.join('/'))}</span>` : ''}
           ${sg.recheckCondition ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">作弊重判（CD381）<code>${this._escapeHtml(sg.recheckCondition)}</code></span>` : ''}
           ${sg.cheatRecheck != null ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">cheatRecheck=${sg.cheatRecheck ? 'true（unhealthy 每信号重判）' : 'false（unhealthy 粘滞秒回省配额）'}</span>` : ''}
-          <span class="text-gray-700">门序：作弊门 → BP 门，两门都过才买</span>
+          <span class="text-gray-700">门序：${factorCheckInfo && factorCheckInfo.status === 'assessed' ? '因子门 → ' : ''}作弊门 → BP 门，都过才买</span>
         </div>
         `;
+      }
+
+      // T143 因子购买前检查门（门链第一门·纯代码零 Jev）：assessed=badge+PVP 分支/
+      // 关键计数/CD 臂 chips；insufficient_ticks=数据不足放行（BP 门兜底拒）；disabled
+      // 不渲染（灰度关零痕迹）；error=异常放行（fail-open——检测层故障方向对齐 cheat 门）
+      let factorGateHtml = '';
+      if (factorCheckInfo && factorCheckInfo.status !== 'disabled') {
+        const fStatus = factorCheckInfo.status || '';
+        if (fStatus === 'assessed') {
+          const fPass = factorCheckInfo.pass === true;
+          const fBadge = fPass
+            ? '<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full font-bold">✅ 放行</span>'
+            : '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 拒</span>';
+          const t = factorCheckInfo.trace || {};
+          const fmtNum = (v) => v == null ? '—' : (typeof v === 'number' ? (Number.isInteger(v) ? v : Number(v).toFixed(4)) : v);
+          const traceRows = [
+            ['量在场单笔 ≥0.29', t.volSingle], ['捆绑块买 BNB', t.volBundledBnb],
+            ['0.2 级买入过', t.act20], ['0.29+ 买入过', t.act30],
+            ['0.2 级活跃在场', t.act20Active], ['0.29+ 活跃在场', t.act30Active],
+            ['近60s大户卖 BNB', t.sell60], ['在场持有(0.2级)', t.holdersHolding],
+            ['承接在场', t.absorbAlive], ['承接归零', t.absorbZero],
+          ].map(([k, v]) => `
+            <div class="flex items-center justify-between gap-2 bg-gray-900 px-2 py-0.5 rounded border border-emerald-400">
+              <span class="text-gray-700">${k}</span>
+              <span class="text-gray-100 font-mono">${this._escapeHtml(String(fmtNum(v)))}</span>
+            </div>`).join('');
+          const pvpHit = factorCheckInfo.pvp && factorCheckInfo.pvp.hit === 1;
+          const armChips = (Array.isArray(factorCheckInfo.arms) && factorCheckInfo.arms.length
+            ? factorCheckInfo.arms.map((a) => `<span class="px-1.5 py-0.5 rounded border border-red-300 bg-red-100 text-red-900 text-xs">${this._escapeHtml(a)}</span>`).join(' ')
+            : '');
+          factorGateHtml = `
+          <div class="mt-2 pt-2 border-t border-emerald-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-emerald-800">🧮 因子购买前检查门（门链第一门 · 纯代码零 Jev）</div>
+              ${fBadge}
+            </div>
+            <div class="flex flex-wrap gap-2 text-xs text-gray-800 mb-1">
+              ${factorCheckInfo.reason ? `<span>拒因 <code class="bg-gray-900 px-1 rounded text-red-300">${this._escapeHtml(factorCheckInfo.reason)}</code></span>` : ''}
+              ${factorCheckInfo.pvp && factorCheckInfo.pvp.branch ? `<span>PVP 分支 <code class="bg-gray-900 px-1 rounded">${this._escapeHtml(factorCheckInfo.pvp.branch)}</code>${pvpHit ? '（PVP 命中）' : ''}</span>` : ''}
+              <span class="text-gray-600">FP${this._escapeHtml(String(factorCheckInfo.version || '1'))}</span>
+            </div>
+            ${armChips ? `<div class="flex flex-wrap gap-1 mb-1">${armChips}</div>` : ''}
+            ${traceRows ? `<details class="mt-1"><summary class="text-xs text-emerald-800 cursor-pointer select-none">📐 PVP 判定树计数（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-5">${traceRows}</div></details>` : ''}
+          </div>
+          `;
+        } else if (fStatus === 'insufficient_ticks') {
+          factorGateHtml = `
+          <div class="mt-2 pt-2 border-t border-emerald-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-emerald-800">🧮 因子购买前检查门（门链第一门 · 纯代码零 Jev）</div>
+              <span class="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded-full">未判定·放行</span>
+            </div>
+            <div class="text-xs text-gray-700">锚窗 ${this._escapeHtml(String(factorCheckInfo.anchorTickCount ?? '—'))} ticks 不足——因子门放行，数据不足由 BP 门 insufficient_ticks 兜底拒（不双拒）</div>
+          </div>
+          `;
+        } else {
+          factorGateHtml = `
+          <div class="mt-2 pt-2 border-t border-emerald-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-emerald-800">🧮 因子购买前检查门（门链第一门 · 纯代码零 Jev）</div>
+              <span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-900 rounded-full">${this._escapeHtml(fStatus || '—')}·放行</span>
+            </div>
+            <div class="text-xs text-gray-700">检测层异常 fail-open 放行（后续门接管）${factorCheckInfo.reason ? `：${this._escapeHtml(String(factorCheckInfo.reason))}` : ''}</div>
+          </div>
+          `;
+        }
       }
 
       // BP 买入点位门（T117 门链第二门）：assessed=badge+维度+anchors 折叠
@@ -3359,6 +3464,7 @@ class ExperimentSignals {
           </div>
           ${strategyConfigHtml}
           ${signalGateHtml}
+          ${factorGateHtml}
           ${failedConditionsHtml}
           ${gmgnCheckHtml}
           ${cheatCheckHtml}
