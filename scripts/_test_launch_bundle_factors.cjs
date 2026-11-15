@@ -450,39 +450,51 @@ console.log('Q. v20 门串求值（提纯=门串组合表达）');
   });
 }
 
-console.log('R. v21 门串求值（v20+破发豁免臂 OR launchConstVsPct <= 0——T142 ASTER 案）');
+console.log('R. v22 门串求值（T145 双修：豁免臂换历史锚 launchMinVsFloorPct<0 + 首两波挡臂 OR 化）');
 {
   const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
-  const gate = '(launchBundleClusterSize < 3 AND (launchFirstBlockWallets < 2 OR launchFirstWaveWallets < 3)) OR tokenAgeSec > 60 OR launchConstVsPct <= 0';
+  const gate = '(launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR tokenAgeSec > 60 OR launchMinVsFloorPct < 0';
   const ev = new ConditionEvaluator();
-  check('R1 ASTER 形状豁免放行：f0=2 ∧ wave=3 ∧ age≤60 ∧ 破发（constVs=−13.0）', () =>
+  check('R1 ASTER 形状豁免放行：f0=2 ∧ wave=3 ∧ age≤60 ∧ 经历过破发（minVsFloor=−48.4）', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
-      tokenAgeSec: 22, launchConstVsPct: -13 }), true));
-  check('R2 同形状未破发仍挡（constVs=+18.98——ASTER 地板锚反弹值不豁免）', () =>
+      tokenAgeSec: 22, launchMinVsFloorPct: -48.4 }), true));
+  check('R2 同形状未经历过破发仍挡（minVsFloor=+18.98）', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
-      tokenAgeSec: 22, launchConstVsPct: 18.98 }), false));
-  check('R3 簇臂命中+破发同豁免（clu≥3 ∧ constVs≤0——豁免臂对簇门部分同放）', () =>
+      tokenAgeSec: 22, launchMinVsFloorPct: 18.98 }), false));
+  check('R3 簇臂命中+经历过破发同豁免（clu≥3 ∧ minVsFloor<0——豁免臂对簇门部分同放）', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 4, launchFirstBlockWallets: 0, launchFirstWaveWallets: 0,
-      tokenAgeSec: 30, launchConstVsPct: -5 }), true));
+      tokenAgeSec: 30, launchMinVsFloorPct: -5 }), true));
   check('R4 簇臂命中+未破发仍挡', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 4, launchFirstBlockWallets: 0, launchFirstWaveWallets: 0,
-      tokenAgeSec: 30, launchConstVsPct: 21.8 }), false));
+      tokenAgeSec: 30, launchMinVsFloorPct: 21.8 }), false));
   check('R5 age>60 照放（原 60s 界语义不变）', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 9, launchFirstBlockWallets: 4, launchFirstWaveWallets: 5,
-      tokenAgeSec: 90, launchConstVsPct: 40 }), true));
-  check('R6 constVs null（未知平台/无可靠价）恒 false 不豁免=宁拦不冒充', () =>
+      tokenAgeSec: 90, launchMinVsFloorPct: 40 }), true));
+  check('R6 minVsFloor null（未知平台/无可靠价）恒 false 不豁免=宁拦不冒充', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 4, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
-      tokenAgeSec: 30, launchConstVsPct: null }), false));
-  check('R7 边界 0 恰好豁免（<=0 含 0）', () =>
+      tokenAgeSec: 30, launchMinVsFloorPct: null }), false));
+  check('R7 边界 0 不豁免（严格 <0——首笔即最低从未破位不算「经历过破发」）', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 4, launchFirstBlockWallets: 0, launchFirstWaveWallets: 0,
-      tokenAgeSec: 30, launchConstVsPct: 0 }), true));
+      tokenAgeSec: 30, launchMinVsFloorPct: 0 }), false));
+  check('R8 T145 实例 0x6e3a 形状被新挡（f0=1 ∧ wave=7 ∧ clu<3 ∧ age≤60 未破发——OR 臂放行形状收口）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 1, launchFirstBlockWallets: 1, launchFirstWaveWallets: 7,
+      tokenAgeSec: 23, launchMinVsFloorPct: 14.35 }), false));
+  check('R9 f0=2 ∧ wave=2 被新挡（AND 化另一臂：首块 2 钱包无续单也拦）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 2,
+      tokenAgeSec: 34, launchMinVsFloorPct: 10 }), false));
+  check('R10 XOR 差集形状+经历过破发 → 豁免放行（豁免臂对新挡臂同放）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 1, launchFirstBlockWallets: 1, launchFirstWaveWallets: 7,
+      tokenAgeSec: 23, launchMinVsFloorPct: -3 }), true));
 }
 
 console.log('S. launchConstVsPct 键（纯常量锚，刻意不吃 T130/T134 地板）');
@@ -522,6 +534,68 @@ console.log('S. launchConstVsPct 键（纯常量锚，刻意不吃 T130/T134 地
   });
   check('S7 getFactorKeys 探针收键', () => {
     assert.ok(newFA().getFactorKeys().has('launchConstVsPct'));
+  });
+}
+
+console.log('T. launchMinVsFloorPct 键（T145「经历过破发」历史锚：滚动最低 vs min(常量, 首买价)）');
+{
+  const CONST = 4496173469e-18;
+  const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+  fa.registerToken(ADDR, { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+  // ASTER 现场简化形状（同 S 段）：首买 1.313 常量（>常量 → floor=常量）→
+  // 滚动最低 0.76 常量（sell 砸出）→ 买点反弹 0.832——历史锚不随反弹漂移
+  feed(fa, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 0, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 1.2, price_bnb: CONST * 1.313, price_usd: 5 },
+    { timestamp: T0 + 21000, block_number: 220, log_index: 0, sender_address: 'w1', trader_address: '0xe1', trade_type: 'sell', bnb_amount: 0.63, price_bnb: CONST * 0.76, price_usd: 5 },
+    { timestamp: T0 + 22000, block_number: 222, log_index: 0, sender_address: 'w2', trader_address: '0xe2', bnb_amount: 0.175, price_bnb: CONST * 0.832, price_usd: 5 },
+  ]);
+  const f = F(fa, T0 + 22000);
+  check('T1 ASTER 形状：launchMinVsFloorPct=−24（滚动最低 0.76 vs floor=常量——v21 现价口径 −16.8 反弹漂移被历史锚钉死）', () =>
+    assert.strictEqual(f.launchMinVsFloorPct, -24));
+  check('T2 同刻 launchConstVsPct=−16.8 vs minVsFloor=−24（两键分离：当下状态 vs 历史事实）', () =>
+    assert.notStrictEqual(f.launchConstVsPct, f.launchMinVsFloorPct));
+  // 低开票：首买 0.9 常量（<常量 → floor=首买价）未创新低 → 键=0 不豁免
+  const faL = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+  faL.registerToken(ADDR, { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+  feed(faL, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 0, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 0.2, price_bnb: CONST * 0.9, price_usd: 5 },
+    { timestamp: T0 + 5000, block_number: 150, log_index: 0, sender_address: 'w2', trader_address: '0xe2', bnb_amount: 0.1, price_bnb: CONST * 0.95, price_usd: 5 },
+  ]);
+  check('T3 低开票首笔即最低未创新低 → 0（floor=首买价，minRel==floor 从未破位不豁免）', () =>
+    assert.strictEqual(F(faL, T0 + 5000).launchMinVsFloorPct, 0));
+  // 低开票盘中创新低 → 负值豁免
+  const faL2 = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+  faL2.registerToken(ADDR, { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+  feed(faL2, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 0, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 0.2, price_bnb: CONST * 0.9, price_usd: 5 },
+    { timestamp: T0 + 5000, block_number: 150, log_index: 0, sender_address: 'w2', trader_address: '0xe2', trade_type: 'sell', bnb_amount: 0.1, price_bnb: CONST * 0.8, price_usd: 5 },
+  ]);
+  check('T4 低开票盘中创新低 → −11.11（floor=首买价 0.9，minRel=0.8——首买者被套离场）', () =>
+    assert.strictEqual(F(faL2, T0 + 5000).launchMinVsFloorPct, -11.11));
+  const faT5 = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+  faT5.registerToken(ADDR, { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null }); // 无 platform
+  feed(faT5, [{ timestamp: T0 + 1000, block_number: 100, log_index: 0, sender_address: 'w1', trader_address: '0xe1', bnb_amount: 1.2, price_bnb: CONST, price_usd: 5 }]);
+  check('T5 未知平台 → null（宁拦不冒充）', () =>
+    assert.strictEqual(F(faT5, T0 + 5000).launchMinVsFloorPct, null));
+  const faT6 = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+  faT6.registerToken(ADDR, { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+  check('T6 未见任何可靠价 → null', () =>
+    assert.strictEqual(F(faT6, T0 + 5000).launchMinVsFloorPct, null));
+  check('T7 源码锁：分母=首买价（T130 口径），不得含滚动最低（含则 ≤0 恒真废门）', () => {
+    const m = src.match(/launchMinVsFloorPct: \(\(\) => \{[\s\S]*?\}\)\(\),/);
+    assert.ok(m, '发射块缺失');
+    assert.ok(/_floorLaunchPriceBnb\(\s*_resolveLaunchPriceBnb\(state\.platform, state\.quoteToken\),\s*state\._firstBuyPriceBnb,?\s*\)/.test(m[0]), '分母必须=常量×首买价地板');
+    const assign = m[0].match(/const floor = _floorLaunchPriceBnb\([\s\S]*?\);/);
+    assert.ok(assign, 'floor 赋值行缺失');
+    assert.ok(!/state\._minRelPriceBnb/.test(assign[0]), '分母不得消费滚动最低');
+    assert.ok(/state\._minRelPriceBnb \/ floor/.test(m[0]), '分子必须=滚动最低');
+  });
+  check('T8 FactorBuilder 快照透传', () => {
+    const fbSrc = fs.readFileSync(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'), 'utf8');
+    assert.ok(/launchMinVsFloorPct: factorResults\.launchMinVsFloorPct \?\? null/.test(fbSrc));
+  });
+  check('T9 getFactorKeys 探针收键', () => {
+    assert.ok(newFA().getFactorKeys().has('launchMinVsFloorPct'));
   });
 }
 

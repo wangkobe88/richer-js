@@ -593,6 +593,13 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-11-07 T122 接近发行价臂（现价较首可靠价涨幅，BP near_launch 同口径；
         // 详见 _test_current_vs_launch_factor.cjs）
         'currentVsLaunchPct',
+        // 2026-11-15 T142 破发豁免锚（现价 vs 常量——T145 起退出 ladder 门串纯观察；
+        // T142 落地时本白名单漏登，T145 补）+ T145「经历过破发」历史锚（滚动最低
+        // vs min(常量,首买价)，ladder v22 豁免臂主键；详见 _test_launch_bundle_factors S/T 段）
+        'launchConstVsPct', 'launchMinVsFloorPct',
+        // 2026-11-15 T143 因子购买前检查门两键（FA 独立投影通道 setFactorPreBuyFactors；
+        // 落地时本白名单漏登，T145 补）
+        'factorPreBuyBlocked', 'factorPreBuyReason',
         // 2026-11-08 CD381 cheat 重检锚双键（详见 _test_cheat_gate_engine CD381 段）
         'preCheatResult', 'priceBackToAlmostLaunch',
         // 2026-11-10 T133 批两键漏登补登（actTotalBnb 第 9 键+sinceEntryFamousNearLaunchBuys；

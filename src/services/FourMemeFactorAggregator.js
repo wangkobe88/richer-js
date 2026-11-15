@@ -3648,17 +3648,37 @@ class FourMemeFactorAggregator extends EventEmitter {
             // T142 破发豁免锚（2026-11-15 ASTER 0x31e2…7777 案，用户裁定「价格已经
             // 完全破发，这种情况理应豁免」）：现价 vs 平台常量发行价——**纯常量、
             // 刻意不吃 T130/T134 地板**（地板锚被砸穿后反弹会掩盖「已破发」事实：
-            // ASTER 被砸到 −24% 后买点地板锚 +19% 而常量锚 −13%）。消费点=ladder v21
-            // 首两波门豁免臂 `OR launchConstVsPct <= 0`——首两波组织钱包收割完成、
-            // 价格跌破发行价=换手完毕的重启位，不按「接开盘刀」拦（三窗 20 张新增
-            // 挡票对拍：唯 ASTER −13.0% ≤0，A/B 窗止血 13 票常量锚全 +7.7~+49.2%
-            // 零漏放，分离带 20pp）。null=未知平台无常量/未见可靠价 → 裸比较恒
-            // false 不豁免（宁拦不冒充）
+            // ASTER 被砸到 −24% 后买点地板锚 +19% 而常量锚 −13%）。**T145（同日
+            // 语义修正）起退出 ladder 门串改纯观察**——现价口径回答「此刻是否破发」，
+            // 而立法本意是「价格**经历过**破发=前期买入者已离场」的历史事实锚
+            // （ASTER 触发时恰仍在水下 −17%~−21% 故当时验证未暴露；深砸后反弹
+            // 回发行价上方再触发的同形状票会被现价口径漏豁免），消费点移交
+            // launchMinVsFloorPct。
             launchConstVsPct: (() => {
                 if (!(state._relPriceBnb > 0)) return null;
                 const c = _resolveLaunchPriceBnb(state.platform, state.quoteToken);
                 return (c > 0)
                     ? parseFloat((100 * (state._relPriceBnb / c - 1)).toFixed(2)) : null;
+            })(),
+            // T145 「经历过破发」豁免锚（ladder v22 首两波门豁免臂 `OR
+            // launchMinVsFloorPct < 0`，2026-11-15 用户三裁定「小于参照锚即可；
+            // min(常量, 首买价)；替换」）：**历史最低可靠价**（T134 `_minRelPriceBnb`
+            // 滚动最低，BUY/SELL 皆算）vs **T130 口径地板**=min(平台常量, 首笔买入
+            // 可靠价)——分母刻意**不含** T134 滚动最低（分子已是滚动最低，分母再含
+            // 则 ≤0 恒真=豁免臂无条件真废掉首两波门）。语义：价格**曾**低于发行锚
+            // （正常票=跌破常量；低开票=跌破首买价=首批买入者被套离场）——与 f0/
+            // wave 同族的出生后历史事实锚，非当下状态锚。严格 `< 0` 才豁免（=0
+            // 为首笔即最低从未破位，不豁免）；null=未知平台无常量/未见可靠价 →
+            // 裸比较恒 false 不豁免（宁拦不冒充）。知情取舍（用户裁定）：阈值取 0
+            // 意味着低开票盘中创过**任意**新低即豁免首两波门（浅破也算「经历过」）
+            launchMinVsFloorPct: (() => {
+                if (!(state._minRelPriceBnb > 0)) return null;
+                const floor = _floorLaunchPriceBnb(
+                    _resolveLaunchPriceBnb(state.platform, state.quoteToken),
+                    state._firstBuyPriceBnb,
+                );
+                return (floor > 0)
+                    ? parseFloat((100 * (state._minRelPriceBnb / floor - 1)).toFixed(2)) : null;
             })(),
             // 毕业进度（E5 卖侧）：four.meme = 可靠价市值 / 72 锚（实测 11 token 收敛 72.1）；
             // flap/gang = 资金口径 池净入金 / 毕业阈值（flap 2026-10-24 替换价格锚：R 恒比

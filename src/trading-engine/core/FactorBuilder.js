@@ -69,8 +69,13 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // ≤+50% 含破发）——新腿条件串主键，信号复盘需落库；旧 FA/无可靠价 → null 不掩盖
     currentVsLaunchPct: factorResults.currentVsLaunchPct ?? null,
     // T142 破发豁免锚（2026-11-15）：现价 vs 平台常量发行价（纯常量不吃地板）——
-    // ladder v21 首两波门豁免臂主键，信号复盘须落库；旧 FA/无常量平台 → null 不掩盖
+    // T145 起退出 ladder 门串改纯观察（语义修正：「经历过破发」移交
+    // launchMinVsFloorPct），信号复盘仍落库；旧 FA/无常量平台 → null 不掩盖
     launchConstVsPct: factorResults.launchConstVsPct ?? null,
+    // T145 「经历过破发」豁免锚（2026-11-15）：历史最低可靠价 vs T130 地板
+    // （min(常量, 首买价)）——ladder v22 首两波门豁免臂主键，信号复盘须落库；
+    // 旧 FA/未见可靠价/无常量平台 → null 不掩盖
+    launchMinVsFloorPct: factorResults.launchMinVsFloorPct ?? null,
     // CD381 重检双键（2026-11-08）：preCheatResult=上次门链检测结果字符串原值 /
     // priceBackToAlmostLaunch=自上次检测价格回到过 almost_launch（重判条件表达式
     // 主键，signal 复盘须落库）；未检测/无锚 → null 不掩盖
