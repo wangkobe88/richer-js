@@ -1548,8 +1548,21 @@ class BacktestEngine extends AbstractTradingEngine {
       const factors = detectFA.buildFactorMap(addr, tick.timestamp);
       if (!factors) continue;
       // signalGate 条件评估（与主循环同款——但只记不执行）
-      const token = this._tokenPool.getToken(addr, 'bsc');
-      if (!token) continue;
+      // token pool 在主循环才填充——Phase 1 用 meta 构造轻量 token（strategyEngine
+      // 消费 symbol/chain 等展示字段，不影响条件评估=纯因子表驱动）
+      const token = this._tokenPool.getToken(addr, 'bsc') || {
+        token: addr, chain: 'bsc', symbol: meta.symbol || '',
+        name: meta.name || meta.symbol || '', platform: tick.platform || 'fourmeme',
+        createdAt: meta.createdAtSec || Math.floor(tick.timestamp / 1000),
+        strategyExecutions: {},
+      };
+      if (!this._tokenPool.getToken(addr, 'bsc')) {
+        this._tokenPool.addToken({ token: addr, chain: 'bsc',
+          symbol: meta.symbol || '', name: meta.name || meta.symbol || '',
+          platform: tick.platform || 'fourmeme', data_source: 'wss',
+          created_at: meta.createdAtSec || Math.floor(tick.timestamp / 1000),
+          current_price_usd: null, creator_address: meta.creator || null });
+      }
       const exhausted = this._signalGateExcludedIds(addr);
       const excl = exhausted ? new Set([...exhausted, ..._sgPerTickExcl]) : _sgPerTickExcl;
       const strategy = this._strategyEngine.evaluate(
@@ -1667,8 +1680,10 @@ class BacktestEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'BacktestEngine', '🔬 T153 两阶段模型启动');
     const points = await this._detectSignalPoints();
     this._gateResultCache = await this._preEvaluateGates(points);
-    // 重置触发计数（阶段 1 消耗的计数不影响阶段 3）
+    // 重置触发计数+seenTokens（阶段 1 消耗不影响阶段 3；seenTokens 重置让
+    // _registerToken 在 Phase 3 正常走 addTokenInsert DB 写路径）
     this._sgTriggerCounts?.clear();
+    this._seenTokens?.clear();
     this.logger.info(this._experimentId, 'BacktestEngine',
       `🔬 预计算完成: ${this._gateResultCache.size} 条缓存 | 进入阶段 3（正常回放+缓存消费）`);
   }
