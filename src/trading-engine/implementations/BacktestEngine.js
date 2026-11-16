@@ -1519,7 +1519,7 @@ class BacktestEngine extends AbstractTradingEngine {
     const t0 = Date.now();
     const points = [];
     // 检测用独立 FA（不影响主循环 FA 状态——主循环的 FA 会被买入改变）
-    const detectFA = new (require('../services/FourMemeFactorAggregator'))(
+    const detectFA = new (require('../../services/FourMemeFactorAggregator'))(
       this._config, this.logger);
     const _sgPerTickExcl = this._signalGatePerTickExcludedIds();
     if (_sgPerTickExcl === null) {
