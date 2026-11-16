@@ -365,8 +365,8 @@ function buildObservation(answers, anchors = null) {
       burstWaveSegSellPct: _anchorPct(anchors, 'burstWaveSegSellPct'),
       // CD410 段前背景两键（sell_driven_activity 成色腿：静默段前 60s 背景窗
       // BNB/min 与笔/min——投影链断档第六例补齐第二道）
-      burstPreSegBnbPerMin: _num(anchors, 'burstPreSegBnbPerMin'),
-      burstPreSegTicksPerMin: _num(anchors, 'burstPreSegTicksPerMin'),
+      burstPreSegBnbPerMin: _anchorNum(anchors, 'burstPreSegBnbPerMin'),
+      burstPreSegTicksPerMin: _anchorNum(anchors, 'burstPreSegTicksPerMin'),
       // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源：波窗（出口后
       // 60s）单块/相邻两 slot 去尘捆绑钱包数；无静默段→null=臂不触发不扩大收紧面）
       burstWaveBundleMaxWallets: _anchorPct(anchors, 'burstWaveBundleMaxWallets'),

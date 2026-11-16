@@ -1268,24 +1268,33 @@ function computeDerived(snapshot, famousRoster) {
       burstExitSegSellBnb = +_segSell.toFixed(4);
       if (_segBuy + _segSell > 0) burstExitSegSellPct = +((_segSell / (_segBuy + _segSell)) * 100).toFixed(1);
       // CD407 burst 流量簇三键（头注见 BURST_WAVE_TAIL_GAP_SEC 常量段+变量声明区）：
-      // 簇=出口行起、行间 gap 连续 <BURST_WAVE_TAIL_GAP_SEC 的活跃段——遇首个
-      // gap ≥ 阈值即截断（切断行不含入簇），其后一切行不计入（**停止一段时间
-      // 后的卖出不是 burst 的一部分**）。首行（出口行）无条件入簇。簇内累加
-      // buy/sell（资金不滤 outlier，CD 全窗买卖口径同款）；sellPct 同款防御性
-      // 0 值 → null。判例 Cashless 11:34:32-33：波 4 买 0.7412 → gap 9s ≥5 切断
-      // → 簇=纯 4 买、簇内卖=0 → CD401 臂 SellPct=0 不触发（旧口径出口整窗
-      // 30.3% 贴线误拦）。
+      // 簇=出口后**最大** gap<BURST_WAVE_TAIL_GAP_SEC 连续活跃段（CD411 2026-11-16
+      // 魔渊 0x9295…7777 案用户裁定「第一个 5 秒窗口只有 2 行还是卖，根本不能用于
+      // 触发 burst」——首段可能只是砸盘前哨，真正主体在后续段）。扫描=从出口行起
+      // 逐段切 gap<5s 连续段（段间 gap≥5s 分割），取**总成交额最大的段**为 burst
+      // 流量簇。判例 Cashless 11:34:32-33：第一段=唯一段（4 买 0.7412），选中不变。
+      // 魔渊 03:57:40-52：第一段 2 卖 0.0385（前哨）vs 第二段 8+1 笔 0.65（主砸），
+      // 最大段=第二段 → CD401 消费第二段的买卖数据（旧版取第一段 0.04<0.3 拦不住）。
+      // 簇内累加 buy/sell（资金不滤 outlier）；sellPct 同款防御性 0 值 → null。
       {
-        let _cBuy = 0, _cSell = 0, _prev = null;
-        for (let i = _lastGapIdx; i < waveTicksAll.length; i++) {
-          const t = waveTicksAll[i];
-          if (_prev !== null && t.dt - _prev.dt >= BURST_WAVE_TAIL_GAP_SEC) break; // 停止≥阈值=簇终止，其后不计入
-          if (t.side === 'BUY') _cBuy += t.bnb || 0; else _cSell += t.bnb || 0;
-          _prev = t;
+        let _bestBuy = 0, _bestSell = 0, _bestTotal = -1;
+        let _i = _lastGapIdx;
+        while (_i < waveTicksAll.length) {
+          let _cBuy = 0, _cSell = 0, _prev = null;
+          let _j = _i;
+          for (; _j < waveTicksAll.length; _j++) {
+            const t = waveTicksAll[_j];
+            if (_prev !== null && t.dt - _prev.dt >= BURST_WAVE_TAIL_GAP_SEC) break;
+            if (t.side === 'BUY') _cBuy += t.bnb || 0; else _cSell += t.bnb || 0;
+            _prev = t;
+          }
+          const _tot = _cBuy + _cSell;
+          if (_tot > _bestTotal) { _bestTotal = _tot; _bestBuy = _cBuy; _bestSell = _cSell; }
+          _i = _j; // 跳到段末（gap≥5s 的行=下一段起点）
         }
-        burstWaveSegBuyBnb = +_cBuy.toFixed(4);
-        burstWaveSegSellBnb = +_cSell.toFixed(4);
-        if (_cBuy + _cSell > 0) burstWaveSegSellPct = +((_cSell / (_cBuy + _cSell)) * 100).toFixed(1);
+        burstWaveSegBuyBnb = _bestTotal > 0 ? +_bestBuy.toFixed(4) : null;
+        burstWaveSegSellBnb = _bestTotal > 0 ? +_bestSell.toFixed(4) : null;
+        if (_bestTotal > 0) burstWaveSegSellPct = +((_bestSell / _bestTotal) * 100).toFixed(1);
       }
       // T143-CD401 背景活跃度两键：背景窗=静默段起点（静默前最后一行=出口行
       // 前一行）往前 60s——「静默之前盘面是否本来就热」；Go Brrrrr 案 39s 喘息
