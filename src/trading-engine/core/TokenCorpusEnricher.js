@@ -34,7 +34,7 @@ const { GangTokenAPI } = require('../../core/gang-api/token-api');
 
 /** 默认配置（引擎侧 mergedWsConfig().corpusEnrich 覆盖） */
 const DEFAULT_OPTIONS = {
-  enabled: true,
+  enabled: false,
   concurrency: 3,
   fourmemeRetryDelayMs: 10 * 1000,
   gangRetryDelayMs: 10 * 1000, // indexer 未就绪（新票 Created 先于索引落库）延迟重试 1 次
