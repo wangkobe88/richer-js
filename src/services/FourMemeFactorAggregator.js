@@ -2905,10 +2905,17 @@ class FourMemeFactorAggregator extends EventEmitter {
      *   launchFirstBlockWallets     —— 首块（firstBlockNumber，首 tick 所在块 write-once）
      *                                  首买钱包数 f0（T141 首两波臂：狙击小队先头在首块）
      *   launchFirstWaveWallets      —— f0 + 首块后 ≤2s（块首行时间差，LAUNCH_FIRST_WAVE_MS）
-     *                                  内第一个有交易块（buy/sell 都算活跃）的首买钱包数
-     *                                  ——「狙击小队先头在首块+同波续单在下一块」合并计数；
+     *                                  **内全部块**（buy/sell 都算活跃）的首买钱包数
+     *                                  ——「狙击小队先头在首块+同波续单在后续块」合并计数；
      *                                  首买语义跨块天然去重。两键均纯事实计数（不内建 f0≥2
      *                                  提纯——门串组合表达），空窗/锚缺失全 0 有证据零值。
+     *                                  T150（2026-11-16 用户立法「抛压理念」双修）：①f0/wave/
+     *                                  clu 三键计数只认净持仓 > 尘线（_holderDustTokens）的
+     *                                  「站立抛压」钱包——已清仓/尘埃持仓不计（抛压已释放）；
+     *                                  ②波窗从「第一个有交易块」扩为 2s 内全部块（0x6e3a 案
+     *                                  0.0385×3 三连买在第二块漏计）；③clu 选优 BNB→钱包数
+     *                                  （0.594 鲸单劫持退化案）。等额簇两键不滤（金额指纹
+     *                                  纯观察语义）。
      * 与现行 bundle* 6 键双臂并存：10s 滑窗管「当下对敲」（FLY 形状），launch* 管「出生期
      * 捆绑指纹」（Konasu/鲸元卷同块等额、Agentum 0.1485×3 跨块等额——迟至 fire 时刻簇
      * 已完成即可见；fire 早于簇完成的快枪形状（Agentum fire+61s 第三笔+70s 才到）天然
@@ -2920,9 +2927,20 @@ class FourMemeFactorAggregator extends EventEmitter {
     _launchBundleFactors(state) {
         if (state._launchFrozen) return state._launchFrozen;
         const rows = [...state._launchFirstBuys.values()];
-        // 同块簇（现行 _bundleClusterFactors 同款选取：金额最大 → size 大 → blk 小）
+        // T150 站立抛压过滤（2026-11-16 用户立法「我们整个策略希望解决的问题是早期
+        // 参与者太多所以抛压会大，那么小额持仓自然就不应该算在其中」）：f0/wave/clu
+        // 三键计数只认「净持仓 > 尘线」的钱包——已清仓/尘埃持仓钱包的抛压已释放或
+        // 可忽略。尘线=T98 token 域常量 _holderDustTokens（holderDustBnb÷首可靠价；
+        // 0=无首可靠价退化 → 只剔已清仓 net≤0，与 holdersExDust fail-open 哲学同向）。
+        // 净持仓随回放推进实时变化（冻结前每次读取现算）——组织小队出货后计数自动
+        // 回落=「抛压释放」语义。等额簇两键刻意**不滤**（0.0385×3 出货后金额指纹
+        // 仍在——纯观察键，出生期取证语义）。
+        const dustTok = state._holderDustTokens || 0;
+        const standing = rows.filter(e => (state._walletNetTokens.get(e.w) || 0) > dustTok);
+        // 同块簇（T150 选优改钱包数优先：BNB 选优被鲸单劫持——0x6e3a 案 0.594 鲸买
+        // 单钱包簇压住 6 钱包簇/0.1155 三连买簇致 clu=1 退化，簇键语义=同块钱包数）
         const byBlock = new Map();
-        for (const e of rows) {
+        for (const e of standing) {
             if (e.blk === null) continue;
             let c = byBlock.get(e.blk);
             if (!c) { c = { bnb: 0, n: 0 }; byBlock.set(e.blk, c); }
@@ -2932,9 +2950,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         let best = null;
         for (const [blk, c] of byBlock) {
             if (best === null
-                || c.bnb > best.c.bnb
-                || (c.bnb === best.c.bnb
-                    && (c.n > best.c.n || (c.n === best.c.n && blk < best.blk)))) {
+                || c.n > best.c.n
+                || (c.n === best.c.n
+                    && (c.bnb > best.c.bnb || (c.bnb === best.c.bnb && blk < best.blk)))) {
                 best = { blk, c };
             }
         }
@@ -2956,25 +2974,22 @@ class FourMemeFactorAggregator extends EventEmitter {
             i = j;
         }
         if (eqN < 3) { eqN = 0; eqBnb = 0; } // <3 钱包非簇（2 钱包等额=常见巧合，FLY 由 10s 臂管）
-        // 首两波（T141 2026-11-15）：f0=首块首买钱包数；nextBlk=首块后块首行时间差 ≤2s
-        // 的最小块号（「第一个有交易块」）；wave=f0+nextBlk 首买数。首块锚缺失
-        // （firstBlockNumber null，生产/回测行恒非空的理论形状）→ 两键 0 fail-open
-        // 放行（与 cluster 空窗 0 同向）；fbTs 缺失（首块行未进活跃块 map——不可达
-        // 防御）→ fNext 不算，wave=f0。
+        // 首两波（T141 2026-11-15；T150 双修：①计数吃站立抛压过滤（见上 standing）
+        // ②波窗扩为首块后 ≤2s **全部块**——原只数「第一个有交易块」，0x6e3a 案
+        // 0.0385×3 三连买在第二块漏计，用户立法「2 秒以内都可以放进去」）。首块锚
+        // 缺失（firstBlockNumber null）→ 两键 0 fail-open 放行（与 cluster 空窗 0
+        // 同向）；fbTs 缺失（首块行未进活跃块 map——不可达防御）→ fNext 不算。
         const fb = state.firstBlockNumber;
         let f0 = 0, fNext = 0;
         if (fb !== null) {
-            for (const e of rows) if (e.blk === fb) f0++;
+            for (const e of standing) if (e.blk === fb) f0++;
             const fbTs = state._launchBlkFirstTs.get(fb);
             if (fbTs !== undefined) {
-                let nextBlk = null;
+                const waveBlks = new Set();
                 for (const [blk, ts] of state._launchBlkFirstTs) {
-                    if (blk <= fb || ts - fbTs > LAUNCH_FIRST_WAVE_MS) continue;
-                    if (nextBlk === null || blk < nextBlk) nextBlk = blk;
+                    if (blk > fb && ts - fbTs <= LAUNCH_FIRST_WAVE_MS) waveBlks.add(blk);
                 }
-                if (nextBlk !== null) {
-                    for (const e of rows) if (e.blk === nextBlk) fNext++;
-                }
+                for (const e of standing) if (waveBlks.has(e.blk)) fNext++;
             }
         }
         return {
