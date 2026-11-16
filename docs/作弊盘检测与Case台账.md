@@ -187,6 +187,18 @@
 
 ## Case 倒序
 
+### CD409 ultra 档活跃度豁免整体退役——M 通道死通道修复（2026-11-16，btv134 复审 R4；题集/grade 零改动，mapper-only 不 bump）
+
+**用户裁定原话**：「先把 ultra 豁免去掉吧」（btv134 复审剩余问题二次盘点后指定 R4 首修）。
+
+**案源**（btv134 复审组 10 用户质询「activity_ultra 怎么会豁免呢」）：蝴蝶人生2.0一 `0x8894323f…7777`（BP-T095）原判 **unhealthy（M_hyper_activity）→ activity_ultra 豁免放行** −0.0150。**结构性矛盾**：M 通道触发条件=activity_level=ultra，豁免臂条件含 ultra——凡 M 通道触发的票必然同时满足豁免条件=**M_hyper_activity 从 CD379 豁免集扩到 ultra 那天起被 100% 吃掉（死通道，unhealthy 档无一生还）**。加重项：该票出口段卖压锚 70.4%/0.762 BNB 超额命中 CD401 两要件，唯第三要件限 sbw=1（sbw=none）臂不生效——双防线各差一口气（CD401 去 sbw 限制=余项 R5）。
+
+**改动**（`CheatCheckService.parseActivityExemptLevels` 缺省单点）：`['high','ultra']`→`['high']`。行为变化四点：①M 通道恢复拦截（ultra∧unhealthy 原判保持拒买）；②ultra∧cheat 不再豁免（原判保持拉黑清仓——与 CD388 时代拒的方向一致，但从 ultra_cheat denied 变资格缺席早退，**早退在 CD380 denied 检查前**：ultra∧cheat∧wash 无 burst 票从 wash_pair 留痕变原样返回——拒向不变码变）；③CD391 ultra_cheat 臂不可达（actHit=桶∈豁免集，ultra∉集→false）代码保留（显式 `['high','ultra']` 配置可恢复=回滚开关，域不动）；④**burst 臂不受影响**（CD383/CD397 sbw==1 独立于 activity 桶——ultra∧cheat∧burst 照豁免 code=stall_burst，高大上主案形状回归 CD379 前原形状）。btv134 影响面=仅案源 1 张 ultra 票（cheat.act==3 全场唯一）。
+
+**单测**：`_test_cheat_gate_engine.cjs` 172 断言全绿——F1 缺省锁改 high；F2/F7/F9 七处 ultra 断言按 CD409 语义重写（原判保持/计数不动/early-exit 次序/stall_burst 独立臂回归）；cheat 族四件回归零翻动。配置文档：CLAUDE.md CD379 段缺省值更新。
+
+**余留**：生产 grade 轨迹观察（ultra∧M 恢复拦截后的拒面分布）；bt-v90 盈利三票（c84a0ff2/32f18a98/f485ec1d ultra∧unhealthy 旧豁免形状）为 CD379 时代证据，CD409 撤销后属知情取舍；R5（CD401 去 sbw）独立推进。
+
 ### CD407 burst 卖压审查对象收紧为「这一波突然的流量」——burstWaveSeg 簇三键（2026-11-14，判据源换轨案·snapshot 新三键+service CD401 臂改读新键纯代码数值门，题集 D3.71/grade G18 题面/state/FA 投影零改动；btv113 `38d91153` Cashless `0xbcb728291999b8fc26629530ea97d5a218df7777` 首信号归因立法；用户裁定原话「我是这么想的，所谓burst，可以理解成注意力/流动性的突然涌入，但是为什么要控制 burst 的质量，是为了反作弊，防止庄家快买快卖通过这种方式收割，所以 burst 快速拉起然后快速卸货，或者burst本身中卖的力量太强都不合适。 但是这个case，burst 形态算很健康了，先是四个买入，然后过一段时间有卖出，然后又有买入。这不是作弊形态。 问题在于，我们考量 "burst" 的对象是什么，我认为只考量 "这一波突然的流量" 即可， 这里四个买入之后是停止一段时间才卖出的，这些卖出我认为不是 burst 的一部分。 burst 只是让盘面通过了，但是它的反作弊审查，这几个卖出不应该参与的」）
 
 **动机（btv113 Cashless 首信号）**：btv113=btv111（`5390bbfa`）克隆删 low-zone-stall-exit 臂重跑（T133 验证臂真实贡献），Cashless 首信号（11:34:46 锚）trig1 sbw=burst 后被 CD401 `burst_exit_sell_pressure` 拒——时间线：11:34:32-33 波 4 买 0.7412（四钱包，burstWaveNetBnb=0.7411 **一股未卖**）→ **gap 9s** → 11:34:42/44 两笔**簇外获利盘**卖 0.4082；旧口径「出口段（最后 ≥30s 静默段出口行→锚整窗）」把这 gap 后的卖出计入卖占比 30.3% 贴线 30 误拦健康形态票。用户形状判定「burst 形态算很健康了……这不是作弊形态」成立。

@@ -109,7 +109,15 @@ const BURST_BUNDLE_MIN_WALLETS = 7;
 // dynamic import 锁两边一致防漂移）
 const ACTIVITY_EXEMPT_DOMAIN = ['low', 'mid', 'high', 'ultra'];
 function parseActivityExemptLevels(v) {
-  if (v === undefined || v === null) return new Set(['high', 'ultra']);
+  // CD409（2026-11-16 btv134 复审 R4，用户裁定「先把 ultra 豁免去掉吧」）：缺省
+  // ['high','ultra']→['high']——ultra 档豁免整体退役。案源=蝴蝶人生2.0一
+  // （0x8894323f…7777，M_hyper_activity unhealthy→activity_ultra 豁免放行 −0.0150）：
+  // M 通道触发条件=act=ultra 与豁免集含 ultra 数学互斥→**CD379 扩 ultra 日起 M 通道
+  // 被 100% 吃掉（死通道）**；同时 ultra∧unhealthy 全桶不再豁免（机器盘级极端密集
+  // 本就是拒买语义——与 FP2 act_ultra 拒买臂同向）。显式 ['high','ultra'] 配置仍可
+  // 恢复（域不动=回滚开关）；CD391 ultra_cheat denied 臂随之不可达（actHit 定义=
+  // 桶∈豁免集，ultra∉集→actHit=false）留代码不删（显式恢复配置时复活）。
+  if (v === undefined || v === null) return new Set(['high']);
   if (!Array.isArray(v)) {
     throw new Error(`cheatCheck.gate.activityExemptLevels 须为数组（合法域 ${ACTIVITY_EXEMPT_DOMAIN.join('/')}），got ${typeof v}`);
   }
@@ -145,8 +153,8 @@ class CheatCheckService {
     // 门决策域变换——grade∈{cheat,unhealthy} ∧ activityLevel 桶∈豁免集 → 出口变换
     // healthy 放行（exempt 留痕含 originalGrade）；观测行落库保留原始 grade（研究
     // 原料）；豁免命中不登记拉黑（引擎短路/清仓/迟到拉黑自然不触发）。
-    // 缺省 ['high','ultra'] 默认生效；显式 []=关；非法值 throw（配置错误 fail-fast
-    // 防静默失效——CheatCheckServiceTest CD379 段锁域与题集 ACTIVITY_LEVELS 一致）
+    // 缺省 ['high'] 默认生效（CD409 起，原 ['high','ultra']）；显式 []=关；非法值
+    // throw（配置错误 fail-fast 防静默失效——域不动=['high','ultra'] 仍可显式恢复）
     this._activityExemptLevels = parseActivityExemptLevels(config.gate && config.gate.activityExemptLevels);
     // CD389 每信号重判开关（2026-11-09 用户裁定「cheat 检测每一次都重新做，不缓存
     // cheat 的结果，每一次都重新算」——bt-v91 重跑引出；缺省 false 生产零变化）：
