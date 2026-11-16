@@ -1803,6 +1803,7 @@ class AbstractTradingEngine extends ITradingEngine {
         totalSupply: faState?.totalSupply ?? null,
       };
       try {
+        const _fp4T0 = Date.now();
         const res = await svc.evaluateFactorPreBuy(tokenAddress, meta, {
           experimentId: this._experimentId,
           signalId,
@@ -1810,6 +1811,9 @@ class AbstractTradingEngine extends ITradingEngine {
           firePriceBnb: ctx.firePriceBnb ?? null,
           strategyName: ctx.strategyName ?? null,
         }, Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {});
+        const _fp4Dt = Date.now() - _fp4T0;
+        if (_fp4Dt > 300) this.logger.info(this._experimentId, 'SignalGate',
+          `FP4 慢评估 ${_fp4Dt}ms | ${token.symbol || tokenAddress.slice(0, 10)}`);
         if (res && res.status === 'assessed') {
           pass = res.pass === true;
           info = {

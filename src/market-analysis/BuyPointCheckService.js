@@ -431,6 +431,7 @@ class BuyPointCheckService {
           fromMem: true,
         };
       }
+      this._log('info', `mem拉数miss（600ms+DB 兜底）| ${token} anchor=${anchorMs ?? '无'}`);
       await new Promise((r) => setTimeout(r, this._settleFlushMs));
     }
     return this._pullTicksDb(token, anchorMs);
