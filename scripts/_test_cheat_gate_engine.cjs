@@ -1019,6 +1019,51 @@ await testActivityExempt();
 await testAlwaysRecheck();
 
 console.log(`\n${pass} 通过, ${fail} 失败`);
+
+// ══ H. CD410 砸盘流量冒充活跃度成色腿（btv134 蝴蝶二案 0x088fdf75…7777）══
+{
+  const mkR = (anchors, over = {}) => Object.assign({
+    status: 'graded', grade: 'unhealthy', reasons: [],
+    buckets: { activityLevel: 'high' }, levels: {}, anchors,
+  }, over);
+  const PRE = { burstPreSegBnbPerMin: 0.001, burstPreSegTicksPerMin: 2 };
+  const HOT = { burstPreSegBnbPerMin: 0.29, burstPreSegTicksPerMin: 6 };
+  const SEG55 = { burstExitSegBuyBnb: 0.35, burstExitSegSellBnb: 1.94, burstExitSegSellPct: 84.7 };
+  const { CheatCheckService: Ccs } = require('../src/market-analysis/CheatCheckService');
+  const sH = new Ccs(
+    { enabled: true, gate: {} }, { info: () => {}, warn: () => {}, error: () => {} }, {});
+  const r1 = sH._applyActivityExempt(mkR({ ...PRE, ...SEG55 }));
+  check('H1 主案形状（段前 0.001B/2笔 ∧ 段比 5.5）→ denied sell_driven_activity 原判保持',
+    { grade: r1.grade, denied: r1.exemptDenied, exempt: r1.exempt },
+    { grade: 'unhealthy', denied: 'sell_driven_activity', exempt: undefined });
+  ok('H1 sellDrivenDenied 计数+1', sH.stats.sellDrivenDenied === 1, sH.stats);
+  const r2 = sH._applyActivityExempt(mkR({ ...HOT, ...SEG55 }));
+  check('H2 二郎形状（段比 5.5 但段前 0.29B/6笔 不冷）→ 照常豁免 activity_high',
+    { grade: r2.grade, code: r2.exempt && r2.exempt.code },
+    { grade: 'healthy', code: 'activity_high' });
+  const r3 = sH._applyActivityExempt(mkR({ ...PRE, burstExitSegBuyBnb: 0.5, burstExitSegSellBnb: 0.6 }));
+  check('H3 CephCam 形状（段前冷但段比 1.2=盘面有买）→ 照常豁免',
+    { grade: r3.grade, code: r3.exempt && r3.exempt.code },
+    { grade: 'healthy', code: 'activity_high' });
+  const r4 = sH._applyActivityExempt(mkR({ burstExitSegBuyBnb: 0.35, burstExitSegSellBnb: 1.94 }));
+  check('H4 段前锚缺失 → 成色腿不触发（宁不拦方向安全）',
+    { grade: r4.grade, code: r4.exempt && r4.exempt.code },
+    { grade: 'healthy', code: 'activity_high' });
+  const r5 = sH._applyActivityExempt(mkR({ ...PRE, ...SEG55 }, { levels: { stallBurstWave: 1 } }));
+  check('H5 stallBurst 同中 → 成色腿仍拒（denied 全路径优先=CD380 家族语义）',
+    { grade: r5.grade, denied: r5.exemptDenied },
+    { grade: 'unhealthy', denied: 'sell_driven_activity' });
+  const r6 = sH._applyActivityExempt(mkR({ ...PRE, ...SEG55, burstWaveWalletNetBnb: 0.5 }, { buckets: { activityLevel: 'mid' }, levels: { stallBurstWave: 1 } }));
+  check('H6 非 actHit（mid 桶 burst 臂独立）→ burst 豁免不被本腿拦',
+    { grade: r6.grade, code: r6.exempt && r6.exempt.code },
+    { grade: 'healthy', code: 'stall_burst' });
+  const r7 = sH._applyActivityExempt(mkR({ ...PRE, burstExitSegBuyBnb: 0, burstExitSegSellBnb: 2.9 }));
+  check('H7 段买=0 除零防线 → 不触发照常豁免（segBuy>0 门）',
+    { grade: r7.grade, code: r7.exempt && r7.exempt.code },
+    { grade: 'healthy', code: 'activity_high' });
+}
+
+console.log(`\n最终: ${pass} 通过, ${fail} 失败`);
 process.exit(fail === 0 ? 0 : 1);
 
 })().catch((e) => { console.error(e); process.exit(1); });

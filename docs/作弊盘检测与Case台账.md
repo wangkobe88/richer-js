@@ -187,6 +187,20 @@
 
 ## Case 倒序
 
+### CD410 砸盘流量冒充活跃度成色腿（sell_driven_activity）——btv134 复审 R7 蝴蝶人生2.0二案立法（2026-11-16；纯代码数值臂第七例，题集/grade 零改动）
+
+**用户两轮裁定原话**：「蝴蝶2.0 的问题是，它是一个低活跃度票，只在砸盘的时候活跃度 high 了」+「用指标计算代币的长期活跃度，或当前活跃度计算段前面 2 个时间区间的活跃度，如果前面 low，当前段又是砸盘主导，那么就不太好」。
+
+**案源**：蝴蝶人生2.0二 `0x088fdf75…7777`（BP-T096）——全程死盘（1063s 仅 41 笔），+97% 高位砸出 1.937 BNB 卖占 84.7% → 砸盘瞬间 act=high → activity_high 豁免缓推泵 strong 放行。**R5 高档臂否证后本臂接棒**（出口段卖买比单轴命中 5 token 但二郎 +0.036 误伤=单轴贴线 5.0 vs 5.5 分不开——用户两轴联立设计解决）。
+
+**判据**（两轴联立）：actHit 路径专用——①**段前背景冷**（静默段前 60s <0.5 BNB/min ∧ <6 笔/min=T143 FP1 背景腿同线同源，线值 import FP1 单源）∧ ②**出口段卖买比 ≥3**（burstExitSegSellBnb/burstExitSegBuyBnb，CD404 同线）→ denied 'sell_driven_activity'（原判保持）。stallBurst 独立臂不受本腿影响；锚缺失宁不拦。
+
+**btv134 全量验证**（186 activity 豁免 token / 2505 BUY 信号分页拉全）：联立命中=**唯一 1 token（主案）**——段前 0.001 BNB/2 笔（全程死盘实证）+ 段比 5.5（41 笔砸盘）；二郎（段比 3.3 但段前 0.29B/6 笔不冷=famous 在场换手背景）与 CephCam/比格多栋（段前冷但段比 1.4/1.6=盘面转强有买）被两轴联立精确排除——**零误伤**。
+
+**投影链断档第六例**：`burstPreSegBnbPerMin/burstPreSegTicksPerMin` 此前仅在 cheat-snapshot cd 层（FP1 直读），service 挑键清单与 mapper buildObservation 内部白名单两道全无——本臂落地时三道齐补。⚠**2505 BUY 信号无分页被 PostgREST 静默截断成 417 行**——分页拉全后两案才可见（红线 5 再实证）。
+
+**单测**：`_test_cheat_gate_engine.cjs` 180 断言（H 段 7 条：主案命中/二郎不冷放行/CephCam 段比低放行/段前锚缺失放行/stallBurst 同中仍拒〔denied 全路径优先=CD380 家族语义〕/mid 桶 burst 臂独立不被本腿拦/段买=0 除零防线）。⚠夹具 mkR 两参分离 bug：buckets/levels 塞进 anchors 参数导致默认 high 覆盖——修后全绿。cheat 族五件回归零翻动。
+
 ### CD409 ultra 档活跃度豁免整体退役——M 通道死通道修复（2026-11-16，btv134 复审 R4；题集/grade 零改动，mapper-only 不 bump）
 
 **用户裁定原话**：「先把 ultra 豁免去掉吧」（btv134 复审剩余问题二次盘点后指定 R4 首修）。

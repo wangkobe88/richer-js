@@ -103,6 +103,14 @@ const DUMP_LOW_ABSORPTION_RATIO = 0.3;
 // 去尘捆绑钱包 ≥7=挡（单块或相邻两 slot 合计）——同族线=BP77 塞单门 ≥8/CD403 卖方
 // ≥8 的买侧对偶（同块 7+ 独立钱包=组织性捆绑，散户到不了同块规模）
 const BURST_BUNDLE_MIN_WALLETS = 7;
+// CD410 段前背景线（R7 成色腿）：与 FP1 burstContextBackgroundCold 同线同源——
+// T143 先例（cheat 侧臂线值 import FP1 单源）防两处漂移
+const {
+  BURST_CONTEXT_PRESEG_MIN_BNB: SELL_DRIVEN_PRESEG_MIN_BNB_PER_MIN,
+  BURST_CONTEXT_PRESEG_MIN_TICKS: SELL_DRIVEN_PRESEG_MIN_TICKS_PER_MIN,
+} = require('./factor-pre-buy-check');
+// CD410 出口段卖买比线（「前面 low+当前段砸盘主导」=卖 ≥3 倍，CD404 同线）
+const SELL_DRIVEN_EXIT_SELL_BUY_RATIO = 3;
 
 // CD379 活跃度豁免合法域（2026-11-07 用户裁定）——与 llm/cheat-questions.mjs 的
 // ACTIVITY_LEVELS 同域（ESM 不能静态 require，单测 _test_cheat_gate_engine.cjs
@@ -211,6 +219,7 @@ class CheatCheckService {
       exemptDenied: 0, // CD380 不豁免臂命中计数（豁免失效恢复原判：现行 wash+CD400 dump 承接——pump 臂 11-08 四修移除（价格约束移交 BP 门位置门）、holdings 臂三修移除）
       dumpAbsorbDenied: 0, // CD400 贴锚砸出零承接臂命中细分计数（dump_no_absorption；生产触发频率观察）
       burstSellDenied: 0, // CD401 出口段卖压臂命中细分计数（burst_exit_sell_pressure；生产触发频率观察）
+      sellDrivenDenied: 0, // CD410 砸盘流量冒充活跃度成色腿命中计数（sell_driven_activity；生产触发频率观察）
       dumpRatioDenied: 0, // CD403 超大量捆绑砸盘承接比臂命中细分计数（dump_low_absorption；生产触发频率观察）
       burstBundleDenied: 0, // CD405 burst 捆绑收割臂命中细分计数（burst_bundled_wave；生产触发频率观察）
       ultraCheatDenied: 0, // CD388/CD391 ultra 档资格收紧命中计数（cheat∧ultra∧burst 不在场=不豁免原判保持；11-09 两度裁定：CD390 曾推广全档、CD391「交易活跃度热，cheat 继续豁免」收回 ultra 单档恢复 high 豁免）
@@ -681,6 +690,35 @@ class CheatCheckService {
       if (denied === 'burst_bundled_wave') this.stats.burstBundleDenied++; // CD405 细分计数
       return { ...res, exemptDenied: denied }; // 原判保持（cheat/unhealthy），留痕供生产对拍
     }
+    // CD410（R7）砸盘流量冒充活跃度成色腿（2026-11-16 btv134 复审蝴蝶人生2.0二
+    // 0x088fdf75…7777 案立法——用户两轮裁定「低活跃度票，只在砸盘的时候活跃度
+    // high 了」+「用指标计算代币的长期活跃度，或当前活跃度计算段前面 2 个时间
+    // 区间的活跃度，如果前面 low，当前段又是砸盘主导，那么就不太好」）：
+    // actHit（activity 桶豁免资格）路径专用——**段前背景冷**（静默段前 60s 背景
+    // 窗 <0.5 BNB/min ∧ <6 笔/min=T143 FP1 背景腿同线同源〔线值 import 单源〕=
+    // 长期死盘）∧ **出口段卖买比 ≥3**（burstExitSegSellBnb/burstExitSegBuyBnb，
+    // CD404「卖 ≥3 倍不算吞吐」同线=段内卖主导的砸盘流量）→ 该 activity 桶是
+    // 砸出来的假活跃，豁免失效原判保持 denied 'sell_driven_activity'。
+    // btv134 全量验证（186 activity 豁免 token）：唯一命中=主案（段前 0.001 BNB/
+    // 2 笔 + 段比 5.5）；二郎（段比 3.3 但段前 0.29B/6 笔不冷=famous 在场换手
+    // 背景）与 CephCam/比格多栋（段前冷但段比 1.4/1.6=盘面转强有买）被两轴
+    // 联立精确排除——单轴贴线（二郎 5.0 vs 主案 5.5）由联立解决。
+    // stallBurst 独立臂不受本腿影响（burst 语境流量涌入是买主导，CD402 质量
+    // 线已管；锚缺失〔无段/段前窗空〕→ preCold false 不触发，宁不拦方向安全）。
+    if (actHit && res.anchors) {
+      const an = res.anchors;
+      const preCold = typeof an.burstPreSegBnbPerMin === 'number'
+        && typeof an.burstPreSegTicksPerMin === 'number'
+        && an.burstPreSegBnbPerMin < SELL_DRIVEN_PRESEG_MIN_BNB_PER_MIN
+        && an.burstPreSegTicksPerMin < SELL_DRIVEN_PRESEG_MIN_TICKS_PER_MIN;
+      const segBuy = an.burstExitSegBuyBnb;
+      const segSell = an.burstExitSegSellBnb;
+      if (preCold && typeof segBuy === 'number' && segBuy > 0
+        && typeof segSell === 'number' && segSell / segBuy >= SELL_DRIVEN_EXIT_SELL_BUY_RATIO) {
+        this.stats.sellDrivenDenied++;
+        return { ...res, exemptDenied: 'sell_driven_activity' };
+      }
+    }
     // CD391（2026-11-09 用户裁定「交易活跃度热，cheat 继续豁免」——CD390 全档
     // 收回 ultra 单档=CD388 形态恢复）：cheat ∧ activity=ultra ∧ burst 资格不在场
     // → 不豁免原判保持 cheat（拉黑+清仓联动照常，exemptDenied='ultra_cheat'）；
@@ -891,6 +929,11 @@ class CheatCheckService {
           burstWaveSegBuyBnb: snapshot.derived.burstWaveSegBuyBnb,
           burstWaveSegSellBnb: snapshot.derived.burstWaveSegSellBnb,
           burstWaveSegSellPct: snapshot.derived.burstWaveSegSellPct,
+          // CD410 段前背景两键（sell_driven_activity 成色腿判据源——静默段前 60s
+          // 背景窗 BNB/min 与笔/min；T143 FP1 背景腿同线同源——此前仅在 snapshot
+          // cd 层（FP1 直读）零投影，投影链断档第六例实证后补齐三道）
+          burstPreSegBnbPerMin: snapshot.derived.burstPreSegBnbPerMin,
+          burstPreSegTicksPerMin: snapshot.derived.burstPreSegTicksPerMin,
           // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源——波窗
           // 单块/相邻两 slot 去尘捆绑钱包数；头注见 cheat-snapshot 计算段）
           burstWaveBundleMaxWallets: snapshot.derived.burstWaveBundleMaxWallets,
