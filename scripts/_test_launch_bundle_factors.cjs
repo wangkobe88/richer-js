@@ -599,32 +599,36 @@ console.log('T. launchMinVsFloorPct 键（T145「经历过破发」历史锚：�
   });
 }
 
-console.log('U. v23 门串求值（T149 年龄臂换锚：tokenAgeSec>60 → sinceFirstTradeSec>45）');
+console.log('U. v24 门串求值（T149 二修：年龄放行臂=(tokenAgeSec>60 AND sinceFirstTradeSec>45) 双门 AND——v23 误整臂替换已纠正）');
 {
   const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
-  const gate = '(launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR sinceFirstTradeSec > 45 OR launchMinVsFloorPct < 0';
+  const gate = '(launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR (tokenAgeSec > 60 AND sinceFirstTradeSec > 45) OR launchMinVsFloorPct < 0';
   const ev = new ConditionEvaluator();
-  check('U1 事故反证（bt-v135 0x3441cc2a 案）：创建后 50s 才开交易、首两波满员、tokenAgeSec=72 旧门放行的形状 → sinceFirstTradeSec=22<45 新门拦', () =>
+  check('U1 事故反证（bt-v135 0x3441cc2a 案）：创建后 50s 才开交易、首两波满员、tokenAgeSec=72>60 过旧门但 sinceFirstTradeSec=22<45 → 双门 AND 拦', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
       tokenAgeSec: 72, sinceFirstTradeSec: 22, launchMinVsFloorPct: 5 }), false));
-  check('U2 正常早开盘：首买 22s 后触发（sinceFirstTrade=22<45）首两波满员仍挡（语义不变）', () =>
+  check('U2 原门独立拦截面保留：tokenAgeSec=22<60（早开盘首两波满员）即使 sinceFirstTrade=22 也无老化——两门全 false 拦（v22 语义不变）', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
       tokenAgeSec: 22, sinceFirstTradeSec: 22, launchMinVsFloorPct: 5 }), false));
-  check('U3 首笔交易 46s 后：筹码已换手放行（45s 界与旧 60s 界同语义收紧 15s）', () =>
+  check('U3 反向缺口（v23 误换锚引入的真实回归面）：正常即开交易票 age=50（sinceFirstTrade=50>45 过新门）但 <60 旧门未过 → 仍拦（v23 单门会提前 10s 放行；物理约束 sinceFirstTrade ≤ tokenAgeSec）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
+      tokenAgeSec: 50, sinceFirstTradeSec: 50, launchMinVsFloorPct: 5 }), false));
+  check('U4 双门同过才放：tokenAgeSec=105 ∧ sinceFirstTrade=55（晚开交易票，放行时刻=max(创建+60, 首买+45)）', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 9, launchFirstBlockWallets: 4, launchFirstWaveWallets: 5,
-      tokenAgeSec: 46, sinceFirstTradeSec: 46, launchMinVsFloorPct: 40 }), true));
-  check('U4 未见首买 null 恒 false=宁拦不冒充（晚开交易票在首买前一律拦）', () =>
+      tokenAgeSec: 105, sinceFirstTradeSec: 55, launchMinVsFloorPct: 40 }), true));
+  check('U5 未见首买 null 恒 false=宁拦不冒充（晚开交易票在首买前一律拦）', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 3, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
       tokenAgeSec: 300, sinceFirstTradeSec: null, launchMinVsFloorPct: 40 }), false));
-  check('U5 经历过破发豁免臂对新年龄臂同放（minVsFloor<0 → 放行）', () =>
+  check('U6 经历过破发豁免臂对双门同放（minVsFloor<0 → 放行）', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
       tokenAgeSec: 72, sinceFirstTradeSec: 22, launchMinVsFloorPct: -38.4 }), true));
-  check('U6 deploy 脚本门串与本段逐字一致（防漂移）', () => {
+  check('U7 deploy 脚本门串与本段逐字一致（防漂移）', () => {
     const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
     const m = deploySrc.match(/const CLUSTER_GATE = '((?:[^'\\]|\\.)*)'/);
     assert.ok(m, 'CLUSTER_GATE 常量缺失');
