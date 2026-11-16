@@ -476,7 +476,8 @@ class BacktestEngine extends AbstractTradingEngine {
     // 构造隔离注入——persist:false（服务 _writeRow 跳过+cheat _bootstrapHistory 直返，
     // 绝不读写 cheat_detection/buy_point_analyses 全局表=生产 bootstrap/粘滞判定域
     // 零污染）；settleDelayMs:0（无 collector/resolver——回放数据已在 DB，无 flush
-    // 边界零等待）；deps 不注入 waitIdle/pullTicks（mem 源恒关=纯 DB 路径，per-signal
+    // 边界零等待）；**T148 deps 注入 pullTicks（per-token tick 索引内存直读=零 DB 查询，
+    // 三门共享）**；per-signal
     // anchorMs lte 截窗防全史前视）。gate awaitMs 读实验 config（回测实验配 60s——
     // Jev 秒级竞速超时几乎不触发；缺省 15s 与生产同）；拉黑清仓联动依赖的
     // _tokenPool/_factorAggregator/_emitSellSignal 引擎既有件（Abstract 门链共用）
@@ -484,10 +485,27 @@ class BacktestEngine extends AbstractTradingEngine {
       const _wsCfg = this._experiment.config?.fourmemeWs || {};
       const { CheatCheckService } = require('../../market-analysis/CheatCheckService');
       const { BuyPointCheckService } = require('../../market-analysis/BuyPointCheckService');
+      // T148 门链内存源：per-token 索引直读（零 DB 查询）——与 DB 查询返回逐位
+      // 一致的行（cache 原始行）；anchorMs 毫秒→ISO 截窗（block_time≤锚行数）
+      const _memPullTicks = (tokenAddress, anchorMs) => {
+        const token = String(tokenAddress || '').toLowerCase();
+        const rows = this._tokenTickIndex?.get(token);
+        if (!rows || !rows.length) return [];
+        if (!anchorMs || !Number.isFinite(anchorMs) || anchorMs <= 0) return rows;
+        const anchorIso = new Date(anchorMs).toISOString();
+        // 线性回扫（行数 per token 通常 <500；二分在回测冷启动不值得复杂度）
+        let cut = rows.length;
+        for (let i = rows.length - 1; i >= 0; i--) {
+          if (rows[i].block_time <= anchorIso) break;
+          cut = i;
+        }
+        return rows.slice(0, cut);
+      };
+      const _memDeps = { pullTicks: _memPullTicks };
       this._cheatCheckService = new CheatCheckService(
-        { ...(_wsCfg.cheatCheck || {}), persist: false, settleDelayMs: 0 }, this.logger, {});
+        { ...(_wsCfg.cheatCheck || {}), persist: false, settleDelayMs: 0 }, this.logger, _memDeps);
       this._buyPointCheckService = new BuyPointCheckService(
-        { ...(_wsCfg.buyPointCheck || {}), persist: false, settleDelayMs: 0 }, this.logger, {});
+        { ...(_wsCfg.buyPointCheck || {}), persist: false, settleDelayMs: 0 }, this.logger, _memDeps);
       const _cgAw = _wsCfg.cheatCheck?.gate?.awaitMs;
       const _bpAw = _wsCfg.buyPointCheck?.gate?.awaitMs;
       this._cheatGateAwaitMs = Number.isFinite(_cgAw) && _cgAw > 0 ? _cgAw : 15000;
@@ -772,6 +790,24 @@ class BacktestEngine extends AbstractTradingEngine {
     await Promise.all(groupA);
     this.logger.info(this._experimentId, 'BacktestEngine',
       `📊 回放数据就绪: ${this._ticks.length} 笔 tick，${this._tokenMeta.size} 个代币元数据`);
+
+    // T148 per-token tick 索引（门链三服务 pullTicks 内存源——回测引擎刻意不注入
+    // pullTicks 导致因子/cheat/BP 三门每信号各查一次 Supabase DB=回测最大瓶颈，
+    // bt-v135 实测 3 交易/20min vs 预期 15min/149 交易）。索引=Map<lower(token),
+    // tick[]>（_ticks 全局按 block_time 排序→per-token 子列天然时序；锚截窗用
+    // 线性回扫尾行计数——服务侧锚语义=block_time≤anchorMs 行数宁多勿少近似）。
+    // anchorMs 参数=毫秒时间戳（服务侧 _pullTicks 传法）；行格式=cache 原始行
+    // 与 DB 查询返回逐位一致（buildBuyPointSnapshot/buildSnapshotFromRows 直消费）。
+    this._tokenTickIndex = new Map();
+    for (const t of this._ticks) {
+      const addr = String(t.token_address || '').toLowerCase();
+      if (!addr) continue;
+      let arr = this._tokenTickIndex.get(addr);
+      if (!arr) { arr = []; this._tokenTickIndex.set(addr, arr); }
+      arr.push(t);
+    }
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `📋 per-token tick 索引就绪: ${this._tokenTickIndex.size} tokens（门链 pullTicks 内存源）`);
 
     await Promise.all([
       this._loadGraduationEvents(),
