@@ -1501,8 +1501,182 @@ class BacktestEngine extends AbstractTradingEngine {
    * 回放主循环：tick 按时间升序逐笔驱动（debounce advance → 首见入池 →
    * FA 增量 → 分腿路由），虚拟 30s 桶写组合快照；结束强平 + 终态。
    */
+  // ═══════════════════════════════════════════════════════════════════
+  // T153 两阶段模型（2026-11-16 用户裁定架构方向：Jev 是信号执行层，不应阻塞
+  // tick 回放）：阶段 1 纯内存检测信号点 → 阶段 2 并行 Jev 门链 → 阶段 3 正常
+  // 回放消费预计算结果。33h 窗预期 ~7min（vs 阻塞版 54min）。
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * 阶段 1：轻量信号检测（纯内存，零门链零交易零卖出）。
+   * 复用主循环的 FA + 策略评估管线，但：
+   * - signalGate 条件照常评估（per-tick 路径）
+   * - 命中时记录信号点（token/strategyId/virtualTs/firePrice/tickIdx）
+   * - 不调门链、不执行买入、不做卖出评估/止损/毕业
+   * 返回信号点数组。
+   */
+  async _detectSignalPoints() {
+    const t0 = Date.now();
+    const points = [];
+    // 检测用独立 FA（不影响主循环 FA 状态——主循环的 FA 会被买入改变）
+    const detectFA = new (require('../services/FourMemeFactorAggregator'))(
+      this._config, this.logger);
+    const _sgPerTickExcl = this._signalGatePerTickExcludedIds();
+    if (_sgPerTickExcl === null) {
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        '阶段 1 跳过（非 signalGateReal 实验）');
+      return points;
+    }
+    // preFilter 复用
+    detectFA.setPreFilter(this._factorAggregator._preFilter || []);
+
+    let tickIdx = 0;
+    for (const tick of this._ticks) {
+      tickIdx++;
+      const addr = String(tick.token_address || '').toLowerCase();
+      // 注册（首见）
+      const meta = this._tokenMeta.get(addr) || {};
+      if (!detectFA.getTokenState(addr)) {
+        detectFA.registerToken(addr, {
+          createdAtMs: (meta.createdAtSec || Math.floor(tick.timestamp / 1000)) * 1000,
+          totalSupply: meta.totalSupply || 0, symbol: meta.symbol || '',
+          creatorAddress: meta.creator || null, platform: tick.platform || null,
+        });
+      }
+      detectFA.processTick(tick, { emitFactors: false });
+      // 因子构建（preFilter 同主循环：出窗未持仓跳过）
+      const factors = detectFA.buildFactorMap(addr, tick.timestamp);
+      if (!factors) continue;
+      // signalGate 条件评估（与主循环同款——但只记不执行）
+      const token = this._tokenPool.getToken(addr, 'bsc');
+      if (!token) continue;
+      const exhausted = this._signalGateExcludedIds(addr);
+      const excl = exhausted ? new Set([...exhausted, ..._sgPerTickExcl]) : _sgPerTickExcl;
+      const strategy = this._strategyEngine.evaluate(
+        factors, addr, tick.timestamp, token, 'buy', { excludeStrategyIds: excl });
+      if (strategy) {
+        points.push({
+          token: addr, strategyId: strategy.id, strategyName: strategy.name,
+          signalGate: strategy.signalGate, cards: strategy.cards,
+          virtualTs: tick.timestamp, tickIdx: tickIdx - 1,
+          firePrice: factors.currentPrice || 0,
+          firePriceBnb: factors.currentPriceBnb || 0,
+          // 供阶段 2 消费的因子快照（fire 时刻真值）
+          factors: factors,
+        });
+        // 模拟触发消耗（maxTriggers 计数——检测阶段也要扣，否则阶段 3 的排除集不匹配）
+        this._sgRecordTrigger(addr, strategy.id);
+      }
+    }
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `📋 阶段 1（信号检测）: ${points.length} 个信号点 | ${((Date.now()-t0)/1000).toFixed(1)}s`);
+    return points;
+  }
+
+  /**
+   * 阶段 2：并行门链评估。
+   * 对每个信号点跑 FP4+cheat+BP 门链，用并发池控制 Jev API 压力。
+   * 返回 Map<key, result>，key=`${token}|${strategyId}|${virtualTs}`。
+   */
+  async _preEvaluateGates(points) {
+    if (!points.length) return new Map();
+    const t0 = Date.now();
+    const results = new Map();
+    const CONCURRENCY = 10;
+    let idx = 0, done = 0;
+
+    const worker = async () => {
+      while (idx < points.length) {
+        const p = points[idx++];
+        const key = `${p.token}|${p.strategyId}|${p.virtualTs}`;
+        try {
+          const meta = this._tokenMeta.get(p.token) || {};
+          const gateToken = {
+            token: p.token, symbol: meta.symbol || p.strategyName,
+            platform: meta.platform || 'fourmeme',
+            createdAt: meta.createdAtSec || Math.floor(p.virtualTs / 1000),
+          };
+          const faState = { platform: gateToken.platform, totalSupply: meta.totalSupply ?? null };
+          // FP4
+          let pass = true, reason = null, fp4Info = null;
+          if (this._buyPointCheckService?.factorEnabled) {
+            const fp4 = await this._buyPointCheckService.evaluateFactorPreBuy(
+              p.token, { address: p.token, symbol: gateToken.symbol, platform: gateToken.platform,
+                createdAtMs: p.virtualTs, totalSupply: meta.totalSupply ?? null },
+              { signalId: `pre_${key}`, signalCreatedAt: p.virtualTs, firePriceBnb: p.firePriceBnb,
+                strategyName: p.strategyName },
+              { anchorMs: p.virtualTs });
+            if (fp4.status === 'assessed') {
+              pass = fp4.pass === true; reason = fp4.reason ?? null;
+              fp4Info = { status: 'assessed', pass, reason, version: fp4.version,
+                pvp: fp4.pvp, arms: fp4.arms, trace: fp4.trace };
+            }
+          }
+          // Cheat（FP4 拒则跳）
+          let cheatInfo = null;
+          if (pass && this._cheatCheckService?.enabled && p.signalGate) {
+            const sg = p.signalGate;
+            const cheat = await this._cheatCheckService.gateBuyPoint(
+              p.token, { address: p.token, symbol: gateToken.symbol, platform: gateToken.platform,
+                createdAtMs: p.virtualTs, totalSupply: meta.totalSupply ?? null },
+              { signalId: `pre_${key}`, experimentId: this._experimentId },
+              { awaitMs: this._cheatGateAwaitMs || 15000, anchorMs: p.virtualTs,
+                ...(sg.cheatRecheck === true ? { recheckUnhealthy: true } : {}) });
+            if (cheat.grade === 'cheat' && !cheat.exempt) { pass = false; reason = `cheat_gate_cheat`; }
+            else if (cheat.grade === 'unhealthy' && !cheat.exempt) { pass = false; reason = 'cheat_gate_unhealthy'; }
+            cheatInfo = cheat;
+          }
+          // BP（前两门过才评）
+          let bpInfo = null;
+          if (pass && this._buyPointCheckService?.enabled && p.signalGate) {
+            const bp = await this._buyPointCheckService.gateBuyPoint(
+              p.token, { address: p.token, symbol: gateToken.symbol, platform: gateToken.platform,
+                createdAtMs: p.virtualTs, totalSupply: meta.totalSupply ?? null },
+              { signalId: `pre_${key}`, experimentId: this._experimentId,
+                firePriceBnb: p.firePriceBnb, strategyName: p.strategyName },
+              { awaitMs: this._bpGateAwaitMs || 15000, anchorMs: p.virtualTs });
+            if (bp.assessment && bp.assessment.bucket) {
+              const levels = p.signalGate.bpPassLevels || ['good', 'neutral'];
+              if (!levels.includes(bp.assessment.bucket)) { pass = false; reason = `bp_gate_${bp.assessment.rule || 'reject'}`; }
+              bpInfo = { status: 'assessed', bucket: bp.assessment.bucket, rule: bp.assessment.rule, prob: bp.assessment.prob };
+            }
+          }
+          results.set(key, { pass, reason, fp4Info, cheatInfo, bpInfo });
+        } catch (e) {
+          results.set(key, { pass: true, reason: null, error: e?.message || String(e) }); // fail-open
+        }
+        done++;
+        if (done % 100 === 0) {
+          this.logger.info(this._experimentId, 'BacktestEngine',
+            `阶段 2 进度: ${done}/${points.length}（${((Date.now()-t0)/1000).toFixed(0)}s）`);
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    const passed = [...results.values()].filter(r => r.pass).length;
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `📋 阶段 2（门链预评估）: ${passed}/${points.length} 过门 | ${((Date.now()-t0)/1000).toFixed(1)}s`);
+    return results;
+  }
+
+  /**
+   * 两阶段入口：signalGateReal 实验先跑预计算，结果注入 _gateResultCache。
+   */
+  async _runTwoPhasePreCompute() {
+    if (!this._signalGateReal) return;
+    this.logger.info(this._experimentId, 'BacktestEngine', '🔬 T153 两阶段模型启动');
+    const points = await this._detectSignalPoints();
+    this._gateResultCache = await this._preEvaluateGates(points);
+    // 重置触发计数（阶段 1 消耗的计数不影响阶段 3）
+    this._sgTriggerCounts?.clear();
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `🔬 预计算完成: ${this._gateResultCache.size} 条缓存 | 进入阶段 3（正常回放+缓存消费）`);
+  }
+
   async _runMainLoop() {
     const startTime = Date.now();
+    // T153 两阶段预计算（signalGateReal 实验专用）
+    await this._runTwoPhasePreCompute();
     let completedSuccessfully = false;
 
     try {
@@ -2313,6 +2487,38 @@ class BacktestEngine extends AbstractTradingEngine {
       // （created_at 秒/creator_address 双形状 + _tokenMeta 兜底 meta 缺行——
       // createdAt 锚缺失会让 cheat 题面锚窗退化，尽量补齐）
       if (strategy.signalGate && this._signalGateReal) {
+        // T153 门链缓存消费（两阶段模型）：预计算结果直接应用，零 Jev 零等待
+        const _cacheKey = `${tokenAddress}|${strategy.id}|${nowTs}`;
+        const _cached = this._gateResultCache?.get(_cacheKey);
+        if (_cached) {
+          // 命中缓存：跳过 FP4+cheat+BP 门链，直接应用结果
+          if (!_cached.pass) {
+            if (signalId) {
+              try {
+                await this._updateSignalStatus(signalId, 'failed',
+                  { message: `门链拒买(预计算): ${_cached.reason}`, reason: `gate_${_cached.reason}` },
+                  _cached);
+              } catch (_) {}
+            }
+            return { success: false, reason: `门链拒买(预计算): ${_cached.reason}` };
+          }
+          // 过门：跳过到 preBuy/执行（metadata 写入 signal 行）
+          if (signalId && (_cached.fp4Info || _cached.cheatInfo || _cached.bpInfo)) {
+            try {
+              const _meta = {};
+              if (_cached.fp4Info) _meta.factorCheck = _cached.fp4Info;
+              if (_cached.cheatInfo) _meta.cheatCheck = _cached.cheatInfo;
+              if (_cached.bpInfo) _meta.buyPoint = _cached.bpInfo;
+              await this._updateSignalMetadata(signalId, _meta);
+            } catch (_) {}
+          }
+          // 跳过门链段（goto preBuy）——用标志控制
+          this._skipGateChain = true;
+        } else {
+          // 缓存 miss（阶段 3 新型信号——再买轮等）：走同步门链（旧路径）
+          this.logger.info(this._experimentId, 'SignalGate',
+            `门链缓存 miss（同步评估）| ${token.symbol || tokenAddress.slice(0,10)} ${strategy.name}`);
+        }
         this._sgRecordTrigger(tokenAddress, strategy.id);
 
         const _meta = this._tokenMeta.get(tokenAddress) || {};
@@ -2331,6 +2537,9 @@ class BacktestEngine extends AbstractTradingEngine {
         // 曾错传 factorResults → BP 市值族/CD supply 族锚恒 null，bt-v83/v84 702/702）
         const faState = this._factorAggregator.getTokenState(tokenAddress);
 
+        if (this._skipGateChain) {
+          this._skipGateChain = false; // 一次性标志
+        } else {
         // T143 因子购买前检查门（FP1，门链最前——纯代码零 Jev；anchorMs=回放
         // as-of 截窗防前视；灰度 factorCheck.enabled 缺省关=fail-open 放行）
         const _fp4T0 = Date.now();
@@ -2376,6 +2585,7 @@ class BacktestEngine extends AbstractTradingEngine {
             `链路慢分解 preFP4=${_preFp4}ms fp4=${_fp4Dt}ms cheat=${_chDt}ms bp=${_bpDt}ms | ${token.symbol || tokenAddress.slice(0, 10)}`);
         }
         if (!bpGate.pass) return { success: false, reason: bpGate.reason };
+        } // end skipGateChain else
       }
 
       // ── 购买前检查（与实时引擎同构；checkTime 用回放时点）──
