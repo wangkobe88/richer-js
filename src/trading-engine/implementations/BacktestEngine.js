@@ -1747,6 +1747,9 @@ class BacktestEngine extends AbstractTradingEngine {
       }
 
       const duration = Date.now() - startTime;
+      // 效率终极仪表读数
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `⏱️ 效率分解: 总${(duration/1000).toFixed(0)}s | tick处理${(Number(this._tickNs)/1e9).toFixed(1)}s | 门链阻塞${(Number(this._blockingNs)/1e9).toFixed(1)}s (${this._blockCount}次, 最长${this._blockMaxMs}ms) | 其它${(duration/1000 - Number(this._tickNs)/1e9 - Number(this._blockingNs)/1e9).toFixed(1)}s`);
       const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
       const finalBalance = portfolio?.totalValue || this.initialBalance;
       const finalBalanceValue = typeof finalBalance === 'number' ? finalBalance : finalBalance.toNumber();
@@ -2055,11 +2058,24 @@ class BacktestEngine extends AbstractTradingEngine {
    * _onSellDebounceFire（async fire-and-forget，与实时引擎同构）；回放串行语义
    * 要求评估在下一笔 tick 前完成（含预检查网络调用），drain 后再继续。
    */
+  // 效率终极仪表：主循环阻塞 vs tick 处理累计
+  _blockingNs = 0n;  // await inflightEvals 总耗时
+  _tickNs = 0n;      // tick 同步处理总耗时
+  _blockCount = 0;   // 阻塞次数
+  _blockMaxMs = 0;   // 单次最长阻塞
+
   async _advanceDebouncer(tickTs) {
+    const _tkT0 = process.hrtime.bigint();
     this._buyDebouncer.advance(tickTs);
     this._sellConfirmDebouncer.advance(tickTs);
+    this._tickNs += process.hrtime.bigint() - _tkT0;
     if (this._inflightEvals.size > 0) {
+      const _blT0 = process.hrtime.bigint();
+      this._blockCount++;
       await Promise.all([...this._inflightEvals]);
+      const _blDt = Number(process.hrtime.bigint() - _blT0) / 1e6;
+      this._blockingNs += process.hrtime.bigint() - _blT0;
+      if (_blDt > this._blockMaxMs) this._blockMaxMs = Math.round(_blDt);
     }
   }
 
