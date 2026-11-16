@@ -1523,7 +1523,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
         // 虚拟时钟推进：fire 到期的买评估（用截至上一笔 tick 的状态 + 本 tick 时刻）
         _p0 = Date.now();
-        await this._advanceDebouncer(tickTs);
+        await this._advanceDebouncer(tickTs, tick.token_address);
         perf.advance += Date.now() - _p0;
 
         _p0 = Date.now();
@@ -1676,7 +1676,7 @@ class BacktestEngine extends AbstractTradingEngine {
                 const _p = this._evaluateBuyPath(token, _evalFactors, tick, tickTs, { evalExcludeIds: _sgPerTickExcl })
                   .catch(e => this.logger.error(this._experimentId, 'BuyEval',
                     `${token.symbol || tick.token_address.slice(0, 10)} 回放买腿评估异常: ${e.message}`));
-                this._inflightEvals.add(_p);
+                _p._tokenAddress = tick.token_address; this._inflightEvals.add(_p);
                 _p.finally(() => this._inflightEvals.delete(_p));
               }
             }
@@ -2058,13 +2058,20 @@ class BacktestEngine extends AbstractTradingEngine {
    */
   // 效率终极仪表：主循环阻塞 vs tick 处理累计
 
-  async _advanceDebouncer(tickTs) {
+  async _advanceDebouncer(tickTs, currentTokenAddress = null) {
     this._buyDebouncer.advance(tickTs);
     this._sellConfirmDebouncer.advance(tickTs);
-    // T152（2026-11-16 效率根修）：不再每 tick await inflightEvals——门链跨 token
-    // 并行跑，_buyingTokens 防同 token 重复信号（语义安全），段边界+收尾统一 drain。
-    // 此前每 tick 阻塞等 Jev 链完成（~1.4s/链×~2800 信号=54min 的根因——纯回放只
-    // 2.3min，97% 墙钟在门链阻塞上）。直方图仪表退役（T152 后阻塞≈0）。
+    // T152b（2026-11-16 T152 二修）：per-token 阻塞——当前 tick 的 token 有 inflight
+    // eval 时等它完成（保住同 token 买卖时序：仓位注册前不跳过卖出窗），其它 token
+    // 的链继续并行。T152 首版全非阻塞=买入仓位注册前主循环已推进数百 tick=窗口内
+    // 卖机会全丢（v138 胜率 11% vs 阻塞版 47% 的根因）。
+    if (currentTokenAddress && this._inflightEvals.size > 0) {
+      const _pending = [];
+      for (const p of this._inflightEvals) {
+        if (p._tokenAddress === currentTokenAddress) _pending.push(p);
+      }
+      if (_pending.length > 0) await Promise.all(_pending);
+    }
   }
 
   // ==================== 回放代币注册 ====================
@@ -2165,7 +2172,7 @@ class BacktestEngine extends AbstractTradingEngine {
       .catch(e => this.logger.error(this._experimentId, 'BuyEval',
         `${token.symbol || tokenAddress.slice(0, 10)} 回放买腿评估异常: ${e.message}`));
     // 收集 inflight promise：回放主循环 drain 后才推进下一笔 tick / 强平
-    this._inflightEvals.add(p);
+    p._tokenAddress = tokenAddress; this._inflightEvals.add(p);
     p.finally(() => this._inflightEvals.delete(p));
     return p;
   }
