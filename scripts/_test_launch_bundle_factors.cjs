@@ -760,8 +760,17 @@ console.log('W. T151 launchBigBuyBnb（前期买入太多载体）+ 推迟门');
     { timestamp: T0 + 3000, block_number: 102, log_index: 1, sender_address: 'wD', trader_address: '0xeD', bnb_amount: 0.3 },
   ]);
   const m = F(fa, T0 + 5000);
-  check('W1 launchBigBuyBnb=大户(≥0.2B)合计 0.6+0.5+0.3=1.4（0.05 尘不计）', () =>
+  check('W1 launchBigBuyBnb=大户(累计≥0.2B)合计 0.6+0.5+0.3=1.4（0.05 尘不计）', () =>
     assert.strictEqual(m.launchBigBuyBnb, 1.4));
+  // 分单小队：0.15+0.15 累计 0.3 过线（首买 only 口径漏——T151 累计口径核心差异）
+  const fa2 = newFA();
+  feed(fa2, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wS1', trader_address: '0xeS1', bnb_amount: 0.15 },
+    { timestamp: T0 + 2000, block_number: 101, log_index: 1, sender_address: 'wS1', trader_address: '0xeS1', bnb_amount: 0.15 },
+    { timestamp: T0 + 3000, block_number: 102, log_index: 1, sender_address: 'wS2', trader_address: '0xeS2', bnb_amount: 0.4 },
+  ]);
+  check('W1b 分单小队 0.15+0.15=0.3 计入（累计口径）→ 0.3+0.4=0.7', () =>
+    assert.strictEqual(F(fa2, T0 + 5000).launchBigBuyBnb, 0.7));
   // 推迟门求值：heavy(<60s 挡/60s 后放) vs light
   const gate = 'launchBigBuyBnb < 1 OR sinceFirstTradeSec > 60';
   const ev = new ConditionEvaluator();
