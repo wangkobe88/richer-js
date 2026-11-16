@@ -2200,6 +2200,7 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, 'BuyEval',
         `${token.symbol} 触发买入策略(回放): ${strategy.name} | price=${factorResults.currentPrice?.toExponential(4)}` +
         ` earlyReturn=${factorResults.earlyReturn?.toFixed(1)}% age=${factorResults.age?.toFixed(2)}min tick=y`);
+      const _segT0 = Date.now(); // 效率仪表：fire→三门全链分段计时
 
       // ── 叙事否决短路（镜像实时引擎，2026-09-27 用户裁定）──
       // 叙事评级已确认为 low（终态，检测多少次都没用）的代币不再生成买信号——
@@ -2321,6 +2322,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
         // T143 因子购买前检查门（FP1，门链最前——纯代码零 Jev；anchorMs=回放
         // as-of 截窗防前视；灰度 factorCheck.enabled 缺省关=fail-open 放行）
+        const _fp4T0 = Date.now();
         const factorGate = await this._factorGateEvaluate(
           tokenAddress, gateToken, faState, signalId, {
             anchorMs: nowTs,
@@ -2328,11 +2330,14 @@ class BacktestEngine extends AbstractTradingEngine {
             strategyName: strategy.name,
             signalCreatedAt: nowTs,
           });
+        const _fp4Dt = Date.now() - _fp4T0;
         if (!factorGate.pass) return { success: false, reason: factorGate.reason };
 
+        const _chT0 = Date.now();
         const cheatGate = await this._cheatGateEvaluateBinary(
           tokenAddress, gateToken, faState, signalId, strategy.signalGate,
           { anchorMs: nowTs, factorResults });
+        const _chDt = Date.now() - _chT0;
         if (!cheatGate.pass) return { success: false, reason: cheatGate.reason };
         if (cheatGate.info && signalId) {
           try {
@@ -2343,6 +2348,7 @@ class BacktestEngine extends AbstractTradingEngine {
           }
         }
 
+        const _bpT0 = Date.now();
         const bpGate = await this._bpGateEvaluate(
           tokenAddress, gateToken, faState, signalId, strategy.signalGate, {
             anchorMs: nowTs,
@@ -2352,6 +2358,12 @@ class BacktestEngine extends AbstractTradingEngine {
             // BP67：cheat 门 burst 判定输入 BP（activity_level burst 桶不拦）
             cheatBurst: this._cheatBurstForBp(cheatGate.info),
           });
+        const _bpDt = Date.now() - _bpT0;
+        const _preFp4 = _fp4T0 - _segT0; // fire 日志→FP4 调用前的同步段
+        if (_preFp4 + _fp4Dt + _chDt + _bpDt > 400) {
+          this.logger.info(this._experimentId, 'SignalGate',
+            `链路慢分解 preFP4=${_preFp4}ms fp4=${_fp4Dt}ms cheat=${_chDt}ms bp=${_bpDt}ms | ${token.symbol || tokenAddress.slice(0, 10)}`);
+        }
         if (!bpGate.pass) return { success: false, reason: bpGate.reason };
       }
 
