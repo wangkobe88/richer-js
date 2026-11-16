@@ -418,6 +418,11 @@ function buildBuyPointObservation(answers, anchors = null) {
       recentDip5Pct: _num(b, 'recentDip5Pct'),
       recentDip5SecAgo: _num(b, 'recentDip5SecAgo'),
       recentDip5UnrecoveredPct: _num(b, 'recentDip5UnrecoveredPct'),
+      // BP69 首笔买入族（btv134 B/BSI 双案立法——首买占锚窗买入比，开盘一次性
+      // 组织建仓判读锚；无 BUY 行 null 缺证据不冒充；wallet 只进 state 不进锚）
+      firstBuyBnb: _num(b, 'firstBuyBnb'),
+      firstBuySharePct: _num(b, 'firstBuySharePct'),
+      firstBuyDtSec: _num(b, 'firstBuyDtSec'),
       // 摆动结构族（BP8 圣诞树原料；BP30/题集 BP33 tree_position 题退役后**无消费者
       // 纯留档**——历史 run 对拍兼容照落 digest；<2 可靠价全族 null；lastDir
       // 1=涨段/-1=跌段/0=未定向；swingPoints/swingLegs=state 渲染原料不进锚）

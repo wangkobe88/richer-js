@@ -939,6 +939,32 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     };
   })();
 
+  // ── 首笔买入族（BP69/btv134 复审轮 B 55%/BSI 59% 双案立法：用户裁定「首笔
+  // 买入过大加进去」）──首笔买入=锚窗链上真序第一笔 BUY；sharePct=÷锚窗总买
+  // ×100（与 openSeg.totalBuyBnb 同口径全 BUY 不滤 outlier）。单笔巨量首买+
+  // 其后全尘埃单=开盘一次性组织建仓（B 票 1.92/55%、BSI 2.50/59% 双案源——
+  // BSI 首买钱包 t+4~8s 自砸实证同伙）。纯事实：代码只组数不产结论，判读归
+  // 题面⑨/③开盘段判读参考线；无 BUY 行全族 null 缺证据不冒充。
+  const firstBuy = (() => {
+    let fb = null, totalBuyBnb2 = 0;
+    for (const t of ticks) {
+      if (t.side !== 'BUY') continue;
+      const bnb = t.bnb || 0;
+      totalBuyBnb2 += bnb;
+      if (fb === null) {
+        fb = {
+          bnb: +bnb.toFixed(4),
+          sharePct: null, // 下方统一算
+          wallet: t.wallet || null,
+          dtSec: t.dt ?? null,
+        };
+      }
+    }
+    if (fb === null) return { bnb: null, sharePct: null, wallet: null, dtSec: null };
+    fb.sharePct = totalBuyBnb2 > 0 ? +((fb.bnb / totalBuyBnb2) * 100).toFixed(1) : null;
+    return fb;
+  })();
+
   // ── famous 痕迹族（BP53 二修/案号 BP61：S053→BP31 state 补行路线）──
   // ③桶收割完臂/退出臂前提「famous 还在场吗」的时序证据直供：名单钱包各自
   // 首买/首卖时刻+买卖额+全窗净持仓。此前 Jev 只有筹码结构行的聚合数（控盘
@@ -1083,6 +1109,11 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     // 开盘段结构族（BP18 盘面分类锚：首 30s 买入占比/大额单/后段密度——判读归
     // Jev market_pattern 题，strong_backer/retail_pvp 桶判据直接原料）
     openSeg,
+    // BP69 首笔买入族（扁平键；firstBuyWallet 只进 state 行不进 mapper 锚）
+    firstBuyBnb: firstBuy.bnb,
+    firstBuySharePct: firstBuy.sharePct,
+    firstBuyDtSec: firstBuy.dtSec,
+    firstBuyWallet: firstBuy.wallet,
     // BP79 买期/卖期分界族（⑨先买后卖一波流判读原料：首卖位置/首卖前纯买期/
     // 首卖后买卖结构+捆绑分仓；零像样卖 null=⑨轴不适用不冒充）
     phaseSplit,

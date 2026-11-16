@@ -131,6 +131,31 @@ ok(dA.chg5Pct === 6.67, `chg5=6.67%（1.6/1.5@200，实际 ${dA.chg5Pct}）`);
 ok(dA.chg10Pct === 6.67, `chg10=6.67%（205 前最后可靠价同 @200，实际 ${dA.chg10Pct}）`);
 ok(dA.chg30Pct === 14.29, `chg30=14.29%（1.6/1.4@185 卖行可靠价，实际 ${dA.chg30Pct}）`);
 ok(dA.chg60Pct === undefined && dA.chg120Pct === undefined, 'chg60/chg120 已删（BP6 短窗换 5/10/30）');
+// BP69 首笔买入族：rowsA 首笔 BUY=行1 creator 0.5@t+5；总买=14 笔 BUY 合计 4.47
+// （0.5+1.0+0.2+0.3+0.8+0.4+0.6+0.1+0.1+0.15+0.05+0.12+0.05+0.1，outlier 行资金
+// 照计与 openSeg 同口径）→ 0.5/4.47=11.2%
+ok(dA.firstBuyBnb === 0.5 && dA.firstBuySharePct === 11.2 && dA.firstBuyDtSec === 5 && dA.firstBuyWallet === CREATOR,
+  `BP69 首笔买入族（0.5@t+5s creator 占 11.2%——实际 ${dA.firstBuyBnb}/${dA.firstBuySharePct}%/${dA.firstBuyDtSec}s/${dA.firstBuyWallet}）`);
+{
+  // 无 BUY 行全族 null（缺证据不冒充）；先 SELL 后 BUY=首笔仍取第一笔 BUY
+  const rowsNB = [
+    row(5, 'SELL', W_B, 0.3, 1.0 * E9, 3e8),
+    row(9, 'BUY', W_C, 2.5, 1.0 * E9, 2.5e9),
+    row(12, 'BUY', W_D, 0.01, 1.1 * E9, 9e6),
+  ];
+  const dNB = buildBuyPointSnapshot(rowsNB, metaA).buyDerived;
+  ok(dNB.firstBuyBnb === 2.5 && dNB.firstBuySharePct === 99.6 && dNB.firstBuyDtSec === 9 && dNB.firstBuyWallet === W_C,
+    `BP69 先卖后买首笔=首笔 BUY（2.5@t+9 占 99.6%——BSI 巨量首买案源形状，实际 ${dNB.firstBuyBnb}/${dNB.firstBuySharePct}%/${dNB.firstBuyDtSec}s）`);
+  const dNoB = buildBuyPointSnapshot([row(5, 'SELL', W_B, 0.3, 1.0 * E9, 3e8)], metaA).buyDerived;
+  ok(dNoB.firstBuyBnb === null && dNoB.firstBuySharePct === null && dNoB.firstBuyWallet === null && dNoB.firstBuyDtSec === null,
+    'BP69 无 BUY 行全族 null（缺证据不冒充）');
+  // state 直供行在场（B/BSI 双案判读原料——≥40% 参考线句随行渲染）
+  const stNB = buildBuyPointState(buildBuyPointSnapshot(rowsNB, metaA)).state;
+  ok(stNB.includes('首笔买入: 2.500 BNB @t+9s') && stNB.includes('99.6%'),
+    'BP69 state 首笔买入行渲染（首买额/时刻/占比）');
+  ok(!buildBuyPointState(buildBuyPointSnapshot([row(5, 'SELL', W_B, 0.3, 1.0 * E9, 3e8)], metaA)).state.includes('首笔买入:'),
+    'BP69 无 BUY 行 state 行缺席（缺证据不渲染）');
+}
 // BP10 maxChg5 回看速度锚手算：3s 段 +40% / 2s 段 +25% / 3s 段 +50% → max=+50%；
 // 先跌后涨形状（40:1.3→42:1.0→44:1.3）锁定「窗内最低价为起点」而非最旧（最旧 1.3 会得 0% 低估）
 {
@@ -1417,7 +1442,7 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   // ═══════════════ F. 题集形状（CJS 经 dynamic import） ═══════════════
   console.log('F. 题集形状（BP60 四题=4 维度 0 质量/桶域对锁/题面清洗——零编号零判例名，判例剥名留形状为匿名例）');
   const q = await import(pathToFileURL(path.join(__dirname, '..', 'src', 'market-analysis', 'llm', 'buy-point-questions.mjs')).href);
-  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP68', 'F: 版本=BP68（**BP68/T144=activity_level 题整题退役（用户裁定「活跃度低可以全部通过因子表达」：low+ultra 迁代码侧因子购买前检查门 FP2 judgeActivityLevel——low 五臂（idlePct≥50/尘埃+死寂/单向死水+极早窗反锚/临近死寂/全窗四腿联立）+ultra 两臂（协同出货 ≥10 卖钱包∧买入趋零/极端密度 ≥150tpm）+burst 语境/尾段激活双豁免（T143 同源）；判省 cheat 16 题+BP 4 题 Jev/信号；旧档 activity_level 答案整体忽略不 throw（维度键缺席容缺）**）；BP67=②retail_pvp 迁出 Jev（duanju 0x65aebe91…7777 案 2026-11-15 T143/BP84：PVP 判定逻辑完全定死→代码侧因子购买前检查门 FP1 纯代码判定——judgeRetailPvp 三步判定树+0.29 视同 0.3+追裁定「大户参与只要买入过即可不要求在场」；题面②桶整段删除+大户参与判读/同块捆绑买入两 state 行退役；预扫描 bt-v129 全量 1077 信号 Newly-blocked 仅 1 张净止血 −0.037 零误伤+duanju 主案票精确放行）**）；BP66=⑨卖期主导性（btv111 复审 Cashless 案 2026-11-14：卖期 2 笔卖 0.41 vs 1 笔买 0.20=2:1 交织误判 one_wave_dump、拒错代价 +463%/15min；用户裁定「买期买入占绝对主导，卖期卖占绝对主导，2:1 肯定不算主导」——③腿对称定义：卖期=卖绝对主导，卖额占首卖后成交绝大部分（行内「卖占首卖后成交」直供参考 ≥80% 即 4:1 起；首卖后同块捆绑买入同样计入买入方向；2:1 级交织=买卖双方在场不构成卖期归 none；买入仅尘级=单向流成立）；btv111 49 owd 信号 25/49 卖占比 <75%=交织误判面）**）；BP65=malignant_dump 贴锚砸盘臂（followBuyBnb/secToAnchor+BP78 obsBlocked 收紧）；BP64=③桶抢筹臂绝对额参考线（famous 合计买 ≥0.5 BNB）；BP63=③桶低价抢进速倒臂（fastFlipArmReady 组合布尔直供）；BP62=bt-v104 R1 三件+二修（②大户在场三分/⑨买期卖期分界直供行/crash 趋势打断轴三口+打断家族不豁免）；BP61=四件方案立法（塞单门/⑨时间分界点/malicious_dump 独立桶）');
+  ok(q.BUY_POINT_QUESTIONS_VERSION === 'BP69', 'F: 版本=BP69（**BP69/btv134 复审轮=首笔买入族锚立法（B 票首买 1.92/占 55%+BSI 2.50/占 59% 双案，用户裁定「首笔买入过大加进去」：snapshot firstBuyBnb/SharePct/DtSec/Wallet+state「首笔买入」直供行+⑨桶判读参考线 ≥40% 级=单笔巨量一次性建仓、首买家短期自卖=建仓与砸盘同伙；纯观察锚不做硬门）**）；BP68/T144=activity_level 题整题退役（用户裁定「活跃度低可以全部通过因子表达」：low+ultra 迁代码侧因子购买前检查门 FP2 judgeActivityLevel——low 五臂（idlePct≥50/尘埃+死寂/单向死水+极早窗反锚/临近死寂/全窗四腿联立）+ultra 两臂（协同出货 ≥10 卖钱包∧买入趋零/极端密度 ≥150tpm）+burst 语境/尾段激活双豁免（T143 同源）；判省 cheat 16 题+BP 4 题 Jev/信号；旧档 activity_level 答案整体忽略不 throw（维度键缺席容缺）**）；BP67=②retail_pvp 迁出 Jev（duanju 0x65aebe91…7777 案 2026-11-15 T143/BP84：PVP 判定逻辑完全定死→代码侧因子购买前检查门 FP1 纯代码判定——judgeRetailPvp 三步判定树+0.29 视同 0.3+追裁定「大户参与只要买入过即可不要求在场」；题面②桶整段删除+大户参与判读/同块捆绑买入两 state 行退役；预扫描 bt-v129 全量 1077 信号 Newly-blocked 仅 1 张净止血 −0.037 零误伤+duanju 主案票精确放行）**）；BP66=⑨卖期主导性（btv111 复审 Cashless 案 2026-11-14：卖期 2 笔卖 0.41 vs 1 笔买 0.20=2:1 交织误判 one_wave_dump、拒错代价 +463%/15min；用户裁定「买期买入占绝对主导，卖期卖占绝对主导，2:1 肯定不算主导」——③腿对称定义：卖期=卖绝对主导，卖额占首卖后成交绝大部分（行内「卖占首卖后成交」直供参考 ≥80% 即 4:1 起；首卖后同块捆绑买入同样计入买入方向；2:1 级交织=买卖双方在场不构成卖期归 none；买入仅尘级=单向流成立）；btv111 49 owd 信号 25/49 卖占比 <75%=交织误判面）**）；BP65=malignant_dump 贴锚砸盘臂（followBuyBnb/secToAnchor+BP78 obsBlocked 收紧）；BP64=③桶抢筹臂绝对额参考线（famous 合计买 ≥0.5 BNB）；BP63=③桶低价抢进速倒臂（fastFlipArmReady 组合布尔直供）；BP62=bt-v104 R1 三件+二修（②大户在场三分/⑨买期卖期分界直供行/crash 趋势打断轴三口+打断家族不豁免）；BP61=四件方案立法（塞单门/⑨时间分界点/malicious_dump 独立桶）');
   const qs = q.buildBuyPointQuestions();
   const ids = Object.keys(qs);
   ok(ids.length === 3, `F: 恰 3 题=3 维度 0 质量（BP60 删 price_trend/price_level；T144/BP68 删 activity_level——low/ultra 迁因子门 judgeActivityLevel；实际 ${ids.length}）`);

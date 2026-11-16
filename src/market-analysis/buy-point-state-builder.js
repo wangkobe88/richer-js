@@ -281,6 +281,13 @@ function buildBuyPointState(snapshot) {
     } else {
       lines.push('价格拱: 无可靠价行');
     }
+    // BP69 首笔买入行（btv134 B 1.92/55%、BSI 2.50/59% 双案立法：首买占锚窗
+    // 买入比——单笔巨量首买+其后全尘埃=开盘一次性组织建仓的结构证据，判读
+    // 归题面⑨/③开盘段参考线；? = 锚窗无 BUY 行缺证据）
+    if (b.firstBuyBnb !== null && b.firstBuyBnb !== undefined) {
+      const w = String(b.firstBuyWallet || '');
+      lines.push(`首笔买入: ${fmtBnb(b.firstBuyBnb)} BNB @t+${b.firstBuyDtSec ?? '?'}s（钱包 ${w ? w.slice(0, 10) + '…' + w.slice(-4) : '?'}）占锚窗总买入 ${b.firstBuySharePct === null || b.firstBuySharePct === undefined ? '?' : b.firstBuySharePct + '%'}——占比 ≥40% 级=开盘单笔巨量一次性建仓（后续全尘埃单=买盘一次性用完的组织性证据；首买家此后短期内自卖=建仓与砸盘同伙）`);
+    }
     // BP18 盘面分类锚：开盘段结构（首 30 秒买入占比/大额单/开盘后密度——判
     //「强庄开盘进入/开盘狙击衰竭」的直接数值；? = 截窗未覆盖开盘段或窗口 ≤30s 无后段）
     {
