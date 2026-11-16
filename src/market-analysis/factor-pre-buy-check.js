@@ -65,7 +65,30 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP2';
+const FACTOR_PREBUY_VERSION = 'FP3';
+
+// ── FP3 famous 两法（btv134 复审轮立法，2026-11-16 用户两分法裁定：「第一种，
+//    盘面尚未起来，famous 抢跑，如果持有过多，就很危险，它一般会选择砸盘；
+//    第二种，盘面已经热了一段时间，有 famous 参与比较多，它（们）已经收割
+//    一遍了，然后我们的低价策略在下跌后接到。这两种需要拦住」+追裁定
+//    「第二种不仅看占买也看占卖」）。键源=buyDerived.famousTraces（roster v7）
+//    + cheatDerived.totalBuyBnb（锚窗总买）+ buyDerived.chg30Pct。
+//    61 张 famous 票全量验证（btv134-famous-full）：一法 17 张亏 15 赢 2
+//    （Σ−0.31）、二法双门 15 张亏 11 赢 4（净改善 +0.318）；合计净改善 ~+0.46） ──
+/** 一法线：自卖比 <70%=在场持有（收割未完成） */
+const FAM_HOLDING_SOLD_RATIO = 0.70;
+/** 一法线：薄盘=锚窗总买 <3 BNB（盘面尚未起来——famous 是唯一流动性来源） */
+const FAM_THIN_TOTAL_BUY_BNB = 3;
+/** 一法线：正在砸=chg30 < −15%（持有未卖+深跌=砸盘进行时——6/6 全亏零误伤带） */
+const FAM_DUMPING_CHG30_PCT = -15;
+/** 二法线：自卖比 ≥70%（收割完成=跌的倒计时，无论当下跌没跌——Kiki/天仔/币安
+ *  联盟 chg30 正五票全亏实证） */
+const FAM_HARVEST_SOLD_RATIO = 0.70;
+/** 二法线：占买 ≥10%（参与度门槛——排除路过型） */
+const FAM_HARVEST_BUY_PCT = 10;
+/** 二法线：占卖 ≥20%（主杀伤轴：famous 卖出占全盘卖出 1/5+=这轮下跌就是它
+ *  砸的；屁屁/鯨/悲伤蛙占卖 14~16% 不达线=盘面自己换手→正确放行） */
+const FAM_HARVEST_SELL_PCT = 20;
 
 // ── PVP（BP84 迁入；BP19/BP26/BP55/BP71/BP73/BP79 判据谱系） ──
 /** 0.3 视同线（≥0.29；duanju 0.2994 案——±0.01 与 0.19↔0.2 对齐） */
@@ -264,6 +287,57 @@ function armBurstBundledWave(cd) {
   return false;
 }
 
+// ═══════════════ famous 两法门（FP3：btv134 复审轮用户两分法立法） ═══════════════
+
+/**
+ * famous 危险判定（纯机械，键源 famousTraces/cheatDerived.totalBuyBnb/chg30Pct）。
+ * 一法（持重危险）：famous 在场持有（自卖比 <70%——收割未完成）∧（薄盘未起
+ *   锚窗总买 <3 BNB ∨ 正在砸 chg30 <−15%）→ 拦。薄盘=它是唯一流动性来源，
+ *   砸盘无对手盘；砸盘中=持有未卖+深跌（btv134 验证 6/6 全亏零误伤带）。
+ * 二法（收割砸盘）：自卖比 ≥70%（收割完成=跌的倒计时，无论当下跌没跌）∧
+ *   占买 ≥10%（参与多，排除路过型）∧ 占卖 ≥20%（这轮下跌就是它砸的——
+ *   占卖主杀伤轴：屁屁/鯨/悲伤蛙占卖 14~16%=盘面自己换手→正确放行）。
+ * null 容缺：roster 缺失 famousTraces=null→不拦（轴不可评宁不拦）；窗内无
+ * 名单命中 wallets=[]→放行（有证据的缺席）；关键数值缺失该臂不触发。
+ */
+function judgeFamousDanger(snapshot) {
+  const bd = snapshot.buyDerived || {};
+  const cd = snapshot.cheatDerived || {};
+  const ft = bd.famousTraces;
+  if (!ft || !Array.isArray(ft.wallets) || ft.wallets.length === 0) {
+    return { hit: 0, branch: ft ? 'no_famous' : 'roster_missing', reason: null,
+      trace: { groupBuyPct: ft && ft.groupBuyPct !== undefined ? ft.groupBuyPct : null } };
+  }
+  const groupBuy = typeof ft.groupBuyBnb === 'number' ? ft.groupBuyBnb : 0;
+  const groupSell = typeof ft.groupSellBnb === 'number' ? ft.groupSellBnb : 0;
+  const soldRatio = groupBuy > 0 ? groupSell / groupBuy : null;
+  const trace = {
+    groupBuyPct: typeof ft.groupBuyPct === 'number' ? ft.groupBuyPct : null,
+    groupSellPct: typeof ft.groupSellPct === 'number' ? ft.groupSellPct : null,
+    soldRatio: soldRatio !== null ? +(soldRatio.toFixed(3)) : null,
+    totalBuyBnb: typeof cd.totalBuyBnb === 'number' ? cd.totalBuyBnb : null,
+    chg30Pct: typeof bd.chg30Pct === 'number' ? bd.chg30Pct : null,
+    presenceNetBnb: typeof ft.presenceNetBnb === 'number' ? ft.presenceNetBnb : null,
+    wallets: ft.wallets.length,
+  };
+  // 一法：在场持有 ∧（薄盘 ∨ 正在砸）
+  if (soldRatio !== null && soldRatio < FAM_HOLDING_SOLD_RATIO) {
+    if (trace.totalBuyBnb !== null && trace.totalBuyBnb < FAM_THIN_TOTAL_BUY_BNB) {
+      return { hit: 1, branch: 'fam_holding_thin', reason: 'fam_holding_thin', trace };
+    }
+    if (trace.chg30Pct !== null && trace.chg30Pct < FAM_DUMPING_CHG30_PCT) {
+      return { hit: 1, branch: 'fam_holding_dumping', reason: 'fam_holding_dumping', trace };
+    }
+  }
+  // 二法：收割完成 ∧ 参与多 ∧ 占卖主导
+  if (soldRatio !== null && soldRatio >= FAM_HARVEST_SOLD_RATIO
+    && trace.groupBuyPct !== null && trace.groupBuyPct >= FAM_HARVEST_BUY_PCT
+    && trace.groupSellPct !== null && trace.groupSellPct >= FAM_HARVEST_SELL_PCT) {
+    return { hit: 1, branch: 'fam_harvested_dump', reason: 'fam_harvested_dump', trace };
+  }
+  return { hit: 0, branch: 'fam_clear', reason: null, trace };
+}
+
 // ═══════════════ 主入口 ═══════════════
 
 /**
@@ -276,6 +350,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
   const enableCheatArms = opts.enableCheatArms !== false;
   const enablePvp = opts.enablePvp !== false;
   const enableActivity = opts.enableActivity !== false;
+  const enableFamous = opts.enableFamous !== false;
   const pvp = enablePvp
     ? judgeRetailPvp(snapshot)
     : { hit: 0, branch: 'disabled', reason: null, trace: {} };
@@ -293,10 +368,15 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     : { level: null, branch: 'disabled', trace: {} };
   if (activity.level === 'low') arms.push('act_low');
   else if (activity.level === 'ultra') arms.push('act_ultra');
+  // FP3 famous 两法门（一法持重危险/二法收割砸盘）：act 后评（act 拒因优先）
+  const famous = enableFamous
+    ? judgeFamousDanger(snapshot)
+    : { hit: 0, branch: 'disabled', reason: null, trace: {} };
+  if (famous.hit === 1) arms.push(famous.reason);
   const reason = activity.level === 'low' ? 'act_low'
-    : (activity.level === 'ultra' ? 'act_ultra' : (pvp.reason || (arms.length ? arms[0] : null)));
-  return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, arms,
-    trace: { ...pvp.trace, act: activity.branch } };
+    : (activity.level === 'ultra' ? 'act_ultra' : (pvp.reason || famous.reason || (arms.length ? arms[0] : null)));
+  return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, famous, arms,
+    trace: { ...pvp.trace, act: activity.branch, fam: famous.branch } };
 }
 
 module.exports = {
@@ -310,7 +390,9 @@ module.exports = {
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
   BURST_CONTEXT_PRESEG_MIN_BNB, BURST_CONTEXT_PRESEG_MIN_TICKS, burstContextBackgroundCold,
-  judgeRetailPvp, judgeActivityLevel,
+  FAM_HOLDING_SOLD_RATIO, FAM_THIN_TOTAL_BUY_BNB, FAM_DUMPING_CHG30_PCT,
+  FAM_HARVEST_SOLD_RATIO, FAM_HARVEST_BUY_PCT, FAM_HARVEST_SELL_PCT,
+  judgeRetailPvp, judgeActivityLevel, judgeFamousDanger,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
   evaluateFactorPreBuy,
 };

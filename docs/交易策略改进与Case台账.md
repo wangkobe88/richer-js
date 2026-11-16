@@ -55,6 +55,23 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T146/FP3 famous 两法因子门——btv134 复审轮用户两分法立法（2026-11-16；题集 FACTOR_PREBUY_VERSION FP2→FP3）
+
+**用户两分法裁定原话**：「第一种，盘面尚未起来，famous 抢跑，如果持有过多，就很危险，它一般会选择砸盘；第二种，盘面已经热了一段时间，有 famous 参与比较多，它（们）已经收割一遍了，然后我们的低价策略在下跌后接到。这两种在我看来是需要拦住的」+追裁定「第二种我觉得不仅仅要看占买，也看一下占卖」+「好，落地吧」。
+
+**61 张 famous 票全量验证**（btv134 复审收官数据 btv134-famous-full，roster v7 口径；famous 面单独净拖累 −0.18=本轮核心亏损源）：
+- **一法（持重危险）**：famous 在场持有（自卖比 <70%——收割未完成）∧（薄盘未起=锚窗总买 <3 BNB ∨ 正在砸=chg30 <−15%）→ 17 张**亏 15 赢 2**（Σ−0.31）。「正在砸进行时」带（持有+chg30 −19~−40：蝲蝲蛄/食蟹猴/RL/BSI/悲伤蛙/SI二）**6/6 全亏零误伤**；薄盘带 11 张亏 9；误伤仅画地为牢双票（买后真拉升 +0.167）。
+- **二法（收割砸盘）双门**：自卖比 ≥70% ∧ 占买 ≥10% ∧ **占卖 ≥20%** → 15 张亏 11 赢 4，净改善 **+0.318**。两个关键实证：①**收割完成即跌的倒计时，无需等跌**——「已收割+chg30 正」5 票（Kiki 32.1%/天仔 32.5%/币安联盟 26.3%/tConnect 25.2%/A村 21.7%）全亏（买在 famous 撑着的残余高度上等跌）；②**占卖是主杀伤轴**——famous 卖出占全盘卖出 ≥20%=「这轮下跌就是它砸的」；占卖 14~16% 不达线=盘面自己换手（屁屁 +0.066/鯨 +0.039/悲伤蛙二 +0.036 三张单门（占买 ≥15）误伤票被双门精准放行）。单门（仅占买 ≥15%）净改善仅 +0.198 且误伤 7 张 +0.21。误伤终版 4 张 +0.07（CALLCAT=组1 已裁拦截正确/魔丸+Echo二=捆绑拉升票/Callcat130 平）。
+- **合计净改善 ~+0.46**（止血 −0.70/误伤 +0.237）≈本轮净利 45%。
+
+**落地**（FP1/FP2 同构，`src/market-analysis/factor-pre-buy-check.js`）：`judgeFamousDanger(snapshot)` 纯函数——键源 `buyDerived.famousTraces`（roster v7，BP61 载体）+ `cheatDerived.totalBuyBnb` + `buyDerived.chg30Pct`；常量 `FAM_HOLDING_SOLD_RATIO=0.70`/`FAM_THIN_TOTAL_BUY_BNB=3`/`FAM_DUMPING_CHG30_PCT=−15`/`FAM_HARVEST_SOLD_RATIO=0.70`/`FAM_HARVEST_BUY_PCT=10`/`FAM_HARVEST_SELL_PCT=20`；拒码 `fam_holding_thin`（薄盘优先）/`fam_holding_dumping`（砸盘中）/`fam_harvested_dump`。主入口臂序=act 后评（act 拒因优先）、`enableFamous` 分臂灰度开关（缺省 true）、返回 `famous` 键随引擎 `info={...res}` 整包进 signal metadata `factorCheck` 段（零接线改动）。null 容缺：roster 缺失 famousTraces=null→不拦（轴不可评宁不拦，与 FP 总则「拒方向证据缺席不拒」一致）；wallets=[]→放行（有证据的缺席）。
+
+**单测**：`_test_factor_prebuy_check.cjs` 59 断言（G 段 12 条：roster 缺失/无命中/一法三臂+薄盘优先序/画地为牢放行/Kiki 主案/屁屁占卖放行/路过型放行/天仔 chg30 正照拦/主入口臂序+灰度关/数值容缺）。
+
+**前置依赖**：famous roster v7（32 址，本轮 v4~v7 连续四版收录 7 址）；③桶 famous_monopoly Jev 判定与 FP3 并存（Jev 判型留档、FP3 机械拦执行——Kiki/A村案证明 Jev 对已收录钱包执行不稳，代码化才可靠）。
+
+**余留**：生产灰度随 `factorCheck.enabled`（T143 缺省 false，放行待用户裁定）；btv134 全量重放对拍（FP3 判定 vs 预扫 32 张）随本 commit 182 跑；roster 续扩时 FP3 阈值分布复采样。
+
 ### T145 ladder v22 双修：①破发豁免臂换历史锚 `launchMinVsFloorPct < 0`（滚动最低 vs min(常量,首买价)）②首两波挡臂 AND→OR 化（f0≥2 ∨ wave≥3 任一达线即挡）（2026-11-15；commit 47679974，库 version 21→22）
 
 **①豁免臂语义修正**：用户质询「launchConstVsPct 因子的含义是否表达了『价格经历过破发所以前期买入者都走了』」——v21 的 launchConstVsPct=**现价** vs 常量=「此刻破发」的**当下状态锚**，立法本意是「**经历过**破发=前期买入者已离场」的**历史事实锚**（ASTER 触发时恰仍在水下 −17%~−21% 故 v21 三窗验证未暴露；深砸后反弹回发行价上方再触发的同形状票会被现价口径漏豁免——ASTER 滚动最低实测 −38.4%（3.4183e-9 vs FL 常量 5.5463e-9），触发时刻已反弹至 −17%）。用户三裁定：「小于参照锚即可；min(常量, 首买价)；替换」。FA 新键 **launchMinVsFloorPct=100×(`_minRelPriceBnb` 滚动最低可靠价 / `floorLaunchPriceBnb(常量, _firstBuyPriceBnb)` − 1)**——分母=T130 口径地板（min(常量,首买价)），**刻意不含 T134 滚动最低**（分子已是滚动最低，分母再含则 ≤0 恒真=豁免臂无条件真废掉首两波门，首版方案讨论中用户「低很多」措辞点破的坑）；严格 `< 0` 才豁免（=0=首笔即最低从未破位不豁免；低开票盘中创任意新低即豁免=阈值取 0 的知情取舍——低开横盘形状不豁免、低开后砸新低=首买者被套离场豁免）；null=未知平台/未见可靠价宁拦不冒充；launchConstVsPct 保留 FA 纯观察（现价口径注释留档）。

@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP2'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP3'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,9 +256,74 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP2');
+    assert.strictEqual(r.version, 'FP3');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
+  });
+}
+
+console.log('G. FP3 famous 两法门（btv134 复审轮两分法：一法持重危险/二法收割砸盘）');
+{
+  // famous 夹具：buyDerived.famousTraces + cheatDerived.totalBuyBnb + buyDerived.chg30Pct
+  const SNAPF = (ft, cd = {}, bd = {}) => Object.assign({
+    ticks: [{ dt: 400 }],
+    wallets: [W(0.2994, 0.1, 0.2994, 100)], // PVP 过（像样买方在场）
+    buyDerived: Object.assign({ chg30Pct: 0, activity: { nearTail10BuyN: 3 }, bundledBlock: null }, bd, { famousTraces: ft }),
+    cheatDerived: Object.assign({ totalBuyBnb: 5 }, cd),
+  });
+  const FT = (o) => Object.assign({ wallets: [{ w: '0xa'.repeat(40), buyBnb: 1, sellBnb: 0.5 }], groupBuyBnb: 1, groupBuyPct: 20, groupSellBnb: 0.5, groupSellPct: 10, presenceNetBnb: 0.5, inCustodyCount: 1 }, o);
+  check('G1 roster 缺失（famousTraces=null）→ 不拦（轴不可评宁不拦）', () => {
+    const r = M.judgeFamousDanger(SNAPF(null));
+    assert.strictEqual(r.hit, 0); assert.strictEqual(r.branch, 'roster_missing');
+  });
+  check('G2 窗内无名单命中（wallets=[]）→ 放行', () => {
+    const r = M.judgeFamousDanger(SNAPF(FT({ wallets: [] })));
+    assert.strictEqual(r.hit, 0); assert.strictEqual(r.branch, 'no_famous');
+  });
+  check('G3 一法·薄盘：在场持有（自卖 0.5<0.7）∧ 锚窗总买 2.5<3 → fam_holding_thin（LongCat 形状）', () => {
+    const r = M.judgeFamousDanger(SNAPF(FT({ groupSellBnb: 0.5, groupSellPct: 10 }), { totalBuyBnb: 2.5 }));
+    assert.strictEqual(r.hit, 1); assert.strictEqual(r.reason, 'fam_holding_thin');
+    assert.strictEqual(r.trace.soldRatio, 0.5); assert.strictEqual(r.trace.totalBuyBnb, 2.5);
+  });
+  check('G4 一法·砸盘中：在场持有 ∧ chg30 −40<−15（薄盘线外也拦）→ fam_holding_dumping（蝲蝲蛄/BSI 形状）', () => {
+    const r = M.judgeFamousDanger(SNAPF(FT({ groupSellBnb: 0.55, groupSellPct: 20 }), { totalBuyBnb: 5 }, { chg30Pct: -40 }));
+    assert.strictEqual(r.hit, 1); assert.strictEqual(r.reason, 'fam_holding_dumping');
+  });
+  check('G5 一法·薄盘优先于砸中（branch 序）', () => {
+    const r = M.judgeFamousDanger(SNAPF(FT({ groupSellBnb: 0.5 }), { totalBuyBnb: 2.5 }, { chg30Pct: -40 }));
+    assert.strictEqual(r.reason, 'fam_holding_thin');
+  });
+  check('G6 一法不触发：在场持有但盘厚且未砸（画地为牢 +0.154 形状：总买 3.2>3 chg30 +27）→ 放行', () => {
+    const r = M.judgeFamousDanger(SNAPF(FT({ groupSellBnb: 0.0, groupBuyPct: 11.9 }), { totalBuyBnb: 3.2 }, { chg30Pct: 27 }));
+    assert.strictEqual(r.hit, 0); assert.strictEqual(r.branch, 'fam_clear');
+  });
+  check('G7 二法：自卖 0.99≥0.7 ∧ 占买 32.1≥10 ∧ 占卖 69.5≥20 → fam_harvested_dump（Kiki 主案）', () => {
+    const r = M.judgeFamousDanger(SNAPF(FT({ groupBuyBnb: 0.74, groupBuyPct: 32.1, groupSellBnb: 0.73, groupSellPct: 69.5 })));
+    assert.strictEqual(r.hit, 1); assert.strictEqual(r.reason, 'fam_harvested_dump');
+  });
+  check('G8 二法·占卖不达线放行：自卖 0.79 ∧ 占买 15.0 ∧ 占卖 14.1<20 → 放行（屁屁 +0.066 形状=盘面自己换手）', () => {
+    const r = M.judgeFamousDanger(SNAPF(FT({ groupBuyBnb: 0.92, groupBuyPct: 15.0, groupSellBnb: 0.73, groupSellPct: 14.1 })));
+    assert.strictEqual(r.hit, 0);
+  });
+  check('G9 二法·占买不达线（路过型）放行', () => {
+    const r = M.judgeFamousDanger(SNAPF(FT({ groupBuyBnb: 0.2, groupBuyPct: 8, groupSellBnb: 0.2, groupSellPct: 25 })));
+    assert.strictEqual(r.hit, 0);
+  });
+  check('G10 收割完成但还没跌（chg30 正）照拦——跌的倒计时（天仔/币安联盟形状）', () => {
+    const r = M.judgeFamousDanger(SNAPF(FT({ groupBuyBnb: 0.9, groupBuyPct: 32.5, groupSellBnb: 0.85, groupSellPct: 42.1 }), { totalBuyBnb: 5 }, { chg30Pct: 18 }));
+    assert.strictEqual(r.reason, 'fam_harvested_dump');
+  });
+  check('G11 主入口：famous 拒码进 arms、reason 优先级 act>pvp>famous', () => {
+    const r = M.evaluateFactorPreBuy(SNAPF(FT({ groupBuyBnb: 0.74, groupBuyPct: 32.1, groupSellBnb: 0.73, groupSellPct: 69.5 })));
+    assert.strictEqual(r.pass, false); assert.strictEqual(r.reason, 'fam_harvested_dump');
+    assert.ok(r.arms.includes('fam_harvested_dump')); assert.strictEqual(r.famous.branch, 'fam_harvested_dump');
+    const r2 = M.evaluateFactorPreBuy(SNAPF(FT({ groupBuyBnb: 0.74, groupBuyPct: 32.1, groupSellBnb: 0.73, groupSellPct: 69.5 })), { enableFamous: false });
+    assert.strictEqual(r2.pass, true); // 分臂灰度关
+  });
+  check('G12 数值缺失容缺（totalBuyBnb/chg30Pct 全 null 的在场持有）→ 一法两臂均不触发放行', () => {
+    const r = M.judgeFamousDanger(SNAPF(FT({ groupSellBnb: 0.3 }), {}, {}));
+    // SNAPF cd 缺省 totalBuyBnb=5 → 薄盘臂不触发；chg30Pct=0 缺省 → 砸中臂不触发
+    assert.strictEqual(r.hit, 0);
   });
 }
 
