@@ -375,6 +375,20 @@ const ENTRIES = [
         }],
         description: 'T133 famous 进场撤离臂 v2（T136 2026-11-12 金额门 0.5 BNB）：sinceEntryFamousNearLaunchBuyBnb >= 0.5 → 立即全清（bypassDebounce+cards:all）；FA 载体=famous-copy-wallets roster × near_launch 区间 (10,40] 可靠价买入 × BNB 累计 × 入场锚差值（setBuyState 快照/补买轮重锚）；回测同源（回放正序直计）；v1（2026-11-10 计数门 ≥1）被 bt-v106 来财案否证换门',
     },
+    {
+        name: 'bundle-wave-exit',
+        side: 'sell',
+        legs: [{
+            action: 'sell',
+            priority: 1,
+            condition: 'sinceEntryEqualBundleWallets >= 8',
+            maxExecutions: null,
+            cards: 'all',
+            bypassDebounce: true,
+            description: '锚后等额捆绑撤离臂 v1（T147 2026-11-16 Echo 二案 0xaa0710da…7777，用户裁定「买入后又出现异常现象（大量捆绑买入），需要立即卖出」）：FA 因子 sinceEntryEqualBundleWallets=本仓入场（setBuyState 清零重锚）以来涌现的最大同块等额（toFixed(4)，T74 同款）买入簇钱包数（尘门单钱包 ≥0.01=CD405 同线、剔聚合路由）——≥8（BP77 塞单门同线同值：同一形状同一根线，买点前=塞单门拦买、买入后涌现=拉抬阵列拉高出货前兆）立即全清 bypass 确认窗；未持仓 null fail-closed 恒不触发。案源：锚+3s blk 131209704 9 钱包各 0.076+锚+7s 同批 9×0.033 双连块拉抬 +34% 后砸回——塞单门只看买点前锚窗，锚后涌现唯一防线=本臂',
+        }],
+        description: 'T147 锚后等额捆绑撤离臂：sinceEntryEqualBundleWallets >= 8 → 立即全清（bypassDebounce+cards:all）；FA 载体=同块等额买入簇流式检测（块切换结算单调 max，挂 wallet 聚合段 buy 行；defer 乱序回推低估=方向安全）× setBuyState 入场清零（max 型差值会被入场前历史簇淹没，C1 夹具反证故清零直读）；线 8=BP77 塞单门同线、尘门 0.01=CD405 同线；实时/回测同源（事件驱动零时钟）',
+    },
     // ── low-zone-stall-exit（T133 低位滞涨撤离臂）已随 v115 系卖腿集弃用（2026-11-12
     //    bt-v113 起当前最优 16 卖腿不含本臂）且库中无条目——本脚本不再维护，防 --commit
     //    复活弃用臂入库。历史形状见 git 历史与本注释；famous-entry-exit v2 为 v115 系

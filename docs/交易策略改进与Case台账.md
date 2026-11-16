@@ -55,6 +55,20 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ### 甲、买腿门与策略库
 
+### T147 bundle-wave-exit 锚后等额捆绑撤离臂——Echo 二案立法（2026-11-16；库条目 bundle-wave-exit v1）
+
+**用户裁定原话**（btv134 复审组尾）：「（Echo 二 0xaa0710da…7777）买入后又出现异常现象（大量捆绑买入），需要立即卖出」。
+
+**案源取证**（锚后 300s per-block 买侧聚合）：锚+3s blk 131209704 **9 钱包同块各 0.076（完全等额）**合计 0.688 + 锚+7s blk 131209712 **同批 9 钱包再各 0.033 双连块**——教科书拉抬阵列，fwd1min 冲 +34.4 后砸回 −10.5。塞单门（`exactEqualBlockMaxWallets>=8`）只看**买点前锚窗**，锚后 3s 涌现时买入决策已过——持仓期实时监控是唯一防线。
+
+**实现**（T133 famous-entry-exit 同构，全事件驱动零时钟）：FA `_trackEqualBundleBuy`（挂 `_applyWalletAggregation` 头部 buy 行=wallet 终态段，每 tick 恰计一次）流式检测同块等额桶（amount.toFixed(4)=T74 evenCluster 同款 key，尘门单钱包 ≥0.01=CD405 同线，剔 `AGGREGATOR_ROUTER_ADDRS`）；**块切换结算**上一块取最大桶→`_maxEqualBundleWallets` 单调 max；**setBuyState 入场清零**（per-仓计数器语义=「本仓入场以来最大簇」——max 型差值会被入场前历史簇淹没〔入场后 5 簇在历史 9 簇下不可见，单测 C1 夹具反证〕，清零直读消灭该缺陷；补买轮各自重锚）；发射键 `sinceEntryEqualBundleWallets`（未持仓 null fail-closed；0=无新簇有证据零值）+FactorBuilder 快照透传。**defer 乱序鲁棒**：乱序回推下 pending 块提前结算=计数低估=不触发卖出=方向安全（宁漏不冒充）；实时直推/回测正序精确。库卖腿 `bundle-wave-exit` v1：`sinceEntryEqualBundleWallets >= 8`（**BP77 塞单门同线同值——同一形状同一根线**：买点前=塞单门拦买，买入后涌现=本臂接力）bypass+cards:'all' 全清。
+
+**单测** `_test_since_entry_bundle_wave.cjs` 11 断言：Echo 主案（9×0.076→9；双连块单调保持）/尘埃路由非等额剔除（max=1 不达线；同钱包 Set 去重 8 恰达线）/入场清零（历史 9 簇屏蔽+入场后 5 簇可见）/未持仓 null/探针含键/FactorBuilder 透传/源码口径五锁。⚠手敲地址陷阱第三次实证：路由夹具首版地址拼错被真名单反证。FA 白名单 146→147（_test_fourmeme_fa_factors 同步）。
+
+**部署**：`scripts/deploy-signal-source-strategies.cjs` 加条目（validateLegs 零错误=dry-run 过）；182 `--commit` INSERT。《当前最优买卖策略》卖腿 16→17（撤离族三 bypass）。
+
+**余留**：生产引用实验须重建 config（copy-in）；触发分布观察（≥8 线灵敏度——Echo 案 9 恰过线，相邻块合并臂未做留余量）；defer 乱序低估窗的实测频率。
+
 ### T146/FP3 famous 两法因子门——btv134 复审轮用户两分法立法（2026-11-16；题集 FACTOR_PREBUY_VERSION FP2→FP3）
 
 **用户两分法裁定原话**：「第一种，盘面尚未起来，famous 抢跑，如果持有过多，就很危险，它一般会选择砸盘；第二种，盘面已经热了一段时间，有 famous 参与比较多，它（们）已经收割一遍了，然后我们的低价策略在下跌后接到。这两种在我看来是需要拦住的」+追裁定「第二种我觉得不仅仅要看占买，也看一下占卖」+「好，落地吧」。

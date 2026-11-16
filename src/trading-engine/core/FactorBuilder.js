@@ -97,6 +97,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 立即清仓/为何没清）需 fire 时刻值，序列不可重建；旧 FA/未持仓 → null 不掩盖
     sinceEntryFamousNearLaunchBuys: factorResults.sinceEntryFamousNearLaunchBuys ?? null,
     sinceEntryFamousNearLaunchBuyBnb: factorResults.sinceEntryFamousNearLaunchBuyBnb ?? null,
+    sinceEntryEqualBundleWallets: factorResults.sinceEntryEqualBundleWallets ?? null,
     // T137 KOL HOLD 两键（2026-11-13）：famous 大买最后时刻距今秒数（HOLD 触发
     // 口径载体）+60s 窗 famous 卖出合计（释放臂载体）——HOLD 触发/释放复盘需
     // fire 时刻值，序列不可重建；旧 FA/历史信号 → null 不掩盖

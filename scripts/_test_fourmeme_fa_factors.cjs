@@ -608,6 +608,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-11-12 T136 金额累计键（卖臂 v2 金额门原料，bt-v106 来财案；
         // 详见 _test_since_entry_factors.cjs J8 段）
         'sinceEntryFamousNearLaunchBuyBnb',
+        'sinceEntryEqualBundleWallets', // T147 bundle-wave-exit 卖臂主键
         // 2026-11-13 T137 KOL HOLD 两键（famous 大买时刻/卖出窗合计——卡级 HOLD
         // 触发与释放臂载体；详见 _test_since_entry_factors.cjs K 段）
         'sinceLastFamousBigBuySec', 'recentFamousSellBnb',
