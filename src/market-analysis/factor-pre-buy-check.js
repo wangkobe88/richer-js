@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP3';
+const FACTOR_PREBUY_VERSION = 'FP4';
 
 // ── FP3 famous 两法（btv134 复审轮立法，2026-11-16 用户两分法裁定：「第一种，
 //    盘面尚未起来，famous 抢跑，如果持有过多，就很危险，它一般会选择砸盘；
@@ -108,6 +108,15 @@ const DUMP_RATIO_MIN_SELLERS = 8;
 const DUMP_LOW_ABSORPTION_RATIO = 0.3;
 /** CD405 burst 捆绑收割：去尘捆绑钱包 ≥ 此（单块或相邻两 slot 任一） */
 const BURST_BUNDLE_MIN_WALLETS = 7;
+// CD412 极端捆绑砸盘独立臂（2026-11-16 btv134 R3 POORNANCE 0x7f25…7777 案用户裁定
+// 「按道理如果流量来自正常传播下跌到这个幅度也算好点位，但这个出现了非常严重的捆绑
+// 砸盘（异常作弊，散户感觉不会砸这么快）」）：同块独立卖方 ≥15 ∧ 块卖 ≥1 BNB →
+// denied 不看承接比（20 个独立卖方本身已构成极端组织性，承接可能是对倒——POORNANCE
+// 20 sellers/4.13B/承接比 0.49 被两条既有臂放行）。**破发豁免**（用户裁定「如果下跌
+// 到最底部破发，这个作弊行为也被豁免=防止归零后新庄入场」）：launchMinVsFloorPct
+// ≤0（经历过破发）→ 不拦。btv134 验证：176 token 唯一命中=主案，零误伤。
+const EXTREME_DUMP_MIN_SELLERS = 15;
+const EXTREME_DUMP_MIN_BNB = 1;
 
 // ── CD401 sbw 机械化代理线（用户两分法路线 1；预扫描校准点） ──
 /** 波贴近锚：出口波末笔距今 ≤ 此秒（「当下事件」非历史遗迹） */
@@ -277,6 +286,15 @@ function burstContextBackgroundCold(cd) {
   return cd.burstPreSegBnbPerMin < BURST_CONTEXT_PRESEG_MIN_BNB && cd.burstPreSegTicksPerMin < BURST_CONTEXT_PRESEG_MIN_TICKS;
 }
 
+/** CD412 极端捆绑砸盘：同块独立卖方 ≥15 ∧ 块卖 ≥1 BNB → 拦（不看承接比）；破发豁免 */
+function armExtremeDumpSellers(cd, bd) {
+  if (typeof cd.nearDumpWorstSellers !== 'number' || cd.nearDumpWorstSellers < EXTREME_DUMP_MIN_SELLERS) return false;
+  if (typeof cd.nearDumpWorstSellBnb !== 'number' || cd.nearDumpWorstSellBnb < EXTREME_DUMP_MIN_BNB) return false;
+  // 破发豁免：经历过破发（launchMinVsFloorPct ≤0=滚动最低 vs min(常量,首买)）→ 归零后新庄入场豁免
+  if (bd && typeof bd.launchMinVsFloorPct === 'number' && bd.launchMinVsFloorPct <= 0) return false;
+  return true;
+}
+
 /** CD405 burst 捆绑收割：单块或相邻两 slot 去尘捆绑钱包 ≥7 */
 function armBurstBundledWave(cd) {
   // 背景腿（用户裁定两臂同加）：高活跃背景不构成 burst 语境——捆绑收割臂
@@ -361,6 +379,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     else if (armDumpLowAbsorption(cd)) arms.push('cd403_dump_low_absorption');
     else if (armBurstExitSellPressure(cd)) arms.push('cd401_burst_exit_sell_pressure');
     else if (armBurstBundledWave(cd)) arms.push('cd405_burst_bundled_wave');
+    else if (armExtremeDumpSellers(cd, snapshot.buyDerived)) arms.push('cd412_extreme_dump_sellers');
   }
   // T144 活跃度门（BP act 题整题迁入）：PVP 后、CD 臂前
   const activity = enableActivity
@@ -388,11 +407,13 @@ module.exports = {
   ACT_TAIL5_ACTIVATE_N, ACT_TAIL5_ACTIVATE_BNB, ACT_BURST_WAVE_BUY_BNB,
   ACT_ULTRA_SELL_WALLETS, ACT_ULTRA_BUY_N_MAX, ACT_ULTRA_BUY_BNB_MAX, ACT_ULTRA_TPM, ACT_ULTRA_IDLE_PCT,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
+  EXTREME_DUMP_MIN_SELLERS, EXTREME_DUMP_MIN_BNB,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
   BURST_CONTEXT_PRESEG_MIN_BNB, BURST_CONTEXT_PRESEG_MIN_TICKS, burstContextBackgroundCold,
   FAM_HOLDING_SOLD_RATIO, FAM_THIN_TOTAL_BUY_BNB, FAM_DUMPING_CHG30_PCT,
   FAM_HARVEST_SOLD_RATIO, FAM_HARVEST_BUY_PCT, FAM_HARVEST_SELL_PCT,
   judgeRetailPvp, judgeActivityLevel, judgeFamousDanger,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
+  armExtremeDumpSellers,
   evaluateFactorPreBuy,
 };

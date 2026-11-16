@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP3'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP4'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP3');
+    assert.strictEqual(r.version, 'FP4');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -324,6 +324,39 @@ console.log('G. FP3 famous 两法门（btv134 复审轮两分法：一法持重�
     const r = M.judgeFamousDanger(SNAPF(FT({ groupSellBnb: 0.3 }), {}, {}));
     // SNAPF cd 缺省 totalBuyBnb=5 → 薄盘臂不触发；chg30Pct=0 缺省 → 砸中臂不触发
     assert.strictEqual(r.hit, 0);
+  });
+}
+
+console.log('I. CD412 极端捆绑砸盘（POORNANCE 案：sellers≥15∧sell≥1 不看承接比+破发豁免）');
+{
+  const CDM = (o) => Object.assign({ nearDumpWorstSellers: 20, nearDumpWorstSellBnb: 4.13, nearDumpMinAbsorbBnb: 2.01 }, o);
+  const BDM = (o) => Object.assign({ launchMinVsFloorPct: 10 }, o); // 10=未破发
+  check('I1 主案（20 sellers 4.13B 承接比 0.49 未破发）→ 拦', () => {
+    assert.strictEqual(M.armExtremeDumpSellers(CDM({}), BDM({})), true);
+  });
+  check('I2 破发豁免（launchMinVsFloorPct=−5 经历过破发）→ 放行', () => {
+    assert.strictEqual(M.armExtremeDumpSellers(CDM({}), BDM({ launchMinVsFloorPct: -5 })), false);
+  });
+  check('I3 卖方不达线（14 sellers）→ 放行', () => {
+    assert.strictEqual(M.armExtremeDumpSellers(CDM({ nearDumpWorstSellers: 14 }), BDM({})), false);
+  });
+  check('I4 卖额不达线（0.9 BNB）→ 放行', () => {
+    assert.strictEqual(M.armExtremeDumpSellers(CDM({ nearDumpWorstSellBnb: 0.9 }), BDM({})), false);
+  });
+  check('I5 锚缺失（sellers undefined）→ 放行（宁不拦）', () => {
+    assert.strictEqual(M.armExtremeDumpSellers({}, BDM({})), false);
+  });
+  check('I6 破发锚缺失（launchMinVsFloorPct undefined）→ 不豁免照拦', () => {
+    assert.strictEqual(M.armExtremeDumpSellers(CDM({}), {}), true);
+  });
+  check('I7 主入口臂序：CD412 在 CD405 后', () => {
+    const r = M.evaluateFactorPreBuy({
+      ticks: [{ dt: 400 }],
+      wallets: [W(0.2994, 0.1, 0.2994, 100)],
+      buyDerived: { launchMinVsFloorPct: 10 },
+      cheatDerived: { nearDumpWorstSellers: 20, nearDumpWorstSellBnb: 4.13, nearDumpMinAbsorbBnb: 2.01 },
+    });
+    assert.ok(r.arms.includes('cd412_extreme_dump_sellers'), JSON.stringify(r.arms));
   });
 }
 
