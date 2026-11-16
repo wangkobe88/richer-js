@@ -123,6 +123,40 @@ function filterTickRowsByTokenSet(rows, filter) {
  * 仍是 _startTimeFilter/_endTimeFilter 内存口径，缓存「存全量、运行期过滤」
  * 语义不变）——同窗口克隆/对照实验共用一份缓存文件（保持主工作流效率）。
  */
+/**
+ * T148b 回测门链内存拉数（2026-11-16 前视+性能双修）：per-token 索引上按
+ * anchorMs as-of 截窗（线性回扫）+ DB 路径逐位一致形状——tail 拉数帽（pullLimit
+ * 3000）满帽补 head（headLimit 300 首段，launch 窗）去重拼接；返回
+ * {rows, anchorTickCount, capped}（服务端 Array.isArray(mem.rows) 契约——
+ * T148 首版返回裸数组=mem 恒 miss → 每次 600ms settle sleep+DB 查询=bt-v137
+ * 50min 慢的根因；且服务端漏传 anchorMs=全窗口行含未来 ticks 前视。两处已修）。
+ */
+function memPullTicksFromIndex(index, tokenAddress, anchorMs) {
+  const token = String(tokenAddress || '').toLowerCase();
+  const rows = index ? index.get(token) : null;
+  if (!rows || !rows.length) return { rows: [], anchorTickCount: 0, capped: false };
+  // 线性回扫（行数 per token 通常 <500；二分在回测冷启动不值得复杂度）；
+  // anchorMs 缺席=全量（回放主循环恒传 nowTs，缺席=防御形状）
+  let cut = rows.length;
+  if (anchorMs && Number.isFinite(anchorMs) && anchorMs > 0) {
+    const anchorIso = new Date(anchorMs).toISOString();
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (rows[i].block_time <= anchorIso) break;
+      cut = i;
+    }
+  }
+  const asOf = rows.slice(0, cut);
+  const PULL_LIMIT = 3000, HEAD_LIMIT = 300;
+  if (asOf.length <= PULL_LIMIT) {
+    return { rows: asOf, anchorTickCount: asOf.length, capped: false };
+  }
+  const tail = asOf.slice(asOf.length - PULL_LIMIT);
+  const headOnly = rows.slice(0, HEAD_LIMIT); // 索引升序=链上真序，head 恒早于 tail
+  const seen = new Set(tail.map((r) => `${r.block_number}:${r.log_index}`));
+  const head = headOnly.filter((r) => !seen.has(`${r.block_number}:${r.log_index}`));
+  return { rows: head.concat(tail), anchorTickCount: tail.length, capped: true };
+}
+
 function buildWindowCacheScopeKey(startMs, endMs) {
   const compact = (ms) => new Date(ms).toISOString().toLowerCase().replace(/[^a-z0-9]/g, '');
   return `win-${compact(startMs)}_${compact(endMs)}`;
@@ -487,21 +521,8 @@ class BacktestEngine extends AbstractTradingEngine {
       const { BuyPointCheckService } = require('../../market-analysis/BuyPointCheckService');
       // T148 门链内存源：per-token 索引直读（零 DB 查询）——与 DB 查询返回逐位
       // 一致的行（cache 原始行）；anchorMs 毫秒→ISO 截窗（block_time≤锚行数）
-      const _memPullTicks = (tokenAddress, anchorMs) => {
-        const token = String(tokenAddress || '').toLowerCase();
-        const rows = this._tokenTickIndex?.get(token);
-        if (!rows || !rows.length) return [];
-        if (!anchorMs || !Number.isFinite(anchorMs) || anchorMs <= 0) return rows;
-        const anchorIso = new Date(anchorMs).toISOString();
-        // 线性回扫（行数 per token 通常 <500；二分在回测冷启动不值得复杂度）
-        let cut = rows.length;
-        for (let i = rows.length - 1; i >= 0; i--) {
-          if (rows[i].block_time <= anchorIso) break;
-          cut = i;
-        }
-        return rows.slice(0, cut);
-      };
-      const _memDeps = { pullTicks: _memPullTicks };
+      const _memDeps = { pullTicks: (tokenAddress, anchorMs) =>
+        memPullTicksFromIndex(this._tokenTickIndex, tokenAddress, anchorMs) };
       this._cheatCheckService = new CheatCheckService(
         { ...(_wsCfg.cheatCheck || {}), persist: false, settleDelayMs: 0 }, this.logger, _memDeps);
       this._buyPointCheckService = new BuyPointCheckService(
@@ -3581,4 +3602,4 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 }
 
-module.exports = { BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet, buildWindowCacheScopeKey };
+module.exports = { BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet, buildWindowCacheScopeKey, memPullTicksFromIndex };

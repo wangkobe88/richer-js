@@ -423,7 +423,7 @@ class BuyPointCheckService {
   async _pullTicks(token, anchorMs = null) {
     const pullMem = this._deps.pullTicks;
     if (pullMem) {
-      const mem = await pullMem(token);
+      const mem = await pullMem(token, anchorMs);
       if (mem && Array.isArray(mem.rows) && mem.rows.length > 0) {
         return {
           rows: mem.rows, anchorTickCount: mem.anchorTickCount, capped: !!mem.capped,
