@@ -2937,6 +2937,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 仍在——纯观察键，出生期取证语义）。
         const dustTok = state._holderDustTokens || 0;
         const standing = rows.filter(e => (state._walletNetTokens.get(e.w) || 0) > dustTok);
+        // T151 大户合计买入（全量口径）
+        let bigBuySum = 0;
+        for (const e of rows) if (e.bnb >= 0.2) bigBuySum += e.bnb;
         // 同块簇（T150 选优改钱包数优先：BNB 选优被鲸单劫持——0x6e3a 案 0.594 鲸买
         // 单钱包簇压住 6 钱包簇/0.1155 三连买簇致 clu=1 退化，簇键语义=同块钱包数）
         const byBlock = new Map();
@@ -2992,6 +2995,13 @@ class FourMemeFactorAggregator extends EventEmitter {
                 for (const e of standing) if (waveBlks.has(e.blk)) fNext++;
             }
         }
+        // T151 前期买入太多载体（2026-11-16 用户课题「前期买入太多→推迟买入」）：
+        // 出生窗内首买累计 ≥0.2B 的大户合计买入 BNB。窗内（launchBundleWinMs）为
+        // 出生窗内首买累计 ≥0.2B 的大户合计买入 BNB（全量 rows 口径——与 f0/wave 的
+        // 站立过滤刻意分开：「前期买入太多」是历史事实载体，不吃抛压过滤）；
+        // 出窗后随 _launchFrozen 冻结。ladder v25 推迟臂
+        // (launchBigBuyBnb < 3 OR sinceFirstTradeSec > 60) 的判据——「60 秒应该
+        // 足够它们卖出了」（用户裁定，t* 中位 +15~90s）。
         return {
             launchBundleClusterSize: size,
             launchBundleClusterSharePct: Math.round(sharePct * 10) / 10,
@@ -2999,6 +3009,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             launchEqualClusterBnb: parseFloat(eqBnb.toFixed(4)),
             launchFirstBlockWallets: f0,
             launchFirstWaveWallets: f0 + fNext,
+            launchBigBuyBnb: parseFloat(bigBuySum.toFixed(4)),
         };
     }
 
@@ -3884,6 +3895,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             launchBundleClusterSharePct: launch.launchBundleClusterSharePct,
             launchEqualClusterWallets: launch.launchEqualClusterWallets,
             launchEqualClusterBnb: launch.launchEqualClusterBnb,
+            launchBigBuyBnb: launch.launchBigBuyBnb,
             launchFirstBlockWallets: launch.launchFirstBlockWallets,
             launchFirstWaveWallets: launch.launchFirstWaveWallets,
             // TOP1 持仓集中度（2026-10-16 用户裁定门键；0=无持仓证据零值非 null；

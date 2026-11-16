@@ -612,6 +612,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-11-16 T149 首笔交易年龄因子（距首笔可靠买入成交的秒数；ladder v23
         // 首两波口袋门年龄臂载体——tokenAgeSec 按创建时刻计，晚开交易票 72s 绕门案）
         'sinceFirstTradeSec',
+        'launchBigBuyBnb', // T151 前期买入太多载体（ladder v25 推迟臂主键）
         // 2026-11-13 T137 KOL HOLD 两键（famous 大买时刻/卖出窗合计——卡级 HOLD
         // 触发与释放臂载体；详见 _test_since_entry_factors.cjs K 段）
         'sinceLastFamousBigBuySec', 'recentFamousSellBnb',

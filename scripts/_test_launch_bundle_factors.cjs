@@ -232,7 +232,7 @@ console.log('H. 键集与快照');
   const keys = fa.getFactorKeys();
   check('H1 getFactorKeys 探针自动收 4 键', () => {
     for (const k of ['launchBundleClusterSize', 'launchBundleClusterSharePct',
-      'launchEqualClusterWallets', 'launchEqualClusterBnb']) {
+      'launchEqualClusterWallets', 'launchEqualClusterBnb', 'launchBigBuyBnb']) {
       assert.ok(keys.has(k), `缺键 ${k}`);
     }
   });
@@ -747,6 +747,36 @@ console.log('V. T150 站立抛压三修（2026-11-16 用户立法：①f0/wave/c
       assert.strictEqual(t2.launchFirstBlockWallets, 1);
     });
   }
+}
+
+console.log('W. T151 launchBigBuyBnb（前期买入太多载体）+ 推迟门');
+{
+  const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
+  const fa = newFA();
+  feed(fa, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wA', trader_address: '0xeA', bnb_amount: 0.6 },
+    { timestamp: T0 + 1000, block_number: 100, log_index: 2, sender_address: 'wB', trader_address: '0xeB', bnb_amount: 0.5 },
+    { timestamp: T0 + 2000, block_number: 101, log_index: 1, sender_address: 'wC', trader_address: '0xeC', bnb_amount: 0.05 }, // 尘额不计
+    { timestamp: T0 + 3000, block_number: 102, log_index: 1, sender_address: 'wD', trader_address: '0xeD', bnb_amount: 0.3 },
+  ]);
+  const m = F(fa, T0 + 5000);
+  check('W1 launchBigBuyBnb=大户(≥0.2B)合计 0.6+0.5+0.3=1.4（0.05 尘不计）', () =>
+    assert.strictEqual(m.launchBigBuyBnb, 1.4));
+  // 推迟门求值：heavy(<60s 挡/60s 后放) vs light
+  const gate = 'launchBigBuyBnb < 1 OR sinceFirstTradeSec > 60';
+  const ev = new ConditionEvaluator();
+  check('W2 heavy@+30s → 挡（1.4≥1 ∧ 30≤60）', () =>
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.4, sinceFirstTradeSec: 30 }), false));
+  check('W3 heavy@+61s → 放（抛压释放窗）', () =>
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.4, sinceFirstTradeSec: 61 }), true));
+  check('W4 light@+20s → 放（0.9<1）', () =>
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.9, sinceFirstTradeSec: 20 }), true));
+  check('W5 deploy DELAY_GATE 逐字一致（防漂移）', () => {
+    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
+    const mm = deploySrc.match(/const DELAY_GATE = '((?:[^'\\]|\\.)*)'/);
+    assert.ok(mm, 'DELAY_GATE 缺失');
+    assert.strictEqual(mm[1].replace(/^ AND \(/, '').replace(/\)$/, ''), gate);
+  });
 }
 
 console.log(`\n结果: ${passed} passed, ${failed} failed`);
