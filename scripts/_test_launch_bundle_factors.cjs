@@ -599,5 +599,39 @@ console.log('T. launchMinVsFloorPct 键（T145「经历过破发」历史锚：�
   });
 }
 
+console.log('U. v23 门串求值（T149 年龄臂换锚：tokenAgeSec>60 → sinceFirstTradeSec>45）');
+{
+  const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
+  const gate = '(launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR sinceFirstTradeSec > 45 OR launchMinVsFloorPct < 0';
+  const ev = new ConditionEvaluator();
+  check('U1 事故反证（bt-v135 0x3441cc2a 案）：创建后 50s 才开交易、首两波满员、tokenAgeSec=72 旧门放行的形状 → sinceFirstTradeSec=22<45 新门拦', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
+      tokenAgeSec: 72, sinceFirstTradeSec: 22, launchMinVsFloorPct: 5 }), false));
+  check('U2 正常早开盘：首买 22s 后触发（sinceFirstTrade=22<45）首两波满员仍挡（语义不变）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
+      tokenAgeSec: 22, sinceFirstTradeSec: 22, launchMinVsFloorPct: 5 }), false));
+  check('U3 首笔交易 46s 后：筹码已换手放行（45s 界与旧 60s 界同语义收紧 15s）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 9, launchFirstBlockWallets: 4, launchFirstWaveWallets: 5,
+      tokenAgeSec: 46, sinceFirstTradeSec: 46, launchMinVsFloorPct: 40 }), true));
+  check('U4 未见首买 null 恒 false=宁拦不冒充（晚开交易票在首买前一律拦）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 3, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
+      tokenAgeSec: 300, sinceFirstTradeSec: null, launchMinVsFloorPct: 40 }), false));
+  check('U5 经历过破发豁免臂对新年龄臂同放（minVsFloor<0 → 放行）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
+      tokenAgeSec: 72, sinceFirstTradeSec: 22, launchMinVsFloorPct: -38.4 }), true));
+  check('U6 deploy 脚本门串与本段逐字一致（防漂移）', () => {
+    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
+    const m = deploySrc.match(/const CLUSTER_GATE = '((?:[^'\\]|\\.)*)'/);
+    assert.ok(m, 'CLUSTER_GATE 常量缺失');
+    const deployGate = m[1].replace(/^ AND \(/, '').replace(/\)$/, '');
+    assert.strictEqual(deployGate, gate);
+  });
+}
+
 console.log(`\n结果: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

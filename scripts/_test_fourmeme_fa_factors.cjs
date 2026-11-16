@@ -609,6 +609,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 详见 _test_since_entry_factors.cjs J8 段）
         'sinceEntryFamousNearLaunchBuyBnb',
         'sinceEntryEqualBundleWallets', // T147 bundle-wave-exit 卖臂主键
+        // 2026-11-16 T149 首笔交易年龄因子（距首笔可靠买入成交的秒数；ladder v23
+        // 首两波口袋门年龄臂载体——tokenAgeSec 按创建时刻计，晚开交易票 72s 绕门案）
+        'sinceFirstTradeSec',
         // 2026-11-13 T137 KOL HOLD 两键（famous 大买时刻/卖出窗合计——卡级 HOLD
         // 触发与释放臂载体；详见 _test_since_entry_factors.cjs K 段）
         'sinceLastFamousBigBuySec', 'recentFamousSellBnb',
@@ -627,7 +630,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         { extraLost: lost.filter(k => !expect.includes(k)), missingLost: expect.filter(k => !lost.includes(k)) });
     // 存活抽查（清理时最易误删的活性键；完备性由零 diff + 丢失集双向锁定）
     const MUST_KEEP = [
-        'tokenAgeSec', 'platform',
+        'tokenAgeSec', 'sinceFirstTradeSec', 'platform',
         'crashSpeedPctPerSec', 'risePct5m', 'riseVel5m', 'priceTrendSlope',
         'recentRiseFromWindowLowPct', 'rsi14Sec', 'rsi9Bar5mRt', 'graduationProgress',
         'peakProfitPct', 'peakMarketCapSinceLastBuy', 'maxBlockDropPct',

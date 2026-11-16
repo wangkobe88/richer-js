@@ -1042,6 +1042,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             // write-once 冻结收敛（与本块首可靠价同性质）。
             if (state._firstBuyPriceBnb === 0 && isBuy) {
                 state._firstBuyPriceBnb = priceBnb;
+                // T149 首笔交易时刻 write-once（ladder v23 首两波门年龄因子原料）：
+                // 与 _firstBuyPriceBnb 同块同 write-once 语义（首个过门可靠买价时刻）。
+                // 用当前 tick ts 而非 lastTickAt——后者在链上序推进段（后文）才更新，
+                // 首 tick 时刻此处仍为 null
+                state._firstTradeAtMs = ts;
             }
 
             // ── T134 滚动地板（2026-11-11 v100 族一 9/9 案 + launch 三方案调研，
@@ -1993,6 +1998,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             _relPriceBnb: 0,            // 最近可靠价（新链专用）
             _relFirstPriceBnb: 0,       // 首个可靠价（涨幅基准 base，OPB 与离线 computeTickMetrics.firstUsablePriceBnb 同口径；不能用 firstPriceBnb——那只过离群门没过尘门）
             _firstBuyPriceBnb: 0,       // T130 首笔买入可靠价 write-once（launch 锚 min(常量, 首买价) 地板补丁原料；0=未见首买）
+            _firstTradeAtMs: 0,         // T149 首笔交易时刻 write-once（ladder v23 sinceFirstTradeSec 原料；0=未见首买）
             _minRelPriceBnb: 0,         // T134 滚动最低可靠价（launch 地板原料：min(常量, 首买, ≤t 最低可靠价)；min 更新幂等=任意序回放收敛；0=未见可靠价）
             _famousNearLaunchBuys: 0,   // T133 famous near_launch 入场计数（全史单调计数器；写点=价格段/wallet 段补跑双段，见 _countFamousNearLaunchBuy）
             _famousNearLaunchBuyBnb: 0, // T136 同判据金额累计（BNB；卖臂 v2 金额门原料，见 _countFamousNearLaunchBuy）
@@ -3245,6 +3251,11 @@ class FourMemeFactorAggregator extends EventEmitter {
         const age = state.createdAtMs ? (now - state.createdAtMs) / 60000 : 0;
         // tokenAgeSec：秒（同一 createdAtMs 锚点；秒级买窗 condition 用）
         const tokenAgeSec = state.createdAtMs ? (now - state.createdAtMs) / 1000 : 0;
+        // T149 sinceFirstTradeSec：距首笔可靠买价的秒数（ladder v23 首两波门年龄
+        // 因子——「当前距离第一个交易的时间」用户裁定；null=未见首买 fail-closed
+        // 裸比较恒 false → 首两波门不因年龄放行=宁拦；与 tokenAgeSec（创建锚）刻意
+        // 分开——创建晚交易的票首两波组织性进场窗随交易起点而非创建起点）
+        const sinceFirstTradeSec = state._firstTradeAtMs > 0 ? (now - state._firstTradeAtMs) / 1000 : null;
 
         // ── preFilter：未持仓且 age 落在【全部】买策略区间并集外 → 跳过因子构建（纯提效）──
         // 阈值由引擎从各买腿 condition AST 提取注入（setPreFilter）；严格小于下界/严格
@@ -3602,6 +3613,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         const factors = {
             age,
             tokenAgeSec,
+            sinceFirstTradeSec,
             // 平台标签（'fourmeme'/'flap'；registerToken 传入，未注册路径 null）——
             // 供 condition 字符串等值分门（platform != 'flap'，2026-10-02 router 平台豁免）；
             // 2026-10-17 C84 起进快照白名单（单一买条件分门 + signals 页 chip 直读）

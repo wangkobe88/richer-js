@@ -133,6 +133,36 @@ console.log('G. 快照白名单落库（2026-10-01 裁定 A/B 都做之 B：tren
   check('G2 旧 FA 无键 → null 不掩盖', buildFactorValuesForTimeSeries({ age: 1.5 }).tokenAgeSec, null);
 }
 
+console.log('I. T149 sinceFirstTradeSec 首笔交易年龄（2026-11-16；ladder v23 首两波门年龄臂）');
+{
+  const fa = new FourMemeFactorAggregator({ fourmemeWs: {} }, noopLogger);
+  fa.registerToken('0xt149', { createdAtMs: T0, totalSupply: 1e9 });
+  // 事故形状（bt-v135 0x3441cc2a 绕门案）：创建 T0 后静默 50s，首笔买 t=T0+50s，
+  // 评估在 T0+72s——tokenAgeSec=72>60 旧门放行；sinceFirstTradeSec=22<45 新门拦
+  check('I1 未见首笔可靠买 → null fail-closed（裸比较恒 false=宁拦）',
+    fa.buildFactorMap('0xt149', T0 + 30_000).sinceFirstTradeSec, null);
+  fa.processTick(makeTick('0xt149', T0 + 50_000), { emitFactors: false });
+  const f = fa.buildFactorMap('0xt149', T0 + 72_000);
+  check('I2 事故反证：tokenAgeSec=72 而 sinceFirstTradeSec=22（年龄锚=首买非创建）',
+    [f.tokenAgeSec, f.sinceFirstTradeSec], [72, 22]);
+  check('I3 ConditionEvaluator 走 45s 门（22 < 45 = false 拦）',
+    new ConditionEvaluator().evaluate('sinceFirstTradeSec > 45', f), false);
+  // write-once：后续买不重锚
+  fa.processTick(makeTick('0xt149', T0 + 80_000, 5e-9, 0.05), { emitFactors: false });
+  check('I4 write-once：后续买不重锚（锚仍 T0+50s）',
+    fa.buildFactorMap('0xt149', T0 + 100_000).sinceFirstTradeSec, 50);
+  // 卖腿先到不锚定（与 _firstBuyPriceBnb 同块 isBuy 门）
+  const fa2 = new FourMemeFactorAggregator({ fourmemeWs: {} }, noopLogger);
+  fa2.registerToken('0xt149b', { createdAtMs: T0, totalSupply: 1e9 });
+  fa2.processTick({ ...makeTick('0xt149b', T0 + 10_000), trade_type: 'sell' }, { emitFactors: false });
+  check('I5 卖腿先到不锚定（null）', fa2.buildFactorMap('0xt149b', T0 + 20_000).sinceFirstTradeSec, null);
+  // FactorBuilder 白名单透传（不落库即丢红线）
+  check('I6 快照白名单透传',
+    buildFactorValuesForTimeSeries({ age: 1.5, tokenAgeSec: 90, sinceFirstTradeSec: 33 }).sinceFirstTradeSec, 33);
+  check('I7 旧 FA 无键 → null 不掩盖',
+    buildFactorValuesForTimeSeries({ age: 1.5 }).sinceFirstTradeSec, null);
+}
+
 console.log('H. signals 页旧信号推导兜底源码口径（A：tokenAgeSec miss 时 age×60 推导）');
 {
   const src = fs.readFileSync(path.join(__dirname, '../src/web/static/js/experiment_signals.js'), 'utf8');
