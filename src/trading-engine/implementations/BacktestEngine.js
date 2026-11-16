@@ -1747,11 +1747,7 @@ class BacktestEngine extends AbstractTradingEngine {
       }
 
       const duration = Date.now() - startTime;
-      // 效率终极仪表读数
-      this.logger.info(this._experimentId, 'BacktestEngine',
-        `⏱️ 效率分解: 总${(duration/1000).toFixed(0)}s | tick处理${(Number(this._tickNs)/1e9).toFixed(1)}s | 门链阻塞${(Number(this._blockingNs)/1e9).toFixed(1)}s (${this._blockCount}次, 最长${this._blockMaxMs}ms) | 其它${(duration/1000 - Number(this._tickNs)/1e9 - Number(this._blockingNs)/1e9).toFixed(1)}s`);
-      if (this._blockHist) this.logger.info(this._experimentId, 'BacktestEngine',
-        `⏱️ 阻塞直方图: ${JSON.stringify(this._blockHist)}`);
+
       const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
       const finalBalance = portfolio?.totalValue || this.initialBalance;
       const finalBalanceValue = typeof finalBalance === 'number' ? finalBalance : finalBalance.toNumber();
@@ -2061,31 +2057,14 @@ class BacktestEngine extends AbstractTradingEngine {
    * 要求评估在下一笔 tick 前完成（含预检查网络调用），drain 后再继续。
    */
   // 效率终极仪表：主循环阻塞 vs tick 处理累计
-  _blockingNs = 0n;  // await inflightEvals 总耗时
-  _tickNs = 0n;      // tick 同步处理总耗时
-  _blockCount = 0;   // 阻塞次数
-  _blockMaxMs = 0;   // 单次最长阻塞
 
   async _advanceDebouncer(tickTs) {
-    const _tkT0 = process.hrtime.bigint();
     this._buyDebouncer.advance(tickTs);
     this._sellConfirmDebouncer.advance(tickTs);
-    this._tickNs += process.hrtime.bigint() - _tkT0;
-    if (this._inflightEvals.size > 0) {
-      const _blT0 = process.hrtime.bigint();
-      const _blN = this._inflightEvals.size;
-      await Promise.all([...this._inflightEvals]);
-      const _blDt = Number(process.hrtime.bigint() - _blT0) / 1e6;
-      this._blockingNs += process.hrtime.bigint() - _blT0;
-      this._blockCount++;
-      if (_blDt > this._blockMaxMs) this._blockMaxMs = Math.round(_blDt);
-      // 阻塞直方图（按等待时长分桶 + 记录 inflight 数）
-      if (!this._blockHist) this._blockHist = { '<1ms': 0, '1-10ms': 0, '10-100ms': 0, '100-500ms': 0, '500-1000ms': 0, '>1000ms': 0, 'total<1ms': 0, 'total10-100': 0, 'total100-500': 0, 'total500-1000': 0, 'total>1000': 0 };
-      const bucket = _blDt < 1 ? '<1ms' : _blDt < 10 ? '1-10ms' : _blDt < 100 ? '10-100ms' : _blDt < 500 ? '100-500ms' : _blDt < 1000 ? '500-1000ms' : '>1000ms';
-      this._blockHist[bucket]++;
-      const tb = _blDt < 1 ? 'total<1ms' : _blDt < 10 ? 'total10-100' : _blDt < 100 ? 'total100-500' : _blDt < 500 ? 'total500-1000' : 'total>1000';
-      this._blockHist[tb] += Math.round(_blDt);
-    }
+    // T152（2026-11-16 效率根修）：不再每 tick await inflightEvals——门链跨 token
+    // 并行跑，_buyingTokens 防同 token 重复信号（语义安全），段边界+收尾统一 drain。
+    // 此前每 tick 阻塞等 Jev 链完成（~1.4s/链×~2800 信号=54min 的根因——纯回放只
+    // 2.3min，97% 墙钟在门链阻塞上）。直方图仪表退役（T152 后阻塞≈0）。
   }
 
   // ==================== 回放代币注册 ====================
