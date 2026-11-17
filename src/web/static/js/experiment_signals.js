@@ -131,6 +131,7 @@ class ExperimentSignals {
     // 🔥 famous 钱包名单（/api/rosters/famous-wallets，famous-copy-wallets.json 同源）：
     // 价格图 famous 操作标记的数据源；null=未加载/拉取失败（零标记 fail-open 不阻塞主图）
     this._famousWallets = null;
+    this._famousProfiles = null; // addr → GMGN 身份档案（twitter_username 等，可缺席）
     this._famousRosterPromise = null;
 
     // 🔥 区块链信息（用于生成GMGN链接）
@@ -756,7 +757,10 @@ class ExperimentSignals {
         .then(json => {
           const wallets = (json?.success && Array.isArray(json.data?.wallets)) ? json.data.wallets : [];
           this._famousWallets = new Set(wallets.map(w => String(w).toLowerCase()));
-          console.log(`⭐ famous 名单加载: ${this._famousWallets.size} 址 (v${json?.data?.version ?? '?'})`);
+          this._famousProfiles = json?.data?.profiles || null;
+          const named = this._famousProfiles
+            ? Object.values(this._famousProfiles).filter(p => p && (p.twitterUsername || p.name || p.twitterName)).length : 0;
+          console.log(`⭐ famous 名单加载: ${this._famousWallets.size} 址 (v${json?.data?.version ?? '?'}, GMGN 身份 ${named})`);
           return this._famousWallets;
         })
         .catch(err => {
@@ -769,11 +773,26 @@ class ExperimentSignals {
   }
 
   /**
+   * famous 钱包显示名：@twitter_username 优先 → twitter_name → GMGN name → null
+   * （null=tooltip 回落地址缩写）；档案缺席不冒充
+   * @param {string} wallet 小写地址
+   * @returns {string|null}
+   */
+  _famousLabel(wallet) {
+    const p = this._famousProfiles && this._famousProfiles[wallet];
+    if (!p) return null;
+    if (p.twitterUsername) return `@${p.twitterUsername}`;
+    if (p.twitterName) return p.twitterName;
+    if (p.name) return p.name;
+    return null;
+  }
+
+  /**
    * 🔥 famous 钱包操作点位（散点图气泡/K线图 scatter 双图表共用）：
    * wallet 口径 = sender_address || trader_address（与 FA/引擎一致）；名单缺席=空数组。
    * 价格/金额门槛与散点图主气泡同口径（MIN_BNB=0.005、price_usd 有效）。
    * @param {Array} trimmedTickData - 已过窗口裁剪的 ticks（含 sender_address）
-   * @returns {{buyPoints:Array, sellPoints:Array}} 点位 {x,y,r,_famous:{wallet,bnb}}
+   * @returns {{buyPoints:Array, sellPoints:Array}} 点位 {x,y,r,_famous:{wallet,bnb,tradeType,label}}
    */
   _buildFamousPoints(trimmedTickData) {
     const buyPoints = [], sellPoints = [];
@@ -791,7 +810,7 @@ class ExperimentSignals {
         x: new Date(tick.block_time).getTime(),
         y: priceUsd,
         r: this._mapTickRadius(bnbAmount),
-        _famous: { wallet, bnb: bnbAmount, tradeType },
+        _famous: { wallet, bnb: bnbAmount, tradeType, label: this._famousLabel(wallet) },
       });
     }
     return { buyPoints, sellPoints };
@@ -1559,15 +1578,17 @@ class ExperimentSignals {
                     if (t._slipPct != null) lines.push(`价差: ${t._slipPct >= 0 ? '+' : ''}${t._slipPct.toFixed(2)}%`);
                     return lines;
                   }
-                  // ⭐ famous 气泡：钱包地址+金额（镜像分化复盘=看谁在买卖）
+                  // ⭐ famous 气泡：GMGN 用户名+钱包地址+金额（镜像分化复盘=看谁在买卖）
                   if (item.raw._famous) {
                     const f = item.raw._famous;
                     const w = f.wallet;
-                    return [
+                    const lines = [
                       `⭐Famous ${f.tradeType || ''} | ${f.bnb.toFixed(4)} BNB`,
                       `Price: $${item.raw.y.toExponential(3)}`,
-                      `钱包: ${w.slice(0, 8)}…${w.slice(-6)}`,
                     ];
+                    if (f.label) lines.push(f.label);
+                    lines.push(`钱包: ${w.slice(0, 8)}…${w.slice(-6)}`);
+                    return lines;
                   }
                   const raw = item.raw._raw;
                   const bnb = (parseFloat(raw.bnb_amount) || 0).toFixed(4);
@@ -1936,15 +1957,17 @@ class ExperimentSignals {
                 if (t._slipPct != null) lines.push(`价差: ${t._slipPct >= 0 ? '+' : ''}${t._slipPct.toFixed(2)}%`);
                 return lines;
               }
-              // ⭐ famous 点位：钱包地址+金额（与散点图同款）
+              // ⭐ famous 点位：GMGN 用户名+钱包地址+金额（与散点图同款）
               if (it.raw._famous) {
                 const f = it.raw._famous;
                 const w = f.wallet;
-                return [
+                const lines = [
                   `⭐Famous ${f.tradeType || ''} | ${f.bnb.toFixed(4)} BNB`,
                   `Price: $${it.raw.y.toExponential(3)}`,
-                  `钱包: ${w.slice(0, 8)}…${w.slice(-6)}`,
                 ];
+                if (f.label) lines.push(f.label);
+                lines.push(`钱包: ${w.slice(0, 8)}…${w.slice(-6)}`);
+                return lines;
               }
               const p = it.raw, dir = p.c >= p.o ? '▲' : '▼';
               return [`${dir} O $${p.o.toExponential(2)}  H $${p.h.toExponential(2)}`, `   L $${p.l.toExponential(2)}  C $${p.c.toExponential(2)}`];

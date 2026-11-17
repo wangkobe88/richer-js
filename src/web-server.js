@@ -2710,19 +2710,38 @@ class RicherJsWebServer {
     });
 
     // 著名钱包名单（famous-copy-wallets.json，FA famousCopyWalletCircPct 同源用户点名
-    // 集合）：signals 页价格图 famous 操作标记的数据源。文件极小（几十址+note），
-    // mtime 缓存（名单随案迭代更新，重启不必）；读取失败=空名单（前端零标记 fail-open）
+    // 集合）+ GMGN 身份档案（famous-wallet-profiles.json，scripts/gmgn-kol/
+    // fetch-famous-profiles.cjs 采集——twitter_username/twitter_name 等，tooltip 展示）：
+    // signals 页价格图 famous 操作标记的数据源。两文件均极小，mtime 组合缓存
+    // （名单/档案随案迭代更新，重启不必）；roster 读取失败=空名单（前端零标记
+    // fail-open）；profiles 缺失=只回名单（tooltip 回落地址缩写）
     this.app.get('/api/rosters/famous-wallets', (req, res) => {
       try {
         const rosterPath = path.resolve(__dirname, '..', 'config', 'rosters', 'famous-copy-wallets.json');
-        const stat = fs.statSync(rosterPath);
-        if (!this._famousRosterCache || this._famousRosterCache.mtimeMs !== stat.mtimeMs) {
+        const profilesPath = path.resolve(__dirname, '..', 'config', 'rosters', 'famous-wallet-profiles.json');
+        const rosterStat = fs.statSync(rosterPath);
+        const profilesStat = fs.existsSync(profilesPath) ? fs.statSync(profilesPath) : null;
+        const cacheKey = `${rosterStat.mtimeMs}|${profilesStat ? profilesStat.mtimeMs : 'none'}`;
+        if (!this._famousRosterCache || this._famousRosterCache.cacheKey !== cacheKey) {
           const parsed = JSON.parse(fs.readFileSync(rosterPath, 'utf8'));
           const wallets = Array.isArray(parsed.wallets)
             ? parsed.wallets.map((w) => String(w).toLowerCase()) : [];
-          this._famousRosterCache = { mtimeMs: stat.mtimeMs, version: parsed.version || null, wallets };
+          let profiles = {};
+          if (profilesStat) {
+            const parsedProfiles = JSON.parse(fs.readFileSync(profilesPath, 'utf8'));
+            if (parsedProfiles && typeof parsedProfiles.profiles === 'object' && parsedProfiles.profiles) {
+              profiles = parsedProfiles.profiles;
+            }
+          }
+          this._famousRosterCache = {
+            cacheKey,
+            version: parsed.version || null,
+            wallets,
+            profiles,
+          };
         }
-        res.json({ success: true, data: this._famousRosterCache });
+        const { cacheKey: _ck, ...rosterPayload } = this._famousRosterCache;
+        res.json({ success: true, data: rosterPayload });
       } catch (error) {
         this.logger.error('WebServer', '读取 famous 名单失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });

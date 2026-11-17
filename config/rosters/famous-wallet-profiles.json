@@ -1,0 +1,616 @@
+{
+ "version": 9,
+ "updatedAt": "2026-11-17T04:27:09.939Z",
+ "profiles": {
+  "0xa83b73f5644cde337b61da79589f10ea15548811": {
+   "name": "",
+   "twitterName": "AntPositions(蚂蚁仓）☄️",
+   "twitterUsername": "antpositions",
+   "twitterFans": 6285,
+   "tags": [
+    "app_smart_money",
+    "wash_trader",
+    "kol",
+    "axiom",
+    "gmgn_go",
+    "top_followed",
+    "launchpad_smart",
+    "top_renamed",
+    "gmgn"
+   ],
+   "realizedProfit": "119946.86336849990405142946",
+   "winrate": 0.477170993733214,
+   "tokenNum": 2000,
+   "lastActiveAt": 1794889356,
+   "fetchedAt": "2026-11-17T04:24:32.638Z"
+  },
+  "0xbf004bff64725914ee36d03b87d6965b0ced4903": {
+   "name": "",
+   "twitterName": "阿峰_Afeng",
+   "twitterUsername": "aa_AFeng",
+   "twitterFans": 56168,
+   "tags": [
+    "kol",
+    "wash_trader",
+    "gmgn_go",
+    "top_followed",
+    "top_renamed",
+    "gmgn"
+   ],
+   "realizedProfit": "188295.04226695188051861465",
+   "winrate": 0.6537180910099889,
+   "tokenNum": 2000,
+   "lastActiveAt": 1794888986,
+   "fetchedAt": "2026-11-17T04:24:37.510Z"
+  },
+  "0x7e8fb0392542812476d9f2d0d71c01d1fa0776c5": {
+   "name": "",
+   "twitterName": "Wick李🔶 BNB",
+   "twitterUsername": "SuperL9",
+   "twitterFans": 39817,
+   "tags": [
+    "app_smart_money",
+    "kol",
+    "gmgn_go",
+    "fomo",
+    "gmgn"
+   ],
+   "realizedProfit": "-3323.27370144669634850669",
+   "winrate": 0.41389728096676737,
+   "tokenNum": 1727,
+   "lastActiveAt": 1794889307,
+   "fetchedAt": "2026-11-17T04:24:42.121Z"
+  },
+  "0x3472ccf6209925204b9cf352171ee150904fda7e": {
+   "name": "",
+   "twitterName": "西瓜🔶BNB",
+   "twitterUsername": "XIGUA0903",
+   "twitterFans": 7169,
+   "tags": [
+    "kol",
+    "gmgn_go",
+    "gmgn",
+    "top_followed",
+    "top_renamed"
+   ],
+   "realizedProfit": "36042.99201932901099305581",
+   "winrate": 0.5514124293785311,
+   "tokenNum": 1745,
+   "lastActiveAt": 1794877585,
+   "fetchedAt": "2026-11-17T04:24:46.721Z"
+  },
+  "0xe1e3252b8b2f9bf2a8335389ba8ee62e6ea29407": {
+   "name": "",
+   "twitterName": "Cowboy🔶BNB ｜版本之牛",
+   "twitterUsername": "feibo03",
+   "twitterFans": 42869,
+   "tags": [
+    "kol",
+    "gmgn_go",
+    "top_followed",
+    "top_renamed",
+    "gmgn"
+   ],
+   "realizedProfit": "29979.79416756971088832395",
+   "winrate": 0.4888268156424581,
+   "tokenNum": 2000,
+   "lastActiveAt": 1794889327,
+   "fetchedAt": "2026-11-17T04:24:51.361Z"
+  },
+  "0x94cf7ed19901eb7d487c779e6d1baa87157b2d01": {
+   "name": "",
+   "twitterName": "888UP",
+   "twitterUsername": "888upupup",
+   "twitterFans": 1560,
+   "tags": [
+    "kol",
+    "wash_trader",
+    "gmgn_go",
+    "top_followed",
+    "top_renamed",
+    "gmgn"
+   ],
+   "realizedProfit": "22606.96688104396818274274",
+   "winrate": 0.7238805970149254,
+   "tokenNum": 1504,
+   "lastActiveAt": 1794887782,
+   "fetchedAt": "2026-11-17T04:24:56.071Z"
+  },
+  "0xfb4e4fa492217d8401aa9e893c78707b61923953": {
+   "name": "",
+   "twitterName": "小财神🔶BNB（从头再来版）",
+   "twitterUsername": "0xZhangCrypto1",
+   "twitterFans": 7945,
+   "tags": [
+    "wash_trader",
+    "kol",
+    "arbitrager",
+    "gmgn_go",
+    "gmgn"
+   ],
+   "realizedProfit": "-742.25911540449205578963",
+   "winrate": 0.3174946004319654,
+   "tokenNum": 2000,
+   "lastActiveAt": 1794889323,
+   "fetchedAt": "2026-11-17T04:25:00.772Z"
+  },
+  "0x550647e8faf10116f0367526080c1005809b4653": {
+   "name": "",
+   "twitterName": "Yesp 🔶",
+   "twitterUsername": "yesp999",
+   "twitterFans": 7978,
+   "tags": [
+    "kol",
+    "gmgn_go",
+    "gmgn",
+    "top_followed"
+   ],
+   "realizedProfit": "10895.45700225692358704304",
+   "winrate": 0.4444444444444444,
+   "tokenNum": 1404,
+   "lastActiveAt": 1794844351,
+   "fetchedAt": "2026-11-17T04:25:05.439Z"
+  },
+  "0xf38ce55fe4e517e77e1056a54e64f22d43d88c3a": {
+   "name": "",
+   "twitterName": "professor",
+   "twitterUsername": "0xossalivan",
+   "twitterFans": 115,
+   "tags": [
+    "kol",
+    "wash_trader",
+    "fomo",
+    "gmgn_go",
+    "gmgn",
+    "top_followed"
+   ],
+   "realizedProfit": "2419.79057671773841001299",
+   "winrate": 0.28205128205128205,
+   "tokenNum": 890,
+   "lastActiveAt": 1794841927,
+   "fetchedAt": "2026-11-17T04:25:10.091Z"
+  },
+  "0xffbd5a03e1e936bfae82c567f8b41e0a95296dcc": {
+   "name": "",
+   "twitterName": "0xLuck",
+   "twitterUsername": "0xLuckHK",
+   "twitterFans": 3269,
+   "tags": [
+    "gmgn_go",
+    "kol",
+    "gmgn",
+    "top_followed"
+   ],
+   "realizedProfit": "5726.05931957588581525317",
+   "winrate": 0.30033557046979864,
+   "tokenNum": 2000,
+   "lastActiveAt": 1794845973,
+   "fetchedAt": "2026-11-17T04:25:14.853Z"
+  },
+  "0x877af245c61289b24f0c619a4346cdbc68f1aaac": {
+   "name": "",
+   "twitterName": "古月月",
+   "twitterUsername": "hzjxhcyy",
+   "twitterFans": 3274,
+   "tags": [
+    "kol",
+    "gmgn_go",
+    "wash_trader",
+    "top_followed",
+    "top_renamed",
+    "gmgn"
+   ],
+   "realizedProfit": "43913.54406098742803044656",
+   "winrate": 0.4021978021978022,
+   "tokenNum": 1624,
+   "lastActiveAt": 1794888671,
+   "fetchedAt": "2026-11-17T04:25:19.515Z"
+  },
+  "0xb4e1e589f5a5cb7f4c5d3bb0179dd678e421fee9": {
+   "name": "",
+   "twitterName": "九条命（凡事发生必有利于我）",
+   "twitterUsername": "CryptoKobe92",
+   "twitterFans": 30328,
+   "tags": [
+    "gmgn_go",
+    "kol",
+    "gmgn"
+   ],
+   "realizedProfit": "6479.93602191499128252997",
+   "winrate": 0.5412844036697247,
+   "tokenNum": 1187,
+   "lastActiveAt": 1794889371,
+   "fetchedAt": "2026-11-17T04:25:24.136Z"
+  },
+  "0xd44e17d5daeab4ec126e2c8395758b55f959298b": {
+   "name": "",
+   "twitterName": "招财猫🔶BNB（钻石手）",
+   "twitterUsername": "zhaocaidev",
+   "twitterFans": 376,
+   "tags": [
+    "gmgn"
+   ],
+   "realizedProfit": "476.53872432472700122675",
+   "winrate": 0.3008849557522124,
+   "tokenNum": 814,
+   "lastActiveAt": 1794836811,
+   "fetchedAt": "2026-11-17T04:25:28.861Z"
+  },
+  "0x40e569e9b5458c89b4910f3ecfade0f650e92a40": {
+   "name": "",
+   "twitterName": "荒大宝",
+   "twitterUsername": "277422149x",
+   "twitterFans": 947,
+   "tags": [
+    "kol",
+    "gmgn_go",
+    "gmgn"
+   ],
+   "realizedProfit": "1635.39749046724799760251",
+   "winrate": 0.45875251509054327,
+   "tokenNum": 983,
+   "lastActiveAt": 1794810616,
+   "fetchedAt": "2026-11-17T04:25:33.640Z"
+  },
+  "0xa7d4ffc4eca3c71af150ce302560a9d04a1d2b9f": {
+   "name": "",
+   "twitterName": "MIRRO",
+   "twitterUsername": "Mirro7777",
+   "twitterFans": 42953,
+   "tags": [
+    "app_smart_money",
+    "kol",
+    "wash_trader",
+    "gmgn_go",
+    "gmgn"
+   ],
+   "realizedProfit": "-16180.97173897049559467017",
+   "winrate": 0.29411764705882354,
+   "tokenNum": 1198,
+   "lastActiveAt": 1794886768,
+   "fetchedAt": "2026-11-17T04:25:38.312Z"
+  },
+  "0x7a2363a401b2340c7941dd2eeff0196a5078d2e6": {
+   "name": "",
+   "twitterName": "金狗挖掘机 | 0xDavid",
+   "twitterUsername": "HunterOnlyETH",
+   "twitterFans": 32490,
+   "tags": [
+    "app_smart_money",
+    "kol",
+    "wash_trader",
+    "fomo",
+    "gmgn_go",
+    "gmgn",
+    "top_followed",
+    "top_renamed"
+   ],
+   "realizedProfit": "69738.93036754001142463314",
+   "winrate": 0.6253869969040248,
+   "tokenNum": 2000,
+   "lastActiveAt": 1794878167,
+   "fetchedAt": "2026-11-17T04:25:42.909Z"
+  },
+  "0x0c1eadcaa8e668952514c61ad0a88350dacf43cd": {
+   "name": "",
+   "twitterName": "猫叔.𝓒𝓪𝓶𝓮𝓵𝓵𝓲𝓪",
+   "twitterUsername": "Yizhimao_super",
+   "twitterFans": 32191,
+   "tags": [
+    "kol",
+    "gmgn_go",
+    "gmgn"
+   ],
+   "realizedProfit": "1044.38215295926120062902",
+   "winrate": 0.09702970297029703,
+   "tokenNum": 1229,
+   "lastActiveAt": 1794888750,
+   "fetchedAt": "2026-11-17T04:25:47.497Z"
+  },
+  "0xd216cf8ee73da8438a3e57dc63703043cfb6e075": {
+   "name": "",
+   "twitterName": "深情丨先信🔶BNB",
+   "twitterUsername": "Web3shenqing",
+   "twitterFans": 29717,
+   "tags": [
+    "kol",
+    "wash_trader",
+    "gmgn_go",
+    "gmgn",
+    "top_followed",
+    "top_renamed"
+   ],
+   "realizedProfit": "3302.48754112440813258302",
+   "winrate": 0.37534246575342467,
+   "tokenNum": 1250,
+   "lastActiveAt": 1794858135,
+   "fetchedAt": "2026-11-17T04:25:52.102Z"
+  },
+  "0x38d24d54fd78edb195f75dd4e2c85021590cc833": {
+   "name": "",
+   "twitterName": "Max",
+   "twitterUsername": "0xcrypto_max",
+   "twitterFans": 18967,
+   "tags": [
+    "fomo",
+    "gmgn_go",
+    "kol",
+    "gmgn"
+   ],
+   "realizedProfit": "-4455.49373002351193854007",
+   "winrate": 0.32167832167832167,
+   "tokenNum": 487,
+   "lastActiveAt": 1794851221,
+   "fetchedAt": "2026-11-17T04:25:56.816Z"
+  },
+  "0xb226f97bc5b01978848dc440b40c70faea7c006e": {
+   "name": "",
+   "twitterName": "AlexWong 🇭🇰 | 1000X GEM (币有受害者)",
+   "twitterUsername": "sadd_asd77675",
+   "twitterFans": 17319,
+   "tags": [
+    "app_smart_money",
+    "kol",
+    "arbitrager",
+    "gmgn_go",
+    "top_followed",
+    "top_renamed",
+    "gmgn"
+   ],
+   "realizedProfit": "30483.91641405733626437593",
+   "winrate": 0.461038961038961,
+   "tokenNum": 1623,
+   "lastActiveAt": 1794887999,
+   "fetchedAt": "2026-11-17T04:26:01.411Z"
+  },
+  "0x77e5efcf4d14f6136242dc2f5618d1854761deef": {
+   "name": "",
+   "twitterName": "Divine hand｜神手",
+   "twitterUsername": "shenshou888",
+   "twitterFans": 17217,
+   "tags": [
+    "kol",
+    "wash_trader",
+    "gmgn_go",
+    "gmgn",
+    "top_followed"
+   ],
+   "realizedProfit": "7179.53075006023202948075",
+   "winrate": 0.4864864864864865,
+   "tokenNum": 1203,
+   "lastActiveAt": 1794888788,
+   "fetchedAt": "2026-11-17T04:26:06.038Z"
+  },
+  "0xa05ec35f7d1eba823cff2ed26aeaed419683742f": {
+   "name": "",
+   "twitterName": "yukaz",
+   "twitterUsername": "0xyukaz",
+   "twitterFans": 17078,
+   "tags": [
+    "kol",
+    "gmgn_go",
+    "top_followed",
+    "top_renamed",
+    "gmgn"
+   ],
+   "realizedProfit": "95876.10971927706054478657",
+   "winrate": 0.5867768595041323,
+   "tokenNum": 1446,
+   "lastActiveAt": 1794889507,
+   "fetchedAt": "2026-11-17T04:26:10.712Z"
+  },
+  "0xf7ff38f74c8a5b4750e5f65ae74c924a441b7b90": {
+   "name": "",
+   "twitterName": "剑锋🔶 BNB",
+   "twitterUsername": "feng188666",
+   "twitterFans": 13160,
+   "tags": [
+    "kol",
+    "arbitrager",
+    "gmgn_go",
+    "gmgn",
+    "top_followed",
+    "top_renamed"
+   ],
+   "realizedProfit": "1248.61330401364023141334",
+   "winrate": 0.40476190476190477,
+   "tokenNum": 1146,
+   "lastActiveAt": 1794849187,
+   "fetchedAt": "2026-11-17T04:26:15.312Z"
+  },
+  "0xef395d6a8ef0fa4f2593ee3e10b9fd4df1fa9c2e": {
+   "name": "",
+   "twitterName": "TOM 🦋🔶🅿️",
+   "twitterUsername": "okmetom",
+   "twitterFans": 11456,
+   "tags": [
+    "gmgn_go",
+    "kol",
+    "gmgn"
+   ],
+   "realizedProfit": "-106.14222813729476562409",
+   "winrate": 0.37935656836461124,
+   "tokenNum": 1615,
+   "lastActiveAt": 1794852017,
+   "fetchedAt": "2026-11-17T04:26:19.897Z"
+  },
+  "0xed0ffebb4342c814947c27c2e00df6fd18bf81b8": {
+   "name": "",
+   "twitterName": "A",
+   "twitterUsername": "Ash_RS9",
+   "twitterFans": 10350,
+   "tags": [
+    "kol",
+    "gmgn_go",
+    "top_followed",
+    "gmgn"
+   ],
+   "realizedProfit": "1566.2606402483428090726",
+   "winrate": 0.4275092936802974,
+   "tokenNum": 747,
+   "lastActiveAt": 1794883860,
+   "fetchedAt": "2026-11-17T04:26:24.492Z"
+  },
+  "0x199776730d88cfa1aa54e7f41df386b80ac150c5": {
+   "name": "",
+   "twitterName": "紫气东来《八方来财版》",
+   "twitterUsername": "pxj888",
+   "twitterFans": 3043,
+   "tags": [
+    "gmgn_go",
+    "kol",
+    "top_followed",
+    "gmgn"
+   ],
+   "realizedProfit": "2198.96630257654874685984",
+   "winrate": 0.4731182795698925,
+   "tokenNum": 1599,
+   "lastActiveAt": 1794889493,
+   "fetchedAt": "2026-11-17T04:26:29.057Z"
+  },
+  "0xa1426c6f65fe804e05ce3c07a42412d735ef78bc": {
+   "name": "",
+   "twitterName": "不知名打狗大师🧢",
+   "twitterUsername": "0xrap9",
+   "twitterFans": 2056,
+   "tags": [
+    "kol",
+    "wash_trader",
+    "fomo",
+    "gmgn_go",
+    "gmgn",
+    "top_followed",
+    "top_renamed"
+   ],
+   "realizedProfit": "25830.22475630988527895575",
+   "winrate": 0.4355400696864111,
+   "tokenNum": 1252,
+   "lastActiveAt": 1794856666,
+   "fetchedAt": "2026-11-17T04:26:33.658Z"
+  },
+  "0xe3577dd395e5adf2b0ffac3b2f0efa47c6bb77c3": {
+   "name": "",
+   "twitterName": "boring",
+   "twitterUsername": "boring616888",
+   "twitterFans": 4269,
+   "tags": [
+    "kol",
+    "gmgn_go",
+    "top_followed",
+    "gmgn"
+   ],
+   "realizedProfit": "10958.35179362285369769549",
+   "winrate": 0.5207877461706784,
+   "tokenNum": 1076,
+   "lastActiveAt": 1794889321,
+   "fetchedAt": "2026-11-17T04:26:38.236Z"
+  },
+  "0x20ff275ee89cbf0ece757d1691325b653dd4e756": {
+   "name": "",
+   "twitterName": "YYYzzy | GDC",
+   "twitterUsername": "YYzzy_diamond",
+   "twitterFans": 11744,
+   "tags": [
+    "fomo",
+    "kol",
+    "gmgn_go",
+    "gmgn",
+    "top_followed"
+   ],
+   "realizedProfit": "7556.58149604441474510701",
+   "winrate": 0.4373956594323873,
+   "tokenNum": 1585,
+   "lastActiveAt": 1794880687,
+   "fetchedAt": "2026-11-17T04:26:42.866Z"
+  },
+  "0x595acabc80b9ae5757335d929edb5777a15e440e": {
+   "name": "",
+   "twitterName": "发财日记",
+   "twitterUsername": "0xfacairiji",
+   "twitterFans": 27630,
+   "tags": [
+    "gmgn_go",
+    "gmgn"
+   ],
+   "realizedProfit": "16151.75132282029515105039",
+   "winrate": 0.5263157894736842,
+   "tokenNum": 1151,
+   "lastActiveAt": 1794662994,
+   "fetchedAt": "2026-11-17T04:26:47.478Z"
+  },
+  "0x5576cdaedb94be20f2deba947f3fc8b71d435e81": {
+   "name": "",
+   "twitterName": "Printer",
+   "twitterUsername": "justaprinter1",
+   "twitterFans": 1420,
+   "tags": [
+    "arbitrager",
+    "gmgn_go",
+    "top_followed",
+    "gmgn"
+   ],
+   "realizedProfit": "12676.44066741134100143483",
+   "winrate": 0.3462897526501767,
+   "tokenNum": 1132,
+   "lastActiveAt": 1794881587,
+   "fetchedAt": "2026-11-17T04:26:52.085Z"
+  },
+  "0x2ce9d43d1cba6ae31d7f07bfe0098dfa2d833373": {
+   "name": "",
+   "twitterName": "枯坐p小将",
+   "twitterUsername": "rob02643673_rob",
+   "twitterFans": 15869,
+   "tags": [
+    "kol",
+    "fomo",
+    "gmgn_go",
+    "top_followed",
+    "top_renamed",
+    "gmgn"
+   ],
+   "realizedProfit": "46263.27031439993714032265",
+   "winrate": 0.6271186440677966,
+   "tokenNum": 1260,
+   "lastActiveAt": 1794889147,
+   "fetchedAt": "2026-11-17T04:26:56.696Z"
+  },
+  "0x077b9981bc8a2ca417cea41861111da63266988b": {
+   "name": "",
+   "twitterName": "clukz",
+   "twitterUsername": "clukz",
+   "twitterFans": 38871,
+   "tags": [
+    "app_smart_money",
+    "kol",
+    "gmgn_go",
+    "gmgn",
+    "top_followed",
+    "axiom",
+    "smart_degen",
+    "top_renamed"
+   ],
+   "realizedProfit": "43327.85971647718998353747",
+   "winrate": 0.5483870967741935,
+   "tokenNum": 708,
+   "lastActiveAt": 1794881454,
+   "fetchedAt": "2026-11-17T04:27:01.301Z"
+  },
+  "0xdd6f338b91f40e5a02c468b7cb49cccc569a3134": {
+   "name": "",
+   "twitterName": "Stigman",
+   "twitterUsername": "Stigman__",
+   "twitterFans": 9046,
+   "tags": [
+    "kol",
+    "fomo",
+    "gmgn_go",
+    "gmgn"
+   ],
+   "realizedProfit": "-612.47299560953135904745",
+   "winrate": 0.2,
+   "tokenNum": 654,
+   "lastActiveAt": 1794841793,
+   "fetchedAt": "2026-11-17T04:27:05.935Z"
+  }
+ }
+}
