@@ -875,6 +875,8 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     nearPre20BnbPerMin: cd.nearPre20BnbPerMin ?? null,
     nearTail10SellWallets: cd.nearTail10SellWallets ?? null, // CD394 出货臂判读线（末 10s 独立卖侧钱包数）
     actWeightedThroughputBnbPerMin: cd.actWeightedThroughputBnbPerMin ?? null, // D3.73 时间衰减加权活跃分（cheat 题判读原料透传）
+    nearPre10GapSec: cd.nearPre10GapSec ?? null, // D3.75 段前静默秒数（cheat act 题密集臂段前背景反锚原料透传）
+    nearPre10Wallets: cd.nearPre10Wallets ?? null, // D3.75 段前独立钱包数（同上透传）
     nearTail5TickN,
     nearTail5BuyN,
     nearTail5BuyBnb,
