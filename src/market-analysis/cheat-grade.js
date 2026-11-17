@@ -323,7 +323,6 @@ function levelsFromObservation(observation, extras = {}) {
   const levels = {
     equalAmountSplit: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.equal_amount_split),
     coordinatedSellBack: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.coordinated_sell_back),
-    creatorFrontRun: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.creator_front_run),
     sellDispersion: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.sell_dispersion),
     stallBurstWave: scoreLevel(CHEAT_LEVEL_SCORES.sbw, ex.stall_burst_wave),
     amountTiering: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.amount_tiering),
@@ -334,7 +333,6 @@ function levelsFromObservation(observation, extras = {}) {
     // holdingsBalance D3.72/G19 随题退役（题删+EXT 清单移除——ex 恒 undefined；
     // FA cheatHoldingsBalance 键保留恒 null 供存量条件串兼容）
     burstSpikeConcentration: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.burst_spike_concentration), // D3.51（G15 A 主判）
-    strongBackerPressure: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.strong_backer_pressure), // D3.52（CD159 观察期——**无通道消费**：MAIN_IDS 显式排除不进 A，档位只进 FA 投影攒分布，豁免规则攒 case 后再裁）
     activityLevel: scoreLevel(CHEAT_LEVEL_SCORES.activity, act),
     bundledDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, dom),
     abnormalBehavior: scoreLevel(CHEAT_LEVEL_SCORES.abnormal, pt), // D3.39（G13 R 通道 abnormal_behavior_ratio；unclear→null）
@@ -342,7 +340,6 @@ function levelsFromObservation(observation, extras = {}) {
   const buckets = {
     equalAmountSplit: ph.equal_amount_split ?? null,
     coordinatedSellBack: ph.coordinated_sell_back ?? null,
-    creatorFrontRun: ph.creator_front_run ?? null,
     sellDispersion: ph.sell_dispersion ?? null,
     stallBurstWave: ex.stall_burst_wave ?? null,
     amountTiering: ex.amount_tiering ?? null,
@@ -351,7 +348,6 @@ function levelsFromObservation(observation, extras = {}) {
     slowGrindPump: ex.slow_grind_pump ?? null,
     washPair: ex.wash_pair ?? null,
     burstSpikeConcentration: ex.burst_spike_concentration ?? null,
-    strongBackerPressure: ex.strong_backer_pressure ?? null, // D3.52（CD159 观察期攒数据）
     activityLevel: act,
     bundledDominance: dom,
     abnormalBehavior: pt,
@@ -474,7 +470,7 @@ const MAIN_IDS = [
   'equal_amount_split',
   'coordinated_sell_back',
   'sell_dispersion',
-  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave' && id !== 'strong_backer_pressure'), // tier/bw/rat/pump/wash/spike（sbp 观察期排除；holdings_balance D3.72 已随题退役出 EXT 清单）
+  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave'), // tier/bw/rat/pump/wash/spike（strong_backer_pressure D3.74 已随题退役出 EXT 清单；holdings_balance D3.72 同）
 ];
 
 /**

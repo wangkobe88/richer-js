@@ -85,30 +85,6 @@ function main() {
     ok(grade(obs2).grade === 'healthy', 'sbw=burst 单独不触发任何通道（辅助判定）');
   }
 
-  console.log('A4. strong_backer_pressure 观察期零门侧消费（D3.52/CD159——MAIN_IDS 显式排除反证）');
-  {
-    // strong 也不触发任何通道（豁免方向题绝不拉黑——EXT 入列≠主判吸收，filter 显式排除；
-    // 与 A3 spike「EXT 入列即主判」刻意不同：spike=拦截方向、sbp=豁免方向，自动吸收会反转语义）
-    const rStrong = grade(withExt(baseObs(), 'strong_backer_pressure', 'strong'));
-    ok(rStrong.grade === 'healthy' && rStrong.reasons.length === 0,
-      `sbp strong 单独 → healthy 零 reasons（观察期实证：MAIN_IDS 显式排除不进 A，grade 零消费只攒分布——用户裁定「这个锚先实现，但是可以先不起作用，我们攒个一批数据看看」）（实际 ${rStrong.grade}/${JSON.stringify(rStrong.reasons)}）`);
-    const rMod = grade(withExt(baseObs(), 'strong_backer_pressure', 'moderate'));
-    ok(rMod.grade === 'healthy',
-      'sbp moderate 同零门侧消费（豁免规则立法前任何档位不进任何通道）');
-    // 档位+锚窗买卖比照常投影（门零消费≠数据不攒——观察期攒分布数据源）
-    const obs = withExt(baseObs(), 'strong_backer_pressure', 'strong');
-    obs.anchors.anchorBuySellRatio = 4.74;
-    const lv = levelsFromObservation(obs);
-    ok(lv.levels.strongBackerPressure === 3 && lv.buckets.strongBackerPressure === 'strong'
-      && lv.anchors.anchorBuySellRatio === 4.74,
-      `sbp 档位+锚窗买卖比照常投影 levels/buckets/anchors（CD21 实形 4.74 攒分布；实际 ${lv.levels.strongBackerPressure}/${lv.buckets.strongBackerPressure}/${lv.anchors.anchorBuySellRatio}）`);
-    // 与其它通道共存不互动：sbp strong 叠 wash moderate（无 A strong）→ healthy 不受影响
-    const obsMix = withExt(baseObs(), 'strong_backer_pressure', 'strong');
-    obsMix.extLevels.wash_pair = 'moderate';
-    ok(grade(obsMix).grade === 'healthy',
-      'sbp strong 叠 wash moderate → 仍 healthy（观察期 sbp 与既有通道零互动——豁免臂立法前不放大不压制）');
-  }
-
   console.log('A3. burst 尖刺集中 A 吸收（G15/D3.51——CD157/CD102 裁定立项，EXT 入列即主判）');
   {
     // strong → cheat（九主判循环已覆盖；此处锁 reason 码+锚无关性——门侧零数值消费）
@@ -676,18 +652,17 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       activityLevel: { bucket: 'low' }, bundledDominance: { bucket: 'mid' },
     });
     ok(r.levels.equalAmountSplit === 2 && r.levels.coordinatedSellBack === null
-      && r.levels.creatorFrontRun === 1 && r.levels.stallBurstWave === 1
+      && r.levels.stallBurstWave === 1
       && r.levels.sameBlockBuyWave === 3 && r.levels.amountTiering === null
       && r.levels.washPair === 3 && r.levels.activityLevel === 0
-      && r.levels.bundledDominance === 1 && r.levels.burstSpikeConcentration === 2
-      && r.levels.strongBackerPressure === null,
-      `levelsFromObservation 16 题映射（D3.39 起含 abnormalBehavior/D3.51 起含 burstSpikeConcentration/D3.52 起含 strongBackerPressure（观察期零门侧消费）；实际 ${JSON.stringify(r.levels)}）`);
+      && r.levels.bundledDominance === 1 && r.levels.burstSpikeConcentration === 2,
+      `levelsFromObservation 13 题映射（D3.74 起 cr/sbp 随题退役 15→13 键；D3.39 abnormalBehavior/D3.51 burstSpikeConcentration；实际 ${JSON.stringify(r.levels)}）`);
     ok(r.buckets.sameBlockBuyWave === 'strong' && r.buckets.stallBurstWave === 'burst'
       && r.buckets.washPair === 'strong' && r.buckets.activityLevel === 'low',
       'buckets 字符串原值（metadata 研究留档）');
     const r2 = levelsFromObservation(null);
-    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 15,
-      '空观测 → 15 键全 null（D3.72 holdingsBalance 键随题退役 16→15；容缺不冒充；abnormalBehavior D3.39/burstSpikeConcentration D3.51/strongBackerPressure D3.52 入列）');
+    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 13,
+      '空观测 → 13 键全 null（D3.74 cr/sbp 随题退役 15→13；D3.72 holdingsBalance 同；容缺不冒充）');
     // 数值锚（用户补点「著名钱包掌控/持仓极不均衡」+D3.28 对敲三键+D3.32 持仓分布五键）：
     // obs.anchors 持仓占比四键 + washPair 三键 + holdings 五键（CD122 实值）+
     // extras famous 数值/档位；famousDominance=low/mid/high→0/1/2

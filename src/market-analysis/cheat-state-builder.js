@@ -232,7 +232,7 @@ function buildCheatState(snapshot) {
     // 在持续吸筹推价由题档判读（组织化伴随与买后反手卖使买压不纯粹，判读教学在
     // 题面单一载体）；窗口无卖出不渲染比值（比值不适用，按笔数与金额判读，题面已锚）
     if (d.anchorBuySellRatio !== null && d.anchorBuySellRatio !== undefined) {
-      lines.push(`锚窗买压: 买入合计 ${fmtBnb(d.totalBuyBnb)} BNB / 卖出合计 ${fmtBnb(d.totalSellBnb)} BNB，买卖比 ${d.anchorBuySellRatio}（比值=买入合计÷卖出合计。方向性事实——买卖比高只说明窗口方向偏买，单一/少数大户是否在持续吸筹推价由你结合 [WALLETS] 大户行判读）`);
+      // D3.74「锚窗买压」行随 strong_backer_pressure 题退役移除（判定链零消费；anchorBuySellRatio 数值锚照算留档）
     }
     // D3.57 pump 数值锚事实行（CD166/CD165/CD175 pump 专项立项——用户判据原话
     // 「从K线上看，它的斜率非常稳定（或者是某一个长阶段斜率稳定），这根本不可

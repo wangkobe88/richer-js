@@ -33,9 +33,8 @@
 const PHENOMENON_IDS = [
   'equal_amount_split',
   'coordinated_sell_back',
-  'creator_front_run',
   'sell_dispersion',
-];
+]; // creator_front_run D3.74 随题退役出清单（2026-11-17 btv140 复审轮用户裁定——判定链零消费：A 主判剔 cr 无任何通道；旧档答案被忽略、历史 buckets 行留档）
 
 /**
  * 观察性现象题 id 清单（D3.3 起）：答案只落 extLevels 审计，不进观测主键。
@@ -46,7 +45,7 @@ const PHENOMENON_IDS = [
  * 现象二分桶域（none/burst），读档走 _stallBurst——D3.3-D3.8 四档值、
  * D3.9 burst_suspect、D3.10 burst_cheat/burst_normal 桶值语义不可比=断代 null。
  */
-const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'burst_spike_concentration', 'strong_backer_pressure']; // wash_pair D3.28（同块对敲）/ burst_spike_concentration D3.51（burst 尖刺集中——CD157/CD102 裁定立项，A 主判自动吸收）/ strong_backer_pressure D3.52（强庄持续买压——CD159 立项**观察期**：cheat-grade MAIN_IDS 显式排除不进 A 主判，档位只进 FA 投影攒分布，豁免规则攒 case 后再裁）/ holdings_balance D3.32→D3.72 退役（2026-11-17 btv140 BP-T006 案用户裁定整题删除——持仓不均衡不再用于任何判定，旧档答案被本清单忽略、历史 buckets 行留档）
+const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'burst_spike_concentration']; // wash_pair D3.28（同块对敲）/ burst_spike_concentration D3.51（burst 尖刺集中，A 主判自动吸收）/ strong_backer_pressure D3.52→D3.74 随题退役（观察期零消费，2026-11-17 btv140 复审轮用户裁定删除；档位 FA 键保留恒 null）/ holdings_balance D3.32→D3.72 退役（btv140 BP-T006 案）
 
 /** 程度档位序（与题集 PHENOMENON_LEVELS 一致；档位比较用） */
 const LEVEL_ORDER = { none: 0, weak: 1, moderate: 2, strong: 3 };

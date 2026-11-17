@@ -234,7 +234,7 @@ async function main() {
     ok(row.token_address === '0xtok' && row.verdict === 'observed' && row.cheat_prob === null
       && row.pattern_type === null && row.retail_participation === undefined,
       `行字段：verdict='observed'/cheat_prob=null/pattern_type=null（D3.5 判定层停产；retail 列已停写=undefined；实际 ${row.verdict}/${row.cheat_prob}/${row.pattern_type}）`);
-    ok(row.snapshot_digest.phenomena && row.snapshot_digest.phenomena.creator_front_run === 'strong'
+    ok(row.snapshot_digest.phenomena && row.snapshot_digest.phenomena.creator_front_run === undefined // D3.74 cr 随题退役：答案被 PHENOMENON_IDS 忽略键缺席
       && row.snapshot_digest.extLevels.stall_burst_wave === 'none'
       && row.snapshot_digest.extLevels.amount_tiering === 'strong'
       && row.snapshot_digest.extLevels.same_block_buy_wave === 'strong'
