@@ -197,6 +197,8 @@
 
 **黄金集**：G21 基线 28/42 → G22 **28/42 零变化**（D3.26 存档 answers 无该题键=断代防线，重放逐位一致）；golden json rulesVersion 标 G22。单测：lib 627/service 200/grade 120/gate 180/factor_prebuy 118/bp_lib 539/bp_check 41 全绿。
 
+**182 定向对拍（11-17 跑毕，三票真调 D3.77/G22）**：①**CD102（SAFU——R 单撑票，CD418 轮为 `unhealthy[R_abnormal_dominant]`）现 `healthy[clean]`**——R 消失后无 strong、act=high 不落 E；生产门链下 sbw=burst∧act=high 照放行=「burst/泛异常直通下一层」裁定方向的兑现面（已知语义代价，人工裁定 cheat 与机器分歧转由 FP 因子门将来按形状加锚承接）；②CD27（wash 立法票）照 **cheat**（本轮 `A_strong:slow_grind_pump+wash_pair` 双 strong，wash 锚 95.1%×10 对逐位不变）零漂移；③CD157（가나）照 **cheat**（`A_strong:sell_dispersion+slow_grind_pump`）零漂移。机器×人工 2/3（分歧 CD102=删除预期变化非回归）。token 每票 ~3.5k-4k（较 D3.76 少一题）。⚠执行注记：首轮对拍撞上并行会话将 182 主工作树 reset 至其基线 3090b08b——跑出 G21 旧代码输出作废；二轮按 T143 先例开独立 worktree（`/home/ubuntu/richer-js-cd419` @13e64435）跑毕即清——**182 主工作树被并行会话持有期间，对拍一律走独立 worktree 不抢主树**。
+
 **部署注记**：生产重启后 D3.77 域 bootstrap 冷启动一次；每票 Jev 配额再 −1 题（D3.76 后连续两题退役=16→10）。
 
 ### CD418 burst_spike_concentration 整题退役（G21/D3.76）——sbw=burst 豁免链天然放行、A 主判冗余（2026-11-17）
