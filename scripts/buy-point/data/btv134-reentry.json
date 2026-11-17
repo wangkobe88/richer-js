@@ -1,0 +1,411 @@
+[
+ {
+  "pointId": "BP-T051",
+  "symbol": "屁屁",
+  "reentry": true,
+  "waitSec": 51,
+  "entryPctVsAnchor": 15.2,
+  "fwd5m": {
+   "n": 56,
+   "maxPct": 64.9,
+   "lastPct": 46.7
+  },
+  "fwd15m": {
+   "n": 62,
+   "maxPct": 64.9,
+   "lastPct": 26.2
+  },
+  "pnl5m": 0.0934,
+  "pnl15m": 0.0524
+ },
+ {
+  "pointId": "BP-T046",
+  "symbol": "妙妙鹅",
+  "reentry": true,
+  "waitSec": 2,
+  "entryPctVsAnchor": 14.9,
+  "fwd5m": {
+   "n": 19,
+   "maxPct": 13.1,
+   "lastPct": -29.8
+  },
+  "fwd15m": {
+   "n": 22,
+   "maxPct": 13.1,
+   "lastPct": -31.8
+  },
+  "pnl5m": -0.0596,
+  "pnl15m": -0.0636
+ },
+ {
+  "pointId": "BP-T025",
+  "symbol": "RAM",
+  "reentry": true,
+  "waitSec": 88,
+  "entryPctVsAnchor": 23.8,
+  "fwd5m": {
+   "n": 4,
+   "maxPct": 0,
+   "lastPct": -10.9
+  },
+  "fwd15m": {
+   "n": 13,
+   "maxPct": 0,
+   "lastPct": -23.5
+  },
+  "pnl5m": -0.0218,
+  "pnl15m": -0.047
+ },
+ {
+  "pointId": "BP-T056",
+  "symbol": "小绿",
+  "reentry": true,
+  "waitSec": 1,
+  "entryPctVsAnchor": 8.7,
+  "fwd5m": {
+   "n": 17,
+   "maxPct": 8,
+   "lastPct": -30.7
+  },
+  "fwd15m": {
+   "n": 17,
+   "maxPct": 8,
+   "lastPct": -30.7
+  },
+  "pnl5m": -0.0614,
+  "pnl15m": -0.0614
+ },
+ {
+  "pointId": "BP-T053",
+  "symbol": "二郎",
+  "reentry": true,
+  "waitSec": 207,
+  "entryPctVsAnchor": 25.2,
+  "fwd5m": {
+   "n": 13,
+   "maxPct": 24.2,
+   "lastPct": 18.5
+  },
+  "fwd15m": {
+   "n": 18,
+   "maxPct": 24.2,
+   "lastPct": 5.8
+  },
+  "pnl5m": 0.037,
+  "pnl15m": 0.0116
+ },
+ {
+  "pointId": "BP-T016",
+  "symbol": "그냥드림",
+  "reentry": true,
+  "waitSec": 44,
+  "entryPctVsAnchor": 3.4,
+  "fwd5m": {
+   "n": 194,
+   "maxPct": 76.6,
+   "lastPct": 1.9
+  },
+  "fwd15m": {
+   "n": 233,
+   "maxPct": 76.6,
+   "lastPct": 7.2
+  },
+  "pnl5m": 0.0038,
+  "pnl15m": 0.0144
+ },
+ {
+  "pointId": "BP-T055",
+  "symbol": "小微",
+  "reentry": true,
+  "waitSec": 3,
+  "entryPctVsAnchor": 13.9,
+  "fwd5m": {
+   "n": 24,
+   "maxPct": 6.4,
+   "lastPct": -30.4
+  },
+  "fwd15m": {
+   "n": 24,
+   "maxPct": 6.4,
+   "lastPct": -30.4
+  },
+  "pnl5m": -0.0608,
+  "pnl15m": -0.0608
+ },
+ {
+  "pointId": "BP-T041",
+  "symbol": "天算",
+  "reentry": true,
+  "waitSec": 2,
+  "entryPctVsAnchor": 16.9,
+  "fwd5m": {
+   "n": 24,
+   "maxPct": 0,
+   "lastPct": -18.8
+  },
+  "fwd15m": {
+   "n": 25,
+   "maxPct": 0,
+   "lastPct": -20.3
+  },
+  "pnl5m": -0.0376,
+  "pnl15m": -0.0406
+ },
+ {
+  "pointId": "BP-T050",
+  "symbol": "RCHKD",
+  "reentry": true,
+  "waitSec": 4,
+  "entryPctVsAnchor": 18.9,
+  "fwd5m": {
+   "n": 11,
+   "maxPct": 0.6,
+   "lastPct": -21.9
+  },
+  "fwd15m": {
+   "n": 11,
+   "maxPct": 0.6,
+   "lastPct": -21.9
+  },
+  "pnl5m": -0.0438,
+  "pnl15m": -0.0438
+ },
+ {
+  "pointId": "BP-T009",
+  "symbol": "折纸小狗",
+  "reentry": true,
+  "waitSec": 6,
+  "entryPctVsAnchor": 18.2,
+  "fwd5m": {
+   "n": 30,
+   "maxPct": 19.8,
+   "lastPct": -21.4
+  },
+  "fwd15m": {
+   "n": 31,
+   "maxPct": 19.8,
+   "lastPct": -22
+  },
+  "pnl5m": -0.0428,
+  "pnl15m": -0.044
+ },
+ {
+  "pointId": "BP-T002",
+  "symbol": "贵人鸟",
+  "reentry": true,
+  "waitSec": 34,
+  "entryPctVsAnchor": 19.1,
+  "fwd5m": {
+   "n": 28,
+   "maxPct": 9.5,
+   "lastPct": 9.5
+  },
+  "fwd15m": {
+   "n": 117,
+   "maxPct": 65,
+   "lastPct": 65
+  },
+  "pnl5m": 0.019,
+  "pnl15m": 0.13
+ },
+ {
+  "pointId": "BP-T104",
+  "symbol": "DPRKaptcha",
+  "reentry": false
+ },
+ {
+  "pointId": "BP-T097",
+  "symbol": "野猪ins",
+  "reentry": true,
+  "waitSec": 21,
+  "entryPctVsAnchor": 20.7,
+  "fwd5m": {
+   "n": 33,
+   "maxPct": 28.2,
+   "lastPct": 23.7
+  },
+  "fwd15m": {
+   "n": 166,
+   "maxPct": 104.6,
+   "lastPct": 104.1
+  },
+  "pnl5m": 0.0474,
+  "pnl15m": 0.2082
+ },
+ {
+  "pointId": "BP-T135",
+  "symbol": "画地为牢",
+  "reentry": true,
+  "waitSec": 450,
+  "entryPctVsAnchor": 16.4,
+  "fwd5m": {
+   "n": 8,
+   "maxPct": 0,
+   "lastPct": -7.4
+  },
+  "fwd15m": {
+   "n": 10,
+   "maxPct": 0,
+   "lastPct": -7.7
+  },
+  "pnl5m": -0.0148,
+  "pnl15m": -0.0154
+ },
+ {
+  "pointId": "BP-T136",
+  "symbol": "我画地为牢",
+  "reentry": false
+ },
+ {
+  "pointId": "BP-T143",
+  "symbol": "SI",
+  "reentry": true,
+  "waitSec": 126,
+  "entryPctVsAnchor": 16.9,
+  "fwd5m": {
+   "n": 26,
+   "maxPct": 5.7,
+   "lastPct": -10.5
+  },
+  "fwd15m": {
+   "n": 38,
+   "maxPct": 9.3,
+   "lastPct": 1
+  },
+  "pnl5m": -0.021,
+  "pnl15m": 0.002
+ },
+ {
+  "pointId": "BP-T010",
+  "symbol": "猴子币",
+  "reentry": true,
+  "waitSec": 36,
+  "entryPctVsAnchor": 17.2,
+  "fwd5m": {
+   "n": 43,
+   "maxPct": 0,
+   "lastPct": -18.3
+  },
+  "fwd15m": {
+   "n": 48,
+   "maxPct": 0,
+   "lastPct": -23.5
+  },
+  "pnl5m": -0.0366,
+  "pnl15m": -0.047
+ },
+ {
+  "pointId": "BP-T114",
+  "symbol": "画地为牢",
+  "reentry": true,
+  "waitSec": 115,
+  "entryPctVsAnchor": 22,
+  "fwd5m": {
+   "n": 4,
+   "maxPct": 0,
+   "lastPct": -7.2
+  },
+  "fwd15m": {
+   "n": 6,
+   "maxPct": 0,
+   "lastPct": -4.2
+  },
+  "pnl5m": -0.0144,
+  "pnl15m": -0.0084
+ },
+ {
+  "pointId": "BP-T134",
+  "symbol": "SA",
+  "reentry": true,
+  "waitSec": 780,
+  "entryPctVsAnchor": 17.3,
+  "fwd5m": {
+   "n": 4,
+   "maxPct": 0.2,
+   "lastPct": -1.5
+  },
+  "fwd15m": {
+   "n": 4,
+   "maxPct": 0.2,
+   "lastPct": -1.5
+  },
+  "pnl5m": -0.003,
+  "pnl15m": -0.003
+ },
+ {
+  "pointId": "BP-T028",
+  "symbol": "币安一直都在",
+  "reentry": true,
+  "waitSec": 4,
+  "entryPctVsAnchor": 21.7,
+  "fwd5m": {
+   "n": 4,
+   "maxPct": 0,
+   "lastPct": -8.8
+  },
+  "fwd15m": {
+   "n": 6,
+   "maxPct": 0,
+   "lastPct": -8.3
+  },
+  "pnl5m": -0.0176,
+  "pnl15m": -0.0166
+ },
+ {
+  "pointId": "BP-T020",
+  "symbol": "RAM",
+  "reentry": true,
+  "waitSec": 65,
+  "entryPctVsAnchor": 10.7,
+  "fwd5m": {
+   "n": 5,
+   "maxPct": 0,
+   "lastPct": -14.9
+  },
+  "fwd15m": {
+   "n": 8,
+   "maxPct": 0,
+   "lastPct": -27.6
+  },
+  "pnl5m": -0.0298,
+  "pnl15m": -0.0552
+ },
+ {
+  "pointId": "BP-T141",
+  "symbol": "2bi",
+  "reentry": true,
+  "waitSec": 41,
+  "entryPctVsAnchor": 12.6,
+  "fwd5m": {
+   "n": 23,
+   "maxPct": 0,
+   "lastPct": -22.7
+  },
+  "fwd15m": {
+   "n": 26,
+   "maxPct": 0,
+   "lastPct": -27.3
+  },
+  "pnl5m": -0.0454,
+  "pnl15m": -0.0546
+ },
+ {
+  "pointId": "BP-T066",
+  "symbol": "GCB",
+  "reentry": true,
+  "waitSec": 284,
+  "entryPctVsAnchor": 22,
+  "fwd5m": {
+   "n": 15,
+   "maxPct": 0.7,
+   "lastPct": -7.9
+  },
+  "fwd15m": {
+   "n": 27,
+   "maxPct": 0.7,
+   "lastPct": -0.1
+  },
+  "pnl5m": -0.0158,
+  "pnl15m": -0.0002
+ }
+]

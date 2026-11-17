@@ -1,0 +1,10329 @@
+[
+ {
+  "pointId": "BP-T001",
+  "symbol": "SEETHE",
+  "addr": "0xe8e513f492814d97e2611c018dc2aade3f348888",
+  "anchor": "2026-11-02T06:51:28.000Z",
+  "thin": false,
+  "ticks": 14,
+  "ageSec": 45,
+  "curVs": 25,
+  "chg5": 10.08,
+  "chg10": 14.96,
+  "chg30": 6.78,
+  "maxDn5": -13.24,
+  "dip5": "-0.75@28s",
+  "mcap": 6.93,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.96,
+  "entry": "normal_dip",
+  "entryProb": 0.75,
+  "holder": "moderate",
+  "holderProb": 0.81,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P2·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.025098,
+  "fwd1m": {
+   "max": 1,
+   "last": 1
+  },
+  "fwd5m": {
+   "max": 3.87,
+   "last": -12.72
+  },
+  "fwd15m": {
+   "max": 3.87,
+   "last": -12.72
+  }
+ },
+ {
+  "pointId": "BP-T002",
+  "symbol": "贵人鸟",
+  "addr": "0x6c66567484fa7d1d834f22e2b2aa62ecf35a7777",
+  "anchor": "2026-11-02T07:11:19.000Z",
+  "thin": false,
+  "ticks": 42,
+  "ageSec": 58,
+  "curVs": 25.3,
+  "chg5": 8.36,
+  "chg10": 7.04,
+  "chg30": -6.01,
+  "maxDn5": -28.14,
+  "dip5": "-17.85@17s",
+  "mcap": 6.62,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.93,
+  "entry": "normal_dip",
+  "entryProb": 0.84,
+  "holder": "weak",
+  "holderProb": 0.52,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.012302,
+  "fwd1m": {
+   "max": 15.44,
+   "last": -6.08
+  },
+  "fwd5m": {
+   "max": 15.44,
+   "last": 0.06
+  },
+  "fwd15m": {
+   "max": 56.92,
+   "last": 56.92
+  }
+ },
+ {
+  "pointId": "BP-T003",
+  "symbol": "勾年",
+  "addr": "0xca58ff13ae40207c74c8c3939bfa12e3f96c7777",
+  "anchor": "2026-11-02T07:12:58.000Z",
+  "thin": false,
+  "ticks": 56,
+  "ageSec": 61,
+  "curVs": 9.8,
+  "chg5": 4.78,
+  "chg10": 5.13,
+  "chg30": -10.58,
+  "maxDn5": -16.48,
+  "dip5": "-13.66@9s",
+  "mcap": 6.09,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.89,
+  "holder": "weak",
+  "holderProb": 0.58,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.00097,
+  "fwd1m": {
+   "max": 0.52,
+   "last": -0.47
+  },
+  "fwd5m": {
+   "max": 0.52,
+   "last": -7.79
+  },
+  "fwd15m": {
+   "max": 0.52,
+   "last": -7.79
+  }
+ },
+ {
+  "pointId": "BP-T004",
+  "symbol": "食蟹猴",
+  "addr": "0xa0e929addca573c94ffc4f8a3fe2ea5be2847777",
+  "anchor": "2026-11-02T07:24:07.000Z",
+  "thin": false,
+  "ticks": 317,
+  "ageSec": 86,
+  "curVs": 21.4,
+  "chg5": 3.93,
+  "chg10": -5.77,
+  "chg30": -29.78,
+  "maxDn5": -29.59,
+  "dip5": "-29.59@29s",
+  "mcap": 6.73,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.77,
+  "entry": "normal_dip",
+  "entryProb": 0.86,
+  "holder": "weak",
+  "holderProb": 0.76,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "L_insider_sell27",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P3·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P10",
+   "卖出策略 P11",
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.044306,
+  "fwd1m": {
+   "max": 12.65,
+   "last": -18.46
+  },
+  "fwd5m": {
+   "max": 12.65,
+   "last": -21.38
+  },
+  "fwd15m": {
+   "max": 12.65,
+   "last": -28.3
+  }
+ },
+ {
+  "pointId": "BP-T005",
+  "symbol": "食蟹猴",
+  "addr": "0x387c9be80266a818539660e7ba8093dcc3617777",
+  "anchor": "2026-11-02T07:26:09.000Z",
+  "thin": false,
+  "ticks": 37,
+  "ageSec": 37,
+  "curVs": 12.5,
+  "chg5": 6.5,
+  "chg10": -15.17,
+  "chg30": -17.68,
+  "maxDn5": -27.47,
+  "dip5": "-27.47@14s",
+  "mcap": 5.54,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.92,
+  "holder": "strong",
+  "holderProb": 0.9,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.031174,
+  "fwd1m": {
+   "max": -2.75,
+   "last": -15.56
+  },
+  "fwd5m": {
+   "max": -2.75,
+   "last": -16.95
+  },
+  "fwd15m": {
+   "max": -2.75,
+   "last": -16.95
+  }
+ },
+ {
+  "pointId": "BP-T006",
+  "symbol": "小树",
+  "addr": "0x925985909a7fa051f37fcf1d39f3a1f342517777",
+  "anchor": "2026-11-02T07:28:18.000Z",
+  "thin": false,
+  "ticks": 93,
+  "ageSec": 60,
+  "curVs": 12.8,
+  "chg5": 2.77,
+  "chg10": 12.85,
+  "chg30": -31.92,
+  "maxDn5": -22.22,
+  "dip5": "-18.43@11s",
+  "mcap": 6.02,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.82,
+  "entry": "normal_dip",
+  "entryProb": 0.85,
+  "holder": "strong",
+  "holderProb": 0.76,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.043219,
+  "fwd1m": {
+   "max": 0.75,
+   "last": -21.64
+  },
+  "fwd5m": {
+   "max": 0.75,
+   "last": -22.09
+  },
+  "fwd15m": {
+   "max": 0.75,
+   "last": -22.7
+  }
+ },
+ {
+  "pointId": "BP-T007",
+  "symbol": "神经蠕虫",
+  "addr": "0xb3468118c8136e011e565dccf67e3844d2157777",
+  "anchor": "2026-11-02T07:31:00.000Z",
+  "thin": false,
+  "ticks": 16,
+  "ageSec": 59,
+  "curVs": 26.7,
+  "chg5": -9.04,
+  "chg10": -6.06,
+  "chg30": 9.1,
+  "maxDn5": -7.11,
+  "dip5": "-7.11@10s",
+  "mcap": 5.99,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "normal_dip",
+  "entryProb": 0.74,
+  "holder": "moderate",
+  "holderProb": 0.93,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 1
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.025428,
+  "fwd1m": {
+   "max": -3.61,
+   "last": -12.72
+  },
+  "fwd5m": {
+   "max": -3.61,
+   "last": -23.14
+  },
+  "fwd15m": {
+   "max": -3.61,
+   "last": -23.14
+  }
+ },
+ {
+  "pointId": "BP-T008",
+  "symbol": "神经蠕虫",
+  "addr": "0x208e9f119a57749e6aec1e50e2a6d5470e747777",
+  "anchor": "2026-11-02T07:31:25.000Z",
+  "thin": false,
+  "ticks": 9,
+  "ageSec": 16,
+  "curVs": 20.2,
+  "chg5": 6.2,
+  "chg10": -0.01,
+  "chg30": 15.5,
+  "maxDn5": -5.85,
+  "dip5": "-5.85@8s",
+  "mcap": 6.67,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "spike",
+  "entryProb": 0.88,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.036676,
+  "fwd1m": {
+   "max": 6.33,
+   "last": -22.58
+  },
+  "fwd5m": {
+   "max": 6.33,
+   "last": -22.58
+  },
+  "fwd15m": {
+   "max": 6.33,
+   "last": -29.24
+  }
+ },
+ {
+  "pointId": "BP-T009",
+  "symbol": "折纸小狗",
+  "addr": "0x1b6d8169ef56eaaafb67c07fee989438016a7777",
+  "anchor": "2026-11-02T07:32:08.000Z",
+  "thin": false,
+  "ticks": 9,
+  "ageSec": 16,
+  "curVs": 25.9,
+  "chg5": 23.73,
+  "chg10": 23.73,
+  "chg30": 25.92,
+  "maxDn5": -1.78,
+  "dip5": "-1.78@11s",
+  "mcap": 6.55,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.78,
+  "entry": "spike",
+  "entryProb": 0.98,
+  "holder": "moderate",
+  "holderProb": 0.86,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.008255,
+  "fwd1m": {
+   "max": 0.64,
+   "last": -4.13
+  },
+  "fwd5m": {
+   "max": 12.45,
+   "last": -26.25
+  },
+  "fwd15m": {
+   "max": 12.45,
+   "last": -26.84
+  }
+ },
+ {
+  "pointId": "BP-T010",
+  "symbol": "猴子币",
+  "addr": "0xd827bc26713cb6412f4d163766938dee3d0c7777",
+  "anchor": "2026-11-02T07:41:19.000Z",
+  "thin": false,
+  "ticks": 503,
+  "ageSec": 172,
+  "curVs": 26.2,
+  "chg5": -22.36,
+  "chg10": -43.88,
+  "chg30": -56.41,
+  "maxDn5": -42.04,
+  "dip5": "-42.04@9s",
+  "mcap": 6.97,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.84,
+  "entry": "normal_dip",
+  "entryProb": 0.63,
+  "holder": "weak",
+  "holderProb": 0.92,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P10",
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P11"
+  ],
+  "pnl": -0.026031,
+  "fwd1m": {
+   "max": 23.96,
+   "last": -11.46
+  },
+  "fwd5m": {
+   "max": 23.96,
+   "last": -22.32
+  },
+  "fwd15m": {
+   "max": 23.96,
+   "last": -29.01
+  }
+ },
+ {
+  "pointId": "BP-T011",
+  "symbol": "1105",
+  "addr": "0x777aa0b6638e4c0f86585f1d816c9110ba887777",
+  "anchor": "2026-11-02T07:44:43.000Z",
+  "thin": false,
+  "ticks": 21,
+  "ageSec": 224,
+  "curVs": 15.6,
+  "chg5": 14.43,
+  "chg10": -0.22,
+  "chg30": -0.22,
+  "maxDn5": -12.79,
+  "dip5": "-12.79@7s",
+  "mcap": 6.41,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.96,
+  "entry": "normal_dip",
+  "entryProb": 0.78,
+  "holder": "moderate",
+  "holderProb": 0.9,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:coordinated_sell_back+burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.005244,
+  "fwd1m": {
+   "max": 37.07,
+   "last": -2.62
+  },
+  "fwd5m": {
+   "max": 37.07,
+   "last": -2.28
+  },
+  "fwd15m": {
+   "max": 37.07,
+   "last": -13.21
+  }
+ },
+ {
+  "pointId": "BP-T012",
+  "symbol": "Memegle",
+  "addr": "0x1dc9122695e298ad3cfd2445e127ca8358e47777",
+  "anchor": "2026-11-02T07:46:07.000Z",
+  "thin": false,
+  "ticks": 16,
+  "ageSec": 19,
+  "curVs": 1.9,
+  "chg5": -5.62,
+  "chg10": -18.41,
+  "chg30": 1.92,
+  "maxDn5": -16.55,
+  "dip5": "-16.55@6s",
+  "mcap": 4.96,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.8,
+  "entry": "normal_dip",
+  "entryProb": 0.53,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 1
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.022917,
+  "fwd1m": {
+   "max": 8.19,
+   "last": -11.43
+  },
+  "fwd5m": {
+   "max": 8.19,
+   "last": -11.43
+  },
+  "fwd15m": {
+   "max": 8.19,
+   "last": -11.43
+  }
+ },
+ {
+  "pointId": "BP-T013",
+  "symbol": "약",
+  "addr": "0x91a62efe9b3f65848a7811ec479f5248e46d7777",
+  "anchor": "2026-11-02T07:46:36.000Z",
+  "thin": false,
+  "ticks": 16,
+  "ageSec": 16,
+  "curVs": 15.7,
+  "chg5": -4.21,
+  "chg10": -7.89,
+  "chg30": 4.54,
+  "maxDn5": -15.23,
+  "dip5": "-15.23@5s",
+  "mcap": 6.41,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.82,
+  "entry": "normal_dip",
+  "entryProb": 0.74,
+  "holder": "moderate",
+  "holderProb": 0.94,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.047642,
+  "fwd1m": {
+   "max": 3.23,
+   "last": -21.43
+  },
+  "fwd5m": {
+   "max": 3.77,
+   "last": -34.88
+  },
+  "fwd15m": {
+   "max": 3.77,
+   "last": -34.88
+  }
+ },
+ {
+  "pointId": "BP-T014",
+  "symbol": "Qmini",
+  "addr": "0x7008466bef405bceb5fe3a23265710ea2a9e7777",
+  "anchor": "2026-11-02T07:50:31.000Z",
+  "thin": false,
+  "ticks": 18,
+  "ageSec": 31,
+  "curVs": 10.3,
+  "chg5": -4.58,
+  "chg10": -6.32,
+  "chg30": -5.95,
+  "maxDn5": -7.18,
+  "dip5": "-7.18@0s",
+  "mcap": 5.43,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.94,
+  "entry": "normal_dip",
+  "entryProb": 0.71,
+  "holder": "moderate",
+  "holderProb": 0.91,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P10",
+   "卖出策略 P11",
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.008722,
+  "fwd1m": {
+   "max": 73.06,
+   "last": 59.26
+  },
+  "fwd5m": {
+   "max": 73.06,
+   "last": -13.35
+  },
+  "fwd15m": {
+   "max": 73.06,
+   "last": -14.22
+  }
+ },
+ {
+  "pointId": "BP-T015",
+  "symbol": "1105",
+  "addr": "0x3fe6ec12671ab44484faa3245b3dcf0d84447777",
+  "anchor": "2026-11-02T07:59:21.000Z",
+  "thin": false,
+  "ticks": 562,
+  "ageSec": 1132,
+  "curVs": 22,
+  "chg5": 2.97,
+  "chg10": 2.97,
+  "chg30": -7.06,
+  "maxDn5": -30.65,
+  "dip5": "-6.06@23s",
+  "mcap": 6.77,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.88,
+  "entry": "normal_dip",
+  "entryProb": 0.83,
+  "holder": "none",
+  "holderProb": 0.56,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P9·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.006581,
+  "fwd1m": {
+   "max": 0.27,
+   "last": 0.27
+  },
+  "fwd5m": {
+   "max": 0.31,
+   "last": -1.04
+  },
+  "fwd15m": {
+   "max": 0.58,
+   "last": 0.58
+  }
+ },
+ {
+  "pointId": "BP-T016",
+  "symbol": "그냥드림",
+  "addr": "0xa32a8fd19df56f8d8f33e49c2d9153a527247777",
+  "anchor": "2026-11-02T08:04:08.000Z",
+  "thin": false,
+  "ticks": 20,
+  "ageSec": 23,
+  "curVs": 27.6,
+  "chg5": -12.6,
+  "chg10": -4.08,
+  "chg30": 27.56,
+  "maxDn5": -10.41,
+  "dip5": "-10.41@1s",
+  "mcap": 6.93,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "normal_dip",
+  "entryProb": 0.7,
+  "holder": "strong",
+  "holderProb": 0.67,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 1
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P11",
+   "卖出策略 P10",
+   "卖出策略 P1"
+  ],
+  "pnl": -0.016672,
+  "fwd1m": {
+   "max": 12.59,
+   "last": -24.99
+  },
+  "fwd5m": {
+   "max": 43.2,
+   "last": -8.83
+  },
+  "fwd15m": {
+   "max": 43.2,
+   "last": -13.06
+  }
+ },
+ {
+  "pointId": "BP-T017",
+  "symbol": "街舞小猫",
+  "addr": "0x49d99b7dbabb5b3569f1346fd6b029c0cc267777",
+  "anchor": "2026-11-02T08:05:39.000Z",
+  "thin": false,
+  "ticks": 17,
+  "ageSec": 17,
+  "curVs": 7.5,
+  "chg5": -6.08,
+  "chg10": -7.81,
+  "chg30": -5.66,
+  "maxDn5": -16.41,
+  "dip5": "-16.41@8s",
+  "mcap": 5.56,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.9,
+  "entry": "normal_dip",
+  "entryProb": 0.79,
+  "holder": "moderate",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:insider_supply_sell",
+     "level": "cheat"
+    },
+    {
+     "code": "L_insider_sell80",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.000035,
+  "fwd1m": {
+   "max": 0.22,
+   "last": 0.22
+  },
+  "fwd5m": {
+   "max": 0.22,
+   "last": -12.41
+  },
+  "fwd15m": {
+   "max": 0.22,
+   "last": -16.25
+  }
+ },
+ {
+  "pointId": "BP-T018",
+  "symbol": "街舞小猫",
+  "addr": "0x9cffa1d5392737ef90796971494fc9285b7c7777",
+  "anchor": "2026-11-02T08:11:28.000Z",
+  "thin": true,
+  "ticks": 6,
+  "ageSec": 267,
+  "curVs": 17.9,
+  "chg5": 13.37,
+  "chg10": 13.37,
+  "chg30": 13.37,
+  "maxDn5": null,
+  "dip5": null,
+  "mcap": 6.54,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.99,
+  "entry": "spike",
+  "entryProb": 0.93,
+  "holder": "moderate",
+  "holderProb": 0.99,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "cheat"
+   },
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.005547,
+  "fwd1m": {
+   "max": 7.46,
+   "last": -2.79
+  },
+  "fwd5m": {
+   "max": 7.46,
+   "last": -5.84
+  },
+  "fwd15m": {
+   "max": 7.46,
+   "last": -22.6
+  }
+ },
+ {
+  "pointId": "BP-T019",
+  "symbol": "Xilo",
+  "addr": "0x9aac702075981f263e699fd1413f340742107777",
+  "anchor": "2026-11-02T08:25:08.000Z",
+  "thin": false,
+  "ticks": 36,
+  "ageSec": 42,
+  "curVs": 0,
+  "chg5": -8.6,
+  "chg10": -9.22,
+  "chg30": -21.59,
+  "maxDn5": -16.91,
+  "dip5": "-16.91@11s",
+  "mcap": 5.32,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.79,
+  "entry": "normal_dip",
+  "entryProb": 0.52,
+  "holder": "moderate",
+  "holderProb": 0.63,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.01413,
+  "fwd1m": {
+   "max": -0.14,
+   "last": -4.87
+  },
+  "fwd5m": {
+   "max": -0.14,
+   "last": -4.91
+  },
+  "fwd15m": {
+   "max": -0.14,
+   "last": -4.91
+  }
+ },
+ {
+  "pointId": "BP-T020",
+  "symbol": "RAM",
+  "addr": "0xcee7f0a21811628f5819afe79dc9eba5c8857777",
+  "anchor": "2026-11-02T08:32:13.000Z",
+  "thin": false,
+  "ticks": 17,
+  "ageSec": 478,
+  "curVs": 22.8,
+  "chg5": 14.43,
+  "chg10": 18.05,
+  "chg30": 18.05,
+  "maxDn5": -6.12,
+  "dip5": null,
+  "mcap": 6.81,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "normal_dip",
+  "entryProb": 0.65,
+  "holder": "strong",
+  "holderProb": 0.86,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P2·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.014756,
+  "fwd1m": {
+   "max": 11.65,
+   "last": 4.34
+  },
+  "fwd5m": {
+   "max": 11.65,
+   "last": -20.15
+  },
+  "fwd15m": {
+   "max": 11.65,
+   "last": -32.09
+  }
+ },
+ {
+  "pointId": "BP-T021",
+  "symbol": "Echo",
+  "addr": "0xaa0710da8dec33f7875d2bc86d14241e7cb27777",
+  "anchor": "2026-11-02T08:33:54.000Z",
+  "thin": false,
+  "ticks": 23,
+  "ageSec": 19,
+  "curVs": 11.9,
+  "chg5": -12.51,
+  "chg10": 9.49,
+  "chg30": 5.56,
+  "maxDn5": -25.13,
+  "dip5": "-25.13@0s",
+  "mcap": 6.21,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "normal_dip",
+  "entryProb": 0.82,
+  "holder": "strong",
+  "holderProb": 0.55,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "L_insider_sell34",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.004417,
+  "fwd1m": {
+   "max": 34.44,
+   "last": -10.46
+  },
+  "fwd5m": {
+   "max": 34.44,
+   "last": -11.96
+  },
+  "fwd15m": {
+   "max": 34.44,
+   "last": -24.25
+  }
+ },
+ {
+  "pointId": "BP-T022",
+  "symbol": "Echo",
+  "addr": "0x9faef80d16a8484b01db5ee5bb03ff83e7267777",
+  "anchor": "2026-11-02T08:35:53.000Z",
+  "thin": false,
+  "ticks": 296,
+  "ageSec": 301,
+  "curVs": 13.4,
+  "chg5": 12.9,
+  "chg10": 12.9,
+  "chg30": 12.85,
+  "maxDn5": -33.99,
+  "dip5": "-0.02@15s",
+  "mcap": 5.41,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.73,
+  "entry": "normal_dip",
+  "entryProb": 0.9,
+  "holder": "strong",
+  "holderProb": 1,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "cheat"
+   },
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P12·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.017204,
+  "fwd1m": {
+   "max": 5.44,
+   "last": -0.06
+  },
+  "fwd5m": {
+   "max": 5.44,
+   "last": 3.45
+  },
+  "fwd15m": {
+   "max": 5.44,
+   "last": 2.37
+  }
+ },
+ {
+  "pointId": "BP-T023",
+  "symbol": "魔丸",
+  "addr": "0x89215dfb8978eb05cbeea59505fc6a7e17957777",
+  "anchor": "2026-11-02T08:39:46.000Z",
+  "thin": false,
+  "ticks": 18,
+  "ageSec": 26,
+  "curVs": 20,
+  "chg5": 15.86,
+  "chg10": 3.76,
+  "chg30": 12.56,
+  "maxDn5": -10.45,
+  "dip5": "-10.45@7s",
+  "mcap": 6.66,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.91,
+  "entry": "spike",
+  "entryProb": 0.65,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P1"
+  ],
+  "pnl": 0.021509,
+  "fwd1m": {
+   "max": 18.47,
+   "last": 10.45
+  },
+  "fwd5m": {
+   "max": 33.33,
+   "last": -16.63
+  },
+  "fwd15m": {
+   "max": 33.33,
+   "last": 26.64
+  }
+ },
+ {
+  "pointId": "BP-T024",
+  "symbol": "Burn",
+  "addr": "0x05d26fcacc92500d1de680ee3b428cd2dbe17777",
+  "anchor": "2026-11-02T08:41:06.000Z",
+  "thin": false,
+  "ticks": 19,
+  "ageSec": 69,
+  "curVs": 24.9,
+  "chg5": 8.57,
+  "chg10": 2.11,
+  "chg30": -3.61,
+  "maxDn5": -6.9,
+  "dip5": "-6.9@19s",
+  "mcap": 6.93,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "spike",
+  "entryProb": 0.8,
+  "holder": "strong",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P1",
+   "卖出策略 P7"
+  ],
+  "pnl": 0.130278,
+  "fwd1m": {
+   "max": 31.81,
+   "last": 26.92
+  },
+  "fwd5m": {
+   "max": 114.58,
+   "last": -13.14
+  },
+  "fwd15m": {
+   "max": 114.58,
+   "last": -18.83
+  }
+ },
+ {
+  "pointId": "BP-T025",
+  "symbol": "RAM",
+  "addr": "0x53e2ac46fa629d2728559f71dfbac57bac7c7777",
+  "anchor": "2026-11-02T08:41:58.000Z",
+  "thin": false,
+  "ticks": 77,
+  "ageSec": 185,
+  "curVs": 28.1,
+  "chg5": 13.62,
+  "chg10": 13.62,
+  "chg30": 7.16,
+  "maxDn5": -21.02,
+  "dip5": null,
+  "mcap": 6.12,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "normal_dip",
+  "entryProb": 0.67,
+  "holder": "weak",
+  "holderProb": 0.8,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P4·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.014905,
+  "fwd1m": null,
+  "fwd5m": {
+   "max": 0.92,
+   "last": -7.37
+  },
+  "fwd15m": {
+   "max": 0.92,
+   "last": -26.02
+  }
+ },
+ {
+  "pointId": "BP-T026",
+  "symbol": "MEOW",
+  "addr": "0xfa778e0e968809d9fc503f880fee43d665597777",
+  "anchor": "2026-11-02T09:01:33.000Z",
+  "thin": false,
+  "ticks": 42,
+  "ageSec": 72,
+  "curVs": 17.2,
+  "chg5": -3.01,
+  "chg10": -10.98,
+  "chg30": -40.08,
+  "maxDn5": -20.57,
+  "dip5": "-20.57@4s",
+  "mcap": 5.71,
+  "bucket": "poor",
+  "rule": "entry_gate",
+  "prob": 0.48,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "malicious_dump",
+  "entryProb": 0.48,
+  "holder": "moderate",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P11·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.019057,
+  "fwd1m": {
+   "max": 4.97,
+   "last": -9.52
+  },
+  "fwd5m": {
+   "max": 4.97,
+   "last": -14.65
+  },
+  "fwd15m": {
+   "max": 4.97,
+   "last": -14.65
+  }
+ },
+ {
+  "pointId": "BP-T027",
+  "symbol": "semem",
+  "addr": "0xd2cd001ee83967bf712ccdb1f0a4957817247777",
+  "anchor": "2026-11-02T09:02:06.000Z",
+  "thin": false,
+  "ticks": 11,
+  "ageSec": 15,
+  "curVs": 23.1,
+  "chg5": -7.29,
+  "chg10": -2.17,
+  "chg30": 21.97,
+  "maxDn5": -9.15,
+  "dip5": "-9.15@9s",
+  "mcap": 6.83,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.88,
+  "entry": "normal_dip",
+  "entryProb": 0.72,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 1
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.007856,
+  "fwd1m": {
+   "max": -5.14,
+   "last": -5.14
+  },
+  "fwd5m": {
+   "max": 3.89,
+   "last": -25.82
+  },
+  "fwd15m": {
+   "max": 3.89,
+   "last": -11.73
+  }
+ },
+ {
+  "pointId": "BP-T028",
+  "symbol": "币安一直都在",
+  "addr": "0x7e99d2d9054d59a1661e33bfa11c0fe248ce7777",
+  "anchor": "2026-11-02T09:08:13.000Z",
+  "thin": false,
+  "ticks": 313,
+  "ageSec": 6124,
+  "curVs": 27,
+  "chg5": 14.3,
+  "chg10": 14.3,
+  "chg30": 14.3,
+  "maxDn5": -8.36,
+  "dip5": null,
+  "mcap": 6.76,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.86,
+  "holder": "weak",
+  "holderProb": 0.85,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P3·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.007223,
+  "fwd1m": {
+   "max": 2.96,
+   "last": -9.75
+  },
+  "fwd5m": {
+   "max": 2.96,
+   "last": -12.54
+  },
+  "fwd15m": {
+   "max": 2.96,
+   "last": -12.05
+  }
+ },
+ {
+  "pointId": "BP-T029",
+  "symbol": "memes",
+  "addr": "0x2bef2b614b5905af56b4b2ff44ed9389b9bc7777",
+  "anchor": "2026-11-02T09:10:19.000Z",
+  "thin": false,
+  "ticks": 141,
+  "ageSec": 82,
+  "curVs": 28.3,
+  "chg5": -17.61,
+  "chg10": -22.66,
+  "chg30": -29.84,
+  "maxDn5": -25.84,
+  "dip5": "-15.6@0s",
+  "mcap": 7.11,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.78,
+  "entry": "normal_dip",
+  "entryProb": 0.71,
+  "holder": "weak",
+  "holderProb": 0.56,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P11"
+  ],
+  "pnl": -0.044061,
+  "fwd1m": {
+   "max": 11.72,
+   "last": -21.79
+  },
+  "fwd5m": {
+   "max": 11.72,
+   "last": -26.87
+  },
+  "fwd15m": {
+   "max": 11.72,
+   "last": -29.13
+  }
+ },
+ {
+  "pointId": "BP-T030",
+  "symbol": "共进",
+  "addr": "0x3fd616367bed543cdb8623ba4322ef44bae77777",
+  "anchor": "2026-11-02T09:23:49.000Z",
+  "thin": false,
+  "ticks": 24,
+  "ageSec": 15,
+  "curVs": 21.9,
+  "chg5": -0.53,
+  "chg10": -17.38,
+  "chg30": 10.09,
+  "maxDn5": -22.27,
+  "dip5": "-22.27@5s",
+  "mcap": 6.76,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.86,
+  "entry": "normal_dip",
+  "entryProb": 0.85,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.007795,
+  "fwd1m": {
+   "max": -0.71,
+   "last": -7.78
+  },
+  "fwd5m": {
+   "max": 159.57,
+   "last": 94.25
+  },
+  "fwd15m": {
+   "max": 159.57,
+   "last": 19.89
+  }
+ },
+ {
+  "pointId": "BP-T031",
+  "symbol": "거침없이",
+  "addr": "0x288b3aad44de17174bb815133355583c7d717777",
+  "anchor": "2026-11-02T09:31:34.000Z",
+  "thin": false,
+  "ticks": 34,
+  "ageSec": 55,
+  "curVs": 11.9,
+  "chg5": 10.16,
+  "chg10": -2.62,
+  "chg30": -6.68,
+  "maxDn5": -16.4,
+  "dip5": "-16.4@26s",
+  "mcap": 5.44,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.75,
+  "entry": "normal_dip",
+  "entryProb": 0.75,
+  "holder": "strong",
+  "holderProb": 0.75,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P3·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.026287,
+  "fwd1m": {
+   "max": 19.57,
+   "last": 15.61
+  },
+  "fwd5m": {
+   "max": 19.57,
+   "last": -16.41
+  },
+  "fwd15m": {
+   "max": 19.57,
+   "last": -16.41
+  }
+ },
+ {
+  "pointId": "BP-T032",
+  "symbol": "LongCat",
+  "addr": "0xe89dcd49fe78c91f076413a40a87780934bd7777",
+  "anchor": "2026-11-02T09:34:20.000Z",
+  "thin": false,
+  "ticks": 11,
+  "ageSec": 15,
+  "curVs": 18.7,
+  "chg5": -9.42,
+  "chg10": 11.53,
+  "chg30": 14.04,
+  "maxDn5": -21.62,
+  "dip5": "-21.62@4s",
+  "mcap": 6.59,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.78,
+  "entry": "normal_dip",
+  "entryProb": 0.74,
+  "holder": "strong",
+  "holderProb": 0.52,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.056859,
+  "fwd1m": {
+   "max": -0.4,
+   "last": -28.4
+  },
+  "fwd5m": {
+   "max": -0.4,
+   "last": -29.52
+  },
+  "fwd15m": {
+   "max": -0.4,
+   "last": -29.52
+  }
+ },
+ {
+  "pointId": "BP-T033",
+  "symbol": "unitedstables",
+  "addr": "0xb49a3b681091e2cb41a749bc30bad622332c7777",
+  "anchor": "2026-11-02T09:39:58.000Z",
+  "thin": false,
+  "ticks": 26,
+  "ageSec": 16,
+  "curVs": 25.9,
+  "chg5": -16.74,
+  "chg10": -18.08,
+  "chg30": 2.19,
+  "maxDn5": -25.79,
+  "dip5": "-25.79@7s",
+  "mcap": 6.98,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.59,
+  "entry": "normal_dip",
+  "entryProb": 0.75,
+  "holder": "strong",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:insider_supply_sell",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "L_insider_sell50",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P11"
+  ],
+  "pnl": -0.058081,
+  "fwd1m": {
+   "max": 18.65,
+   "last": -29.84
+  },
+  "fwd5m": {
+   "max": 18.65,
+   "last": -29.84
+  },
+  "fwd15m": {
+   "max": 18.65,
+   "last": -29.84
+  }
+ },
+ {
+  "pointId": "BP-T034",
+  "symbol": "赛博乞讨",
+  "addr": "0xf052e25e05ca960419b8a3f2d1cd7bd6b0f97777",
+  "anchor": "2026-11-02T09:50:43.000Z",
+  "thin": false,
+  "ticks": 15,
+  "ageSec": 105,
+  "curVs": 19.6,
+  "chg5": 17.88,
+  "chg10": 17.88,
+  "chg30": 17.88,
+  "maxDn5": -10.35,
+  "dip5": null,
+  "mcap": 6.22,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.67,
+  "entry": "normal_dip",
+  "entryProb": 0.58,
+  "holder": "moderate",
+  "holderProb": 0.96,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "unhealthy"
+   },
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.006831,
+  "fwd1m": {
+   "max": 10.04,
+   "last": -14.29
+  },
+  "fwd5m": {
+   "max": 10.04,
+   "last": 5.27
+  },
+  "fwd15m": {
+   "max": 10.04,
+   "last": -15.05
+  }
+ },
+ {
+  "pointId": "BP-T035",
+  "symbol": "天仔",
+  "addr": "0x46b19a670569067686c2d4c402c5ef5519077777",
+  "anchor": "2026-11-02T09:52:16.000Z",
+  "thin": false,
+  "ticks": 50,
+  "ageSec": 47,
+  "curVs": 19.7,
+  "chg5": -19.46,
+  "chg10": -32.82,
+  "chg30": 17.58,
+  "maxDn5": -22.58,
+  "dip5": "-22.58@1s",
+  "mcap": 6,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.64,
+  "entry": "normal_dip",
+  "entryProb": 0.61,
+  "holder": "weak",
+  "holderProb": 0.64,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:equal_amount_split+slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.031692,
+  "fwd1m": {
+   "max": 4.77,
+   "last": -15.55
+  },
+  "fwd5m": {
+   "max": 4.77,
+   "last": -17.77
+  },
+  "fwd15m": {
+   "max": 4.77,
+   "last": -16.39
+  }
+ },
+ {
+  "pointId": "BP-T036",
+  "symbol": "修仙流",
+  "addr": "0x6c1c8cc12b1ec54185ac32c8eeacdf250fff7777",
+  "anchor": "2026-11-02T10:10:09.000Z",
+  "thin": false,
+  "ticks": 24,
+  "ageSec": 537,
+  "curVs": 26.8,
+  "chg5": -3.33,
+  "chg10": -4.91,
+  "chg30": -3.11,
+  "maxDn5": -6.45,
+  "dip5": null,
+  "mcap": 5.93,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "spike",
+  "entryProb": 0.67,
+  "holder": "strong",
+  "holderProb": 0.85,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.000452,
+  "fwd1m": null,
+  "fwd5m": {
+   "max": -0.23,
+   "last": -5.2
+  },
+  "fwd15m": {
+   "max": -0.23,
+   "last": -21.42
+  }
+ },
+ {
+  "pointId": "BP-T037",
+  "symbol": "BOOMPIPI",
+  "addr": "0x3636ef273bcdefe004e30a82afb5b547073b7777",
+  "anchor": "2026-11-02T10:21:11.000Z",
+  "thin": false,
+  "ticks": 14,
+  "ageSec": 406,
+  "curVs": 18.4,
+  "chg5": 15.2,
+  "chg10": 15.2,
+  "chg30": 11.09,
+  "maxDn5": -7.61,
+  "dip5": null,
+  "mcap": 5.95,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "normal_dip",
+  "entryProb": 0.82,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.016471,
+  "fwd1m": {
+   "max": 11.88,
+   "last": -8.24
+  },
+  "fwd5m": {
+   "max": 11.88,
+   "last": -13.36
+  },
+  "fwd15m": {
+   "max": 11.88,
+   "last": -21.62
+  }
+ },
+ {
+  "pointId": "BP-T038",
+  "symbol": "羊行千里",
+  "addr": "0xccd8b742ef63e8ebbaf5370f4bb209109d577777",
+  "anchor": "2026-11-02T10:29:30.000Z",
+  "thin": false,
+  "ticks": 69,
+  "ageSec": 80,
+  "curVs": 7.7,
+  "chg5": 1.04,
+  "chg10": 0.76,
+  "chg30": -21.19,
+  "maxDn5": -22.6,
+  "dip5": "-20.29@30s",
+  "mcap": 5.13,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.53,
+  "entry": "normal_dip",
+  "entryProb": 0.54,
+  "holder": "strong",
+  "holderProb": 0.59,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.004866,
+  "fwd1m": {
+   "max": 0.04,
+   "last": -1.67
+  },
+  "fwd5m": {
+   "max": 5.69,
+   "last": 5.69
+  },
+  "fwd15m": {
+   "max": 5.69,
+   "last": 5.69
+  }
+ },
+ {
+  "pointId": "BP-T039",
+  "symbol": "给币安的一封情书",
+  "addr": "0xa295890b0ae03786dc81242b1d4167760bc67777",
+  "anchor": "2026-11-02T10:42:29.000Z",
+  "thin": false,
+  "ticks": 104,
+  "ageSec": 152,
+  "curVs": 17.4,
+  "chg5": 7.25,
+  "chg10": 12.97,
+  "chg30": 16.96,
+  "maxDn5": -18.94,
+  "dip5": null,
+  "mcap": 6.51,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "normal_dip",
+  "entryProb": 0.86,
+  "holder": "weak",
+  "holderProb": 0.75,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.004107,
+  "fwd1m": {
+   "max": -1.95,
+   "last": -2.53
+  },
+  "fwd5m": {
+   "max": 46.79,
+   "last": 46.79
+  },
+  "fwd15m": {
+   "max": 192.56,
+   "last": 109.2
+  }
+ },
+ {
+  "pointId": "BP-T040",
+  "symbol": "誓死效忠币安",
+  "addr": "0xdaae24feebb0f3f80ef8f448b2e8bf244c567777",
+  "anchor": "2026-11-02T10:44:41.000Z",
+  "thin": false,
+  "ticks": 10,
+  "ageSec": 160,
+  "curVs": 21.5,
+  "chg5": 4.02,
+  "chg10": 17.34,
+  "chg30": 21.49,
+  "maxDn5": 0,
+  "dip5": null,
+  "mcap": 6.74,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.99,
+  "entry": "spike",
+  "entryProb": 0.97,
+  "holder": "moderate",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.023339,
+  "fwd1m": {
+   "max": 13.93,
+   "last": 11.67
+  },
+  "fwd5m": {
+   "max": 13.93,
+   "last": -7.34
+  },
+  "fwd15m": {
+   "max": 13.93,
+   "last": -17.69
+  }
+ },
+ {
+  "pointId": "BP-T041",
+  "symbol": "天算",
+  "addr": "0x876b48e128f522a44c0761fe273474aaeee77777",
+  "anchor": "2026-11-02T10:50:31.000Z",
+  "thin": false,
+  "ticks": 11,
+  "ageSec": 25,
+  "curVs": 28,
+  "chg5": -12.89,
+  "chg10": 3.62,
+  "chg30": 28,
+  "maxDn5": -20.59,
+  "dip5": "-20.59@4s",
+  "mcap": 6.42,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.94,
+  "entry": "normal_dip",
+  "entryProb": 0.82,
+  "holder": "moderate",
+  "holderProb": 0.67,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.051617,
+  "fwd1m": {
+   "max": -8.67,
+   "last": -25.81
+  },
+  "fwd5m": {
+   "max": -8.67,
+   "last": -25.81
+  },
+  "fwd15m": {
+   "max": -8.67,
+   "last": -27.21
+  }
+ },
+ {
+  "pointId": "BP-T042",
+  "symbol": "悲伤蛙",
+  "addr": "0xe90a75e8233f804476bd022f1af5d44a5b797777",
+  "anchor": "2026-11-02T11:02:11.000Z",
+  "thin": false,
+  "ticks": 73,
+  "ageSec": 35,
+  "curVs": 23.3,
+  "chg5": 0.6,
+  "chg10": -28.05,
+  "chg30": -31.46,
+  "maxDn5": -29.68,
+  "dip5": "-29.68@3s",
+  "mcap": 6.84,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.72,
+  "entry": "normal_dip",
+  "entryProb": 0.73,
+  "holder": "weak",
+  "holderProb": 0.86,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.028186,
+  "fwd1m": {
+   "max": 8.56,
+   "last": -17.94
+  },
+  "fwd5m": {
+   "max": 8.56,
+   "last": -20.63
+  },
+  "fwd15m": {
+   "max": 8.56,
+   "last": -20.97
+  }
+ },
+ {
+  "pointId": "BP-T043",
+  "symbol": "悲伤蛙",
+  "addr": "0xcf1bfcbfa6e48374b27335a12ceae8cd96537777",
+  "anchor": "2026-11-02T11:04:32.000Z",
+  "thin": false,
+  "ticks": 59,
+  "ageSec": 180,
+  "curVs": 18.9,
+  "chg5": 18.92,
+  "chg10": 18.92,
+  "chg30": 18.92,
+  "maxDn5": -29.78,
+  "dip5": null,
+  "mcap": 5.87,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.71,
+  "entry": "normal_dip",
+  "entryProb": 0.64,
+  "holder": "strong",
+  "holderProb": 0.96,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump+burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "cheat"
+   },
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P12·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.036148,
+  "fwd1m": {
+   "max": 3.28,
+   "last": 3.28
+  },
+  "fwd5m": {
+   "max": 3.28,
+   "last": -0.62
+  },
+  "fwd15m": {
+   "max": 3.28,
+   "last": -16.15
+  }
+ },
+ {
+  "pointId": "BP-T044",
+  "symbol": "CEPE",
+  "addr": "0x49e91ec8a9734558b4fdf545f4c3b007875c7777",
+  "anchor": "2026-11-02T11:11:58.000Z",
+  "thin": false,
+  "ticks": 261,
+  "ageSec": 70,
+  "curVs": 24.9,
+  "chg5": -21.59,
+  "chg10": -27.22,
+  "chg30": -28.92,
+  "maxDn5": -32.39,
+  "dip5": "-28.7@21s",
+  "mcap": 6.93,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.82,
+  "entry": "normal_dip",
+  "entryProb": 0.79,
+  "holder": "none",
+  "holderProb": 0.55,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.022604,
+  "fwd1m": {
+   "max": 5.31,
+   "last": -11.59
+  },
+  "fwd5m": {
+   "max": 5.31,
+   "last": -18.83
+  },
+  "fwd15m": {
+   "max": 5.31,
+   "last": -25.51
+  }
+ },
+ {
+  "pointId": "BP-T045",
+  "symbol": "CBC",
+  "addr": "0xfc6ea890062f2510fbcd61b3b279c1e9d8b57777",
+  "anchor": "2026-11-02T11:17:56.000Z",
+  "thin": false,
+  "ticks": 8,
+  "ageSec": 19,
+  "curVs": 27.3,
+  "chg5": -12.32,
+  "chg10": -10.41,
+  "chg30": 3.72,
+  "maxDn5": -7.26,
+  "dip5": "-7.26@2s",
+  "mcap": 7.06,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.9,
+  "entry": "normal_dip",
+  "entryProb": 0.69,
+  "holder": "moderate",
+  "holderProb": 0.99,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 1
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.033407,
+  "fwd1m": {
+   "max": -2.58,
+   "last": -16.7
+  },
+  "fwd5m": {
+   "max": -2.58,
+   "last": -16.7
+  },
+  "fwd15m": {
+   "max": -2.58,
+   "last": -16.7
+  }
+ },
+ {
+  "pointId": "BP-T046",
+  "symbol": "妙妙鹅",
+  "addr": "0x492fdb7a8491ca25c23863fb7b8f8ebac3fe7777",
+  "anchor": "2026-11-02T11:20:44.000Z",
+  "thin": false,
+  "ticks": 34,
+  "ageSec": 29,
+  "curVs": 27.4,
+  "chg5": -8.15,
+  "chg10": -10.73,
+  "chg30": 27.41,
+  "maxDn5": -24.25,
+  "dip5": "-24.25@25s",
+  "mcap": 6.67,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "normal_dip",
+  "entryProb": 0.75,
+  "holder": "weak",
+  "holderProb": 0.92,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.073248,
+  "fwd1m": {
+   "max": 2.06,
+   "last": -36.62
+  },
+  "fwd5m": {
+   "max": 2.06,
+   "last": -36.66
+  },
+  "fwd15m": {
+   "max": 2.06,
+   "last": -38.45
+  }
+ },
+ {
+  "pointId": "BP-T047",
+  "symbol": "蝲蝲蛄",
+  "addr": "0x0f9ff07d07a44e27d8966c2110794789c7647777",
+  "anchor": "2026-11-02T11:21:38.000Z",
+  "thin": false,
+  "ticks": 82,
+  "ageSec": 49,
+  "curVs": 20.5,
+  "chg5": -25.7,
+  "chg10": -29.08,
+  "chg30": -39.69,
+  "maxDn5": -32.39,
+  "dip5": "-32.39@8s",
+  "mcap": 6.68,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.76,
+  "entry": "normal_dip",
+  "entryProb": 0.41,
+  "holder": "strong",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:insider_supply_sell+slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "L_insider_sell31",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.044838,
+  "fwd1m": {
+   "max": -3.61,
+   "last": -24.84
+  },
+  "fwd5m": {
+   "max": -3.61,
+   "last": -25.75
+  },
+  "fwd15m": {
+   "max": -3.61,
+   "last": -25.75
+  }
+ },
+ {
+  "pointId": "BP-T048",
+  "symbol": "网上南宁计划",
+  "addr": "0x3e70de0157dcd949a98cbe4214d1d2d098367777",
+  "anchor": "2026-11-02T11:23:49.000Z",
+  "thin": false,
+  "ticks": 114,
+  "ageSec": 702,
+  "curVs": 20.8,
+  "chg5": 20.78,
+  "chg10": 20.78,
+  "chg30": 20.78,
+  "maxDn5": -30.91,
+  "dip5": null,
+  "mcap": 5.68,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.88,
+  "entry": "normal_dip",
+  "entryProb": 0.8,
+  "holder": "moderate",
+  "holderProb": 0.87,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P11·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0,
+  "fwd1m": null,
+  "fwd5m": null,
+  "fwd15m": null
+ },
+ {
+  "pointId": "BP-T049",
+  "symbol": "tConnect",
+  "addr": "0x4901c20b24f229e9599b5a2ec478fa74cdab7777",
+  "anchor": "2026-11-02T11:23:57.000Z",
+  "thin": false,
+  "ticks": 71,
+  "ageSec": 24,
+  "curVs": 18.1,
+  "chg5": -33.35,
+  "chg10": -39.51,
+  "chg30": 16.85,
+  "maxDn5": -34.19,
+  "dip5": "-34.19@4s",
+  "mcap": 6.55,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.71,
+  "entry": "normal_dip",
+  "entryProb": 0.77,
+  "holder": "weak",
+  "holderProb": 0.82,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.045755,
+  "fwd1m": {
+   "max": -1.41,
+   "last": -22.89
+  },
+  "fwd5m": {
+   "max": -1.41,
+   "last": -23.23
+  },
+  "fwd15m": {
+   "max": -1.41,
+   "last": -28.76
+  }
+ },
+ {
+  "pointId": "BP-T050",
+  "symbol": "RCHKD",
+  "addr": "0x21ef0b1eaf1c06425aaaa9a120e64ba24f397777",
+  "anchor": "2026-11-02T11:27:01.000Z",
+  "thin": false,
+  "ticks": 8,
+  "ageSec": 19,
+  "curVs": 25.6,
+  "chg5": 10.17,
+  "chg10": 22.26,
+  "chg30": 25.63,
+  "maxDn5": -5.21,
+  "dip5": "-5.21@2s",
+  "mcap": 6.31,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "spike",
+  "entryProb": 0.98,
+  "holder": "moderate",
+  "holderProb": 0.7,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.010764,
+  "fwd1m": {
+   "max": -5.38,
+   "last": -15.48
+  },
+  "fwd5m": {
+   "max": -4.81,
+   "last": -26.15
+  },
+  "fwd15m": {
+   "max": -4.81,
+   "last": -26.15
+  }
+ },
+ {
+  "pointId": "BP-T051",
+  "symbol": "屁屁",
+  "addr": "0xab7c120a7b58bb289d758e8f58f2b971fe697777",
+  "anchor": "2026-11-02T11:36:16.000Z",
+  "thin": false,
+  "ticks": 92,
+  "ageSec": 42,
+  "curVs": 24.1,
+  "chg5": -27.55,
+  "chg10": -35.82,
+  "chg30": 24.13,
+  "maxDn5": -32.6,
+  "dip5": "-32.6@1s",
+  "mcap": 5.65,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.82,
+  "entry": "normal_dip",
+  "entryProb": 0.55,
+  "holder": "weak",
+  "holderProb": 0.87,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:same_block_buy_wave+slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P10",
+   "卖出策略 P11"
+  ],
+  "pnl": 0.065694,
+  "fwd1m": {
+   "max": 48.96,
+   "last": 30.88
+  },
+  "fwd5m": {
+   "max": 53.07,
+   "last": 36.13
+  },
+  "fwd15m": {
+   "max": 53.07,
+   "last": 17.12
+  }
+ },
+ {
+  "pointId": "BP-T052",
+  "symbol": "TYB",
+  "addr": "0x21bf04d35b50ca63efcd97b476af98857e307777",
+  "anchor": "2026-11-02T11:45:18.000Z",
+  "thin": false,
+  "ticks": 71,
+  "ageSec": 38,
+  "curVs": 20.7,
+  "chg5": -14.39,
+  "chg10": -20.59,
+  "chg30": -36.98,
+  "maxDn5": -32.17,
+  "dip5": "-32.17@6s",
+  "mcap": 6.7,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.82,
+  "entry": "normal_dip",
+  "entryProb": 0.73,
+  "holder": "strong",
+  "holderProb": 0.63,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.028992,
+  "fwd1m": {
+   "max": -2.42,
+   "last": -14.5
+  },
+  "fwd5m": {
+   "max": -2.42,
+   "last": -15.82
+  },
+  "fwd15m": {
+   "max": -2.42,
+   "last": -17.18
+  }
+ },
+ {
+  "pointId": "BP-T053",
+  "symbol": "二郎",
+  "addr": "0xbec2f80c981bfb18e2cf5406eb9f8abe82807777",
+  "anchor": "2026-11-02T11:45:26.000Z",
+  "thin": false,
+  "ticks": 196,
+  "ageSec": 597,
+  "curVs": 27.2,
+  "chg5": 9.94,
+  "chg10": 4.14,
+  "chg30": -3.52,
+  "maxDn5": -23.03,
+  "dip5": "-5.28@7s",
+  "mcap": 6.16,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.92,
+  "entry": "normal_dip",
+  "entryProb": 0.88,
+  "holder": "weak",
+  "holderProb": 0.86,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P12·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P10"
+  ],
+  "pnl": 0.036411,
+  "fwd1m": {
+   "max": 44.13,
+   "last": 35
+  },
+  "fwd5m": {
+   "max": 56.68,
+   "last": -0.62
+  },
+  "fwd15m": {
+   "max": 56.68,
+   "last": 4.07
+  }
+ },
+ {
+  "pointId": "BP-T054",
+  "symbol": "鯨",
+  "addr": "0x779d94db4790190e690684dab241f48b51c97777",
+  "anchor": "2026-11-02T11:55:22.000Z",
+  "thin": false,
+  "ticks": 115,
+  "ageSec": 85,
+  "curVs": 14.7,
+  "chg5": 11.23,
+  "chg10": -4.64,
+  "chg30": -43.21,
+  "maxDn5": -30.8,
+  "dip5": "-30.8@15s",
+  "mcap": 4.74,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.79,
+  "entry": "normal_dip",
+  "entryProb": 0.77,
+  "holder": "weak",
+  "holderProb": 0.41,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:coordinated_sell_back+slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P2·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.038644,
+  "fwd1m": {
+   "max": 14.51,
+   "last": 3.2
+  },
+  "fwd5m": {
+   "max": 18.23,
+   "last": 8.14
+  },
+  "fwd15m": {
+   "max": 18.23,
+   "last": -14.14
+  }
+ },
+ {
+  "pointId": "BP-T055",
+  "symbol": "小微",
+  "addr": "0xf8e2b19d5f772affdb419b3df176c714168e7777",
+  "anchor": "2026-11-02T11:56:12.000Z",
+  "thin": false,
+  "ticks": 12,
+  "ageSec": 16,
+  "curVs": 16.8,
+  "chg5": -8.95,
+  "chg10": 14.04,
+  "chg30": 16.85,
+  "maxDn5": -14.57,
+  "dip5": "-14.57@3s",
+  "mcap": 6.26,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.68,
+  "entry": "normal_dip",
+  "entryProb": 0.78,
+  "holder": "moderate",
+  "holderProb": 0.72,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.062144,
+  "fwd1m": {
+   "max": 3.64,
+   "last": -31.07
+  },
+  "fwd5m": {
+   "max": 3.64,
+   "last": -32.2
+  },
+  "fwd15m": {
+   "max": 3.64,
+   "last": -32.2
+  }
+ },
+ {
+  "pointId": "BP-T056",
+  "symbol": "小绿",
+  "addr": "0x3bf0cf2c16a7a69da729600157832b9a71767777",
+  "anchor": "2026-11-02T11:59:16.000Z",
+  "thin": false,
+  "ticks": 11,
+  "ageSec": 20,
+  "curVs": 28.2,
+  "chg5": 3.34,
+  "chg10": 7.88,
+  "chg30": 28.21,
+  "maxDn5": -20.39,
+  "dip5": "-20.39@4s",
+  "mcap": 7.01,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.86,
+  "entry": "normal_dip",
+  "entryProb": 0.85,
+  "holder": "strong",
+  "holderProb": 0.94,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.075727,
+  "fwd1m": {
+   "max": -5.75,
+   "last": -35.46
+  },
+  "fwd5m": {
+   "max": -5.75,
+   "last": -41.22
+  },
+  "fwd15m": {
+   "max": -5.75,
+   "last": -41.22
+  }
+ },
+ {
+  "pointId": "BP-T057",
+  "symbol": "7CAT",
+  "addr": "0x2d5c52597efc6184b283aa1bbe9b9956b2b57777",
+  "anchor": "2026-11-02T12:02:13.000Z",
+  "thin": false,
+  "ticks": 43,
+  "ageSec": 48,
+  "curVs": 23.2,
+  "chg5": -7.24,
+  "chg10": -6.45,
+  "chg30": -12.42,
+  "maxDn5": -18.92,
+  "dip5": "-18.92@18s",
+  "mcap": 6.83,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.96,
+  "entry": "normal_dip",
+  "entryProb": 0.86,
+  "holder": "weak",
+  "holderProb": 0.71,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P3·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.010071,
+  "fwd1m": {
+   "max": 8.51,
+   "last": -7.47
+  },
+  "fwd5m": {
+   "max": 8.51,
+   "last": -18.9
+  },
+  "fwd15m": {
+   "max": 8.51,
+   "last": -19.69
+  }
+ },
+ {
+  "pointId": "BP-T058",
+  "symbol": "老貓",
+  "addr": "0xba67f3e17ebfc3e51645bb95122a747e9adf7777",
+  "anchor": "2026-11-02T12:06:15.000Z",
+  "thin": false,
+  "ticks": 9,
+  "ageSec": 49,
+  "curVs": 7,
+  "chg5": 7.01,
+  "chg10": -0.55,
+  "chg30": -14.84,
+  "maxDn5": -7.3,
+  "dip5": "-7.3@0s",
+  "mcap": 4.58,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.56,
+  "entry": "normal_dip",
+  "entryProb": 0.73,
+  "holder": "moderate",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.010862,
+  "fwd1m": {
+   "max": -4.19,
+   "last": -11.38
+  },
+  "fwd5m": {
+   "max": -4.19,
+   "last": -11.38
+  },
+  "fwd15m": {
+   "max": -4.19,
+   "last": -11.38
+  }
+ },
+ {
+  "pointId": "BP-T059",
+  "symbol": "壮壮",
+  "addr": "0x3a2bb180678a63caabd4259e4346f056cad77777",
+  "anchor": "2026-11-02T12:09:01.000Z",
+  "thin": false,
+  "ticks": 97,
+  "ageSec": 698,
+  "curVs": 19.5,
+  "chg5": 19.54,
+  "chg10": 19.54,
+  "chg30": 19.54,
+  "maxDn5": -21.61,
+  "dip5": null,
+  "mcap": 5.6,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.96,
+  "entry": "normal_dip",
+  "entryProb": 0.79,
+  "holder": "moderate",
+  "holderProb": 0.95,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P13·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.019976,
+  "fwd1m": null,
+  "fwd5m": null,
+  "fwd15m": null
+ },
+ {
+  "pointId": "BP-T060",
+  "symbol": "币安村",
+  "addr": "0x6e6f02815a6fbc15bfc8f13832109ea60e0d7777",
+  "anchor": "2026-11-02T12:29:07.000Z",
+  "thin": false,
+  "ticks": 22,
+  "ageSec": 26,
+  "curVs": 19.3,
+  "chg5": -17.39,
+  "chg10": -2.46,
+  "chg30": 8.58,
+  "maxDn5": -19.54,
+  "dip5": "-19.54@0s",
+  "mcap": 6.62,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "normal_dip",
+  "entryProb": 0.45,
+  "holder": "strong",
+  "holderProb": 0.94,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:equal_amount_split+same_block_buy_wave",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.036183,
+  "fwd1m": {
+   "max": -5.07,
+   "last": -16.2
+  },
+  "fwd5m": {
+   "max": -5.07,
+   "last": -16.2
+  },
+  "fwd15m": {
+   "max": -5.07,
+   "last": -16.2
+  }
+ },
+ {
+  "pointId": "BP-T061",
+  "symbol": "A村",
+  "addr": "0xd00570af4f490236d847085f31d9901e2d457777",
+  "anchor": "2026-11-02T12:29:18.000Z",
+  "thin": false,
+  "ticks": 93,
+  "ageSec": 21,
+  "curVs": 15.1,
+  "chg5": -25.4,
+  "chg10": -36.98,
+  "chg30": 12.03,
+  "maxDn5": -41.9,
+  "dip5": "-41.9@14s",
+  "mcap": 6.39,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.93,
+  "entry": "normal_dip",
+  "entryProb": 0.87,
+  "holder": "none",
+  "holderProb": 0.72,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.052894,
+  "fwd1m": {
+   "max": 28.97,
+   "last": -26.45
+  },
+  "fwd5m": {
+   "max": 28.97,
+   "last": -26.89
+  },
+  "fwd15m": {
+   "max": 28.97,
+   "last": -26.89
+  }
+ },
+ {
+  "pointId": "BP-T062",
+  "symbol": "中国村",
+  "addr": "0x2023bfd111e999135253ab2d98b5c0e8593e7777",
+  "anchor": "2026-11-02T12:29:34.000Z",
+  "thin": false,
+  "ticks": 29,
+  "ageSec": 22,
+  "curVs": 0,
+  "chg5": -25.31,
+  "chg10": -37.67,
+  "chg30": -5.73,
+  "maxDn5": -26.49,
+  "dip5": "-26.49@0s",
+  "mcap": 4.94,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.94,
+  "entry": "normal_dip",
+  "entryProb": 0.77,
+  "holder": "moderate",
+  "holderProb": 0.7,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P10·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.025852,
+  "fwd1m": {
+   "max": -3.78,
+   "last": -5.46
+  },
+  "fwd5m": {
+   "max": -3.78,
+   "last": -5.43
+  },
+  "fwd15m": {
+   "max": -3.78,
+   "last": -5.43
+  }
+ },
+ {
+  "pointId": "BP-T063",
+  "symbol": "XXX",
+  "addr": "0x35ff26c6a5f427e4cf423e5dbec4a39114897777",
+  "anchor": "2026-11-02T12:43:54.000Z",
+  "thin": false,
+  "ticks": 113,
+  "ageSec": 81,
+  "curVs": 26.1,
+  "chg5": 9.66,
+  "chg10": -40.66,
+  "chg30": -40.86,
+  "maxDn5": -45.89,
+  "dip5": "-45.89@5s",
+  "mcap": 6.42,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.85,
+  "entry": "normal_dip",
+  "entryProb": 0.82,
+  "holder": "weak",
+  "holderProb": 0.72,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_near_band",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P2·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.017803,
+  "fwd1m": {
+   "max": 0.44,
+   "last": -9.34
+  },
+  "fwd5m": {
+   "max": 0.44,
+   "last": -17.75
+  },
+  "fwd15m": {
+   "max": 0.44,
+   "last": -20.18
+  }
+ },
+ {
+  "pointId": "BP-T064",
+  "symbol": "CephCam",
+  "addr": "0x02b6bf97000c1fa889c1c31c2d11f27117067777",
+  "anchor": "2026-11-02T12:44:11.000Z",
+  "thin": false,
+  "ticks": 14,
+  "ageSec": 128,
+  "curVs": 27.6,
+  "chg5": 10.22,
+  "chg10": 27.56,
+  "chg30": -10.14,
+  "maxDn5": -5.71,
+  "dip5": "0@14s",
+  "mcap": 5.95,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.96,
+  "entry": "normal_dip",
+  "entryProb": 0.91,
+  "holder": "moderate",
+  "holderProb": 0.74,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "L_insider_sell71",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.026987,
+  "fwd1m": {
+   "max": 7.85,
+   "last": 7.85
+  },
+  "fwd5m": {
+   "max": 16.14,
+   "last": 9.03
+  },
+  "fwd15m": {
+   "max": 16.14,
+   "last": -21.33
+  }
+ },
+ {
+  "pointId": "BP-T065",
+  "symbol": "BINANCE",
+  "addr": "0xa7c65fa3c070aa0da02af27ee31b93dafb827777",
+  "anchor": "2026-11-02T13:39:02.000Z",
+  "thin": false,
+  "ticks": 12,
+  "ageSec": 16,
+  "curVs": 26.1,
+  "chg5": 14.75,
+  "chg10": 22.58,
+  "chg30": 17.59,
+  "maxDn5": -8.7,
+  "dip5": "-8.7@5s",
+  "mcap": 6.99,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "spike",
+  "entryProb": 0.96,
+  "holder": "moderate",
+  "holderProb": 0.71,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P1",
+   "卖出策略 P7"
+  ],
+  "pnl": 0.158832,
+  "fwd1m": {
+   "max": 57.55,
+   "last": 57.55
+  },
+  "fwd5m": {
+   "max": 181.47,
+   "last": 121.79
+  },
+  "fwd15m": {
+   "max": 271.4,
+   "last": -23.61
+  }
+ },
+ {
+  "pointId": "BP-T066",
+  "symbol": "GCB",
+  "addr": "0x83f3fd73019bf86528f59f25bf826fc6b7627777",
+  "anchor": "2026-11-02T14:06:07.000Z",
+  "thin": false,
+  "ticks": 341,
+  "ageSec": 146,
+  "curVs": 26.4,
+  "chg5": 6.03,
+  "chg10": 5.99,
+  "chg30": -11.17,
+  "maxDn5": -42.73,
+  "dip5": "-13.47@15s",
+  "mcap": 7.01,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.81,
+  "entry": "normal_dip",
+  "entryProb": 0.88,
+  "holder": "weak",
+  "holderProb": 0.88,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P4·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P11",
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P10"
+  ],
+  "pnl": 0.031747,
+  "fwd1m": {
+   "max": 46.58,
+   "last": 4.52
+  },
+  "fwd5m": {
+   "max": 46.58,
+   "last": -2.09
+  },
+  "fwd15m": {
+   "max": 46.58,
+   "last": -2.85
+  }
+ },
+ {
+  "pointId": "BP-T067",
+  "symbol": "RL",
+  "addr": "0x53462dec92628c8d5db3ec63552cf6ac9d857777",
+  "anchor": "2026-11-02T14:16:40.000Z",
+  "thin": false,
+  "ticks": 53,
+  "ageSec": 80,
+  "curVs": 24.8,
+  "chg5": -4.5,
+  "chg10": 0.56,
+  "chg30": -28.57,
+  "maxDn5": -16.72,
+  "dip5": "-16.72@15s",
+  "mcap": 6.92,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.84,
+  "entry": "normal_dip",
+  "entryProb": 0.66,
+  "holder": "weak",
+  "holderProb": 0.57,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "D_famous_near_band",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P3·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.039342,
+  "fwd1m": {
+   "max": 3.7,
+   "last": -16.56
+  },
+  "fwd5m": {
+   "max": 3.7,
+   "last": -19.83
+  },
+  "fwd15m": {
+   "max": 3.7,
+   "last": -19.83
+  }
+ },
+ {
+  "pointId": "BP-T068",
+  "symbol": "Kiki",
+  "addr": "0x93ed828fb54919cb6bf49a95cec7ccef7c147777",
+  "anchor": "2026-11-02T14:17:10.000Z",
+  "thin": false,
+  "ticks": 12,
+  "ageSec": 15,
+  "curVs": 19.4,
+  "chg5": -17.57,
+  "chg10": -17.57,
+  "chg30": 8.23,
+  "maxDn5": -11.24,
+  "dip5": "-11.24@2s",
+  "mcap": 6.62,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.64,
+  "entry": "normal_dip",
+  "entryProb": 0.88,
+  "holder": "moderate",
+  "holderProb": 0.99,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.052537,
+  "fwd1m": {
+   "max": -0.49,
+   "last": -26.27
+  },
+  "fwd5m": {
+   "max": -0.49,
+   "last": -34.4
+  },
+  "fwd15m": {
+   "max": -0.49,
+   "last": -36.66
+  }
+ },
+ {
+  "pointId": "BP-T069",
+  "symbol": "MemSkill",
+  "addr": "0x406f50bbed10b7fbbabe6cbe871fd2c5b5517777",
+  "anchor": "2026-11-02T14:23:45.000Z",
+  "thin": false,
+  "ticks": 25,
+  "ageSec": 89,
+  "curVs": 11.5,
+  "chg5": 3.07,
+  "chg10": -1.6,
+  "chg30": -1.66,
+  "maxDn5": -13.51,
+  "dip5": "-7.54@4s",
+  "mcap": 5.39,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.72,
+  "entry": "normal_dip",
+  "entryProb": 0.79,
+  "holder": "strong",
+  "holderProb": 0.85,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "L_insider_sell28",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.01629,
+  "fwd1m": {
+   "max": 7.18,
+   "last": -10.45
+  },
+  "fwd5m": {
+   "max": 7.18,
+   "last": -12.94
+  },
+  "fwd15m": {
+   "max": 7.18,
+   "last": -12.94
+  }
+ },
+ {
+  "pointId": "BP-T070",
+  "symbol": "币安热搜",
+  "addr": "0x83addeaf34bc11cbed9501efd231515d2c7d7777",
+  "anchor": "2026-11-02T14:27:22.000Z",
+  "thin": false,
+  "ticks": 44,
+  "ageSec": 52,
+  "curVs": 6.9,
+  "chg5": 3.42,
+  "chg10": -7.76,
+  "chg30": -35.29,
+  "maxDn5": -28.95,
+  "dip5": "-28.95@7s",
+  "mcap": 5.47,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.93,
+  "entry": "normal_dip",
+  "entryProb": 0.77,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P10·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.010822,
+  "fwd1m": {
+   "max": 8.19,
+   "last": -4.83
+  },
+  "fwd5m": {
+   "max": 180.1,
+   "last": 123.61
+  },
+  "fwd15m": {
+   "max": 180.1,
+   "last": 10.84
+  }
+ },
+ {
+  "pointId": "BP-T071",
+  "symbol": "小白",
+  "addr": "0x2e51a5455bf55af69f513ad170fb5d8c561f7777",
+  "anchor": "2026-11-02T14:30:42.000Z",
+  "thin": false,
+  "ticks": 41,
+  "ageSec": 376,
+  "curVs": 21,
+  "chg5": 21.02,
+  "chg10": 21.02,
+  "chg30": 21.02,
+  "maxDn5": -16.75,
+  "dip5": null,
+  "mcap": 6.19,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.99,
+  "entry": "normal_dip",
+  "entryProb": 0.51,
+  "holder": "strong",
+  "holderProb": 0.84,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.007295,
+  "fwd1m": {
+   "max": 3.07,
+   "last": 1.04
+  },
+  "fwd5m": {
+   "max": 3.07,
+   "last": 1.35
+  },
+  "fwd15m": {
+   "max": 3.07,
+   "last": -8.44
+  }
+ },
+ {
+  "pointId": "BP-T072",
+  "symbol": "MUCHAN",
+  "addr": "0x6ac554624b0f49b13e4eb5252ba5526fdd0b7777",
+  "anchor": "2026-11-02T14:46:39.000Z",
+  "thin": false,
+  "ticks": 34,
+  "ageSec": 274,
+  "curVs": 19.1,
+  "chg5": 6.6,
+  "chg10": -10.01,
+  "chg30": -10.01,
+  "maxDn5": -10.24,
+  "dip5": "-7.62@8s",
+  "mcap": 6.09,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.82,
+  "entry": "normal_dip",
+  "entryProb": 0.87,
+  "holder": "strong",
+  "holderProb": 0.85,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P10·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.00634,
+  "fwd1m": {
+   "max": 3.17,
+   "last": 3.17
+  },
+  "fwd5m": {
+   "max": 3.17,
+   "last": -16.8
+  },
+  "fwd15m": {
+   "max": 3.17,
+   "last": -16.8
+  }
+ },
+ {
+  "pointId": "BP-T073",
+  "symbol": "MUUCHAN",
+  "addr": "0x61e114a4a857fce15642f85ff17e2820432d7777",
+  "anchor": "2026-11-02T14:48:44.000Z",
+  "thin": false,
+  "ticks": 17,
+  "ageSec": 150,
+  "curVs": 18.5,
+  "chg5": 18.52,
+  "chg10": -3.55,
+  "chg30": -3.55,
+  "maxDn5": -14.29,
+  "dip5": "-10.06@8s",
+  "mcap": 5.88,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.89,
+  "holder": "moderate",
+  "holderProb": 0.95,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:equal_amount_split+burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.032535,
+  "fwd1m": {
+   "max": 25.74,
+   "last": 11.59
+  },
+  "fwd5m": {
+   "max": 177.48,
+   "last": 72.22
+  },
+  "fwd15m": {
+   "max": 177.48,
+   "last": 49.5
+  }
+ },
+ {
+  "pointId": "BP-T074",
+  "symbol": "薄荷绿",
+  "addr": "0x8c7c27c7de7165410d33f15bea34e151f12a7777",
+  "anchor": "2026-11-02T15:02:26.000Z",
+  "thin": false,
+  "ticks": 20,
+  "ageSec": 151,
+  "curVs": 20.1,
+  "chg5": 17.93,
+  "chg10": 17.93,
+  "chg30": 17.93,
+  "maxDn5": -9.68,
+  "dip5": null,
+  "mcap": 6.09,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.99,
+  "entry": "spike",
+  "entryProb": 0.91,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "cheat"
+   },
+   "act": 1
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.045927,
+  "fwd1m": {
+   "max": 24.16,
+   "last": 23.71
+  },
+  "fwd5m": {
+   "max": 24.16,
+   "last": -6.67
+  },
+  "fwd15m": {
+   "max": 24.16,
+   "last": -16.69
+  }
+ },
+ {
+  "pointId": "BP-T075",
+  "symbol": "币安兄弟",
+  "addr": "0xab0ad29b9d701aa2607dbc5392aba032b33e7777",
+  "anchor": "2026-11-02T16:55:26.000Z",
+  "thin": false,
+  "ticks": 134,
+  "ageSec": 36,
+  "curVs": 6.3,
+  "chg5": -10.43,
+  "chg10": -15.95,
+  "chg30": -56.77,
+  "maxDn5": -56.28,
+  "dip5": "-56.28@9s",
+  "mcap": 5.41,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.94,
+  "entry": "normal_dip",
+  "entryProb": 0.81,
+  "holder": "strong",
+  "holderProb": 0.51,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:coordinated_sell_back+same_block_buy_wave+slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.012088,
+  "fwd1m": {
+   "max": 1.37,
+   "last": -6.01
+  },
+  "fwd5m": {
+   "max": 1.37,
+   "last": -5.58
+  },
+  "fwd15m": {
+   "max": 2.33,
+   "last": -1.83
+  }
+ },
+ {
+  "pointId": "BP-T076",
+  "symbol": "CZ",
+  "addr": "0x8fef738d4a5c4cdc312cf53f949fb57e8a557777",
+  "anchor": "2026-11-02T16:57:30.000Z",
+  "thin": false,
+  "ticks": 138,
+  "ageSec": 66,
+  "curVs": 25.2,
+  "chg5": 12.71,
+  "chg10": 10.8,
+  "chg30": -36.51,
+  "maxDn5": -51.38,
+  "dip5": "-51.38@14s",
+  "mcap": 6.95,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.8,
+  "holder": "moderate",
+  "holderProb": 0.37,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:equal_amount_split+coordinated_sell_back+same_block_buy_wave+slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P7",
+   "卖出策略 P10",
+   "卖出策略 P11"
+  ],
+  "pnl": 0.170887,
+  "fwd1m": {
+   "max": 41.04,
+   "last": 34.64
+  },
+  "fwd5m": {
+   "max": 96.59,
+   "last": 46.76
+  },
+  "fwd15m": {
+   "max": 480.15,
+   "last": 366.1
+  }
+ },
+ {
+  "pointId": "BP-T077",
+  "symbol": "SMALL",
+  "addr": "0xd9ebdb13e155014b2937fcbd0a501fdf70637777",
+  "anchor": "2026-11-02T16:58:41.000Z",
+  "thin": false,
+  "ticks": 10,
+  "ageSec": 17,
+  "curVs": 15.1,
+  "chg5": 15.07,
+  "chg10": 15.07,
+  "chg30": -17.82,
+  "maxDn5": -32.75,
+  "dip5": "-32.75@13s",
+  "mcap": 5.56,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.85,
+  "entry": "normal_dip",
+  "entryProb": 0.91,
+  "holder": "moderate",
+  "holderProb": 0.95,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "L_insider_sell84",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.000047,
+  "fwd1m": null,
+  "fwd5m": {
+   "max": -3.38,
+   "last": -9.97
+  },
+  "fwd15m": {
+   "max": -3.38,
+   "last": -9.97
+  }
+ },
+ {
+  "pointId": "BP-T078",
+  "symbol": "SAFU",
+  "addr": "0x2733ba914f49a111f2d690659258ebd59f3f7777",
+  "anchor": "2026-11-02T17:01:57.000Z",
+  "thin": false,
+  "ticks": 9,
+  "ageSec": 22,
+  "curVs": 14.7,
+  "chg5": 10.17,
+  "chg10": 5.73,
+  "chg30": 12.89,
+  "maxDn5": -8.14,
+  "dip5": "-8.14@16s",
+  "mcap": 6.36,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "spike",
+  "entryProb": 0.82,
+  "holder": "moderate",
+  "holderProb": 0.88,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.020062,
+  "fwd1m": {
+   "max": 18.37,
+   "last": 4.89
+  },
+  "fwd5m": {
+   "max": 18.37,
+   "last": -22.5
+  },
+  "fwd15m": {
+   "max": 18.37,
+   "last": -24.1
+  }
+ },
+ {
+  "pointId": "BP-T079",
+  "symbol": "ㅤ",
+  "addr": "0x7b9f951d37b8a503c1d6025717680c3ff95c7777",
+  "anchor": "2026-11-02T17:02:11.000Z",
+  "thin": false,
+  "ticks": 14,
+  "ageSec": 659,
+  "curVs": 25.8,
+  "chg5": 25.84,
+  "chg10": 25.84,
+  "chg30": 25.84,
+  "maxDn5": -5.89,
+  "dip5": null,
+  "mcap": 6.98,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.99,
+  "entry": "spike",
+  "entryProb": 0.93,
+  "holder": "strong",
+  "holderProb": 0.83,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:equal_amount_split+coordinated_sell_back+same_block_buy_wave+burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.01355,
+  "fwd1m": {
+   "max": 5.72,
+   "last": 1.39
+  },
+  "fwd5m": {
+   "max": 5.72,
+   "last": -19.29
+  },
+  "fwd15m": {
+   "max": 5.72,
+   "last": -20.53
+  }
+ },
+ {
+  "pointId": "BP-T080",
+  "symbol": "兄弟们",
+  "addr": "0xdedc5e872c1d25d6daed1cfc29a0cac5fd807777",
+  "anchor": "2026-11-02T17:02:25.000Z",
+  "thin": false,
+  "ticks": 19,
+  "ageSec": 95,
+  "curVs": 11,
+  "chg5": 10.97,
+  "chg10": -0.45,
+  "chg30": -0.45,
+  "maxDn5": -13.1,
+  "dip5": null,
+  "mcap": 5.53,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.96,
+  "entry": "normal_dip",
+  "entryProb": 0.8,
+  "holder": "moderate",
+  "holderProb": 0.86,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:equal_amount_split",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.005148,
+  "fwd1m": {
+   "max": 8.82,
+   "last": -0.02
+  },
+  "fwd5m": {
+   "max": 8.82,
+   "last": -9.75
+  },
+  "fwd15m": {
+   "max": 8.82,
+   "last": -9.75
+  }
+ },
+ {
+  "pointId": "BP-T081",
+  "symbol": "ㅤ",
+  "addr": "0xe9749404b883aa047e4bb01de5c7edeb56047777",
+  "anchor": "2026-11-02T17:02:54.000Z",
+  "thin": false,
+  "ticks": 12,
+  "ageSec": 21,
+  "curVs": 22.7,
+  "chg5": -2.11,
+  "chg10": -5.01,
+  "chg30": 0.54,
+  "maxDn5": -9.21,
+  "dip5": "-9.21@14s",
+  "mcap": 6.81,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.73,
+  "entry": "normal_dip",
+  "entryProb": 0.79,
+  "holder": "moderate",
+  "holderProb": 0.99,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P10",
+   "卖出策略 P11"
+  ],
+  "pnl": -0.013509,
+  "fwd1m": {
+   "max": 56.53,
+   "last": 7.93
+  },
+  "fwd5m": {
+   "max": 56.53,
+   "last": -9.89
+  },
+  "fwd15m": {
+   "max": 56.53,
+   "last": -16.61
+  }
+ },
+ {
+  "pointId": "BP-T082",
+  "symbol": "萨摩耶",
+  "addr": "0x93d56791dedc296ed1b07b1b1d8392e771e88888",
+  "anchor": "2026-11-02T17:04:47.000Z",
+  "thin": false,
+  "ticks": 24,
+  "ageSec": 184,
+  "curVs": 24.9,
+  "chg5": 10.42,
+  "chg10": 10.42,
+  "chg30": 3.16,
+  "maxDn5": -4.86,
+  "dip5": "-4.86@21s",
+  "mcap": 6.93,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "spike",
+  "entryProb": 0.77,
+  "holder": "weak",
+  "holderProb": 0.38,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:equal_amount_split+same_block_buy_wave+burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    },
+    {
+     "code": "N_no_retail_entry6.3",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.008794,
+  "fwd1m": {
+   "max": 11.72,
+   "last": -7.08
+  },
+  "fwd5m": {
+   "max": 11.72,
+   "last": -1.04
+  },
+  "fwd15m": {
+   "max": 11.72,
+   "last": -3.13
+  }
+ },
+ {
+  "pointId": "BP-T083",
+  "symbol": "豆介",
+  "addr": "0x5cd9995c98b3958c207dbdc2c5829c3db9007777",
+  "anchor": "2026-11-02T17:08:00.000Z",
+  "thin": false,
+  "ticks": 40,
+  "ageSec": 52,
+  "curVs": 14.5,
+  "chg5": 2.59,
+  "chg10": -17.4,
+  "chg30": -14.62,
+  "maxDn5": -19.96,
+  "dip5": "-19.96@4s",
+  "mcap": 6.35,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.9,
+  "entry": "normal_dip",
+  "entryProb": 0.83,
+  "holder": "weak",
+  "holderProb": 0.72,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P2·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P10"
+  ],
+  "pnl": -0.006817,
+  "fwd1m": {
+   "max": 12.79,
+   "last": 10.26
+  },
+  "fwd5m": {
+   "max": 21.5,
+   "last": -7.05
+  },
+  "fwd15m": {
+   "max": 21.5,
+   "last": -10.01
+  }
+ },
+ {
+  "pointId": "BP-T084",
+  "symbol": "BNC",
+  "addr": "0x910acf02e1bf16f6cb1ec267bfae490c87937777",
+  "anchor": "2026-11-02T17:17:13.000Z",
+  "thin": false,
+  "ticks": 322,
+  "ageSec": 197,
+  "curVs": 22.3,
+  "chg5": -0.81,
+  "chg10": 1.34,
+  "chg30": -32.67,
+  "maxDn5": -56.64,
+  "dip5": "-28.2@15s",
+  "mcap": 6.78,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "normal_dip",
+  "entryProb": 0.59,
+  "holder": "weak",
+  "holderProb": 0.72,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P6·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0,
+  "fwd1m": {
+   "max": 0.03,
+   "last": -24.4
+  },
+  "fwd5m": {
+   "max": 0.03,
+   "last": -27.87
+  },
+  "fwd15m": {
+   "max": 0.03,
+   "last": -28.12
+  }
+ },
+ {
+  "pointId": "BP-T085",
+  "symbol": "POORNANCE",
+  "addr": "0xe583c60b4ea4d3dc92bad9238a8de7463ced7777",
+  "anchor": "2026-11-02T18:38:45.000Z",
+  "thin": false,
+  "ticks": 9,
+  "ageSec": 18,
+  "curVs": 22.9,
+  "chg5": 3.35,
+  "chg10": 22.9,
+  "chg30": -34.05,
+  "maxDn5": -36.09,
+  "dip5": "-36.09@11s",
+  "mcap": 5.95,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.8,
+  "entry": "normal_dip",
+  "entryProb": 0.66,
+  "holder": "moderate",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.037257,
+  "fwd1m": {
+   "max": -3.22,
+   "last": -18.62
+  },
+  "fwd5m": {
+   "max": -3.22,
+   "last": -18.62
+  },
+  "fwd15m": {
+   "max": -3.22,
+   "last": -18.62
+  }
+ },
+ {
+  "pointId": "BP-T086",
+  "symbol": "POORNANCE",
+  "addr": "0x7f2573c137e18bbfcef52d97acedc2be58b67777",
+  "anchor": "2026-11-02T18:38:46.000Z",
+  "thin": false,
+  "ticks": 150,
+  "ageSec": 21,
+  "curVs": 11.4,
+  "chg5": -20.03,
+  "chg10": -58.39,
+  "chg30": -32.81,
+  "maxDn5": -74.68,
+  "dip5": "-74.68@8s",
+  "mcap": 6.18,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.48,
+  "holder": "strong",
+  "holderProb": 0.89,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.041446,
+  "fwd1m": {
+   "max": -3.32,
+   "last": -12.42
+  },
+  "fwd5m": {
+   "max": -3.32,
+   "last": -18.36
+  },
+  "fwd15m": {
+   "max": -3.32,
+   "last": -18.36
+  }
+ },
+ {
+  "pointId": "BP-T087",
+  "symbol": "POORNANCE",
+  "addr": "0xb9f0fba0c1cbb0a5325b72e184da00607bd97777",
+  "anchor": "2026-11-02T18:38:50.000Z",
+  "thin": false,
+  "ticks": 40,
+  "ageSec": 18,
+  "curVs": 18.9,
+  "chg5": -31.67,
+  "chg10": -20.96,
+  "chg30": 4.61,
+  "maxDn5": -40.52,
+  "dip5": "-40.52@0s",
+  "mcap": 6.59,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.74,
+  "holder": "strong",
+  "holderProb": 0.6,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.008517,
+  "fwd1m": {
+   "max": 12,
+   "last": -4.26
+  },
+  "fwd5m": {
+   "max": 12,
+   "last": -15.89
+  },
+  "fwd15m": {
+   "max": 12,
+   "last": -15.89
+  }
+ },
+ {
+  "pointId": "BP-T088",
+  "symbol": "富个鸟",
+  "addr": "0x97f2328cc7e15896ec5101ca51c87fbfe5ae7777",
+  "anchor": "2026-11-02T18:41:13.000Z",
+  "thin": false,
+  "ticks": 145,
+  "ageSec": 101,
+  "curVs": 11.6,
+  "chg5": 9.54,
+  "chg10": 7.7,
+  "chg30": -33.68,
+  "maxDn5": -33.72,
+  "dip5": "-33.72@15s",
+  "mcap": 6.17,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.86,
+  "entry": "normal_dip",
+  "entryProb": 0.83,
+  "holder": "strong",
+  "holderProb": 0.99,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:coordinated_sell_back+slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P2·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.017901,
+  "fwd1m": {
+   "max": -2.69,
+   "last": -16.94
+  },
+  "fwd5m": {
+   "max": 13.72,
+   "last": 13.72
+  },
+  "fwd15m": {
+   "max": 13.72,
+   "last": -19.21
+  }
+ },
+ {
+  "pointId": "BP-T089",
+  "symbol": "比格多栋",
+  "addr": "0x5fdb483505a6654360191afac176e5ac91997777",
+  "anchor": "2026-11-02T19:56:05.000Z",
+  "thin": false,
+  "ticks": 14,
+  "ageSec": 233,
+  "curVs": 19.2,
+  "chg5": 19.21,
+  "chg10": 19.21,
+  "chg30": -9.53,
+  "maxDn5": -8.23,
+  "dip5": "0@15s",
+  "mcap": 5.67,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "normal_dip",
+  "entryProb": 0.95,
+  "holder": "moderate",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:equal_amount_split+same_block_buy_wave+burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.029817,
+  "fwd1m": {
+   "max": 32.24,
+   "last": 14.91
+  },
+  "fwd5m": {
+   "max": 32.24,
+   "last": 6.8
+  },
+  "fwd15m": {
+   "max": 32.24,
+   "last": -7.8
+  }
+ },
+ {
+  "pointId": "BP-T090",
+  "symbol": "大輔",
+  "addr": "0x5b78cceda4dc7dac719e17e76d0000e73c5a7777",
+  "anchor": "2026-11-02T21:21:12.000Z",
+  "thin": false,
+  "ticks": 21,
+  "ageSec": 85,
+  "curVs": 12.6,
+  "chg5": 12.58,
+  "chg10": 6.13,
+  "chg30": -5.85,
+  "maxDn5": -8.77,
+  "dip5": "-8.77@13s",
+  "mcap": 5.78,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.96,
+  "entry": "normal_dip",
+  "entryProb": 0.93,
+  "holder": "moderate",
+  "holderProb": 0.82,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.055625,
+  "fwd1m": {
+   "max": 11.63,
+   "last": 9.78
+  },
+  "fwd5m": {
+   "max": 36.31,
+   "last": 36.25
+  },
+  "fwd15m": {
+   "max": 64.53,
+   "last": 44.98
+  }
+ },
+ {
+  "pointId": "BP-T091",
+  "symbol": "相信币安",
+  "addr": "0xaa0ab926e8b8d2c7ffb2539eaf36bb3d39427777",
+  "anchor": "2026-11-02T22:13:02.000Z",
+  "thin": false,
+  "ticks": 18,
+  "ageSec": 75,
+  "curVs": 16.8,
+  "chg5": -9.73,
+  "chg10": -9.73,
+  "chg30": -11.44,
+  "maxDn5": -4.41,
+  "dip5": "-4.41@1s",
+  "mcap": 6.48,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.88,
+  "entry": "normal_dip",
+  "entryProb": 0.72,
+  "holder": "moderate",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P11",
+   "卖出策略 P10"
+  ],
+  "pnl": 0.028488,
+  "fwd1m": {
+   "max": 43.29,
+   "last": 18.21
+  },
+  "fwd5m": {
+   "max": 43.29,
+   "last": 8.87
+  },
+  "fwd15m": {
+   "max": 43.29,
+   "last": 30.37
+  }
+ },
+ {
+  "pointId": "BP-T092",
+  "symbol": "Anon BnB",
+  "addr": "0x500fcf88095bb669e48927b591173b34a4227777",
+  "anchor": "2026-11-02T23:01:21.000Z",
+  "thin": false,
+  "ticks": 9,
+  "ageSec": 18,
+  "curVs": 15.5,
+  "chg5": -3.35,
+  "chg10": -5.22,
+  "chg30": 15.55,
+  "maxDn5": -13.61,
+  "dip5": "-13.61@1s",
+  "mcap": 5.04,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.94,
+  "entry": "spike",
+  "entryProb": 0.71,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.048648,
+  "fwd1m": {
+   "max": -2.17,
+   "last": -24.32
+  },
+  "fwd5m": {
+   "max": -2.17,
+   "last": -21.87
+  },
+  "fwd15m": {
+   "max": -2.17,
+   "last": -24.32
+  }
+ },
+ {
+  "pointId": "BP-T093",
+  "symbol": "噜噜舞",
+  "addr": "0x2c6f54a1e920a90e3e7f9f4816ebf569a2417777",
+  "anchor": "2026-11-03T01:40:12.000Z",
+  "thin": false,
+  "ticks": 17,
+  "ageSec": 61,
+  "curVs": 21.9,
+  "chg5": 8.22,
+  "chg10": 15.55,
+  "chg30": 10.91,
+  "maxDn5": -3.14,
+  "dip5": "-3.14@24s",
+  "mcap": 6.34,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "spike",
+  "entryProb": 0.96,
+  "holder": "moderate",
+  "holderProb": 0.88,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.015941,
+  "fwd1m": {
+   "max": 7.97,
+   "last": 7.97
+  },
+  "fwd5m": {
+   "max": 8.04,
+   "last": -3.63
+  },
+  "fwd15m": {
+   "max": 8.04,
+   "last": -6.07
+  }
+ },
+ {
+  "pointId": "BP-T094",
+  "symbol": "跳跳虎",
+  "addr": "0xab20a37fc09f6cef2bce82814489970cd7337777",
+  "anchor": "2026-11-03T02:17:11.000Z",
+  "thin": false,
+  "ticks": 12,
+  "ageSec": 826,
+  "curVs": 25.9,
+  "chg5": 8.2,
+  "chg10": 25.9,
+  "chg30": 25.9,
+  "maxDn5": 0,
+  "dip5": null,
+  "mcap": 6.35,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.99,
+  "entry": "spike",
+  "entryProb": 0.99,
+  "holder": "moderate",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.040135,
+  "fwd1m": {
+   "max": 6.03,
+   "last": -20.07
+  },
+  "fwd5m": {
+   "max": 6.03,
+   "last": -20.07
+  },
+  "fwd15m": {
+   "max": 6.03,
+   "last": -20.52
+  }
+ },
+ {
+  "pointId": "BP-T095",
+  "symbol": "蝴蝶人生2.0",
+  "addr": "0x8894323f7d264cdd8c5bd635036c06db1eb87777",
+  "anchor": "2026-11-03T02:21:23.000Z",
+  "thin": false,
+  "ticks": 193,
+  "ageSec": 553,
+  "curVs": 27.1,
+  "chg5": -9.03,
+  "chg10": -12.69,
+  "chg30": -12.69,
+  "maxDn5": -18.57,
+  "dip5": "-12.12@0s",
+  "mcap": 7.05,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.94,
+  "entry": "normal_dip",
+  "entryProb": 0.78,
+  "holder": "none",
+  "holderProb": 0.62,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "M_hyper_activity",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_ultra",
+    "originalGrade": "unhealthy"
+   },
+   "act": 3
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.014973,
+  "fwd1m": {
+   "max": 2.33,
+   "last": -6.66
+  },
+  "fwd5m": {
+   "max": 2.33,
+   "last": -10.56
+  },
+  "fwd15m": {
+   "max": 2.33,
+   "last": -13.74
+  }
+ },
+ {
+  "pointId": "BP-T096",
+  "symbol": "蝴蝶人生2.0",
+  "addr": "0x088fdf759ed85a5ef6b0e64d4107710371ee7777",
+  "anchor": "2026-11-03T02:38:32.000Z",
+  "thin": false,
+  "ticks": 273,
+  "ageSec": 1063,
+  "curVs": 27.7,
+  "chg5": -2.62,
+  "chg10": -9.84,
+  "chg30": -19.53,
+  "maxDn5": -11.12,
+  "dip5": "-10.67@11s",
+  "mcap": 7.08,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.94,
+  "entry": "normal_dip",
+  "entryProb": 0.81,
+  "holder": "none",
+  "holderProb": 0.6,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.000236,
+  "fwd1m": {
+   "max": 1.52,
+   "last": 1.52
+  },
+  "fwd5m": {
+   "max": 1.52,
+   "last": -0.7
+  },
+  "fwd15m": {
+   "max": 3.62,
+   "last": -6.34
+  }
+ },
+ {
+  "pointId": "BP-T097",
+  "symbol": "野猪ins",
+  "addr": "0x308406e1dc5e5a40797196dd88a1a75912ec7777",
+  "anchor": "2026-11-03T02:45:35.000Z",
+  "thin": false,
+  "ticks": 11,
+  "ageSec": 245,
+  "curVs": 27.6,
+  "chg5": 12.98,
+  "chg10": 27.58,
+  "chg30": 27.58,
+  "maxDn5": -1.38,
+  "dip5": null,
+  "mcap": 6.62,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.99,
+  "entry": "spike",
+  "entryProb": 1,
+  "holder": "moderate",
+  "holderProb": 0.76,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "L_insider_sell69",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.003025,
+  "fwd1m": {
+   "max": 4.59,
+   "last": 2.44
+  },
+  "fwd5m": {
+   "max": 23.57,
+   "last": 22.24
+  },
+  "fwd15m": {
+   "max": 97.2,
+   "last": 96.71
+  }
+ },
+ {
+  "pointId": "BP-T098",
+  "symbol": "Crypto Winter",
+  "addr": "0xbea734d93b9d47066e8eb20a4f3e17183e457777",
+  "anchor": "2026-11-03T03:00:01.000Z",
+  "thin": false,
+  "ticks": 130,
+  "ageSec": 759,
+  "curVs": 13,
+  "chg5": 12.47,
+  "chg10": 12.37,
+  "chg30": 12.37,
+  "maxDn5": -21.26,
+  "dip5": null,
+  "mcap": 5.69,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "normal_dip",
+  "entryProb": 0.85,
+  "holder": "strong",
+  "holderProb": 0.99,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "cheat"
+   },
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P12·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.03787,
+  "fwd1m": {
+   "max": 13.21,
+   "last": 13.21
+  },
+  "fwd5m": {
+   "max": 13.21,
+   "last": -8.2
+  },
+  "fwd15m": {
+   "max": 13.21,
+   "last": -8.2
+  }
+ },
+ {
+  "pointId": "BP-T099",
+  "symbol": "누룽쥐",
+  "addr": "0xebbe7af1a76f7125805f491ebf7214e07f907777",
+  "anchor": "2026-11-03T03:30:01.000Z",
+  "thin": false,
+  "ticks": 17,
+  "ageSec": 30,
+  "curVs": 20.1,
+  "chg5": 4.91,
+  "chg10": 3.45,
+  "chg30": 6.65,
+  "maxDn5": -5.75,
+  "dip5": "-5.75@2s",
+  "mcap": 5.24,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.94,
+  "entry": "normal_dip",
+  "entryProb": 0.65,
+  "holder": "strong",
+  "holderProb": 0.9,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P10",
+   "卖出策略 P11",
+   "卖出策略 P1"
+  ],
+  "pnl": 0.072618,
+  "fwd1m": {
+   "max": 98.83,
+   "last": 56.24
+  },
+  "fwd5m": {
+   "max": 98.83,
+   "last": 9.08
+  },
+  "fwd15m": {
+   "max": 98.83,
+   "last": -12.52
+  }
+ },
+ {
+  "pointId": "BP-T100",
+  "symbol": "鸡巴",
+  "addr": "0xb41b354ff79e793858364f8be5cf5fca10357777",
+  "anchor": "2026-11-03T03:33:23.000Z",
+  "thin": false,
+  "ticks": 30,
+  "ageSec": 74,
+  "curVs": 12.4,
+  "chg5": 12.45,
+  "chg10": 5.85,
+  "chg30": 5.85,
+  "maxDn5": -13.45,
+  "dip5": "-5.86@7s",
+  "mcap": 5.75,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "normal_dip",
+  "entryProb": 0.84,
+  "holder": "moderate",
+  "holderProb": 0.96,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.006384,
+  "fwd1m": {
+   "max": 4.53,
+   "last": -3.19
+  },
+  "fwd5m": {
+   "max": 15.86,
+   "last": 3.33
+  },
+  "fwd15m": {
+   "max": 15.86,
+   "last": -5.44
+  }
+ },
+ {
+  "pointId": "BP-T101",
+  "symbol": "魔渊",
+  "addr": "0x9295363666be41791f9ac20ad5cba59a69e07777",
+  "anchor": "2026-11-03T03:57:52.000Z",
+  "thin": false,
+  "ticks": 25,
+  "ageSec": 121,
+  "curVs": 11,
+  "chg5": 11.03,
+  "chg10": -0.55,
+  "chg30": -1.94,
+  "maxDn5": -10.05,
+  "dip5": "-8.36@5s",
+  "mcap": 5.29,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.89,
+  "holder": "strong",
+  "holderProb": 0.66,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "L_insider_sell41",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P11",
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.006063,
+  "fwd1m": {
+   "max": 47.02,
+   "last": -4.65
+  },
+  "fwd5m": {
+   "max": 47.02,
+   "last": -5.52
+  },
+  "fwd15m": {
+   "max": 47.02,
+   "last": -5.73
+  }
+ },
+ {
+  "pointId": "BP-T102",
+  "symbol": "왹냐",
+  "addr": "0x40a5881104c2a86d8a38451ce50956f92b987777",
+  "anchor": "2026-11-03T04:19:31.000Z",
+  "thin": false,
+  "ticks": 56,
+  "ageSec": 56,
+  "curVs": 21.2,
+  "chg5": 9.56,
+  "chg10": -13.01,
+  "chg30": -15.23,
+  "maxDn5": -23.67,
+  "dip5": "-23.67@6s",
+  "mcap": 5.34,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.86,
+  "entry": "normal_dip",
+  "entryProb": 0.58,
+  "holder": "weak",
+  "holderProb": 0.86,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:equal_amount_split+same_block_buy_wave",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P2·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.016997,
+  "fwd1m": {
+   "max": 7.56,
+   "last": 5.7
+  },
+  "fwd5m": {
+   "max": 19.01,
+   "last": -0.79
+  },
+  "fwd15m": {
+   "max": 156.67,
+   "last": 82.73
+  }
+ },
+ {
+  "pointId": "BP-T103",
+  "symbol": "扭羊歌",
+  "addr": "0x88225c905ca858a60cd38405fa4457954f747777",
+  "anchor": "2026-11-03T05:55:10.000Z",
+  "thin": false,
+  "ticks": 17,
+  "ageSec": 239,
+  "curVs": 23.4,
+  "chg5": 14.82,
+  "chg10": 14.82,
+  "chg30": 14.82,
+  "maxDn5": -5.46,
+  "dip5": null,
+  "mcap": 5.86,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.99,
+  "entry": "spike",
+  "entryProb": 0.9,
+  "holder": "moderate",
+  "holderProb": 0.93,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "L_insider_sell62",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "cheat"
+   },
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.004063,
+  "fwd1m": {
+   "max": 0.46,
+   "last": -2.93
+  },
+  "fwd5m": {
+   "max": 5.81,
+   "last": 5.81
+  },
+  "fwd15m": {
+   "max": 38.24,
+   "last": -8.12
+  }
+ },
+ {
+  "pointId": "BP-T104",
+  "symbol": "DPRKaptcha",
+  "addr": "0xb2b3528d519d632818e9e1ed5b8aadebd68e7777",
+  "anchor": "2026-11-03T05:58:09.000Z",
+  "thin": true,
+  "ticks": 7,
+  "ageSec": 21,
+  "curVs": 24.3,
+  "chg5": 16.29,
+  "chg10": 16.29,
+  "chg30": 18.39,
+  "maxDn5": null,
+  "dip5": null,
+  "mcap": 6.89,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "spike",
+  "entryProb": 0.96,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P1"
+  ],
+  "pnl": 0.041208,
+  "fwd1m": {
+   "max": 86.31,
+   "last": 73.37
+  },
+  "fwd5m": {
+   "max": 87.4,
+   "last": 19.53
+  },
+  "fwd15m": {
+   "max": 128.27,
+   "last": 127.21
+  }
+ },
+ {
+  "pointId": "BP-T105",
+  "symbol": "万梗捏",
+  "addr": "0xc0f961427e57bdc37a3fddb245ea7b4521fa7777",
+  "anchor": "2026-11-03T06:30:18.000Z",
+  "thin": false,
+  "ticks": 10,
+  "ageSec": 15,
+  "curVs": 23.7,
+  "chg5": 3.91,
+  "chg10": 7.07,
+  "chg30": 7.07,
+  "maxDn5": -13.44,
+  "dip5": "-13.44@8s",
+  "mcap": 5.19,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "spike",
+  "entryProb": 0.87,
+  "holder": "moderate",
+  "holderProb": 0.99,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.010239,
+  "fwd1m": {
+   "max": 5.12,
+   "last": 1.06
+  },
+  "fwd5m": {
+   "max": 20.48,
+   "last": 15.03
+  },
+  "fwd15m": {
+   "max": 31.76,
+   "last": 16.2
+  }
+ },
+ {
+  "pointId": "BP-T106",
+  "symbol": "황제",
+  "addr": "0xe52b13e250326e26ce81f9ae6338aee23c037777",
+  "anchor": "2026-11-03T07:30:42.000Z",
+  "thin": false,
+  "ticks": 14,
+  "ageSec": 16,
+  "curVs": 8.8,
+  "chg5": -19.64,
+  "chg10": -21.13,
+  "chg30": -0.95,
+  "maxDn5": -19.83,
+  "dip5": "-19.83@8s",
+  "mcap": 6.03,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.86,
+  "entry": "normal_dip",
+  "entryProb": 0.86,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.021907,
+  "fwd1m": {
+   "max": -2.32,
+   "last": -8.05
+  },
+  "fwd5m": {
+   "max": -2.32,
+   "last": -8.05
+  },
+  "fwd15m": {
+   "max": -2.32,
+   "last": -8.05
+  }
+ },
+ {
+  "pointId": "BP-T107",
+  "symbol": "CT PACKS",
+  "addr": "0x35b19bdf25074ab8ae073eb13321d8cf62867777",
+  "anchor": "2026-11-03T07:41:49.000Z",
+  "thin": false,
+  "ticks": 13,
+  "ageSec": 676,
+  "curVs": 23.7,
+  "chg5": 16.06,
+  "chg10": 16.06,
+  "chg30": 16.06,
+  "maxDn5": -10,
+  "dip5": null,
+  "mcap": 6.86,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.99,
+  "entry": "spike",
+  "entryProb": 0.93,
+  "holder": "moderate",
+  "holderProb": 0.9,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "cheat"
+   },
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.037653,
+  "fwd1m": {
+   "max": 13.21,
+   "last": 9.98
+  },
+  "fwd5m": {
+   "max": 13.21,
+   "last": 7.57
+  },
+  "fwd15m": {
+   "max": 49.43,
+   "last": 49.43
+  }
+ },
+ {
+  "pointId": "BP-T108",
+  "symbol": "차르",
+  "addr": "0x42f68279b638a82db79bf4e693ad9fd00ff07777",
+  "anchor": "2026-11-03T07:45:52.000Z",
+  "thin": false,
+  "ticks": 8,
+  "ageSec": 44,
+  "curVs": 18.5,
+  "chg5": -11.47,
+  "chg10": -1.33,
+  "chg30": 5.22,
+  "maxDn5": null,
+  "dip5": null,
+  "mcap": 5.18,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.99,
+  "entry": "normal_dip",
+  "entryProb": 0.87,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 1
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.019126,
+  "fwd1m": {
+   "max": 0.18,
+   "last": -9.56
+  },
+  "fwd5m": {
+   "max": 0.18,
+   "last": -9.69
+  },
+  "fwd15m": {
+   "max": 0.18,
+   "last": -10.33
+  }
+ },
+ {
+  "pointId": "BP-T109",
+  "symbol": "凯伦",
+  "addr": "0x07f12d2bb2947490474c6ca626f26f53d4857777",
+  "anchor": "2026-11-03T07:50:04.000Z",
+  "thin": false,
+  "ticks": 86,
+  "ageSec": 44,
+  "curVs": 14.6,
+  "chg5": -24.12,
+  "chg10": -33.27,
+  "chg30": -30.99,
+  "maxDn5": -39.63,
+  "dip5": "-39.63@0s",
+  "mcap": 6.08,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.92,
+  "entry": "normal_dip",
+  "entryProb": 0.77,
+  "holder": "weak",
+  "holderProb": 0.88,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.018263,
+  "fwd1m": {
+   "max": 10.37,
+   "last": -18.33
+  },
+  "fwd5m": {
+   "max": 10.37,
+   "last": -22.28
+  },
+  "fwd15m": {
+   "max": 10.37,
+   "last": -24.02
+  }
+ },
+ {
+  "pointId": "BP-T110",
+  "symbol": "地球online",
+  "addr": "0x6fc24f5cefe633132e7cb38d5e9846c86e9e7777",
+  "anchor": "2026-11-03T08:02:48.000Z",
+  "thin": false,
+  "ticks": 10,
+  "ageSec": 16,
+  "curVs": 11.8,
+  "chg5": -3.61,
+  "chg10": 6.05,
+  "chg30": 5.71,
+  "maxDn5": -5.47,
+  "dip5": "-5.47@12s",
+  "mcap": 6.2,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.96,
+  "entry": "spike",
+  "entryProb": 0.81,
+  "holder": "moderate",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 1
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.046318,
+  "fwd1m": {
+   "max": 0.65,
+   "last": -23.16
+  },
+  "fwd5m": {
+   "max": 0.65,
+   "last": -23.34
+  },
+  "fwd15m": {
+   "max": 0.65,
+   "last": -23.34
+  }
+ },
+ {
+  "pointId": "BP-T111",
+  "symbol": "biner",
+  "addr": "0x1ac062679ebfc9716db31acd79099f8a5c647777",
+  "anchor": "2026-11-03T08:07:45.000Z",
+  "thin": false,
+  "ticks": 26,
+  "ageSec": 80,
+  "curVs": 17.9,
+  "chg5": -9.98,
+  "chg10": 6.31,
+  "chg30": 6.31,
+  "maxDn5": -9.98,
+  "dip5": "-9.98@0s",
+  "mcap": 5.88,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "normal_dip",
+  "entryProb": 0.83,
+  "holder": "strong",
+  "holderProb": 0.51,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 1
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.028794,
+  "fwd1m": {
+   "max": 1.01,
+   "last": -14.4
+  },
+  "fwd5m": {
+   "max": 1.01,
+   "last": -17.92
+  },
+  "fwd15m": {
+   "max": 1.01,
+   "last": -17.92
+  }
+ },
+ {
+  "pointId": "BP-T112",
+  "symbol": "策长沙",
+  "addr": "0x1d48c0a5decfca6f1d90ee10aa274157ecd37777",
+  "anchor": "2026-11-03T08:11:49.000Z",
+  "thin": false,
+  "ticks": 88,
+  "ageSec": 118,
+  "curVs": 17.1,
+  "chg5": 11.14,
+  "chg10": 11.14,
+  "chg30": 9.22,
+  "maxDn5": -20.19,
+  "dip5": null,
+  "mcap": 6.5,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.94,
+  "entry": "normal_dip",
+  "entryProb": 0.78,
+  "holder": "strong",
+  "holderProb": 1,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P12·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.004297,
+  "fwd1m": {
+   "max": 3.83,
+   "last": -0.16
+  },
+  "fwd5m": {
+   "max": 3.83,
+   "last": -3.76
+  },
+  "fwd15m": {
+   "max": 3.83,
+   "last": -3.76
+  }
+ },
+ {
+  "pointId": "BP-T113",
+  "symbol": "币安共建",
+  "addr": "0x384fef57a90d99cbf5f6bd79a3730a6841d67777",
+  "anchor": "2026-11-03T08:17:27.000Z",
+  "thin": false,
+  "ticks": 859,
+  "ageSec": 9028,
+  "curVs": 23.1,
+  "chg5": 11.21,
+  "chg10": 11.21,
+  "chg30": 17.32,
+  "maxDn5": -8.44,
+  "dip5": null,
+  "mcap": 6.45,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.73,
+  "holder": "weak",
+  "holderProb": 0.71,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P8·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.003415,
+  "fwd1m": {
+   "max": 3.69,
+   "last": -3.85
+  },
+  "fwd5m": {
+   "max": 13.5,
+   "last": 13.5
+  },
+  "fwd15m": {
+   "max": 17.1,
+   "last": 16.81
+  }
+ },
+ {
+  "pointId": "BP-T114",
+  "symbol": "画地为牢",
+  "addr": "0x32059ea3719c7efecd007e1896cf5c9765087777",
+  "anchor": "2026-11-03T09:06:29.000Z",
+  "thin": false,
+  "ticks": 17,
+  "ageSec": 199,
+  "curVs": 24.8,
+  "chg5": 16.95,
+  "chg10": 16.95,
+  "chg30": 16.95,
+  "maxDn5": -9.35,
+  "dip5": null,
+  "mcap": 6.65,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.81,
+  "entry": "normal_dip",
+  "entryProb": 0.77,
+  "holder": "strong",
+  "holderProb": 0.77,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.012497,
+  "fwd1m": {
+   "max": 0.22,
+   "last": 0.22
+  },
+  "fwd5m": {
+   "max": 0.25,
+   "last": -9.17
+  },
+  "fwd15m": {
+   "max": 0.25,
+   "last": -6.33
+  }
+ },
+ {
+  "pointId": "BP-T115",
+  "symbol": "猪来",
+  "addr": "0xa2af665b7eb95e33101af5e51217cf165fc57777",
+  "anchor": "2026-11-03T09:48:51.000Z",
+  "thin": false,
+  "ticks": 27,
+  "ageSec": 46,
+  "curVs": 25.9,
+  "chg5": -16.47,
+  "chg10": -16.41,
+  "chg30": 14.35,
+  "maxDn5": -9.46,
+  "dip5": "-9.46@0s",
+  "mcap": 6.98,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.45,
+  "holder": "weak",
+  "holderProb": 0.73,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P10"
+  ],
+  "pnl": -0.018088,
+  "fwd1m": {
+   "max": 26.61,
+   "last": 21.77
+  },
+  "fwd5m": {
+   "max": 26.61,
+   "last": -20.51
+  },
+  "fwd15m": {
+   "max": 26.61,
+   "last": -20.51
+  }
+ },
+ {
+  "pointId": "BP-T116",
+  "symbol": "TRUMP",
+  "addr": "0xd59631228a0bbe88de1f2eccbb9794cbcec37777",
+  "anchor": "2026-11-03T10:12:13.000Z",
+  "thin": false,
+  "ticks": 31,
+  "ageSec": 71,
+  "curVs": 20.6,
+  "chg5": -13.3,
+  "chg10": -10.86,
+  "chg30": -11.07,
+  "maxDn5": -30.74,
+  "dip5": "-30.74@10s",
+  "mcap": 3.63,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.5,
+  "holder": "moderate",
+  "holderProb": 0.71,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P1"
+  ],
+  "pnl": 0.060566,
+  "fwd1m": {
+   "max": 101.86,
+   "last": -7.79
+  },
+  "fwd5m": {
+   "max": 101.86,
+   "last": -11.58
+  },
+  "fwd15m": {
+   "max": 101.86,
+   "last": -16.6
+  }
+ },
+ {
+  "pointId": "BP-T117",
+  "symbol": "SI",
+  "addr": "0x13ccc4b96a0561201211e7d37b1352d03ed37777",
+  "anchor": "2026-11-03T11:16:00.000Z",
+  "thin": false,
+  "ticks": 46,
+  "ageSec": 57,
+  "curVs": 27.9,
+  "chg5": -12.65,
+  "chg10": -22.92,
+  "chg30": -1.19,
+  "maxDn5": -19.09,
+  "dip5": "-19.09@13s",
+  "mcap": 7.09,
+  "bucket": "poor",
+  "rule": "pattern_gate",
+  "prob": 0.49,
+  "exempt": null,
+  "mp": "famous_monopoly",
+  "mpProb": 0.49,
+  "entry": "normal_dip",
+  "entryProb": 0.47,
+  "holder": "strong",
+  "holderProb": 0.62,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:insider_supply_sell",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "L_insider_sell26",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P11"
+  ],
+  "pnl": -0.059591,
+  "fwd1m": {
+   "max": 10.16,
+   "last": -26.56
+  },
+  "fwd5m": {
+   "max": 10.16,
+   "last": -30.61
+  },
+  "fwd15m": {
+   "max": 10.16,
+   "last": -30.64
+  }
+ },
+ {
+  "pointId": "BP-T118",
+  "symbol": "Cashless",
+  "addr": "0x86456b25c3faf407f976498f4365210cf6fc7777",
+  "anchor": "2026-11-03T11:27:13.000Z",
+  "thin": false,
+  "ticks": 133,
+  "ageSec": 285,
+  "curVs": 18.8,
+  "chg5": 10.45,
+  "chg10": 10.45,
+  "chg30": 10.45,
+  "maxDn5": -21.91,
+  "dip5": "-1.06@0s",
+  "mcap": 6.59,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.85,
+  "entry": "normal_dip",
+  "entryProb": 0.8,
+  "holder": "strong",
+  "holderProb": 1,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P3·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.064443,
+  "fwd1m": {
+   "max": 34.6,
+   "last": 34.6
+  },
+  "fwd5m": {
+   "max": 39.05,
+   "last": 30.83
+  },
+  "fwd15m": {
+   "max": 39.05,
+   "last": 20.98
+  }
+ },
+ {
+  "pointId": "BP-T119",
+  "symbol": "Cashless",
+  "addr": "0xfd571fd6f29d0a72135233ae0a21868d6ca27777",
+  "anchor": "2026-11-03T11:30:59.000Z",
+  "thin": false,
+  "ticks": 14,
+  "ageSec": 80,
+  "curVs": 15.8,
+  "chg5": 15.83,
+  "chg10": 15.83,
+  "chg30": 15.83,
+  "maxDn5": -8.63,
+  "dip5": null,
+  "mcap": 6.25,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "normal_dip",
+  "entryProb": 0.58,
+  "holder": "strong",
+  "holderProb": 0.72,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "cheat"
+   },
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P1",
+   "卖出策略 P11",
+   "卖出策略 P7"
+  ],
+  "pnl": 0.159431,
+  "fwd1m": {
+   "max": 128.74,
+   "last": 128.74
+  },
+  "fwd5m": {
+   "max": 130.19,
+   "last": 60.52
+  },
+  "fwd15m": {
+   "max": 130.19,
+   "last": 32.15
+  }
+ },
+ {
+  "pointId": "BP-T120",
+  "symbol": "Cashless",
+  "addr": "0xbcb728291999b8fc26629530ea97d5a218df7777",
+  "anchor": "2026-11-03T11:34:46.000Z",
+  "thin": false,
+  "ticks": 8,
+  "ageSec": 62,
+  "curVs": 19.6,
+  "chg5": -7.07,
+  "chg10": -7.07,
+  "chg30": 19.61,
+  "maxDn5": -3.82,
+  "dip5": "-3.82@2s",
+  "mcap": 5.96,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.95,
+  "entry": "normal_dip",
+  "entryProb": 0.7,
+  "holder": "moderate",
+  "holderProb": 0.95,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "L_insider_sell73",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P10",
+   "卖出策略 P7"
+  ],
+  "pnl": 0.367613,
+  "fwd1m": {
+   "max": 53.49,
+   "last": 15.62
+  },
+  "fwd5m": {
+   "max": 269.85,
+   "last": 179.52
+  },
+  "fwd15m": {
+   "max": 463.45,
+   "last": 107.09
+  }
+ },
+ {
+  "pointId": "BP-T121",
+  "symbol": "漏洞獵人",
+  "addr": "0xe4529eeb1c9a86c3429083640845c205a3657777",
+  "anchor": "2026-11-03T11:45:58.000Z",
+  "thin": false,
+  "ticks": 49,
+  "ageSec": 121,
+  "curVs": 14.7,
+  "chg5": 8.23,
+  "chg10": -8.99,
+  "chg30": -15.86,
+  "maxDn5": -18.63,
+  "dip5": "-12.63@6s",
+  "mcap": 5.41,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.86,
+  "entry": "normal_dip",
+  "entryProb": 0.81,
+  "holder": "strong",
+  "holderProb": 0.58,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:coordinated_sell_back+slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P10·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.013305,
+  "fwd1m": {
+   "max": 8.36,
+   "last": -10.21
+  },
+  "fwd5m": {
+   "max": 8.36,
+   "last": -27.97
+  },
+  "fwd15m": {
+   "max": 8.36,
+   "last": -29.55
+  }
+ },
+ {
+  "pointId": "BP-T122",
+  "symbol": "CDBC",
+  "addr": "0xb57eba1439b53ba1ea762a1dfe61bee129f17777",
+  "anchor": "2026-11-03T11:52:10.000Z",
+  "thin": false,
+  "ticks": 62,
+  "ageSec": 67,
+  "curVs": 14,
+  "chg5": 5.1,
+  "chg10": 3.19,
+  "chg30": -21.63,
+  "maxDn5": -32.44,
+  "dip5": "-17.84@19s",
+  "mcap": 6.02,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.93,
+  "entry": "normal_dip",
+  "entryProb": 0.84,
+  "holder": "weak",
+  "holderProb": 0.62,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 1
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.034962,
+  "fwd1m": {
+   "max": 0.16,
+   "last": -19.48
+  },
+  "fwd5m": {
+   "max": 0.16,
+   "last": -20.54
+  },
+  "fwd15m": {
+   "max": 0.16,
+   "last": -22.59
+  }
+ },
+ {
+  "pointId": "BP-T123",
+  "symbol": "CBDC",
+  "addr": "0x6fceff81a2709d98af348c610097bdcf26cc7777",
+  "anchor": "2026-11-03T11:52:53.000Z",
+  "thin": false,
+  "ticks": 10,
+  "ageSec": 61,
+  "curVs": 21.6,
+  "chg5": 16.39,
+  "chg10": 9.79,
+  "chg30": 21.59,
+  "maxDn5": -3.08,
+  "dip5": "-3.08@0s",
+  "mcap": 6.44,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "spike",
+  "entryProb": 0.95,
+  "holder": "weak",
+  "holderProb": 0.4,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.01205,
+  "fwd1m": {
+   "max": -3.04,
+   "last": -18.3
+  },
+  "fwd5m": {
+   "max": -3.04,
+   "last": -25.82
+  },
+  "fwd15m": {
+   "max": -3.04,
+   "last": -25.82
+  }
+ },
+ {
+  "pointId": "BP-T124",
+  "symbol": "SI",
+  "addr": "0x1ea8b018e8dc6a70109f2bd0389adc50d3da7777",
+  "anchor": "2026-11-03T12:09:08.000Z",
+  "thin": false,
+  "ticks": 116,
+  "ageSec": 121,
+  "curVs": 28.1,
+  "chg5": -1,
+  "chg10": -10.44,
+  "chg30": -18.75,
+  "maxDn5": -19.32,
+  "dip5": "-19.32@15s",
+  "mcap": 7.1,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.81,
+  "entry": "normal_dip",
+  "entryProb": 0.54,
+  "holder": "strong",
+  "holderProb": 1,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "L_insider_sell34",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.018258,
+  "fwd1m": {
+   "max": -7.58,
+   "last": -10.96
+  },
+  "fwd5m": {
+   "max": -7.58,
+   "last": -17.23
+  },
+  "fwd15m": {
+   "max": -7.58,
+   "last": -19.86
+  }
+ },
+ {
+  "pointId": "BP-T125",
+  "symbol": "超级团队",
+  "addr": "0x47c15e6613d163d9002d1e062a40a99ad41d7777",
+  "anchor": "2026-11-03T12:13:06.000Z",
+  "thin": false,
+  "ticks": 34,
+  "ageSec": 530,
+  "curVs": 18.9,
+  "chg5": 18.95,
+  "chg10": 18.95,
+  "chg30": 18.95,
+  "maxDn5": -24.34,
+  "dip5": null,
+  "mcap": 6.04,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.89,
+  "entry": "normal_dip",
+  "entryProb": 0.83,
+  "holder": "weak",
+  "holderProb": 0.37,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P3·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0,
+  "fwd1m": null,
+  "fwd5m": {
+   "max": 537.56,
+   "last": 408.68
+  },
+  "fwd15m": {
+   "max": 545.77,
+   "last": 429.23
+  }
+ },
+ {
+  "pointId": "BP-T126",
+  "symbol": "EA2Y",
+  "addr": "0x12fd1110856c8cd86591b218cd02357fe6517777",
+  "anchor": "2026-11-03T12:42:38.000Z",
+  "thin": false,
+  "ticks": 17,
+  "ageSec": 18,
+  "curVs": 27.6,
+  "chg5": 2.32,
+  "chg10": 6.4,
+  "chg30": 9.62,
+  "maxDn5": -1.45,
+  "dip5": "-1.45@17s",
+  "mcap": 7.08,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "spike",
+  "entryProb": 0.91,
+  "holder": "strong",
+  "holderProb": 0.99,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P10"
+  ],
+  "pnl": 0.024625,
+  "fwd1m": {
+   "max": 53.33,
+   "last": 13.14
+  },
+  "fwd5m": {
+   "max": 53.33,
+   "last": -20.11
+  },
+  "fwd15m": {
+   "max": 53.33,
+   "last": -20.21
+  }
+ },
+ {
+  "pointId": "BP-T127",
+  "symbol": "FLAP Penguin",
+  "addr": "0x6e3a9755791936f84f7a22b130499a3ab2b37777",
+  "anchor": "2026-11-03T13:01:49.000Z",
+  "thin": false,
+  "ticks": 35,
+  "ageSec": 26,
+  "curVs": 23,
+  "chg5": -9.65,
+  "chg10": -13.34,
+  "chg30": 19.21,
+  "maxDn5": -19.27,
+  "dip5": "-19.27@3s",
+  "mcap": 6.82,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.74,
+  "entry": "normal_dip",
+  "entryProb": 0.73,
+  "holder": "moderate",
+  "holderProb": 0.52,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.010819,
+  "fwd1m": {
+   "max": -1.66,
+   "last": -16.9
+  },
+  "fwd5m": {
+   "max": -1.66,
+   "last": -18.73
+  },
+  "fwd15m": {
+   "max": -1.66,
+   "last": -18.73
+  }
+ },
+ {
+  "pointId": "BP-T128",
+  "symbol": "CALLCAT",
+  "addr": "0x2fb63020dbdf01b366ea745343caa677087e7777",
+  "anchor": "2026-11-03T13:12:33.000Z",
+  "thin": false,
+  "ticks": 61,
+  "ageSec": 15,
+  "curVs": 25.8,
+  "chg5": -27.89,
+  "chg10": -36.95,
+  "chg30": -6.74,
+  "maxDn5": -45.3,
+  "dip5": "-45.3@2s",
+  "mcap": 6.98,
+  "bucket": "poor",
+  "rule": "pattern_gate",
+  "prob": 0.45,
+  "exempt": null,
+  "mp": "famous_monopoly",
+  "mpProb": 0.45,
+  "entry": "normal_dip",
+  "entryProb": 0.61,
+  "holder": "none",
+  "holderProb": 0.67,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:same_block_buy_wave+slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.043357,
+  "fwd1m": {
+   "max": 39.08,
+   "last": 21.49
+  },
+  "fwd5m": {
+   "max": 39.08,
+   "last": -20.48
+  },
+  "fwd15m": {
+   "max": 39.08,
+   "last": -20.48
+  }
+ },
+ {
+  "pointId": "BP-T129",
+  "symbol": "Callcat",
+  "addr": "0x2692bcbc97dbf496ce4115b8191adb8347b27777",
+  "anchor": "2026-11-03T13:12:43.000Z",
+  "thin": false,
+  "ticks": 69,
+  "ageSec": 23,
+  "curVs": 16.7,
+  "chg5": -31.97,
+  "chg10": -30.59,
+  "chg30": -4.85,
+  "maxDn5": -46.21,
+  "dip5": "-46.21@3s",
+  "mcap": 6.47,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.64,
+  "entry": "normal_dip",
+  "entryProb": 0.56,
+  "holder": "strong",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.012614,
+  "fwd1m": {
+   "max": 0.01,
+   "last": -13.85
+  },
+  "fwd5m": {
+   "max": 0.01,
+   "last": -13.91
+  },
+  "fwd15m": {
+   "max": 0.01,
+   "last": -13.91
+  }
+ },
+ {
+  "pointId": "BP-T130",
+  "symbol": "Callcat",
+  "addr": "0x29ce6c897090f98ec0c75e0ad28198bc2f627777",
+  "anchor": "2026-11-03T13:13:09.000Z",
+  "thin": false,
+  "ticks": 119,
+  "ageSec": 33,
+  "curVs": 0,
+  "chg5": -15.86,
+  "chg10": -55.97,
+  "chg30": -56.48,
+  "maxDn5": -47.67,
+  "dip5": "-47.67@5s",
+  "mcap": 5.35,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.81,
+  "entry": "normal_dip",
+  "entryProb": 0.63,
+  "holder": "moderate",
+  "holderProb": 0.55,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.000322,
+  "fwd1m": {
+   "max": 0.19,
+   "last": 0.19
+  },
+  "fwd5m": {
+   "max": 0.19,
+   "last": -9.69
+  },
+  "fwd15m": {
+   "max": 0.19,
+   "last": -9.69
+  }
+ },
+ {
+  "pointId": "BP-T131",
+  "symbol": "GIGA",
+  "addr": "0xe24dfab89c5376c92452f437ec56be9856337777",
+  "anchor": "2026-11-03T13:15:10.000Z",
+  "thin": false,
+  "ticks": 172,
+  "ageSec": 63,
+  "curVs": 22.9,
+  "chg5": 15.86,
+  "chg10": 10.7,
+  "chg30": -31.3,
+  "maxDn5": -40.86,
+  "dip5": "-26.01@18s",
+  "mcap": 6.82,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.85,
+  "entry": "normal_dip",
+  "entryProb": 0.87,
+  "holder": "strong",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:coordinated_sell_back+slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.018547,
+  "fwd1m": {
+   "max": 17.71,
+   "last": 8.41
+  },
+  "fwd5m": {
+   "max": 34.38,
+   "last": 34.38
+  },
+  "fwd15m": {
+   "max": 34.72,
+   "last": 19.51
+  }
+ },
+ {
+  "pointId": "BP-T132",
+  "symbol": "不对劲",
+  "addr": "0xb84e7e0e29513923272cbfb7ab1cc8e7de307777",
+  "anchor": "2026-11-03T13:29:56.000Z",
+  "thin": false,
+  "ticks": 153,
+  "ageSec": 190,
+  "curVs": 24.4,
+  "chg5": -5.65,
+  "chg10": -8.96,
+  "chg30": -9.51,
+  "maxDn5": -18.23,
+  "dip5": "-11.81@2s",
+  "mcap": 6.9,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.8,
+  "entry": "normal_dip",
+  "entryProb": 0.58,
+  "holder": "weak",
+  "holderProb": 0.8,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P1",
+   "卖出策略 P7"
+  ],
+  "pnl": 0.295131,
+  "fwd1m": {
+   "max": 21.16,
+   "last": 21.16
+  },
+  "fwd5m": {
+   "max": 279.05,
+   "last": 259.99
+  },
+  "fwd15m": {
+   "max": 279.05,
+   "last": 21.08
+  }
+ },
+ {
+  "pointId": "BP-T133",
+  "symbol": "小互",
+  "addr": "0xe6b0ad70d432b7e67344cd11ebe05b066ca17777",
+  "anchor": "2026-11-03T13:35:08.000Z",
+  "thin": false,
+  "ticks": 14,
+  "ageSec": 34,
+  "curVs": 19,
+  "chg5": 18.95,
+  "chg10": -3.01,
+  "chg30": 6.86,
+  "maxDn5": -14.2,
+  "dip5": "-14.2@6s",
+  "mcap": 5.22,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.9,
+  "entry": "normal_dip",
+  "entryProb": 0.61,
+  "holder": "moderate",
+  "holderProb": 0.98,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:insider_supply_sell",
+     "level": "cheat"
+    },
+    {
+     "code": "L_insider_sell78",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.03196,
+  "fwd1m": {
+   "max": -12.56,
+   "last": -15.98
+  },
+  "fwd5m": {
+   "max": -12.56,
+   "last": -28.07
+  },
+  "fwd15m": {
+   "max": -12.56,
+   "last": -28.07
+  }
+ },
+ {
+  "pointId": "BP-T134",
+  "symbol": "SA",
+  "addr": "0x148406156dba77f76dc854cee993866551a57777",
+  "anchor": "2026-11-03T14:03:06.000Z",
+  "thin": false,
+  "ticks": 35,
+  "ageSec": 130,
+  "curVs": 27.4,
+  "chg5": 9.87,
+  "chg10": 9.56,
+  "chg30": -0.74,
+  "maxDn5": -13,
+  "dip5": "-9.38@30s",
+  "mcap": 6.87,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.96,
+  "entry": "normal_dip",
+  "entryProb": 0.95,
+  "holder": "weak",
+  "holderProb": 0.89,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P3·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P10",
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.090516,
+  "fwd1m": {
+   "max": 37.78,
+   "last": 27.04
+  },
+  "fwd5m": {
+   "max": 65.29,
+   "last": 45.56
+  },
+  "fwd15m": {
+   "max": 65.29,
+   "last": -9.3
+  }
+ },
+ {
+  "pointId": "BP-T135",
+  "symbol": "画地为牢",
+  "addr": "0x1ed2e3e5a991c5e04d4b0e88153a9aaef7167777",
+  "anchor": "2026-11-03T14:09:53.000Z",
+  "thin": false,
+  "ticks": 11,
+  "ageSec": 179,
+  "curVs": 26.7,
+  "chg5": 20.27,
+  "chg10": 20.27,
+  "chg30": 26.67,
+  "maxDn5": -0.58,
+  "dip5": null,
+  "mcap": 6.71,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.81,
+  "entry": "spike",
+  "entryProb": 0.98,
+  "holder": "moderate",
+  "holderProb": 0.96,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P7",
+   "卖出策略 P1"
+  ],
+  "pnl": 0.154182,
+  "fwd1m": {
+   "max": 73.7,
+   "last": 37.67
+  },
+  "fwd5m": {
+   "max": 145.93,
+   "last": 34.78
+  },
+  "fwd15m": {
+   "max": 145.93,
+   "last": -15.15
+  }
+ },
+ {
+  "pointId": "BP-T136",
+  "symbol": "我画地为牢",
+  "addr": "0x29921a532878bf66efc9ca92694b8a40e6157777",
+  "anchor": "2026-11-03T14:11:10.000Z",
+  "thin": true,
+  "ticks": 6,
+  "ageSec": 26,
+  "curVs": 28.3,
+  "chg5": 11.86,
+  "chg10": 11.86,
+  "chg30": 28.29,
+  "maxDn5": null,
+  "dip5": null,
+  "mcap": 6.8,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.99,
+  "entry": "spike",
+  "entryProb": 0.97,
+  "holder": "moderate",
+  "holderProb": 0.95,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P10",
+   "卖出策略 P7"
+  ],
+  "pnl": 0.290417,
+  "fwd1m": {
+   "max": 64.95,
+   "last": 54.57
+  },
+  "fwd5m": {
+   "max": 219.51,
+   "last": 172.21
+  },
+  "fwd15m": {
+   "max": 302.2,
+   "last": 202.13
+  }
+ },
+ {
+  "pointId": "BP-T137",
+  "symbol": "我画地为牢",
+  "addr": "0x0f4bc185b880cfeaeb3d505f16c4b71408307777",
+  "anchor": "2026-11-03T14:22:41.000Z",
+  "thin": false,
+  "ticks": 26,
+  "ageSec": 507,
+  "curVs": 19.2,
+  "chg5": 12.14,
+  "chg10": 12.14,
+  "chg30": 12.94,
+  "maxDn5": -11.37,
+  "dip5": null,
+  "mcap": 6.47,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.79,
+  "entry": "spike",
+  "entryProb": 0.87,
+  "holder": "strong",
+  "holderProb": 0.99,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "cheat"
+   },
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.01876,
+  "fwd1m": {
+   "max": 7.77,
+   "last": -14.85
+  },
+  "fwd5m": {
+   "max": 7.77,
+   "last": -15.82
+  },
+  "fwd15m": {
+   "max": 7.77,
+   "last": -16.44
+  }
+ },
+ {
+  "pointId": "BP-T138",
+  "symbol": "프론티어",
+  "addr": "0x030133fbd17f28f16de202d17b4724cc3f997777",
+  "anchor": "2026-11-03T14:25:58.000Z",
+  "thin": true,
+  "ticks": 6,
+  "ageSec": 27,
+  "curVs": 9.8,
+  "chg5": 9.76,
+  "chg10": 4.2,
+  "chg30": 2.46,
+  "maxDn5": -6.89,
+  "dip5": "-6.89@20s",
+  "mcap": 5.55,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.96,
+  "entry": "spike",
+  "entryProb": 0.73,
+  "holder": "moderate",
+  "holderProb": 0.99,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.011707,
+  "fwd1m": {
+   "max": 20,
+   "last": 5.85
+  },
+  "fwd5m": {
+   "max": 20,
+   "last": -12.02
+  },
+  "fwd15m": {
+   "max": 20,
+   "last": -9.8
+  }
+ },
+ {
+  "pointId": "BP-T139",
+  "symbol": "BSI",
+  "addr": "0xbb44bdd4b79b03d634bde6a2cc9814ea28f37777",
+  "anchor": "2026-11-03T14:33:47.000Z",
+  "thin": false,
+  "ticks": 36,
+  "ageSec": 24,
+  "curVs": 23.1,
+  "chg5": -3.69,
+  "chg10": -27.01,
+  "chg30": -37.49,
+  "maxDn5": -37.76,
+  "dip5": "-37.76@8s",
+  "mcap": 6.83,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.84,
+  "entry": "normal_dip",
+  "entryProb": 0.58,
+  "holder": "moderate",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:insider_supply_sell",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "L_insider_sell61",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.030187,
+  "fwd1m": {
+   "max": -14.09,
+   "last": -16.4
+  },
+  "fwd5m": {
+   "max": -14.09,
+   "last": -18.7
+  },
+  "fwd15m": {
+   "max": -14.09,
+   "last": -18.7
+  }
+ },
+ {
+  "pointId": "BP-T140",
+  "symbol": "프론티어",
+  "addr": "0x0b46c99274a633a0ee7e89f72c288573ac1f7777",
+  "anchor": "2026-11-03T14:34:00.000Z",
+  "thin": false,
+  "ticks": 14,
+  "ageSec": 45,
+  "curVs": 12.3,
+  "chg5": -12.65,
+  "chg10": -1.82,
+  "chg30": -1.82,
+  "maxDn5": -22.22,
+  "dip5": "-22.22@2s",
+  "mcap": 5.17,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.88,
+  "entry": "normal_dip",
+  "entryProb": 0.86,
+  "holder": "weak",
+  "holderProb": 0.68,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "unhealthy"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)",
+   "卖出策略 P7",
+   "卖出策略 P10"
+  ],
+  "pnl": 0.120596,
+  "fwd1m": {
+   "max": 106.77,
+   "last": 88.89
+  },
+  "fwd5m": {
+   "max": 119.6,
+   "last": 41.78
+  },
+  "fwd15m": {
+   "max": 119.6,
+   "last": -8.91
+  }
+ },
+ {
+  "pointId": "BP-T141",
+  "symbol": "2bi",
+  "addr": "0x3677f5793611e2ef9d642ca67667543b474a7777",
+  "anchor": "2026-11-03T14:36:09.000Z",
+  "thin": false,
+  "ticks": 14,
+  "ageSec": 17,
+  "curVs": 25.4,
+  "chg5": 1.8,
+  "chg10": 0.12,
+  "chg30": 19.94,
+  "maxDn5": -17.89,
+  "dip5": "-17.89@0s",
+  "mcap": 6.96,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.74,
+  "entry": "normal_dip",
+  "entryProb": 0.77,
+  "holder": "strong",
+  "holderProb": 0.91,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:equal_amount_split",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P11"
+  ],
+  "pnl": -0.042788,
+  "fwd1m": {
+   "max": 49.89,
+   "last": -17.59
+  },
+  "fwd5m": {
+   "max": 49.89,
+   "last": -27.47
+  },
+  "fwd15m": {
+   "max": 49.89,
+   "last": -31.79
+  }
+ },
+ {
+  "pointId": "BP-T142",
+  "symbol": "SI",
+  "addr": "0x3086f8ab148b6ac8d4cfc6a2efec828516db7777",
+  "anchor": "2026-11-03T14:38:31.000Z",
+  "thin": false,
+  "ticks": 32,
+  "ageSec": 51,
+  "curVs": 8.9,
+  "chg5": 4.98,
+  "chg10": 8.81,
+  "chg30": -24.13,
+  "maxDn5": -17.81,
+  "dip5": "-16.68@21s",
+  "mcap": 5.36,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.89,
+  "entry": "normal_dip",
+  "entryProb": 0.76,
+  "holder": "moderate",
+  "holderProb": 0.64,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:same_block_buy_wave",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.035723,
+  "fwd1m": {
+   "max": 20.03,
+   "last": 15.93
+  },
+  "fwd5m": {
+   "max": 20.03,
+   "last": -8.11
+  },
+  "fwd15m": {
+   "max": 20.03,
+   "last": -8.11
+  }
+ },
+ {
+  "pointId": "BP-T143",
+  "symbol": "SI",
+  "addr": "0xe18f5cfc0a1cb4c159f21ee60132955b3b447777",
+  "anchor": "2026-11-03T14:39:56.000Z",
+  "thin": false,
+  "ticks": 94,
+  "ageSec": 74,
+  "curVs": 28.5,
+  "chg5": -12.64,
+  "chg10": 6.73,
+  "chg30": -1.6,
+  "maxDn5": -24.92,
+  "dip5": "-24.92@16s",
+  "mcap": 6.98,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.77,
+  "entry": "normal_dip",
+  "entryProb": 0.82,
+  "holder": "strong",
+  "holderProb": 0.88,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:coordinated_sell_back+same_block_buy_wave+slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "D_famous_dominance",
+     "level": "unhealthy"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P2·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P11",
+   "卖出策略 P1"
+  ],
+  "pnl": 0.057009,
+  "fwd1m": {
+   "max": 100.67,
+   "last": 24.04
+  },
+  "fwd5m": {
+   "max": 100.67,
+   "last": -3.85
+  },
+  "fwd15m": {
+   "max": 100.67,
+   "last": -8.12
+  }
+ },
+ {
+  "pointId": "BP-T144",
+  "symbol": "虚拟猫咪",
+  "addr": "0x24cd5d9abe2d20e2e77d0dca6f4fe2f529357777",
+  "anchor": "2026-11-03T14:40:37.000Z",
+  "thin": false,
+  "ticks": 43,
+  "ageSec": 20,
+  "curVs": 27.3,
+  "chg5": -16.21,
+  "chg10": -35.01,
+  "chg30": 5.01,
+  "maxDn5": -30.46,
+  "dip5": "-30.46@0s",
+  "mcap": 7.06,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.94,
+  "entry": "normal_dip",
+  "entryProb": 0.69,
+  "holder": "strong",
+  "holderProb": 0.97,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "卖出策略 P1"
+  ],
+  "pnl": 0.079942,
+  "fwd1m": {
+   "max": 120.15,
+   "last": -5.13
+  },
+  "fwd5m": {
+   "max": 120.15,
+   "last": -32.61
+  },
+  "fwd15m": {
+   "max": 120.15,
+   "last": -32.69
+  }
+ },
+ {
+  "pointId": "BP-T145",
+  "symbol": "B",
+  "addr": "0xcb950b612167f1e13b1dc79357712433102b7777",
+  "anchor": "2026-11-03T14:41:08.000Z",
+  "thin": false,
+  "ticks": 60,
+  "ageSec": 35,
+  "curVs": 20.1,
+  "chg5": 0,
+  "chg10": -34.79,
+  "chg30": -29.65,
+  "maxDn5": -35.85,
+  "dip5": "-35.85@8s",
+  "mcap": 6.66,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.81,
+  "entry": "normal_dip",
+  "entryProb": 0.61,
+  "holder": "strong",
+  "holderProb": 0.65,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:slow_grind_pump",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "L_insider_sell26",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "activity_high",
+    "originalGrade": "cheat"
+   },
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.033471,
+  "fwd1m": {
+   "max": -2.89,
+   "last": -16.74
+  },
+  "fwd5m": {
+   "max": -2.89,
+   "last": -16.74
+  },
+  "fwd15m": {
+   "max": -2.89,
+   "last": -16.74
+  }
+ },
+ {
+  "pointId": "BP-T146",
+  "symbol": "币安联盟",
+  "addr": "0x5a4958a9eb3324205e3e4eee7b37a6869bff7777",
+  "anchor": "2026-11-03T14:42:11.000Z",
+  "thin": false,
+  "ticks": 43,
+  "ageSec": 16,
+  "curVs": 28.3,
+  "chg5": -8.73,
+  "chg10": -29.01,
+  "chg30": 9.84,
+  "maxDn5": -33.64,
+  "dip5": "-33.64@7s",
+  "mcap": 7.11,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.61,
+  "entry": "normal_dip",
+  "entryProb": 0.87,
+  "holder": "strong",
+  "holderProb": 0.93,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 2
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": -0.022684,
+  "fwd1m": {
+   "max": -1.03,
+   "last": -11.36
+  },
+  "fwd5m": {
+   "max": -1.03,
+   "last": -11.36
+  },
+  "fwd15m": {
+   "max": -1.03,
+   "last": -11.36
+  }
+ },
+ {
+  "pointId": "BP-T147",
+  "symbol": "厉娜",
+  "addr": "0x650cc91af983b1862e7e0c7096dc3098efed7777",
+  "anchor": "2026-11-03T14:53:42.000Z",
+  "thin": false,
+  "ticks": 72,
+  "ageSec": 2018,
+  "curVs": 12.7,
+  "chg5": 12.7,
+  "chg10": 12.7,
+  "chg30": 12.7,
+  "maxDn5": -16.34,
+  "dip5": null,
+  "mcap": 5.44,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "normal_dip",
+  "entryProb": 0.78,
+  "holder": "strong",
+  "holderProb": 0.92,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "A_strong:burst_spike_concentration",
+     "level": "cheat"
+    },
+    {
+     "code": "J_holdings_strong",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "cheat"
+   },
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P11·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.01106,
+  "fwd1m": null,
+  "fwd5m": null,
+  "fwd15m": {
+   "max": 0.29,
+   "last": -1.66
+  }
+ },
+ {
+  "pointId": "BP-T148",
+  "symbol": "厉娜时代",
+  "addr": "0x9cbf5daa05f7819bb67f26bacc4fc149af627777",
+  "anchor": "2026-11-03T14:57:57.000Z",
+  "thin": false,
+  "ticks": 22,
+  "ageSec": 77,
+  "curVs": 14.9,
+  "chg5": 7.04,
+  "chg10": 7.04,
+  "chg30": 5.81,
+  "maxDn5": -10.05,
+  "dip5": null,
+  "mcap": 5.75,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.97,
+  "entry": "normal_dip",
+  "entryProb": 0.76,
+  "holder": "strong",
+  "holderProb": 0.86,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [],
+   "exempt": null,
+   "act": 1
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P1·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.00473,
+  "fwd1m": {
+   "max": 0.09,
+   "last": 0.09
+  },
+  "fwd5m": {
+   "max": 0.09,
+   "last": 0.09
+  },
+  "fwd15m": {
+   "max": 0.09,
+   "last": -6.83
+  }
+ },
+ {
+  "pointId": "BP-T149",
+  "symbol": "AI",
+  "addr": "0x6062330e97a326c40fe4efe51038ca25eaa07777",
+  "anchor": "2026-11-03T14:58:44.000Z",
+  "thin": false,
+  "ticks": 72,
+  "ageSec": 1038,
+  "curVs": 18,
+  "chg5": 16.31,
+  "chg10": 16.31,
+  "chg30": 16.31,
+  "maxDn5": -16.13,
+  "dip5": null,
+  "mcap": 6.54,
+  "bucket": "neutral",
+  "rule": "gates_passed",
+  "prob": null,
+  "exempt": null,
+  "mp": "none",
+  "mpProb": 0.98,
+  "entry": "normal_dip",
+  "entryProb": 0.77,
+  "holder": "strong",
+  "holderProb": 0.54,
+  "cheat": {
+   "grade": "healthy",
+   "reasons": [
+    {
+     "code": "L_insider_sell28",
+     "level": "unhealthy"
+    },
+    {
+     "code": "R_abnormal_dominant",
+     "level": "unhealthy"
+    }
+   ],
+   "exempt": {
+    "code": "stall_burst",
+    "originalGrade": "unhealthy"
+   },
+   "act": 0
+  },
+  "factorGate": {
+   "pass": true,
+   "reason": null
+  },
+  "bpProd": {
+   "status": "assessed",
+   "bucket": "neutral",
+   "rule": "gates_passed"
+  },
+  "buyLeg": [
+   "买入策略 P10·首买"
+  ],
+  "sellArms": [
+   "流动性止损-无成交超时(30s,≥0.02BNB)"
+  ],
+  "pnl": 0.015383,
+  "fwd1m": null,
+  "fwd5m": null,
+  "fwd15m": null
+ }
+]

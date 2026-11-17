@@ -523,6 +523,9 @@ class BacktestEngine extends AbstractTradingEngine {
       // 一致的行（cache 原始行）；anchorMs 毫秒→ISO 截窗（block_time≤锚行数）
       const _memDeps = { pullTicks: (tokenAddress, anchorMs) =>
         memPullTicksFromIndex(this._tokenTickIndex, tokenAddress, anchorMs) };
+      // 调试：检查闭包看到的索引
+      const _origPull = _memDeps.pullTicks;
+      _memDeps.pullTicks = (t, a) => { const _r = _origPull(t, a); if (!_r || !_r.rows || _r.rows.length === 0) { console.error(`[MEM-MISS-DEBUG] idxSize=${this._tokenTickIndex?.size ?? 'NULL'} token=${t} has=${this._tokenTickIndex?.has(String(t||'').toLowerCase())} anchor=${a}`); } return _r; };
       this._cheatCheckService = new CheatCheckService(
         { ...(_wsCfg.cheatCheck || {}), persist: false, settleDelayMs: 0 }, this.logger, _memDeps);
       this._buyPointCheckService = new BuyPointCheckService(

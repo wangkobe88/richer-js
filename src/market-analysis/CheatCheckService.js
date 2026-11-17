@@ -1271,7 +1271,7 @@ class CheatCheckService {
       }
       // miss：环无该票——直接回落 DB 会拉到缺尾部行的集合（buffer 未 flush），
       // 等一个 flush 边界再拉（与 waitIdle 模式尾随等待同源语义）
-      this._log('info', `mem拉数miss（600ms+DB 兜底）| ${token} anchor=${anchorMs ?? '无'}`);
+      this._log('info', `mem拉数miss（600ms+DB 兜底）| ${token} anchor=${anchorMs ?? '无'} idxSize=${this._deps.pullTicks ? '有fn' : '无fn'}`);
       await new Promise((r) => setTimeout(r, this._settleFlushMs));
     }
     return this._pullTicksDb(token, anchorMs);
