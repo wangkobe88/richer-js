@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP8'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP9'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP8');
+    assert.strictEqual(r.version, 'FP9');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -578,6 +578,54 @@ console.log('M. FP8 慢拉卸货 + famous 收割完残局（T024/T025 案）');
     assert.strictEqual(g1.hit, true); assert.ok(g1.value.includes('59点'), g1.value);
     const g2 = r.gates.find((x) => x.id === 'fam_harvest_final');
     assert.ok(g2 && g2.label.includes('famous收割完残局'));
+  });
+}
+
+console.log('N. FP9 famous 系突发波臂（T166：btv140 BP-T048 TYB——burst 纯 famous 带起来的）');
+{
+  // 主案形状夹具：499s 静默 → 波内 4 笔 0.891B（3×0.264 同块同额镜像簇含 famous+0.099 路由）
+  const FB = (over) => Object.assign({
+    stallSec: 499, waveFromDt: 2928, waveToDt: 2929, waveRows: 4, waveBuyN: 4,
+    waveBuyBnb: 0.891, famSysSharePct: 88.9, famousFirstInWave: true, mirrorClusters: 1,
+    anchorNearWave: true,
+  }, over);
+  check('N1 主案复刻（share 88.9 ≥80 ∧ 首进波内 ∧ 贴锚）→ 拒 fam_burst_wave', () => {
+    assert.strictEqual(M.armFamousBurstWave({ famBurstWave: FB() }), true);
+    const r = M.evaluateFactorPreBuy(SNAP({
+      wallets: [W(0.2994, 0.1, 0.2994, 100)], // 0.3 级买方在场（PVP 过——波外既有持仓）
+      buyDerived: { bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, bigHolderSellBnb60: null, activity: { nearTail10BuyN: 3 }, famBurstWave: FB() },
+    }));
+    assert.strictEqual(r.pass, false); assert.strictEqual(r.reason, 'fam_burst_wave');
+    assert.ok(r.arms.includes('fam_burst_wave'));
+  });
+  check('N2 散单参与真实（share 60.2 Cashless 形状）→ 放行', () => {
+    assert.strictEqual(M.armFamousBurstWave({ famBurstWave: FB({ famSysSharePct: 60.2, waveBuyBnb: 0.822 }) }), false);
+  });
+  check('N3 famous 非波内首进（早就在场持仓，波不是它带起来）→ 放行', () => {
+    assert.strictEqual(M.armFamousBurstWave({ famBurstWave: FB({ famousFirstInWave: false }) }), false);
+  });
+  check('N4 尘埃波（waveBuyBnb 0.29<0.3）→ 放行（量级线同 CD401/CD402）', () => {
+    assert.strictEqual(M.armFamousBurstWave({ famBurstWave: FB({ waveBuyBnb: 0.29 }) }), false);
+  });
+  check('N5 波远离锚（波结束后 gap ≥5s=历史遗迹）→ 放行', () => {
+    assert.strictEqual(M.armFamousBurstWave({ famBurstWave: FB({ anchorNearWave: false }) }), false);
+  });
+  check('N6 famBurstWave null（无 ≥30s 静默段/roster 缺失）→ 放行（宁漏不冒充）', () => {
+    assert.strictEqual(M.armFamousBurstWave({}), false);
+    assert.strictEqual(M.armFamousBurstWave({ famBurstWave: null }), false);
+  });
+  check('N7 键残缺（share null）→ 放行（证据缺席不拒）', () => {
+    assert.strictEqual(M.armFamousBurstWave({ famBurstWave: FB({ famSysSharePct: null }) }), false);
+  });
+  check('N8 gates 含 FP9 门（值带波构成四元组）', () => {
+    const r = M.evaluateFactorPreBuy(SNAP({
+      wallets: [W(0.2994, 0.1, 0.2994, 100)],
+      buyDerived: { bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, bigHolderSellBnb60: null, activity: { nearTail10BuyN: 3 }, famBurstWave: FB() },
+    }));
+    const g = r.gates.find((x) => x.id === 'fam_burst_wave');
+    assert.ok(g && g.label.includes('famous系burst波'));
+    assert.strictEqual(g.hit, true);
+    assert.ok(g.value.includes('88.9%') && g.value.includes('499'), g.value);
   });
 }
 

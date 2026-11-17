@@ -741,6 +741,74 @@ console.log('A11. BP77 塞单簇+恶意砸块族手算（四件方案立法①�
     'A11: state 渲染塞单簇行（eqMax ≥2 才渲染——8 钱包 ×0.25 簇在场）');
 }
 
+// ═══════════════ A12. T166/FP9 famBurstWave 手算（famous 系突发波——btv140 BP-T048 TYB 案） ═══════════════
+console.log('A12. famBurstWave 手算（T166：burst 纯 famous 带起来的——波内构成直供）');
+{
+  const W_FX = '0x' + 'fx'.repeat(20); // famous：波内首进（波发动者）
+  const W_M1 = '0x' + 'm1'.repeat(20); // 镜像跟单 1（同块同额）
+  const W_M2 = '0x' + 'm2'.repeat(20); // 镜像跟单 2（同块同额）
+  const rosterFb = new Set([W_FX]);
+  const BLK = 999999;
+  const rowsFb = [
+    row(5, 'BUY', W_B, 0.5, 1.0 * E9, 5e8),      // 波前史前流量
+    row(20, 'BUY', W_C, 0.3, 1.1 * E9, 3e8),
+    // —— 35s 静默段（<30s 线：20→55 恰 35s）——
+    row(55, 'BUY', W_FX, 0.264, 6.0 * E9, 4.4e7, { block: BLK }),
+    row(55, 'BUY', W_M1, 0.264, 6.5 * E9, 4.1e7, { block: BLK, li: 1 }),
+    row(55, 'BUY', W_M2, 0.264, 7.0 * E9, 3.8e7, { block: BLK, li: 2 }),
+    row(56, 'BUY', W_G, 0.099, 7.2 * E9, 1.4e7, { block: BLK + 1 }),
+  ];
+  const metaFb = { ...metaA, address: '0x' + 'ee'.repeat(20) };
+  const fb = buildBuyPointSnapshot(rowsFb, metaFb, { famousRoster: rosterFb }).buyDerived.famBurstWave;
+  // 手算：静默 35s → 波=[55,56] 四笔买 0.891B；famous 系=W_FX 本人+同块同额簇（W_FX/W_M1/W_M2）
+  // =0.792B → share 88.9%；W_FX 全窗首买 dt=55 ≥ 波首 55 → famousFirstInWave；波末=锚行 → 贴锚
+  ok(fb && fb.stallSec === 35 && fb.waveRows === 4 && fb.waveBuyN === 4,
+    `A12: 波定位（stallSec 35/wave 4 行——实际 ${JSON.stringify(fb && { s: fb.stallSec, n: fb.waveRows })}）`);
+  ok(fb.waveBuyBnb === 0.891 && fb.famSysSharePct === 88.9 && fb.mirrorClusters === 1,
+    `A12: 波构成（waveBuy 0.891/famSysShare 88.9%/镜像簇 1——实际 ${fb.waveBuyBnb}/${fb.famSysSharePct}/${fb.mirrorClusters}）`);
+  ok(fb.famousFirstInWave === true && fb.anchorNearWave === true && fb.waveFromDt === 55,
+    `A12: 发动者+贴锚（首进波内/波末=锚行/波首 dt55——实际 ${JSON.stringify({ f: fb.famousFirstInWave, a: fb.anchorNearWave, w: fb.waveFromDt })}）`);
+  // famous 早就进场（首买在波前）→ famousFirstInWave=false（波不是它带起来的）
+  const rowsEarly = [
+    row(5, 'BUY', W_FX, 0.4, 1.0 * E9, 4e8),
+    row(20, 'BUY', W_C, 0.3, 1.1 * E9, 3e8),
+    row(55, 'BUY', W_M1, 0.264, 6.0 * E9, 4.4e7, { block: BLK }),
+    row(55, 'BUY', W_M2, 0.264, 6.5 * E9, 4.1e7, { block: BLK, li: 1 }),
+  ];
+  const fbEarly = buildBuyPointSnapshot(rowsEarly, metaFb, { famousRoster: rosterFb }).buyDerived.famBurstWave;
+  ok(fbEarly.famousFirstInWave === false && fbEarly.mirrorClusters === 0 && fbEarly.famSysSharePct === 0,
+    `A12: famous 早进场反例（首进波外→首进 false；簇内无 famous→镜像簇 0/share 0——实际 ${JSON.stringify({ f: fbEarly.famousFirstInWave, m: fbEarly.mirrorClusters, s: fbEarly.famSysSharePct })}）`);
+  // 无 ≥30s 静默段 → 整体 null（非 burst 语境）；roster 缺失 → null（轴不可评）
+  const rowsNoStall = [
+    row(5, 'BUY', W_B, 0.5, 1.0 * E9, 5e8),
+    row(30, 'BUY', W_C, 0.3, 1.1 * E9, 3e8),
+    row(55, 'BUY', W_FX, 0.3, 1.2 * E9, 3e8),
+  ];
+  ok(buildBuyPointSnapshot(rowsNoStall, metaFb, { famousRoster: rosterFb }).buyDerived.famBurstWave === null,
+    'A12: 无 ≥30s 静默段 → 整体 null（间隔 25s 全程 <30 线）');
+  ok(buildBuyPointSnapshot(rowsFb, metaFb, { famousRoster: null }).buyDerived.famBurstWave === null,
+    'A12: roster 缺失 → 整体 null（与 famousTraces null 语义同向）');
+  // 波尾截断（gap ≥5s 后的行不进簇）+ 锚远离波 → anchorNearWave=false
+  const rowsCut = [
+    row(5, 'BUY', W_B, 0.5, 1.0 * E9, 5e8),
+    row(55, 'BUY', W_FX, 0.3, 6.0 * E9, 5e7, { block: BLK }),
+    row(56, 'BUY', W_M1, 0.3, 6.2 * E9, 4.8e7, { block: BLK, li: 1 }),
+    row(70, 'BUY', W_C, 0.2, 6.4 * E9, 3e7, { block: BLK + 2 }), // gap 14s ≥5 → 波止于 56（block 递增保链上真序=dt 单调）
+  ];
+  const fbCut = buildBuyPointSnapshot(rowsCut, metaFb, { famousRoster: rosterFb }).buyDerived.famBurstWave;
+  ok(fbCut.waveRows === 2 && fbCut.anchorNearWave === false,
+    `A12: 波尾 gap≥5s 截断（波 2 行不含 70s 行；锚距波末 14s 不贴锚——实际 ${JSON.stringify({ n: fbCut.waveRows, a: fbCut.anchorNearWave })}）`);
+  // 镜像簇尘门：0.0009 尘单不进簇（share 只计 0.264 本人）
+  const rowsDust = [
+    row(5, 'BUY', W_B, 0.5, 1.0 * E9, 5e8),
+    row(55, 'BUY', W_FX, 0.264, 6.0 * E9, 4.4e7, { block: BLK }),
+    row(55, 'BUY', W_M1, 0.0009, 6.5 * E9, 1.5e5, { block: BLK, li: 1 }),
+  ];
+  const fbDust = buildBuyPointSnapshot(rowsDust, metaFb, { famousRoster: rosterFb }).buyDerived.famBurstWave;
+  ok(fbDust.mirrorClusters === 0 && fbDust.famSysSharePct === 99.7,
+    `A12: 镜像簇尘门 0.001（0.0009 不进簇；share 只计 famous 本人 0.264/0.2649=99.7——实际 ${fbDust.mirrorClusters}/${fbDust.famSysSharePct}）`);
+}
+
 // ═══════════════ B. 窗语义边界 ═══════════════
 console.log('B. 窗语义边界（半开/伪钱包/双口径）');
 const rowsB = [

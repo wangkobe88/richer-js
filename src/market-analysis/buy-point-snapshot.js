@@ -68,6 +68,14 @@ const BP_DUMP_FOLLOW_MIN_OBS_SEC = 10;
  * （防单笔尘卖打断轴致⑨漏判误放） */
 const BP_PHASE_BUY_DUST_BNB = 0.05;
 const BP_PHASE_SELL_DUST_BNB = 0.01;
+/** T166/FP9 famous 系突发波静默段线（秒）：最后 ≥此值静默段后的出口活跃簇才构成
+ * burst 语境（与 cheat 侧 BURST_STALL_GAP_SEC=30 同线同值——CD406 定线，各自常量） */
+const BP_FAM_BURST_STALL_SEC = 30;
+/** T166/FP9 波簇尾界（秒）：出口行起行间 gap <此值的连续活跃段（与 CD407
+ * burst 流量簇 BURST_WAVE_TAIL_GAP_SEC=5 同线同值——「只考量这一波突然的流量」） */
+const BP_FAM_BURST_TAIL_GAP_SEC = 5;
+/** T166/FP9 镜像簇尘门（BNB）：同块同额判定的单笔下限（BP_STUFF_DUST_BNB 同线） */
+const BP_FAM_BURST_MIRROR_DUST_BNB = 0.001;
 
 /** 锚末时刻 tEnd=max dt（ticks 任意序皆稳；无有效 dt → null） */
 function bpTEndOf(ticks) {
@@ -977,8 +985,10 @@ function computeBuyPointDerived(snapshot, famousRoster) {
   // 同向）；窗内无名单命中 → wallets=[] / inCustodyCount=0（有证据的缺席）。
   // 占比分母=cheatDerived totalBuy/totalSell（与 famousGroupBuyPct 同源口径，
   // 但分子只计 famous 本人不含跟单——跟单者归 followers 轴不冒充 famous 痕迹）。
+  // roster 单点装载（famousTraces 与 T166 famBurstWave 共用；注入/缺失语义两族一致）
+  const rosterFamous = famousRoster !== undefined ? famousRoster : loadFamousRoster();
   const famousTraces = (() => {
-    const rosterFt = famousRoster !== undefined ? famousRoster : loadFamousRoster();
+    const rosterFt = rosterFamous;
     if (!rosterFt) return null;
     const fam = new Map();
     for (const t of ticks) {
@@ -1058,6 +1068,85 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     };
   })();
 
+  // ── T166/FP9 famous 系突发波族（btv140 BP-T048 TYB 0x21bf04d3…7777 案，2026-11-17
+  //    用户裁定「burst 是纯 famous 带起来的，这种 burst 得阻挡住」）──
+  // 案形：499s 完全静默 → 1 秒内 3 笔完全等额 0.264B（其一=famous roster 0x20ff…e756，
+  // 另两笔=同块同额镜像跟单/分仓）+1 笔 0.099 GMGN 路由单 → 拉起 +30%，锚点即波内；
+  // cheat 门 A_strong 等额分仓+缓推+尖刺集中 originalGrade=cheat，被 activity_high 豁免
+  // 翻 healthy 放行（撑起 act=high 的流量正是 famous 系这 0.891B 自己）→ 止损 −0.036。
+  // famous 系全窗在场筹码控制 97.6%/跟单者占正净持 82.8%，但 FP3 famousTraces 分子只计
+  // 本人不含跟单（14.7%）→ 全部既有 famous 臂（FP3/FP6/FP8b）对此形状失明。
+  // 波=famous 系 vs 散户的**波内**构成直供：波=最后 ≥30s 静默段出口起、行间 gap <5s
+  // 连续活跃簇（CD407 burst 流量簇同源口径）；famous 系=roster 本人 ∪ 同块同额
+  // （toFixed(4)）≥2 且簇内含 ≥1 famous 的镜像簇成员（链上同时性+等额=跟单/分仓
+  // 硬证据，等额判读同 cheat equal_amount_split 哲学）。纯事实：share/首进只组数据，
+  // 「这种 burst 要挡住」的判定归 FP 因子门（factor-pre-buy-check armFamousBurstWave）。
+  // null 语义：无 ≥30s 静默段（非 burst 语境）→ 整体 null；roster 缺失 → null（轴不可
+  // 评，宁漏不冒充）；波买=0 → share null（有波无买，证据缺席）。
+  const famBurstWave = (() => {
+    if (!rosterFamous) return null;
+    let exitIdx = null, stallSec = null;
+    for (let i = 1; i < ticks.length; i++) {
+      const a = ticks[i - 1].dt, b = ticks[i].dt;
+      if (a === null || a === undefined || b === null || b === undefined) continue;
+      if (b - a >= BP_FAM_BURST_STALL_SEC) { exitIdx = i; stallSec = b - a; }
+    }
+    if (exitIdx === null) return null;
+    let waveEnd = ticks.length;
+    for (let i = exitIdx + 1; i < ticks.length; i++) {
+      const a = ticks[i - 1].dt, b = ticks[i].dt;
+      if (a === null || a === undefined || b === null || b === undefined) { waveEnd = i; break; }
+      if (b - a >= BP_FAM_BURST_TAIL_GAP_SEC) { waveEnd = i; break; }
+    }
+    const wave = ticks.slice(exitIdx, waveEnd);
+    const waveBuys = wave.filter((t) => t.side === 'BUY');
+    const waveBuyBnb = waveBuys.reduce((s, t) => s + (t.bnb || 0), 0);
+    // 同块同额镜像簇（含 famous 成员才整簇归 famous 系——纯 sybil 等额簇不冒充 famous）
+    const byKey = new Map();
+    for (const t of waveBuys) {
+      if ((t.bnb || 0) < BP_FAM_BURST_MIRROR_DUST_BNB || t.block === null || t.block === undefined) continue;
+      const k = `${t.block}|${(t.bnb || 0).toFixed(4)}`;
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k).push(t);
+    }
+    const mirrorWallets = new Set();
+    let mirrorClusters = 0;
+    for (const xs of byKey.values()) {
+      if (xs.length >= 2 && xs.some((t) => t.wallet && rosterFamous.has(String(t.wallet).toLowerCase()))) {
+        mirrorClusters++;
+        for (const t of xs) mirrorWallets.add(String(t.wallet).toLowerCase());
+      }
+    }
+    let famSysBnb = 0;
+    for (const t of waveBuys) {
+      const w = t.wallet ? String(t.wallet).toLowerCase() : '';
+      if (rosterFamous.has(w) || mirrorWallets.has(w)) famSysBnb += t.bnb || 0;
+    }
+    // famous 是波的发动者：roster 钱包全窗首买落在波内（早就在场持仓的 famous 不算
+    // ——它只是恰好没卖，波不是它带起来的；首笔=链上真序首见）
+    const waveFromDt = wave[0].dt;
+    const seenFirstBuy = new Set();
+    let famousFirstInWave = false;
+    for (const t of ticks) {
+      if (t.side !== 'BUY' || !t.wallet) continue;
+      const w = String(t.wallet).toLowerCase();
+      if (!rosterFamous.has(w) || seenFirstBuy.has(w)) continue;
+      seenFirstBuy.add(w);
+      if (t.dt !== null && t.dt !== undefined && t.dt >= waveFromDt) famousFirstInWave = true;
+    }
+    const tEndWave = ticks[ticks.length - 1].dt;
+    return {
+      stallSec: stallSec !== null ? +stallSec.toFixed(1) : null,
+      waveFromDt, waveToDt: wave[wave.length - 1].dt,
+      waveRows: wave.length, waveBuyN: waveBuys.length,
+      waveBuyBnb: +waveBuyBnb.toFixed(4),
+      famSysSharePct: waveBuyBnb > 0 ? +((famSysBnb / waveBuyBnb) * 100).toFixed(1) : null,
+      famousFirstInWave, mirrorClusters,
+      anchorNearWave: tEndWave !== null && tEndWave !== undefined
+        && (tEndWave - wave[wave.length - 1].dt) < BP_FAM_BURST_TAIL_GAP_SEC,
+    };
+  })();
+
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
@@ -1121,6 +1210,9 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     // famous 痕迹族（BP53 二修/案号 BP61：名单钱包时间线+在场性——③桶收割完臂/
     // 退出臂前提的证据行；roster 缺失整体 null）
     famousTraces,
+    // famous 系突发波族（T166/FP9：burst 纯 famous 带起来的——波内构成直供，
+    // 判定归 FP 因子门；无 ≥30s 静默段/roster 缺失 → 整体 null）
+    famBurstWave,
   };
 }
 

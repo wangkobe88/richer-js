@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP8';
+const FACTOR_PREBUY_VERSION = 'FP9';
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -95,6 +95,25 @@ const FAM_HARVEST_MIN_ATH_PCT = 100;
 const FAM_HARVEST_MIN_SOLD_RATIO = 0.9;
 const FAM_HARVEST_MIN_BUY_PCT = 10;
 const FAM_HARVEST_MAX_CHG30_PCT = -20;
+
+// ── FP9 famous 系突发波臂（2026-11-17 btv140 复审 BP-T048 TYB 0x21bf04d3…7777
+//    案用户裁定：「burst 是纯 famous 带起来的，这种 burst 得阻挡住」）——案形：
+//    499s 完全静默 → 1 秒内 3 笔完全等额 0.264B（其一=famous roster 0x20ff…e756，
+//    另两笔=同块同额镜像跟单/分仓）+1 笔 0.099 GMGN 路由单 → 拉起 +30%，锚点即
+//    波内；cheat 门 A_strong 等额分仓+缓推+尖刺集中 originalGrade=cheat 被
+//    activity_high 豁免翻 healthy 放行（撑起 act=high 的流量正是 famous 系这
+//    0.891B 自己）→ 止损 −0.036。既有 famous 臂全失明：FP3 分子只计本人不含跟单
+//    （占买 14.7%）、FP6 要 chg30≤−20（拉升起点还没砸）、FP8b 要 ath≥100+收割完。
+//    判据四腿（键源 buyDerived.famBurstWave——波=CD407 口径最后 ≥30s 静默出口
+//    gap<5s 连续簇；famous 系=roster 本人∪同块同额镜像簇）：波贴近锚 ∧ 波买
+//    ≥0.3B ∧ famous 系占波买 ≥80% ∧ famous 本人波内首进（发动者，非早就在场
+//    持仓者）。127 票扫描精确命中主案 1 票零误伤（次高 Cashless 60.2%+0.064
+//    散单参与真实放行）；与 FP6 observe（dom 轴 post-dump）正交：本臂管
+//    pre-dump 的进场波 ──
+/** FP9 波买下限（BNB）：≥0.3（CD401/CD402 波量级线同源——尘埃波不构成「带起来」） */
+const FAM_BURST_MIN_WAVE_BUY_BNB = 0.3;
+/** FP9 famous 系占波买下限（%）：≥80（主案 88.9 vs 次高 60.2，分离带 28.7pp） */
+const FAM_BURST_MIN_SHARE_PCT = 80;
 
 // ── FP6 famous 高控+砸落观察臂（2026-11-17 btv140 复审 BP-T007 小树 0x92598590…7777
 //    案用户裁定：「这样吧，这个场景（持有不多还没砸）先不阻挡购买，不过可以在因子
@@ -411,6 +430,20 @@ function armDenseDump(bd) {
     && w30.netBnb <= DENSE_DUMP_MAX_NET_BNB;
 }
 
+/** FP9 famous 系突发波：静默 ≥30s 后的波由 famous∪同块同额镜像簇带起
+ *  （占波买 ≥80% ∧ famous 本人波内首进）→ 拒 fam_burst_wave——撑起活跃度的
+ *  流量全是 famous 系自己（cheat originalGrade 常为 cheat 被 activity_high
+ *  豁免翻正——豁免所依据的「活跃」正是要挡的这波本身；键源
+ *  buyDerived.famBurstWave，null/键缺失不触发=宁漏不冒充） */
+function armFamousBurstWave(bd) {
+  const w = bd && bd.famBurstWave;
+  if (!w) return false;
+  if (w.anchorNearWave !== true) return false;
+  if (typeof w.waveBuyBnb !== 'number' || w.waveBuyBnb < FAM_BURST_MIN_WAVE_BUY_BNB) return false;
+  if (typeof w.famSysSharePct !== 'number' || w.famSysSharePct < FAM_BURST_MIN_SHARE_PCT) return false;
+  return w.famousFirstInWave === true;
+}
+
 // ═══════════════ famous 高控+砸落观察臂（FP6：标记不拦截，留待找方案） ═══════════════
 
 /**
@@ -579,6 +612,15 @@ function buildFactorGates(parts) {
       line: 'ath≥100% ∧ 自卖比≥0.9 ∧ 占买≥10% ∧ chg30≤−20%', hit: parts.armHits.includes('fam_harvested_final'),
     });
   }
+  // FP9 famous 系突发波
+  {
+    const w = parts.bd && parts.bd.famBurstWave;
+    g.push({
+      id: 'fam_burst_wave', label: 'FP9·famous系burst波',
+      value: `静默${d(w && w.stallSec, 's')} 波买${d(w && w.waveBuyBnb, 'B')} famous系${d(w && w.famSysSharePct, '%')} 首进${w && w.famousFirstInWave ? '波内' : '否'}`,
+      line: '静默≥30s ∧ 波买≥0.3B ∧ famous系≥80% ∧ 首进波内', hit: parts.armHits.includes('fam_burst_wave'),
+    });
+  }
   return g;
 }
 
@@ -732,6 +774,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     else if (armDenseDump(snapshot.buyDerived) && !domFall.observe) arms.push('cd414_dense_dump'); // FP7 短窗持续密集砸盘（observe 命中票排除——famous 场景归观察）
     else if (armSlowPumpUnload(snapshot)) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）
     else if (armFamousHarvestFinal(snapshot)) arms.push('fam_harvested_final'); // FP8b famous 收割完残局（大涨过+已离场+已砸落）
+    else if (armFamousBurstWave(snapshot.buyDerived)) arms.push('fam_burst_wave'); // FP9 famous 系突发波（burst 纯 famous 带起来的）
   }
   // T144 活跃度门（BP act 题整题迁入）：PVP 后、CD 臂前
   const activity = enableActivity
@@ -773,6 +816,7 @@ module.exports = {
   DENSE_DUMP_MIN_SELLERS, DENSE_DUMP_MIN_SELL_BNB, DENSE_DUMP_MAX_NET_BNB,
   SLOW_PUMP_MIN_POINTS, SLOW_PUMP_MIN_R2, SLOW_PUMP_MIN_SEC_SINCE_ATH, SLOW_PUMP_MAX_TPM120,
   FAM_HARVEST_MIN_ATH_PCT, FAM_HARVEST_MIN_SOLD_RATIO, FAM_HARVEST_MIN_BUY_PCT, FAM_HARVEST_MAX_CHG30_PCT,
+  FAM_BURST_MIN_WAVE_BUY_BNB, FAM_BURST_MIN_SHARE_PCT,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
   EXTREME_DUMP_MIN_SELLERS, EXTREME_DUMP_MIN_BNB,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
@@ -782,6 +826,6 @@ module.exports = {
   judgeRetailPvp, judgeActivityLevel, judgeFamousDanger, judgeTailPhaseActivity,
   judgeFamousDominanceFall, buildFactorGates,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
-  armExtremeDumpSellers, armDenseDump, armSlowPumpUnload, armFamousHarvestFinal,
+  armExtremeDumpSellers, armDenseDump, armSlowPumpUnload, armFamousHarvestFinal, armFamousBurstWave,
   evaluateFactorPreBuy,
 };
