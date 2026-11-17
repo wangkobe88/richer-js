@@ -351,7 +351,7 @@ const LEGS = [
 // （f0/wave 达线）但 tokenAgeSec=72>60 单门放行接刀——首两波组织性进场窗还须从首笔
 // 交易起算 45s（用户裁定「可以卡 45 秒什么的也可以卡 60」取 45）；未见首买 null 裸比较
 // 恒 false=宁拦不冒充。
-const CLUSTER_GATE = ' AND ((launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR (tokenAgeSec > 60 AND sinceFirstTradeSec > 45) OR launchMinVsFloorPct < 0)';
+const CLUSTER_GATE = ' AND ((launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR (tokenAgeSec > 60 AND sinceFirstTradeSec > 45) OR launchMinVsFloorPct < 10)';
 // T151 前期买入太多推迟臂（2026-11-16 用户课题「前期买入太多跟前期钱包太多一样推迟一段时间
 // 买入」，N=60「60 秒应该足够它们卖出了」、阈值 1B=扫描最大面且方向比最优 19/−0.515 vs
 // 6/+0.035）：launchBigBuyBnb=出生窗大户（首买≥0.2B）合计买入（FA T151 新键，全量口径
@@ -388,20 +388,6 @@ const ENTRIES = [
             description: 'famous 进场撤离臂 v2（T136 2026-11-12 bt-v106 来财案金额门）：FA 因子 sinceEntryFamousNearLaunchBuyBnb=本仓入场锚以来 famous roster 钱包在 near_launch 区间（curVs ∈ (+10,+40]）的可靠价买入 BNB 累计（T133 判据同源并行金额累计，T113 差值 latch 同构）——≥0.5 BNB 才算「像样的 famous 进场」（两笔 0.2~0.3 常见交易档或一笔 0.5+ 大单；v1 计数门 ≥1 笔被 roster v2 38 址扩面后 0.276 BNB 单笔触发误清 +0.51 仓位），立即全清 bypass 确认窗；未持仓 null fail-closed 恒不触发；v1 计数键 sinceEntryFamousNearLaunchBuys 降纯观察保留',
         }],
         description: 'T133 famous 进场撤离臂 v2（T136 2026-11-12 金额门 0.5 BNB）：sinceEntryFamousNearLaunchBuyBnb >= 0.5 → 立即全清（bypassDebounce+cards:all）；FA 载体=famous-copy-wallets roster × near_launch 区间 (10,40] 可靠价买入 × BNB 累计 × 入场锚差值（setBuyState 快照/补买轮重锚）；回测同源（回放正序直计）；v1（2026-11-10 计数门 ≥1）被 bt-v106 来财案否证换门',
-    },
-    {
-        name: 'bundle-wave-exit',
-        side: 'sell',
-        legs: [{
-            action: 'sell',
-            priority: 1,
-            condition: 'sinceEntryEqualBundleWallets >= 8',
-            maxExecutions: null,
-            cards: 'all',
-            bypassDebounce: true,
-            description: '锚后等额捆绑撤离臂 v1（T147 2026-11-16 Echo 二案 0xaa0710da…7777，用户裁定「买入后又出现异常现象（大量捆绑买入），需要立即卖出」）：FA 因子 sinceEntryEqualBundleWallets=本仓入场（setBuyState 清零重锚）以来涌现的最大同块等额（toFixed(4)，T74 同款）买入簇钱包数（尘门单钱包 ≥0.01=CD405 同线、剔聚合路由）——≥8（BP77 塞单门同线同值：同一形状同一根线，买点前=塞单门拦买、买入后涌现=拉抬阵列拉高出货前兆）立即全清 bypass 确认窗；未持仓 null fail-closed 恒不触发。案源：锚+3s blk 131209704 9 钱包各 0.076+锚+7s 同批 9×0.033 双连块拉抬 +34% 后砸回——塞单门只看买点前锚窗，锚后涌现唯一防线=本臂',
-        }],
-        description: 'T147 锚后等额捆绑撤离臂：sinceEntryEqualBundleWallets >= 8 → 立即全清（bypassDebounce+cards:all）；FA 载体=同块等额买入簇流式检测（块切换结算单调 max，挂 wallet 聚合段 buy 行；defer 乱序回推低估=方向安全）× setBuyState 入场清零（max 型差值会被入场前历史簇淹没，C1 夹具反证故清零直读）；线 8=BP77 塞单门同线、尘门 0.01=CD405 同线；实时/回测同源（事件驱动零时钟）',
     },
     // ── low-zone-stall-exit（T133 低位滞涨撤离臂）已随 v115 系卖腿集弃用（2026-11-12
     //    bt-v113 起当前最优 16 卖腿不含本臂）且库中无条目——本脚本不再维护，防 --commit
