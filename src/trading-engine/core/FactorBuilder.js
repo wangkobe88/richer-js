@@ -77,6 +77,8 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // （min(常量, 首买价)）——ladder v22 首两波门豁免臂主键，信号复盘须落库；
     // 旧 FA/未见可靠价/无常量平台 → null 不掩盖
     launchMinVsFloorPct: factorResults.launchMinVsFloorPct ?? null,
+    // T151 前期买入太多推迟臂主键（出生窗大户累计买入；ladder v25 起）
+    launchBigBuyBnb: factorResults.launchBigBuyBnb ?? null,
     // CD381 重检双键（2026-11-08）：preCheatResult=上次门链检测结果字符串原值 /
     // priceBackToAlmostLaunch=自上次检测价格回到过 almost_launch（重判条件表达式
     // 主键，signal 复盘须落库）；未检测/无锚 → null 不掩盖
