@@ -356,24 +356,8 @@ function buildCheatState(snapshot) {
     if (d.nearTail10TickN !== null && d.nearTail10TickN !== undefined) {
       lines.push(`临近尾窗（锚前最后 10 秒 / 此前 20 秒 / 最后 5 秒）: 尾 10 秒 ${d.nearTail10TickN} 笔、吞吐 ${d.nearTail10BnbPerMin} BNB/分、卖侧独立钱包 ${d.nearTail10SellWallets} 个 / 此前 20 秒吞吐 ${d.nearPre20BnbPerMin} BNB/分 / 尾 5 秒 ${d.nearTail5TickN} 笔、买入 ${d.nearTail5BuyN} 笔/${fmtBnbFine(d.nearTail5BuyBnb)} BNB（口径：绝对位置窗恒算、短窗照出；吞吐为固定窗归一（尾 10 秒=总额×6、前 20 秒=总额×3，区内无行时段摊入分母，前 20 秒零流量=0 有证据零值）；activity_level 定档主锚=临近买点四臂判读——尾 10 秒多个独立钱包几乎纯卖（买入趋零/只剩尘埃单）=协同出货，档位照实落超高、不因买卖失衡降档；尾 10 秒吞吐较此前 20 秒断崖下降+尾 5 秒趋零/纯尘滴答=临近衰减，全窗密集不救；尾 10 秒未断崖且尾 5 秒仍有真实买入（AMM/曲线池语境卖出恒被池子接走，买入方向才是买方需求在场的证据）=临近仍活；前 20 秒死寂而尾段有真实流量=静默后涌入，全窗稀疏不抹）`);
     }
-    // D3.2b 著名钱包单极控盘锚（用户裁定 2026-10-31 CD5 语境：作弊段筹码被单一著名
-    // 钱包吸收=锚时点转 unhealthy 的形状；名单=famous-copy-wallets 用户点名集合，
-    // 跟单=著名钱包买入后 60s 内首买的钱包；仅作盘面事实陈述）
-    const DOM_ZH = { high: '高', mid: '中', low: '低' };
-    if (d.famousDominanceLevel !== null && d.famousDominanceLevel !== undefined) {
-      // G5 跟单集中度数值（2026-11-02 批次四裁定「不能把所有后续买入全看成 famous
-      // 的跟单」）：top3=跟单钱包中正净持仓前三合计占跟单正净 Σ 的 %——高=少数
-      // 大户贴身重仓（疑似分仓）、低=散户小额分散跟进；仅事实陈述档位仍 Jev/通道
-      const folTop3Txt = d.famousFollowerTop3Pct !== null && d.famousFollowerTop3Pct !== undefined
-        ? `，跟单前三钱包占跟单合计 ${d.famousFollowerTop3Pct.toFixed(1)}%` : '';
-      // G6 组织买入占比（用户补充裁定，见 sb/eq 段 G6 注）：famous∪跟单买入合计
-      // 占窗口总买——组织独大=正常用户承接不足的死盘形状
-      const grpBuyTxt = d.famousGroupBuyPct !== null && d.famousGroupBuyPct !== undefined
-        ? `，著名+跟单买入占全部买入 ${d.famousGroupBuyPct.toFixed(1)}%` : '';
-      lines.push(`著名钱包单极控盘: ${DOM_ZH[d.famousDominanceLevel]}（著名名单钱包持仓 ${d.famousHoldPct.toFixed(1)}%·其中最大单一钱包 ${d.famousTop1Pct.toFixed(1)}% + 其买入后 60s 内首买的跟单钱包 ${d.famousFollowerPct.toFixed(1)}%${folTop3Txt}${grpBuyTxt}，合计占正净持仓 ${d.famousDominancePct.toFixed(1)}%；仅作盘面事实陈述）`);
-    } else {
-      lines.push('著名钱包单极控盘: 不适用（窗内无著名名单钱包命中，或无可主导持仓）');
-    }
+    // （D3.2b 著名钱包单极控盘 state 行已随 G20/CD416 famous 锚族退役——题面无
+    //  famous 专题题、判读源 famousDominance 键不再产出；历史档重放该行自然消失）
     if (d.unresolvedSenderTickCount > 0) {
       lines.push(`⚠ sender 未解析行 ${d.unresolvedSenderTickCount}/${(snapshot.ticks || []).length}（证据洞：这些行无法归因到真实发起钱包，按 trader 回退可能并包——判断集中度/协同性时相应折扣，勿据此排除作弊也别据此坐实）`);
     }

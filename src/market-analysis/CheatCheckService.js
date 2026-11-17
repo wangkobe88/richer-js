@@ -1012,10 +1012,7 @@ class CheatCheckService {
       let anchorSellCount = 0;
       for (const r of pull.rows) if (r.trade_type !== 'buy') anchorSellCount++;
       const graded = gradeObservation(obs, {
-        famousLevel: snapshot.derived.famousDominanceLevel ?? null,
-        famousFollowerTop3Pct: snapshot.derived.famousFollowerTop3Pct ?? null,
-        // G6 豁免前提锚：famous∪跟单买入合计占锚窗总买 %（≥80 死盘形状不豁免）
-        famousGroupBuyPct: snapshot.derived.famousGroupBuyPct ?? null,
+        // （famous 三键已随 G20/CD416 D 通道退役）
         anchorSellCount,
       });
       obs.grade = graded.grade;
@@ -1027,13 +1024,12 @@ class CheatCheckService {
       this.stats.analyzed++;
 
       // 因子化投影原料（2026-11-01 用户指令）：14 题数值档（FA 出口，D3.35 起
-      // 含 abnormal_behavior_ratio（D3.39 前 real_participation））+字符串原值（metadata/日志）+数值锚二十四键
-      //（famous 掌控/持仓极不均衡/持仓分布/协同买入参考补点）——
+      // 含 abnormal_behavior_ratio（D3.39 前 real_participation））+字符串原值（metadata/日志）+数值锚
+      //（持仓极不均衡/持仓分布/协同买入参考补点；famous 掌控键已随 G20/CD416 退役）——
       // 随返回形状透传引擎投影 FA。CD380 起提前到拉黑登记前：不豁免臂读数值档
       //（levelsFromObservation 只读 phenomena/extLevels/extras，与 grade 设值顺序无关）
       const { levels, buckets, anchors } = levelsFromObservation(obs, {
-        famousDominancePct: snapshot.derived.famousDominancePct ?? null,
-        famousDominanceLevel: snapshot.derived.famousDominanceLevel ?? null,
+        // （famousDominancePct/Level 两键已随 G20/CD416 D 通道退役）
       });
 
       // G1 分级消费（CD158 形状）：cheat → 拉黑（终态，含清仓联动由引擎侧
@@ -1079,8 +1075,7 @@ class CheatCheckService {
         ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
         ` wash对=${snapshot.derived.washPairCount ?? 0}对/卖占${snapshot.derived.washPairSellPct ?? '—'}%` +
         ` t1供/流=${snapshot.derived.top1HoldSupplyPct ?? '—'}%/${snapshot.derived.top1HoldCircPct ?? '—'}%` +
-        ` dom=${snapshot.derived.famousDominanceLevel ?? '—'}${snapshot.derived.famousDominancePct !== null && snapshot.derived.famousDominancePct !== undefined ? `(${snapshot.derived.famousDominancePct}%)` : ''}${snapshot.derived.famousFollowerTop3Pct !== null && snapshot.derived.famousFollowerTop3Pct !== undefined ? ` top3:${snapshot.derived.famousFollowerTop3Pct}%` : ''}` +
-        ` 组织买=${snapshot.derived.bundleBuyPct ?? '—'}%/${snapshot.derived.famousGroupBuyPct ?? '—'}%(簇/famous集团)` +
+        ` 组织买=${snapshot.derived.bundleBuyPct ?? '—'}%(簇)` +
         ` 纯卖=${snapshot.derived.noBuySellPct ?? '—'}%/量${snapshot.derived.noBuySellVolumePct ?? '—'}%` +
         (obs.extLevels.stall_burst_wave === 'burst'
           ? ` 波=段买${snapshot.derived.burstExitWaveBuyBnb ?? '—'}/${snapshot.derived.burstExitWaveWallets ?? '—'}户/gap${snapshot.derived.burstLastGapSec ?? '—'}s` +
@@ -1237,8 +1232,8 @@ class CheatCheckService {
         if (gradedRow && !this._lastGrade.has(token)) {
           const d = gradedRow.snapshot_digest;
           const { levels, buckets, anchors } = levelsFromObservation(d, {
-            famousDominancePct: (d.anchors && d.anchors.famousDominancePct) ?? null,
-            famousDominanceLevel: (d.anchors && d.anchors.famousDominanceLevel) ?? null,
+            // （famous 两键已随 G20/CD416 D 通道退役；旧档 digest anchors 内
+            //  famousDominancePct 键 levelsFromObservation 不再挑读=自然降级）
           });
           this._lastGrade.set(token, {
             grade: d.grade, reasons: d.gradeReasons || [], version: d.gradeVersion || this._version,
@@ -1501,14 +1496,8 @@ class CheatCheckService {
           cv: derived.activityCv ?? null,
           uneven: derived.activityUneven ?? null,
         },
-        famous: { // D3.2b 著名钱包单极控盘锚（同上，存原始数值待消费方式裁定）
-          holdPct: derived.famousHoldPct ?? null,
-          top1Pct: derived.famousTop1Pct ?? null,
-          followerPct: derived.famousFollowerPct ?? null,
-          followerTop3Pct: derived.famousFollowerTop3Pct ?? null,
-          dominancePct: derived.famousDominancePct ?? null,
-          level: derived.famousDominanceLevel ?? null,
-        },
+        // （digest.famous 段已随 G20/CD416 famous 锚族退役；历史行该段照留档，
+        //  旧档重放 levelsFromObservation 不挑读 famous 键=自然降级无害）
       };
       const row = {
         token_address: token,

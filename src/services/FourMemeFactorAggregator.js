@@ -4324,8 +4324,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    （用户补点「著名钱包掌控/持仓极不均衡」）cheatSameBlockHoldPct/
         //    cheatEqualBandHoldPct/cheatTop1HoldSupplyPct/cheatTop1HoldCircPct（持仓
         //    占比 %，G1 B/C/F 通道 sbHold 与 E 通道 t1 流的同源数值）+
-        //    cheatFamousDominancePct（著名钱包掌控度 %）+ cheatFamousDominance
-        //    （低/中/高→0/1/2）+ D3.28 同块对敲三键 cheatWashPairCount/
+        //    （cheatFamousDominancePct/cheatFamousDominance 两键已随 G20/CD416
+        //    cheat 门 famous 锚族退役）+
+        //    D3.28 同块对敲三键 cheatWashPairCount/
         //    cheatWashPairSellPct/cheatWashPairBuyPct（配对数/卖占%/买占%，G3 H 通道
         //    同源数值；无配对=null 轴不适用）+ G8 burst 波强度三键
         //    cheatBurstMaxGapSec/cheatBurstWaveBuyBnb/cheatBurstWaveWallets
@@ -4454,8 +4455,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatPostStallFreshBuyerPct = _an ? _an.postStallFreshBuyerPct ?? null : null;
             factors.cheatPostStallEqualClusterPct = _an ? _an.postStallEqualClusterPct ?? null : null;
             factors.cheatPostStallMaxBlockBuyPct = _an ? _an.postStallMaxBlockBuyPct ?? null : null;
-            factors.cheatFamousDominancePct = _an ? _an.famousDominancePct ?? null : null;
-            factors.cheatFamousDominance = _an ? _an.famousDominance ?? null : null;
+            // （cheatFamousDominancePct/cheatFamousDominance 两键已随 G20/CD416
+            //  cheat 门 famous 锚族退役——库条目与存量实验条件串零引用已核；
+            //  旧信号行快照里两键照留档）
             // D3.39 异常行为占比档位（G13 R 通道同源：negligible=0/noticeable=1/
             // dominant=2，unclear 不在映射表→null 不冒充；D3.35-D3.38 旧档
             // real_participation 断代 null）+ 协同买入参考四键与创建者曾持峰值锚

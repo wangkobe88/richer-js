@@ -357,7 +357,6 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     'cheatSlowGrindPump', 'cheatWashPair', 'cheatActivityLevel', 'cheatBundledDominance',
     'cheatSameBlockHoldPct', 'cheatEqualBandHoldPct', 'cheatWashPairCount', 'cheatWashPairSellPct',
     'cheatWashPairBuyPct', 'cheatTop1HoldSupplyPct', 'cheatTop1HoldCircPct',
-    'cheatFamousDominancePct', 'cheatFamousDominance',
     'cheatHoldingsBalance', 'cheatTop2HoldSupplyPct', 'cheatTop1Top2HoldSupplyPct',
     'cheatTop1Top2FirstBuyGapSec', 'cheatClusterHoldSupplyPct', 'cheatT1PlusClusterSupplyPct',
     'cheatPosHolderCount', 'cheatTop1Top2HoldCircPct', 'cheatTop3HoldCircPct',
@@ -367,6 +366,7 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     'cheatBurstSpikeConcentration', 'cheatSpikeBuyPctInBurst', 'cheatSpikeHoldPctAll',
     'cheatStrongBackerPressure', 'cheatAnchorBuySellRatio', 'cheatStrongbackerLike',
     'cheatRouterEntryBuyPct', 'preCheatResult', 'priceBackToAlmostLaunch'];
+  // （cheatFamousDominancePct/cheatFamousDominance 两键已随 G20/CD414 cheat 门 famous 锚退役——库/实验条件串零引用已核）
   ok('52 键在 FA 因子集（未知因子三防线自动认得，条件串可引用——D3.52 两键+CD159 SB1 观察键+D3.60 持有者基数三锚+D3.62 聚合路由入口锚（G17 N 通道源）纯观察：门侧零消费，条件串/研究侧自由消费；CD381 重检双键）', need.every((k) => keys.includes(k)),
     need.filter((k) => !keys.includes(k)));
   ok('旧 FA 键 cheatRealParticipation 不得残留（D3.39 改名=换键——库/实验 config 已核零引用，改名零爆炸半径防线）',
@@ -392,7 +392,7 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     && fm.cheatWashPairSellPct === 95.1 && fm.cheatWashPairBuyPct === 27.3
     && fm.cheatSameBlockHoldPct === 66.1 && fm.cheatEqualBandHoldPct === 57.2
     && fm.cheatTop1HoldSupplyPct === 25.6 && fm.cheatTop1HoldCircPct === 53.4
-    && fm.cheatFamousDominancePct === 87.5 && fm.cheatFamousDominance === 2
+    && fm.cheatFamousDominancePct === undefined && fm.cheatFamousDominance === undefined
     && fm.cheatHoldingsBalance === 3 && fm.cheatTop2HoldSupplyPct === 9.4
     && fm.cheatTop1Top2HoldSupplyPct === 35 && fm.cheatTop1Top2FirstBuyGapSec === 1
     && fm.cheatClusterHoldSupplyPct === 14.5 && fm.cheatT1PlusClusterSupplyPct === 40.1
@@ -410,7 +410,7 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
     && fm.cheatRouterEntryBuyPct === 42.9
     && fm.cheatRealParticipation === undefined,
     fm ? { grade: fm.cheatGrade, bw: fm.cheatSameBlockBuyWave, sb: fm.cheatSameBlockHoldPct,
-      dom: fm.cheatFamousDominance, hb: fm.cheatHoldingsBalance, t1pc: fm.cheatT1PlusClusterSupplyPct,
+      hb: fm.cheatHoldingsBalance, t1pc: fm.cheatT1PlusClusterSupplyPct,
       nbs: fm.cheatNoBuySellPct, abr: fm.cheatAbnormalBehaviorRatio, mbk: fm.cheatMaxBlockBuyCount } : 'build null');
   // CD381 双键发射：preCheatResult 投影上次 grade 字符串；无锚 →
   // priceBackToAlmostLaunch null fail-closed（裸比较恒 false 不触发重检）
@@ -422,7 +422,7 @@ console.log('D. FA 投影 45 键往返（因子化：grade 三键 + 16 题档 + 
   ok('清投影 → 全 null/0（未判定语义，条件裸比较恒 false fail-closed）',
     fm2 && fm2.cheatGrade === null && fm2.cheatUnhealthyGrades === 0 && fm2.cheatBlocked === 0
     && fm2.cheatSameBlockBuyWave === null && fm2.cheatSameBlockHoldPct === null
-    && fm2.cheatFamousDominance === null
+    && fm2.cheatFamousDominance === undefined
     && fm2.cheatHoldingsBalance === null && fm2.cheatT1PlusClusterSupplyPct === null
     && fm2.cheatBurstMaxGapSec === null && fm2.cheatNoBuySellPct === null
     && fm2.cheatAbnormalBehaviorRatio === null && fm2.cheatMaxBlockBuyCount === null

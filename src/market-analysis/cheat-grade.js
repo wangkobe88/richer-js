@@ -28,7 +28,9 @@
  * 分布 tmp-router-dist@182，9 址笔数口径）：healthy 52 票 min 23.8/中位 75、
  * strongbacked 8 票 min 50（不拦域零误伤且强庄盘入口最足——「庄+散户合力」
  * 直觉再验证）；<10% 共 21 票全在 cheat 17/unhealthy 4；低占比票窗长
- * 7-1862s 无「极早窗聚合器未索引」时序噪声。与 2026-10-31 删 routerPct
+ * 7-1862s 无「极早窗聚合器未索引」时序噪声。（G20/CD416 退役 D 通道与
+ * famous 锚族投影——G5 跟单集中度豁免/G6 组织买入豁免/G16 邻界联立臂随
+ * D 通道整链退役，git 历史留档。）与 2026-10-31 删 routerPct
  * state 行的裁定不冲突——彼裁「高占比方向」无判别价值（作弊钱包同样走路由
  * ），本通道判「低占比方向」=入口缺失，方向相反；锚不进 state/题面（Jev
  * 输入零变化），纯代码数值门+FA 投影观测。null（买 <15 笔/零买入/旧档断代
@@ -235,9 +237,12 @@
  *      moderate 共振错杀 CD98/CD124 且 G1-G9 零正命中，用户裁定整体退役，
  *      头注 G10 段；git 历史留档）
  *   unhealthy:
- *     D. famous dom=high ∧（跟单 top3 ≥45% ∨ 跟单锚 null ∨ 组织买入占比 ≥80
- *        ∨ 组织买入锚 null）（G5 前纯 dom=high；跟单集中度豁免见头注②——分散形
- *        「聪明钱带散户」不触发；G6 组织买入 ≥80 死盘形状豁免不成立，见头注③）
+ *     （D 退役：famous dom=high ∧ 跟单/组织买入臂——G20/CD416（2026-11-17 用户
+ *      裁定「cheat 门的 famous 锚删除」）整链拆除：D 通道在 CD379 活跃度豁免下
+ *      实际拦截为零（G18 时代单独命中票全 act=high 被豁免翻正——famous 进场
+ *      票天然高活跃），famous 拦截现行载体=BP ③桶 famousTraces+卖侧 T133/T136/
+ *      T161/T137 臂；snapshot famous 锚族七键/FA 投影两键/state 行同批退役，
+ *      历史 D_famous_* 行留档，git 历史留实现）
  *     E. Jev activityLevel=low ∧ sbw≠burst（G2 简化，2026-11-01 用户裁定「活跃度
  *        这一臂为 low 的，也判为 unhealthy，不过流量 burst 命中的不要判定为
  *        活跃度 low」——G1 期 t1流<40 吃独食豁免（CD105/CD122）与卖笔≤1 对手盘
@@ -279,7 +284,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G19';
+const CHEAT_GRADE_RULES_VERSION = 'G20';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -306,10 +311,11 @@ function scoreLevel(map, value) {
 /**
  * 观测产物 → FA 因子投影原料（service 分析链尾部调用，随返回形状透传引擎）：
  * levels=15 题数值档（FA 出口键；washPair D3.28/holdingsBalance D3.32/burstSpike D3.51 起入列）、buckets=字符串原值
- * （metadata/日志研究友好）、anchors=数值锚九键（2026-11-01 用户补点「著名钱包
- * 掌控/持仓极不均衡」：obs.anchors 持仓占比四键 sb/eq/t1 供/流 + extras famous
- * 数值/档位；D3.28 同块对敲三键 washPair 数量/卖占/买占。**G10 起 sb/eq 两锚
- * 门侧消费退役**——投影照常产出，条件串/研究侧自由消费不变，头注 G10 段）。
+ * （metadata/日志研究友好）、anchors=数值锚（2026-11-01 用户补点「著名钱包
+ * 掌控/持仓极不均衡」：obs.anchors 持仓占比四键 sb/eq/t1 供/流；**extras
+ * famous 数值/档位三键已随 G20/CD416 退役**；D3.28 同块对敲三键 washPair
+ * 数量/卖占/买占。**G10 起 sb/eq 两锚门侧消费退役**——投影照常产出，条件串/
+ * 研究侧自由消费不变，头注 G10 段）。
  * activityLevel/bundledDominance/washPair 缺席（<D3.5/<D3.8/<D3.28 旧档）→ null。
  */
 function levelsFromObservation(observation, extras = {}) {
@@ -351,7 +357,6 @@ function levelsFromObservation(observation, extras = {}) {
     abnormalBehavior: pt,
   };
   const an = obs.anchors || {};
-  const famousLevel = typeof fx.famousDominanceLevel === 'string' ? fx.famousDominanceLevel : null;
   const anchors = {
     sameBlockHoldPct: _pct(an.sameBlockHoldPct),
     equalBandHoldPct: _pct(an.equalBandHoldPct),
@@ -444,9 +449,6 @@ function levelsFromObservation(observation, extras = {}) {
     maxBlockPreGapSec: _pct(an.maxBlockPreGapSec),
     sameAmountWalletPct: _pct(an.sameAmountWalletPct),
     creatorPeakHoldSupplyPct: _pct(an.creatorPeakHoldSupplyPct),
-    famousDominancePct: _pct(fx.famousDominancePct),
-    famousDominanceLevel: famousLevel,
-    famousDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, famousLevel),
   };
   return { levels, buckets, anchors };
 }
@@ -516,14 +518,11 @@ function _pct(v) {
  * @param {Object} observation - buildObservation 产物
  *   {phenomena, extLevels, activityLevel:{bucket}|null, bundledDominance, anchors}
  * @param {Object} [extras] - 分级附加原料
- *   {famousLevel: 'low'|'mid'|'high'|null, famousFollowerTop3Pct: number|null,
- *    famousGroupBuyPct: number|null, anchorSellCount: number|null}
- *   （famousLevel=snapshot.derived.famousDominanceLevel；famousFollowerTop3Pct=
- *   snapshot.derived.famousFollowerTop3Pct（G5 D 通道跟单集中度豁免判据）；
- *   famousGroupBuyPct=snapshot.derived.famousGroupBuyPct（G6 D 通道豁免前提：
- *   famous∪跟单买入占锚窗总买 %，≥80=正常承接不足两成不豁免）；anchorSellCount=
- *   锚窗卖笔数，service 从 pull.rows 现数——G2 起 E 通道不再消费（历史 D3.x
- *   豁免原料），字段保留为 service/digest 兼容形状）
+ *   {anchorSellCount: number|null}
+ *   （anchorSellCount=锚窗卖笔数，service 从 pull.rows 现数——G2 起 E 通道不再
+ *   消费（历史 D3.x 豁免原料），字段保留为 service/digest 兼容形状；
+ *   famousLevel/famousFollowerTop3Pct/famousGroupBuyPct 三键已随 G20/CD416
+ *   D 通道退役，历史调用携带多余键无害忽略）
  * @returns {{grade:'cheat'|'unhealthy'|'healthy', reasons:Array<{level:string,code:string}>, version:string}}
  */
 function gradeObservation(observation, extras = {}) {
@@ -538,7 +537,6 @@ function gradeObservation(observation, extras = {}) {
   const sbw = ext.stall_burst_wave ?? null;
   const strongHit = MAIN_IDS.filter((k) => lv[k] === 'strong');
   const modAll = MAIN_IDS.filter((k) => lv[k] === 'moderate').length;
-  const dom = typeof ex.famousLevel === 'string' ? ex.famousLevel : null;
   const act = obs.activityLevel && typeof obs.activityLevel.bucket === 'string'
     ? obs.activityLevel.bucket : null;
   const anchors = obs.anchors || {};
@@ -546,8 +544,6 @@ function gradeObservation(observation, extras = {}) {
   //  现象由题面语言承载，头注 G10 段；两锚照常产出供观察/条件串）
   // （G11 退役 bd/bundleBuy 门侧消费——sb∪eq 圈定吞 GMGN 前端默认档散户
   //  （CD133），G 通道整体退役，头注 G11 段；bd 档位与锚照常产出供投影）
-  const folTop3 = _pct(ex.famousFollowerTop3Pct);
-  const famousBuyPct = _pct(ex.famousGroupBuyPct);
   // （G8 弱 burst 三键读取已随 G18 退役——CD397 判定权归 Jev，锚照常产出供投影；
   //   K/L 通道零买纯卖占比保留）
   const noBuySell = _pct(anchors.noBuySellPct);
@@ -578,36 +574,11 @@ function gradeObservation(observation, extras = {}) {
   //   对倒→wash_pair 题 A 主判、独大→holdings_balance/insider 题 J/L、
   //   纯卖方→L insider 联立；锚照常产出只不作门）
 
-  // D：著名钱包主导（G5 补跟单集中度豁免，2026-11-02 批次四用户裁定「它们的跟单
-  // 量是不是高估了？因为聪明钱的跟单一定程度也不算完全不健康的」+「也不能把所有
-  // 的后续买入全看成 famous 的跟单」——dom=high 16 票研究：60s 跟单窗覆盖买家数
-  // 中位 80%+（最高 95%），dom 分子主体是跟单者而非 famous 本人（本人持中位 ~10%）
-  // → dom 高很大程度度量「famous 买入后 60s 内盘面热」。跟单 top3 合计占跟单正净
-  // Σ <45%=分散形（几十个散户小额跟进、首买中位 0.05-0.17 BNB、最大单钱包 <10%）
-  // =「聪明钱带散户」豁免不触发；≥45%=集中形（少数大户贴身重仓=疑似分仓/协同，
-  // CD63 top3 87%/最大 26%、CD80 81%）维持触发。null（无跟单/跟单正净 Σ=0/旧档
-  // 断代）→ 触发：无跟随时 dom 分子全靠 famous 本人=直接控盘更该触发；旧档无键
-  // 保持 G4 行为（黄金集 D 段重放零变化）。
-  // G6 豁免前提（用户补充裁定，头注③）：组织买入占比 ≥80（正常用户承接不足两
-  // 成）→ 不豁免——盘面流量构成基本是 famous∪跟单的独角戏，即使它们已部分撤退
-  // 也是死盘形状。famousGroupBuyPct null（旧档断代）→ 不豁免（fail-closed 与
-  // sbw null 同哲学：承接证据缺席不给豁免；生产链 dom=high 下该锚必产出数值）。
-  // G16 邻界联立臂（CD323 huh 案，2026-11-05 v72 终审用户裁定「我也认为是
-  //  famous 主导，unhealthy，可以 fix 一下」）：豁免双臂必须**显著成立**——
-  //  足够分散（top3<35）或承接充分（gb<70）；双双贴线（top3≥35 ∧ gb≥70，
-  //  距原豁免线各 <10 点）=两臂证据都不显著，dom=high 语义（famous 生态主导
-  //  盘面）优先，豁免不成立 → 拦（留痕 D_famous_near_band 与主条件码区分）。
-  //  v72 批 dom=high 六票影响面：仅 CD323（40.9/75.7）新拦；CD302（37.5/67.5
-  //  gb<70 不中）豁免保持；CD299/CD327 top3≥45 主条件既有零变化；CD300 gb≥80
-  //  主条件既有。null 语义不变（top3 null 触发主条件、gb null 不豁免，G5/G6
-  //  原哲学）。
-  const dMain = !(folTop3 !== null && folTop3 < 45
-    && famousBuyPct !== null && famousBuyPct < 80);
-  const dNearBand = folTop3 !== null && folTop3 >= 35
-    && famousBuyPct !== null && famousBuyPct >= 70;
-  if (dom === 'high' && (dMain || dNearBand)) {
-    reasons.push({ level: 'unhealthy', code: dMain ? 'D_famous_dominance' : 'D_famous_near_band' });
-  }
+  // （D 通道已随 G20/CD416 退役（2026-11-17 用户裁定「cheat 门的 famous 锚
+  //  删除」）：CD379 活跃度豁免下实际拦截为零——G18 时代（2026-11-11 起
+  //  109 行）D 单独命中仅 1 token 且 act=high 被豁免翻正；famous 进场票天然
+  //  高活跃=结构性命中豁免集。famous 拦截现行载体=BP ③桶 famousTraces+卖侧
+  //  T133/T136/T161/T137 臂。历史 D_famous_* 行留档，判定实现见 git 历史）
 
   // E：活跃度低（G2 简化，2026-11-01 用户裁定「活跃度这一臂为 low 的，也判为
   // unhealthy，不过流量 burst 命中的不要判定为活跃度 low」——t1流<40 吃独食豁免
@@ -632,7 +603,8 @@ function gradeObservation(observation, extras = {}) {
 
   // J：（G19 退役，2026-11-17 btv140 复审 BP-T006 食蟹猴二 `0x387c9be8…7777` 案
   //  用户裁定「holdingsBalance 这一臂去掉」——top1 控盘形状的拦截由 A/D 通道
-  //  与豁免臂成色条件另行承载，持仓维度不再独立产生 unhealthy 拒。holdings_balance
+  //  与豁免臂成色条件另行承载，持仓维度不再独立产生 unhealthy 拒。（追注：
+  //  D 通道随后亦随 G20/CD416 退役，接棒者=A 通道+BP 门。）holdings_balance
   //  题照算照落档（观察+FA 投影不变），历史 J_holdings_strong 行留档。
   //  立法史：G7/CD122（2026-11-02 strong→unhealthy 独立通道立项）→G19 退役。）
 

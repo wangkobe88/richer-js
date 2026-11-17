@@ -621,12 +621,14 @@ async function main() {
     // ⑤b CD407 立法行为锁：承接仍在簇外（gap 10s ≥5 切断）→ 簇=sec56 砸块段
     //    卖 0.6/0.8=75% ∧ 0.6 → 照 denied（**簇外大承接不再稀释簇内卖压**——
     //    「停止一段时间后的买入不是 burst 的一部分」；旧口径出口整窗 26.5% 放行）
+    //    （CD411 起簇=出口后**最大** gap<5s 段——簇外承接 1.6→0.4 使首段 0.8
+    //    保持最大段，原判读意图不变：簇外承接不稀释簇内卖压）
     const dbS2 = makeDb({ ticks: [
       row(0, 100, 0, 'buy', 0.1, w('0xp1')), row(1, 100, 1, 'buy', 0.1, w('0xp2')),
       row(56, 200, 0, 'sell', 0.15, w('0xd1')), row(56, 200, 1, 'sell', 0.15, w('0xd2')),
       row(56, 200, 2, 'sell', 0.15, w('0xd3')), row(56, 200, 3, 'sell', 0.15, w('0xd4')),
       row(56, 200, 4, 'buy', 0.2, w('0xd5')),
-      row(66, 250, 0, 'buy', 1.6, w('0xabs')), // gap 10s ≥5：簇外
+      row(66, 250, 0, 'buy', 0.4, w('0xabs')), // gap 10s ≥5：簇外（0.4<0.8 首段保持最大段）
       row(70, 300, 0, 'sell', 0.05, w('0xtail')),
     ] });
     const svcS2 = makeSvc(dbS2, makeLlm({ answers: CHEAT_HIGH_BURST }));
@@ -923,29 +925,27 @@ async function main() {
       && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
       '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
     ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
-      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G18'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G20'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
     // Z1b 因子化：analyzed 返回带 levels（数值档，FA 出口原料）+ buckets（字符串
-    // 原值）——GOOD 形状 tier/bw/rat strong=3、sbw none=0（CD397 起 GOOD 不带 burst）、cr strong=3、
-    // act mid=1、bd high=2、wash none=0（D3.28）
+    // 原值）——GOOD 形状 tier/bw/rat strong=3、sbw none=0（CD397 起 GOOD 不带 burst）、
+    // act mid=1、wash none=0（D3.28）；cr/bd 键已随 D3.74 题退役（12 键域）
     ok(r1.levels && r1.levels.sameBlockBuyWave === 3 && r1.levels.amountTiering === 3
       && r1.levels.insiderSupplySell === 3 && r1.levels.stallBurstWave === 0
-      && r1.levels.creatorFrontRun === 3 && r1.levels.activityLevel === 1
-      && r1.levels.bundledDominance === 2 && r1.levels.equalAmountSplit === 0
-      && r1.levels.washPair === 0,
-      `analyzed 带 levels 数值档（实际 ${JSON.stringify(r1.levels)}）`);
+      && r1.levels.creatorFrontRun === undefined && r1.levels.activityLevel === 1
+      && r1.levels.equalAmountSplit === 0
+      && r1.levels.washPair === 0 && r1.levels.bundledDominance === undefined,
+      `analyzed 带 levels 数值档（cr/bd 键 D3.74 随题退役不再产出；实际 ${JSON.stringify(r1.levels)}）`);
     ok(r1.buckets && r1.buckets.sameBlockBuyWave === 'strong' && r1.buckets.stallBurstWave === 'none'
       && r1.buckets.activityLevel === 'mid',
       `analyzed 带 buckets 字符串原值（研究留档）`);
     // Z1c 数值锚：四持仓占比键真算数值（genTicks 全 0.1 同额 10 钱包买侧）+
-    // washPair 三键（卖 0.11 超带=零配对 null）+famous 三键缺席 null
+    // washPair 三键（卖 0.11 超带=零配对 null）+（famous 三键已随 G20/CD416 退役）
     ok(r1.anchors && ['sameBlockHoldPct', 'equalBandHoldPct', 'washPairCount', 'washPairSellPct',
-      'washPairBuyPct', 'top1HoldSupplyPct', 'top1HoldCircPct',
-      'famousDominancePct', 'famousDominanceLevel', 'famousDominance']
-      .every((k) => k in r1.anchors) && r1.anchors.famousDominancePct === null
-      && r1.anchors.famousDominance === null && r1.anchors.famousDominanceLevel === null,
-      `analyzed 带 anchors 十键（famous 无命中缺席 null）（实际 ${JSON.stringify(r1.anchors)}）`);
+      'washPairBuyPct', 'top1HoldSupplyPct', 'top1HoldCircPct']
+      .every((k) => k in r1.anchors) && r1.anchors.famousDominancePct === undefined,
+      `analyzed 带 anchors 七键（famous 键 G20/CD416 已退役不再产出）（实际 ${JSON.stringify(r1.anchors)}）`);
     ok(r1.anchors.equalBandHoldPct === 100,
       `等额带锚精确值（全 0.1 同额 10 钱包簇并集=全场 Σ正净 → 100）（实际 ${r1.anchors.equalBandHoldPct}）`);
     ok(r1.anchors.washPairCount === null && r1.anchors.washPairSellPct === null

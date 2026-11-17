@@ -733,8 +733,8 @@ console.log('G. 活跃度数值族（校准对照）');
   ok(md.activityLevel === 'low' && md.ticksPerMin === 10.5, `micro fixture：7 笔 40s tpm=10.5 → low（实际 ${md.ticksPerMin}/${md.activityLevel}）`);
 }
 
-// ═══════════════ I. 著名钱包单极控盘锚（D3.2b：名单∩窗内持仓 + 60s 跟单集，占正净持仓三档） ═══════════════
-console.log('I. 著名钱包单极控盘锚');
+// ═══════════════ I. 著名钱包单极控盘锚（D3.2b——G20/CD416 起 cheat 门侧消费退役，锚族保留=BP 门筹码判读原料单点） ═══════════════
+console.log('I. 著名钱包单极控盘锚（cheat 门消费已退役，锚族=BP 原料照常产出）');
 {
   const {
     FAMOUS_FOLLOW_WINDOW_SEC, FAMOUS_DOM_HIGH_PCT, FAMOUS_DOM_MID_PCT, loadFamousRoster,
@@ -770,19 +770,19 @@ console.log('I. 著名钱包单极控盘锚');
   ok(i1.famousHoldPct === 33.3 && i1.famousTop1Pct === 33.3 && i1.famousFollowerPct === 33.3
     && i1.famousDominancePct === 66.7 && i1.famousDominanceLevel === 'high',
     `high 单极控盘 66.7%（实际 hold ${i1.famousHoldPct}/top1 ${i1.famousTop1Pct}/follower ${i1.famousFollowerPct}/dom ${i1.famousDominancePct}/${i1.famousDominanceLevel}）`);
-  ok(buildCheatState(i1snap).state.includes('著名钱包单极控盘: 高'), 'state 渲染：高档中文行');
+  ok(!buildCheatState(i1snap).state.includes('著名钱包单极控盘'), 'G20/CD416 退役反证: cheat state「著名钱包单极控盘」行不再渲染（判读移交 BP ③桶，锚族照常产出供 BP chip 照抄）');
   // G5 跟单集中度锚（D 通道豁免数值源）：i1 跟单集={w1 0.3, w2 0.3} 全在 top3 → 100.0
   ok(i1.famousFollowerTop3Pct === 100,
     `i1 跟单 top3=100%（两跟单钱包全覆盖；实际 ${i1.famousFollowerTop3Pct}）`);
-  ok(buildCheatState(i1snap).state.includes('跟单前三钱包占跟单合计'), 'state 渲染：跟单 top3 数值行');
+  ok(!buildCheatState(i1snap).state.includes('跟单前三钱包'), 'G20/CD416 退役反证: 跟单 top3 state 行不再渲染（随著名钱包单极控盘行同批拆除）');
   // G6 组织买入占比锚（豁免前提，用户补充裁定 2026-11-02）：i1 手算——总买 1.8；
   // famous∪跟单买入=0.6+0.3+0.3=1.2 → 66.7；等额带 0.3×4 钱包（w3/w1/w2）买入
   // 0.6+0.3+0.3=1.2 → bundleBuy 66.7（w3 两笔 0.3 同带并集去重）
   ok(i1.famousGroupBuyPct === 66.7 && i1.bundleBuyPct === 66.7,
     `i1 组织买入占比：famous集团 66.7 / 簇 66.7（实际 ${i1.famousGroupBuyPct}/${i1.bundleBuyPct}）`);
   ok(!buildCheatState(i1snap).state.includes('簇买入占比')
-    && buildCheatState(i1snap).state.includes('著名+跟单买入占全部买入 66.7%'),
-    'state 渲染：簇买入占比行已撤（CD133/G11——sb∪eq 圈定吞默认档散户）；famous 行尾集团买入保留（D 通道豁免前提 famousGroupBuyPct 仍在消费）');
+    && !buildCheatState(i1snap).state.includes('著名+跟单买入占全部买入'),
+    'state 渲染：簇买入占比行已撤（CD133/G11）；famous 集团买入句随 G20/CD416 著名钱包行同批不再渲染（锚值照常产出=BP chip 原料）');
   // G5 分散形：5 个跟单各 0.1 → top3=0.3/0.5=60.0（跟单正净 Σ 0.5）
   const i1b = buildSnapshotFromRows([
     mkF(10, 'buy', 0.5, FAM),
@@ -838,7 +838,7 @@ console.log('I. 著名钱包单极控盘锚');
   // I5 null 三臂：a) 窗内无名单命中（轴不适用）b) 名单缺失注入（缺证据）c) posTotal=0（无可主导持仓）
   const i5a = buildSnapshotFromRows([mkF(10, 'buy', 0.5, w3)], microMeta, { famousRoster: roster }).derived;
   ok(i5a.famousDominancePct === null && i5a.famousDominanceLevel === null, '窗内无著名钱包命中 → null');
-  ok(buildCheatState(buildSnapshotFromRows([mkF(10, 'buy', 0.5, w3)], microMeta, { famousRoster: roster })).state.includes('著名钱包单极控盘: 不适用'), 'state 渲染：不适用降级行');
+  ok(!buildCheatState(buildSnapshotFromRows([mkF(10, 'buy', 0.5, w3)], microMeta, { famousRoster: roster })).state.includes('著名钱包单极控盘'), 'G20/CD416 退役反证: 不适用降级行不再渲染（著名钱包行整族随 cheat 门消费退役拆除）');
   const i5b = buildSnapshotFromRows([mkF(10, 'buy', 0.5, w3)], microMeta, { famousRoster: null }).derived;
   ok(i5b.famousDominancePct === null && i5b.famousDominanceLevel === null, '名单缺失注入 → null（缺证据不冒充）');
   const i5c = buildSnapshotFromRows([

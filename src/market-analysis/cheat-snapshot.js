@@ -208,6 +208,9 @@ const PUMP_STABLE_MIN_POINTS = 4;
  * 钱包以及其跟单在持仓上占据主导的场景」，高/中/低三档）。名单=
  * config/rosters/famous-copy-wallets.json（FA famousCopyWalletCircPct 同源用户点名
  * 集合）；跟单窗=著名钱包某笔买入后 ≤60s 内完成首买（时间耦合跟随痕迹）。
+ * （G20/CD416 2026-11-17 起 cheat 门侧消费退役——D 通道/grade 投影/state 行
+ *  已拆除；锚族保留=BP 门筹码判读原料：buy-point-snapshot chip 三键单点照抄
+ *  +famousTraces roster 加载单点。）
  */
 const FAMOUS_FOLLOW_WINDOW_SEC = 60;
 /** 控盘三档切点（占正净持仓 %，先验起档——55 票分布校准后调整，D3.2 同流程） */
@@ -224,6 +227,7 @@ function isRouterTrader(row) {
   const t = row.trader_address ? String(row.trader_address).toLowerCase() : null;
   return t !== null && AGGREGATOR_ROUTER_ADDRS.has(t);
 }
+
 
 /**
  * 著名钱包名单（famous-copy-wallets.json，FA famousCopyWalletCircPct 同源用户点名
@@ -258,12 +262,12 @@ function loadFamousRoster() {
  *   createdAt 缺失时 dt 基准退化为首 tick 并在 snapshot 标注；totalSupply 由调用方
  *   注入——four.meme=payload 真值、flap/gang=平台恒 1e9 常量（collector 同款），
  *   D3.20 supply 锚分母）
- * @param {Object} [options] - { capped, anchorTickCount, famousRoster }——capped=
+ * @param {Object} [options] - { capped, anchorTickCount }——capped=
  *   拉数满帽标记（service pull.capped / 回归 runner 锚窗未截断=false）透传 state
  *   [ANCHOR] 截断声明；anchorTickCount=**权威锚（tail 单查询返回行数）**，满帽时
  *   行集=head+tail 多于锚值，锚绝不能从 rows.length 反推（head 补充行不参与锚）；
  *   famousRoster=著名钱包名单 Set 注入口（单测用；缺省读 config 名单，见
- *   loadFamousRoster）
+ *   loadFamousRoster——锚族为 BP 门筹码判读原料，cheat 门侧消费已退役）
  * @returns {Object} CheatSnapshot { tokenMeta, anchor:{tickCount}, capped, ticks,
  *   wallets, derived }——anchor=单次查询返回行数（防 count/select 撕裂；缺省=
  *   行数，即未满帽时两者相等）
@@ -354,8 +358,6 @@ function aggregateWallets(ticks, tokenMeta) {
  * _test_cheat_detection_lib.cjs 用 ZERODAY 66-tick 事故现场锁定）。
  *
  * @param {Object} snapshot - 仅消费其 ticks（wallets 由本函数产出原料）
- * @param {Set<string>|undefined|null} [famousRoster] - 著名钱包名单注入（单测用）；
- *   undefined=读 config 名单（loadFamousRoster），null=模拟名单缺失（null 语义臂）
  * @returns {Object} derived
  */
 function computeDerived(snapshot, famousRoster) {
@@ -633,8 +635,8 @@ function computeDerived(snapshot, famousRoster) {
   // 在正常用户有没有在买。分母=全量行总买（router 伪钱包行=GMGN 散户聚合买入
   // 计入「正常用户」侧）；分子=组织成员买入合计（wallets 层聚合）：
   //   bundleBuyPct      = sb∪eq 簇成员买入合计 ÷ Σ买 ×100（G 通道豁免前提）
-  //   famousGroupBuyPct = famous∪跟单 买入合计 ÷ Σ买 ×100（D 通道豁免前提）
-  // 组织成员集空（无合格簇/无著名命中）/Σ买≤0 → null（有证据的缺席）；豁免层
+  //   （famousGroupBuyPct 已随 CD416 famous 锚族退役）
+  // 组织成员集空（无合格簇）/Σ买≤0 → null（有证据的缺席）；豁免层
   // null → 不豁免 fail-closed（无承接证据不给豁免，与 sbw null 同哲学）。
   const buyOf = new Map(wallets.map((e) => [e.w, e.buyBnb || 0]));
   const sumBuyOf = (memberSet) => {
@@ -853,6 +855,7 @@ function computeDerived(snapshot, famousRoster) {
         : famousDominancePct >= FAMOUS_DOM_MID_PCT ? 'mid' : 'low';
     }
   }
+
 
   // ── 活跃度锚（D3.2 用户裁定：「增加活跃度低的锚，分超高/高/中/低四档」「综合考虑
   // 交易额/空窗期」「另给活跃度不均衡结论=高低起伏很大」；mapper 消费方式待裁定）──

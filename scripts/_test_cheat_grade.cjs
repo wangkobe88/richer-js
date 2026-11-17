@@ -55,10 +55,10 @@ function baseObs() {
 }
 function withPhen(obs, id, bucket) { obs.phenomena[id] = bucket; return obs; }
 function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
-function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
+function grade(obs, extras) { return gradeObservation(obs, extras || { anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G19', '版本常量 G19（改规则必须 bump+同步台账+跑黄金集；G19=G18−J_holdings_strong 臂（2026-11-17 btv140 复审 BP-T006 食蟹猴二 0x387c9be8…7777 案用户裁定「holdingsBalance 这一臂去掉」）：holdings_balance strong 不再产生 unhealthy 拒，题照算照落档（观察+FA 投影不变），历史行留档；同车 D3.72 slow_grind_pump 题面合力反锚第二通道（独立买家 ≥15 ∧ 吞吐 ≥3 BNB/min ∧ 金额散布=大户/famous 进场带流量跟进的合力形状至多 moderate，同案用户裁定「slowGrindPump 的特点是上涨阶段活跃度不高单极推高，famous 进了跟进流量的不是」）；G18=G17−G8 弱 burst 代码臂（CD397）：E 通道 sbw 单条件、代码硬线与 CD383 四腿同批拆除、sbw 题 D3.67 题面四判轴接棒；G17=N 通道聚合路由入口占比（CD374）；G16=D 邻界联立臂（CD323）；G15=burst_spike_concentration 入 EXT；G14=M 通道 ultra→unhealthy M_hyper_activity）');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G20', '版本常量 G20（改规则必须 bump+同步台账+跑黄金集；G20=G19−D 通道（2026-11-17 CD416 用户裁定「cheat 门的 famous 锚删除」）：D_famous_dominance/near_band 不再产出——CD379 活跃度豁免下实际拦截为零（famous 进场票天然 act=high 被豁免翻正），famous 拦截载体=BP ③桶 famousTraces+卖侧 T133/T136/T161/T137 臂；snapshot famous 锚族七键/FA 投影两键/state 行同批退役，历史行留档；G19=−J_holdings_strong 臂（btv140 食蟹猴二案「holdingsBalance 这一臂去掉」）+D3.72 slow_grind_pump 合力反锚第二通道；G18=−G8 弱 burst 代码臂（CD397）；G17=N 通道（CD374）；G16=D 邻界联立臂（CD323，已随 G20 整体退役）；G15=burst_spike 入 EXT；G14=M 通道 ultra')
   ok(MAIN_IDS.length === 9 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance')
     && MAIN_IDS.includes('burst_spike_concentration') && !MAIN_IDS.includes('strong_backer_pressure'),
@@ -70,7 +70,7 @@ function main() {
       // 直接设八题各一 strong（phen/ext 键重复无害——按 id 域写）
       const obs = baseObs();
       if (obs.phenomena[id] !== undefined) obs.phenomena[id] = 'strong'; else obs.extLevels[id] = 'strong';
-      const rr = gradeObservation(obs, { famousLevel: null, anchorSellCount: null });
+      const rr = gradeObservation(obs, { anchorSellCount: null });
       ok(rr.grade === 'cheat' && rr.reasons[0].code.startsWith(`A_strong:${id}`),
         `${id} 单 strong → cheat（A_strong 留痕题名）`);
     }
@@ -105,7 +105,7 @@ function main() {
     const obs3 = withExt(baseObs(), 'burst_spike_concentration', 'strong');
     withExt(obs3, 'slow_grind_pump', 'strong');
     withExt(obs3, 'stall_burst_wave', 'burst');
-    const r3 = grade(obs3, { famousLevel: null, anchorSellCount: 5 });
+    const r3 = grade(obs3, { anchorSellCount: 5 });
     ok(r3.grade === 'cheat' && r3.reasons[0].code === 'A_strong:slow_grind_pump+burst_spike_concentration',
       'spike+pump 双 strong 降级豁免不成立照 cheat（豁免只认唯一 strong=pump——spike strong 在场即非「停滞后自然涌入」；reason 双题合并留痕）');
   }
@@ -116,19 +116,19 @@ function main() {
     const obs = withExt(baseObs(), 'slow_grind_pump', 'strong');
     withExt(obs, 'stall_burst_wave', 'burst');
     obs.anchors.sameBlockHoldPct = 30;
-    const r = grade(obs, { famousLevel: null, anchorSellCount: 5 });
+    const r = grade(obs, { anchorSellCount: 5 });
     ok(r.grade === 'unhealthy' && r.reasons[0].code === 'A_downgrade_single_pump_burst',
       '唯一 pump strong+burst+mod<3 → 降级 unhealthy（停滞后自然涌入非协同推价）');
     // G10 退役反证：sbHold 任意高值不改变降级（sbHold 是活跃度函数非组织性度量）
     const obs2 = withExt(baseObs(), 'slow_grind_pump', 'strong');
     withExt(obs2, 'stall_burst_wave', 'burst');
     obs2.anchors.sameBlockHoldPct = 55;
-    const r2 = grade(obs2, { famousLevel: null, anchorSellCount: 5 });
+    const r2 = grade(obs2, { anchorSellCount: 5 });
     ok(r2.grade === 'unhealthy' && r2.reasons[0].code === 'A_downgrade_single_pump_burst',
       'G10 反证: sbHold=55 照样降级 unhealthy（sbHold 腿已退役——高活跃盘簇圈定吞散户拉高 sbHold 是数学性质，不作豁免判据）');
     // sbw=none → 豁免不成立 → cheat
     const obs3 = withExt(baseObs(), 'slow_grind_pump', 'strong');
-    const r3 = grade(obs3, { famousLevel: null, anchorSellCount: 5 });
+    const r3 = grade(obs3, { anchorSellCount: 5 });
     ok(r3.grade === 'cheat' && r3.reasons[0].code === 'A_strong:slow_grind_pump',
       '无 burst 在场 → 豁免不成立 → cheat（burst 豁免需在场证据）');
     // pump+另一主判双 strong → 豁免只认唯一 strong
@@ -136,7 +136,7 @@ function main() {
     withExt(obs4, 'amount_tiering', 'strong');
     withExt(obs4, 'stall_burst_wave', 'burst');
     obs4.anchors.sameBlockHoldPct = 10;
-    const r4 = grade(obs4, { famousLevel: null, anchorSellCount: 5 });
+    const r4 = grade(obs4, { anchorSellCount: 5 });
     ok(r4.grade === 'cheat', '双 strong（pump+tier）→ 降级豁免只认唯一 strong → cheat');
     // modAll≥3（EXT 含计）→ 豁免失效
     const obs5 = withExt(baseObs(), 'slow_grind_pump', 'strong');
@@ -145,7 +145,7 @@ function main() {
     withExt(obs5, 'same_block_buy_wave', 'moderate');
     withExt(obs5, 'insider_supply_sell', 'moderate');
     obs5.anchors.sameBlockHoldPct = 10;
-    const r5 = grade(obs5, { famousLevel: null, anchorSellCount: 5 });
+    const r5 = grade(obs5, { anchorSellCount: 5 });
     ok(r5.grade === 'cheat', 'pump strong+burst 但七主判 mod 合计≥3（EXT 含计）→ 豁免失效 cheat');
   }
 
@@ -158,7 +158,7 @@ function main() {
     withPhen(obs, 'coordinated_sell_back', 'moderate');
     withPhen(obs, 'sell_dispersion', 'moderate');
     obs.anchors.sameBlockHoldPct = 60;
-    const r = grade(obs, { famousLevel: null, anchorSellCount: 10 });
+    const r = grade(obs, { anchorSellCount: 10 });
     ok(r.grade === 'healthy' && r.reasons.length === 0,
       'B 退役反证: 三现象 mod+sbHold=60 → healthy（moderate 共振不足以拉黑——「多现象共振」证据交 A 主判 strong 档与题面校准）');
     const obs4 = baseObs();
@@ -166,16 +166,18 @@ function main() {
     withPhen(obs4, 'coordinated_sell_back', 'moderate');
     withPhen(obs4, 'sell_dispersion', 'moderate');
     obs4.anchors.sameBlockHoldPct = 45;
-    ok(grade(obs4, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obs4, { anchorSellCount: 10 }).grade === 'healthy',
       'B 退役反证: 三现象 mod sbHold<45 同 healthy（CD98/CD124 错杀票回正）');
     // dom=high 照走 D（B 让位语义随 B 退役自然消失）
     const obs3 = baseObs();
     withPhen(obs3, 'equal_amount_split', 'moderate');
     withPhen(obs3, 'coordinated_sell_back', 'moderate');
     withPhen(obs3, 'sell_dispersion', 'moderate');
+    // G20/CD416 退役反证：extras 携带 famousLevel:'high'（旧调用形状）不再触发
+    // D 通道——cheat 门 famous 判定整链拆除（拦截现行载体=BP ③桶+卖侧臂）
     const r3 = grade(obs3, { famousLevel: 'high', anchorSellCount: 10 });
-    ok(r3.grade === 'unhealthy' && r3.reasons.some((x) => x.code === 'D_famous_dominance'),
-      'dom=high → D 照触发（著名主导归 unhealthy；B 让位语义随退役消失）');
+    ok(r3.grade === 'healthy' && !r3.reasons.some((x) => /D_famous/.test(x.code)),
+      'G20 退役反证: famous dom=high 不再触发 D（历史 unhealthy 载体移交 BP ③桶）');
   }
 
   console.log('C.（G9 退役反证）sbHold≥85 纯数值不再产档——判罚须经 Jev 档位');
@@ -183,12 +185,12 @@ function main() {
     // 2026-11-02 用户裁定退役 C/F：sbHold 高值无 Jev 档位 → 不判罚（原 C 85/F 50 两线）
     const obs = baseObs();
     obs.anchors.sameBlockHoldPct = 85;
-    const r = grade(obs, { famousLevel: null, anchorSellCount: 10 });
+    const r = grade(obs, { anchorSellCount: 10 });
     ok(r.grade === 'healthy' && r.reasons.length === 0,
       'sbHold=85 档位全 none → healthy（C 已退役：锚不直读产 cheat，黄金集 CD97 随此降 unhealthy）');
     const obs2 = baseObs();
     obs2.anchors.sameBlockHoldPct = 84.9;
-    ok(grade(obs2, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obs2, { anchorSellCount: 10 }).grade === 'healthy',
       'sbHold 84.9 → healthy（C/F 双退役，无 Jev 档位不判罚）');
   }
 
@@ -198,20 +200,20 @@ function main() {
     const obs = baseObs();
     obs.anchors.washPairSellPct = 95.1;
     obs.anchors.washPairCount = 10;
-    ok(grade(obs, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obs, { anchorSellCount: 10 }).grade === 'healthy',
       'washPair 95.1%×10 对档位全 none → healthy（H 已退役：锚值不直读，[PRECOMPUTED] 事实行照常喂 Jev）');
     // 对倒现象由 Jev 档承载：wash_pair strong → A 主判 cheat（MAIN_IDS 含 wash）
     const obs2 = withExt(baseObs(), 'wash_pair', 'strong');
     obs2.anchors.washPairSellPct = 95.1;
     obs2.anchors.washPairCount = 10;
-    const r2 = grade(obs2, { famousLevel: null, anchorSellCount: 10 });
+    const r2 = grade(obs2, { anchorSellCount: 10 });
     ok(r2.grade === 'cheat' && r2.reasons.some((x) => x.code === 'A_strong:wash_pair'),
       'wash_pair 题档 strong（CD27 对倒形状由 Jev 判档）→ cheat A_strong:wash_pair');
     // moderate 不拉黑：H 原纯数值线已退役，拒买级留待 Jev/其余通道
     const obs3 = withExt(baseObs(), 'wash_pair', 'moderate');
     obs3.anchors.washPairSellPct = 95;
     obs3.anchors.washPairCount = 10;
-    ok(grade(obs3, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obs3, { anchorSellCount: 10 }).grade === 'healthy',
       'wash_pair moderate → 不拉黑（对倒档位证据不足硬门已撤——已知代价 CD27 类形状降依赖 Jev 判档）');
   }
 
@@ -220,14 +222,14 @@ function main() {
     // CD69 形状：第一大户一笔吃 46.5% 供应，但 Jev 题档全 none → 不判罚
     const obs = baseObs();
     obs.anchors.top1HoldSupplyPct = 46.5;
-    const r = grade(obs, { famousLevel: null, anchorSellCount: 10 });
+    const r = grade(obs, { anchorSellCount: 10 });
     ok(r.grade === 'healthy' && r.reasons.length === 0,
       't1 供 46.5 档位全 none → healthy（I 已退役：独大判读交 holdings_balance 题档，D3.32 题面判据已含主口径占总供应量%）');
     // 独大+低活跃共存（CD69 实形）：I 退役后由 E 承载 unhealthy
     const obs5 = baseObs();
     obs5.anchors.top1HoldSupplyPct = 42;
     obs5.activityLevel.bucket = 'low';
-    const r5 = grade(obs5, { famousLevel: null, anchorSellCount: 10 });
+    const r5 = grade(obs5, { anchorSellCount: 10 });
     ok(r5.grade === 'unhealthy' && r5.reasons.some((x) => x.code === 'E_low_activity'),
       't1 供 42 + act=low → unhealthy（E 留痕；I 已退役不产 cheat——已知代价：独大铁证形状依赖 holdings 题档 strong 或 J/L）');
   }
@@ -240,72 +242,44 @@ function main() {
     obs.anchors.top1HoldSupplyPct = 25.6;
     obs.anchors.top1Top2HoldSupplyPct = 35.0;
     obs.anchors.t1PlusClusterSupplyPct = 40.1;
-    const r = grade(obs, { famousLevel: null, anchorSellCount: 5 });
+    const r = grade(obs, { anchorSellCount: 5 });
     ok(r.grade === 'healthy' && !r.reasons.some((x) => x.code === 'J_holdings_strong'),
       'holdings_balance strong（CD122 形状）→ G19 退役不再 unhealthy（J_holdings_strong 不产出）');
     // moderate 同样不触发（J 全档退役）
     const obs2 = withExt(baseObs(), 'holdings_balance', 'moderate');
-    ok(grade(obs2, { famousLevel: null, anchorSellCount: 5 }).grade === 'healthy',
+    ok(grade(obs2, { anchorSellCount: 5 }).grade === 'healthy',
       'holdings_balance moderate → 不触发');
     // 旧档断代（<D3.32 答案缺席）不触发——黄金集重放零变化防线
     const obs3 = baseObs();
     delete obs3.extLevels.holdings_balance;
-    ok(grade(obs3, { famousLevel: null, anchorSellCount: 5 }).grade === 'healthy',
+    ok(grade(obs3, { anchorSellCount: 5 }).grade === 'healthy',
       'holdings_balance 键缺席（旧档断代/容缺）→ J 不触发（EXT 容缺语义同族，黄金集 34/42 沿用防线）');
     // 单一独大 46.5 同时 holdings strong（CD69 形状）：I 已退役（G9）、J 退役（G19）
     // → 持仓维度不再产 unhealthy；独大形状的拦截依赖 A/D 通道与豁免臂成色（G19 已知代价）
     const obs4 = withExt(baseObs(), 'holdings_balance', 'strong');
     obs4.anchors.top1HoldSupplyPct = 46.5;
-    const r4 = grade(obs4, { famousLevel: null, anchorSellCount: 10 });
+    const r4 = grade(obs4, { anchorSellCount: 10 });
     ok(r4.grade === 'healthy' && !r4.reasons.some((x) => x.code === 'J_holdings_strong'),
       'holdings strong + t1 供 46.5 → G19 退役不再 unhealthy（独大数值不直读，档位通道已撤）');
   }
 
-  console.log('D. 著名钱包主导 → unhealthy（G5 补跟单集中度豁免）');
+  console.log('D.（G20/CD416 退役反证）famous 主导不再触发——cheat 门 famous 整链拆除');
   {
     const obs = baseObs();
-    const r = grade(obs, { famousLevel: 'high', anchorSellCount: 10 });
-    ok(r.grade === 'unhealthy' && r.reasons[0].code === 'D_famous_dominance',
-      'famousLevel=high 单独（top3 键缺席=null）→ unhealthy（无跟随时 dom 分子全靠 famous 本人=直接控盘；旧档断代同形状保持 G4 行为）');
+    // 旧调用形状（extras 携带 famous 三键）在 G20 下全部 healthy——多余键无害忽略
+    ok(grade(obs, { famousLevel: 'high', anchorSellCount: 10 }).grade === 'healthy',
+      'G20 退役反证: famousLevel=high 单独 → healthy（D 通道拆除；拦截载体=BP ③桶+卖侧臂）');
     ok(grade(obs, { famousLevel: 'mid', anchorSellCount: 10 }).grade === 'healthy',
-      'famousLevel=mid 不触发 D');
-    // G5 跟单集中度豁免（2026-11-02 批次四用户裁定「它们的跟单量是不是高估了？因为
-    // 聪明钱的跟单一定程度也不算完全不健康的」「也不能把所有的后续买入全看成
-    // famous 的跟单」）：跟单 top3 占跟单正净 Σ <45%=分散形（几十个散户小额跟进）
-    // 豁免；≥45%=集中形（少数大户贴身重仓=疑似分仓，CD63 top3 87%/最大 26%）触发
-    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 44.9, famousGroupBuyPct: 30, anchorSellCount: 10 }).grade === 'healthy',
-      'G5+G6: dom=high ∧ top3=44.9%（分散形散户跟风）∧ 组织买=30%（承接充足）→ D 豁免不触发');
-    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 45, anchorSellCount: 10 }).grade === 'unhealthy',
-      'G5: dom=high ∧ 跟单 top3=45% 恰界 → 触发（集中形线 ≥45）');
-    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 87, anchorSellCount: 10 }).grade === 'unhealthy',
-      'G5: dom=high ∧ 跟单 top3=87%（CD63 集中形）→ 触发（疑似分仓维持 unhealthy）');
-    // G6 豁免前提（2026-11-02 用户补充裁定「著名/绑定钱包的豁免还是要有一个前提，
-    // ……盘面正常用户流量涌入依然要比较明显，否则如果整个盘面全部是它们的砸盘，
-    // 盘子也死了」）：famous∪跟单买入占锚窗总买 ≥80（正常承接不足两成）=死盘
-    // 形状豁免不成立。null（旧档断代）→ 不豁免 fail-closed（sbw null 同哲学）
-    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 20, famousGroupBuyPct: 79.9, anchorSellCount: 10 }).grade === 'healthy',
-      'G6: dom=high ∧ top3=20 分散形 ∧ 组织买=79.9%（承接刚过两成）→ 豁免维持');
-    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 20, famousGroupBuyPct: 80, anchorSellCount: 10 }).grade === 'unhealthy',
-      'G6: dom=high ∧ top3=20 分散形 ∧ 组织买=80 恰界 → 豁免不成立触发（CD47 实形）');
-    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 20, famousGroupBuyPct: 92.9, anchorSellCount: 10 }).grade === 'unhealthy',
-      'G6: dom=high ∧ top3=20 分散形 ∧ 组织买=92.9%（CD103 整个盘面全是它们的）→ 触发');
-    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 20, famousGroupBuyPct: null, anchorSellCount: 10 }).grade === 'unhealthy',
-      'G6: 组织买锚 null（旧档断代）→ 不豁免维持触发（承接证据缺席不给豁免）');
-    // G16 邻界联立臂（CD323 huh 案，2026-11-05 v72 终审用户裁定「我也认为是
-    // famous 主导，unhealthy，可以 fix 一下」）：豁免双臂必须**显著成立**——双贴线
-    // （top3≥35 ∧ 组织买≥70，距豁免线 45/80 各 <10 点）=两臂证据均不显著不豁免，
-    // 留痕 D_famous_near_band 与主条件码区分
+      'famousLevel=mid 不触发（历史行为不变方向）');
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 45, anchorSellCount: 10 }).grade === 'healthy',
+      'G20 退役反证: dom=high ∧ top3=45（G5 集中形线）→ 不再触发');
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 87, anchorSellCount: 10 }).grade === 'healthy',
+      'G20 退役反证: CD63 集中形（top3=87）→ 不再触发');
+    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 20, famousGroupBuyPct: 92.9, anchorSellCount: 10 }).grade === 'healthy',
+      'G20 退役反证: CD103 死盘形状（组织买=92.9）→ 不再触发');
     const nb = grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 40.9, famousGroupBuyPct: 75.7, anchorSellCount: 10 });
-    ok(nb.grade === 'unhealthy' && nb.reasons.some((x) => x.code === 'D_famous_near_band'),
-      'G16 事故现场: dom=high ∧ top3=40.9 ∧ 组织买=75.7（CD323 huh 双贴线形状）→ unhealthy D_famous_near_band（生产 G15 豁免放行=漏拦，锚即顶 15min -52.2% 佐证）');
-    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 35, famousGroupBuyPct: 70, anchorSellCount: 10 }).grade === 'unhealthy'
-      && grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 34.9, famousGroupBuyPct: 75, anchorSellCount: 10 }).grade === 'healthy',
-      'G16 边界: top3=35∧组织买=70 恰界触发；top3=34.9 分散显著 → 豁免维持');
-    ok(grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 37.5, famousGroupBuyPct: 67.5, anchorSellCount: 10 }).grade === 'healthy',
-      'G16 反例: CD302 形状（37.5/67.5 组织买<70 承接显著）→ 豁免维持（今重析 unhealthy 来自其它通道非 D）');
-    const mixA = grade(obs, { famousLevel: 'high', famousFollowerTop3Pct: 50, famousGroupBuyPct: 75, anchorSellCount: 10 });
-    ok(mixA.grade === 'unhealthy' && mixA.reasons.some((x) => x.code === 'D_famous_dominance') && !mixA.reasons.some((x) => x.code === 'D_famous_near_band'),
-      'G16 码区分: top3≥45 主条件触发 → 仍 D_famous_dominance 不产邻界码（联立臂不覆盖主条件语义）');
+    ok(nb.grade === 'healthy' && !nb.reasons.some((x) => /D_famous/.test(x.code)),
+      'G20 退役反证: CD323 huh 双贴线形状 → 不再触发（历史 D_famous_near_band 码停产）');
   }
 
   console.log('E. 活跃度低（G2 简化：唯一豁免=burst；t1流/卖笔豁免已撤销）');
@@ -313,28 +287,28 @@ function main() {
     const obs = baseObs();
     obs.activityLevel.bucket = 'low';
     obs.anchors.top1HoldCircPct = 10;
-    const r = grade(obs, { famousLevel: null, anchorSellCount: 1 });
+    const r = grade(obs, { anchorSellCount: 1 });
     ok(r.grade === 'unhealthy' && r.reasons[0].code === 'E_low_activity',
       'act=low ∧ sbw≠burst → unhealthy（G2 用户裁定「活跃度这一臂为 low 的也判 unhealthy」）');
     // 唯一豁免：sbw=burst（通道层双保险；主修正=D3.27 题面 burst 反锚）
     withExt(obs, 'stall_burst_wave', 'burst');
-    ok(grade(obs, { famousLevel: null, anchorSellCount: 1 }).grade === 'healthy',
+    ok(grade(obs, { anchorSellCount: 1 }).grade === 'healthy',
       '豁免：sbw=burst（停滞突发不算活跃度低——主修正 D3.27 题面，通道层双保险）');
     // 撤销的豁免①：t1流≥40 不再豁免（吃独食家族 CD105/CD122 改判 unhealthy）
     withExt(obs, 'stall_burst_wave', 'none');
     obs.anchors.top1HoldCircPct = 40;
-    ok(grade(obs, { famousLevel: null, anchorSellCount: 1 }).grade === 'unhealthy',
+    ok(grade(obs, { anchorSellCount: 1 }).grade === 'unhealthy',
       't1 流 40 恰界不再豁免（G2 撤销吃独食豁免——E 只看 act+burst）');
     // 撤销的豁免②：卖笔≥2 不再豁免（对手盘 CD107 改判 unhealthy）
     obs.anchors.top1HoldCircPct = 10;
-    ok(grade(obs, { famousLevel: null, anchorSellCount: 2 }).grade === 'unhealthy',
+    ok(grade(obs, { anchorSellCount: 2 }).grade === 'unhealthy',
       '卖笔 2 恰界不再豁免（G2 撤销对手盘豁免——anchorSellCount 不再被 E 消费）');
     // sbw null 按「非 burst」处理（无证据不豁免）
     const obs2 = baseObs();
     obs2.activityLevel.bucket = 'low';
     obs2.anchors.top1HoldCircPct = 10;
     obs2.extLevels.stall_burst_wave = null;
-    ok(grade(obs2, { famousLevel: null, anchorSellCount: 1 }).grade === 'unhealthy',
+    ok(grade(obs2, { anchorSellCount: 1 }).grade === 'unhealthy',
       'sbw null 按 non-burst（burst 豁免需在场证据，已知容缺例外）');
     // anchorSellCount 缺席（旧 digest 重放）→ E 照触发（G2 起不消费该键）
     ok(grade((() => { const o = baseObs(); o.activityLevel.bucket = 'low'; o.anchors.top1HoldCircPct = 10; return o; })(), { famousLevel: null }).grade === 'unhealthy',
@@ -343,7 +317,7 @@ function main() {
     const obs3 = baseObs();
     obs3.activityLevel = null;
     obs3.anchors.top1HoldCircPct = 10;
-    ok(grade(obs3, { famousLevel: null, anchorSellCount: 0 }).grade === 'healthy',
+    ok(grade(obs3, { anchorSellCount: 0 }).grade === 'healthy',
       'activityLevel null → E 不触发');
   }
 
@@ -359,7 +333,7 @@ function main() {
     };
     // G8 退役反证一：原「弱 burst 三键全中」形状（gap 60/买 1.04/户 12）在 G18 下豁免维持
     // ——代码不再以数值推翻 Jev 的 burst 判定（旧 G8 会产 E_low_activity_weak_burst 拦截）
-    ok(grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 1.04, burstWaveWallets: 12 }), { famousLevel: null, anchorSellCount: 1 }).grade === 'healthy',
+    ok(grade(mk({ burstMaxGapSec: 60, burstWaveBuyBnb: 1.04, burstWaveWallets: 12 }), { anchorSellCount: 1 }).grade === 'healthy',
       'G18 反证：弱波三键全中（gap 60/买 1.04/户 12）∧ sbw=burst → 豁免维持（代码硬线退役——判定权归 Jev，弱波形状由 D3.67 题面拒 sbw 本身）');
     // G8 退役反证二：波键极端小（买 0.2/户 3）∧ sbw=burst → 豁免照维持（无任何数值下限）
     ok(grade(mk({ burstMaxGapSec: 59, burstWaveBuyBnb: 0.2, burstWaveWallets: 3 }), { famousLevel: null }).grade === 'healthy'
@@ -511,7 +485,7 @@ function main() {
   {
     const obs = baseObs();
     obs.anchors.sameBlockHoldPct = 50;
-    const r = grade(obs, { famousLevel: null, anchorSellCount: 10 });
+    const r = grade(obs, { anchorSellCount: 10 });
     ok(r.grade === 'healthy' && r.reasons.length === 0,
       'sbHold=50 恰界档位全 none → healthy（F 已退役；G10 起 B 联立/豁免臂消费也全撤——sbHold 是活跃度函数非组织性度量）');
   }
@@ -520,7 +494,7 @@ function main() {
   {
     const obs = baseObs();
     obs.bundledDominance.bucket = 'high';
-    const r = grade(obs, { famousLevel: null, anchorSellCount: 10 });
+    const r = grade(obs, { anchorSellCount: 10 });
     ok(r.grade === 'healthy' && r.reasons.length === 0,
       'G11 反证: bd=high 单独 → healthy 零留痕（通道退役——簇圈定死指标门全线退出）');
     // 三锚任意组合不再有门（G10 期豁免/触发二分整体消失）
@@ -529,63 +503,65 @@ function main() {
     obs6b.anchors.sameBlockHoldPct = 90;
     obs6b.anchors.equalBandHoldPct = 85;
     obs6b.anchors.bundleBuyPct = 30;
-    ok(grade(obs6b, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obs6b, { anchorSellCount: 10 }).grade === 'healthy',
       'G11 反证: bd=high ∧ sbHold=90 ∧ eqHold=85 ∧ bundleBuy=30 → healthy（三锚门侧消费全无）');
     const obs15 = baseObs();
     obs15.bundledDominance.bucket = 'high';
     obs15.anchors.bundleBuyPct = 80;
-    ok(grade(obs15, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obs15, { anchorSellCount: 10 }).grade === 'healthy',
       'G11 反证: bd=high ∧ bundleBuy=80（G10 期死盘形状触发点）→ healthy（承接死盘形状不再由死指标拦，交题档判读）');
     const obs16 = baseObs();
     obs16.bundledDominance.bucket = 'high';
     obs16.anchors.bundleBuyPct = null;
-    ok(grade(obs16, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obs16, { anchorSellCount: 10 }).grade === 'healthy',
       'G11 反证: bd=high ∧ bundleBuy=null（G10 期 fail-closed 触发点）→ healthy');
     // CD121/CD128 形状重放：豁免逻辑整个消失（G_bd 拒买级偏差票随通道退役回正）
     const obs10 = baseObs();
     obs10.bundledDominance.bucket = 'high';
     obs10.anchors.sameBlockHoldPct = 11.4;
     obs10.anchors.equalBandHoldPct = 54.0;
-    ok(grade(obs10, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obs10, { anchorSellCount: 10 }).grade === 'healthy',
       'G11 反证: CD121 形状（bundleBuy 无键，G10 期触发点）→ healthy 回正');
     const obs11 = baseObs();
     obs11.bundledDominance.bucket = 'high';
     obs11.anchors.sameBlockHoldPct = 12.6;
     obs11.anchors.equalBandHoldPct = 29.2;
     obs11.anchors.bundleBuyPct = 30;
-    ok(grade(obs11, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obs11, { anchorSellCount: 10 }).grade === 'healthy',
       'G11 反证: CD128 形状（G10 期豁免点）→ healthy（豁免/触发二分整体消失）');
     // mid 档位不产档（退役前后一致）
     const obsMid = baseObs();
     obsMid.bundledDominance.bucket = 'mid';
-    ok(grade(obsMid, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obsMid, { anchorSellCount: 10 }).grade === 'healthy',
       'bd=mid → healthy（退役前后一致）');
     // 与 cheat 通道叠加：bd 不再叠加留痕
     const obs2 = baseObs();
     obs2.bundledDominance.bucket = 'high';
     withExt(obs2, 'amount_tiering', 'strong');
-    const r2 = grade(obs2, { famousLevel: null, anchorSellCount: 10 });
+    const r2 = grade(obs2, { anchorSellCount: 10 });
     ok(r2.grade === 'cheat' && r2.reasons.every((x) => x.code !== 'G_bundled_dominance'),
       'G11 反证: bd=high + A_strong → cheat 取最重但零 G 留痕（通道不存在）');
     // 容缺：null/bucket 缺失 → healthy（语义平凡成立）
     const obs4 = baseObs();
     obs4.bundledDominance = null;
-    ok(grade(obs4, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obs4, { anchorSellCount: 10 }).grade === 'healthy',
       'bundledDominance null（旧档断代）→ healthy');
     const obs5 = baseObs();
     obs5.bundledDominance = {};
-    ok(grade(obs5, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy',
+    ok(grade(obs5, { anchorSellCount: 10 }).grade === 'healthy',
       'bucket 缺失 → healthy');
   }
 
   console.log('优先级与容缺');
   {
-    // 多通道叠加：cheat>unhealthy
+    // 多通道叠加：cheat>unhealthy（A strong + E low + R dominant 三条——D 已随
+    // G20/CD416 退役，凑数通道换 R（abnormal dominant））
     const obs = baseObs();
     withExt(obs, 'amount_tiering', 'strong');
     obs.anchors.sameBlockHoldPct = 60;
     obs.activityLevel.bucket = 'low';
     obs.anchors.top1HoldCircPct = 10;
+    obs.abnormalBehavior = { bucket: 'dominant' };
     const r = grade(obs, { famousLevel: 'high', anchorSellCount: 1 });
     ok(r.grade === 'cheat' && r.reasons.length >= 3,
       `多通道叠加 reasons 全留痕但 grade 取最重（实际 ${r.grade}/${r.reasons.length} 条）`);
@@ -599,11 +575,11 @@ function main() {
     // 负数/NaN 锚按缺席
     const obs3 = baseObs();
     obs3.anchors.sameBlockHoldPct = -1;
-    const r3 = grade(obs3, { famousLevel: null, anchorSellCount: 10 });
+    const r3 = grade(obs3, { anchorSellCount: 10 });
     ok(r3.grade === 'healthy', '负数锚按缺席（绝不冒充触发门）');
     const obs4 = baseObs();
     obs4.anchors.sameBlockHoldPct = NaN;
-    ok(grade(obs4, { famousLevel: null, anchorSellCount: 10 }).grade === 'healthy', 'NaN 锚按缺席');
+    ok(grade(obs4, { anchorSellCount: 10 }).grade === 'healthy', 'NaN 锚按缺席');
     ok(gradeObservation(null, null).grade === 'healthy', 'observation 整体 null → healthy（不抛）');
   }
 
@@ -619,9 +595,10 @@ function main() {
       if (r.grade === c.expect) agree++;
       else diffs.push(`${c.caseId}:${c.expect}>${r.grade}`);
     }
-    ok(agree === 32, `对拍 32/42 一致（实际 ${agree}/42——**G11=G 通道整体退役**（2026-11-02 CD133 用户裁定「GMGN的散户是有默认交易额的，大多数都是0.1/0.05，大户则是 0.2/0.25/0.3 之类的，这要是能跨区块，误伤就太大了！同块同额度误伤可能小一些，可以作为参考。如果这种死指标不好用，还是把原始数据输入给Jev，通过现象描述，去综合判断与考量里面是否有协同行为吧」——sb∪eq 簇圈定把前端默认档散户整档吞入，死指标门全线退出，协同现象由 A 题档承载（D3.34 题面反锚））：较 G10 34 净失 CD95/CD100 两票正命中（expect=unhealthy 由 G 承载，bd=high∧bundleBuy 无键 fail-closed 触发点，退役后失载放行——「宁可放过不误伤」方向的裁定代价）；CD97/CD119/CD121 三票 G 拦截腿消失（expect=cheat 的 G10 期已偏差票由 unhealthy 降 healthy 全放行；承接路径=D3.34 重析题档升 strong 走 A 通道，随 128 票攒批对拍验证——旧档重放口径题档不会自动变）。**改规则破坏此数须重新用户裁定**`);
-    ok(diffs.join(',') === 'CD56:cheat>healthy,CD84:healthy>unhealthy,CD95:unhealthy>healthy,CD97:cheat>healthy,CD100:unhealthy>healthy,CD105:healthy>unhealthy,CD107:healthy>unhealthy,CD108:cheat>unhealthy,CD119:cheat>healthy,CD121:cheat>healthy',
-      `十票已知偏差锁定（实际 ${diffs.join(',')}）——CD56 版本漂移/CD108 A 降级（与 CD99 人工漂移对称）/
+    ok(agree === 28, `对拍 28/42 一致（实际 ${agree}/42——**G20/CD416 D 通道退役**（2026-11-17 用户裁定「cheat 门的 famous 锚删除」）：较 G19 32 净失 CD103/CD113/CD114/CD116 四票正命中（expect=unhealthy 由 D 承载——CD103/CD113=G6 组织买 ≥80 死盘形状案、CD114/CD116 同族，退役后失载放行 healthy——「宁可放过不误伤」方向的裁定代价，famous 拦截载体移交 BP ③桶+卖侧臂）。**G11=G 通道整体退役**（2026-11-02 CD133 用户裁定——sb∪eq 簇圈定把前端默认档散户整档吞入，死指标门全线退出，协同现象由 A 题档承载（D3.34 题面反锚））：较 G10 34 净失 CD95/CD100 两票正命中；CD97/CD119/CD121 三票 G 拦截腿消失（承接路径=D3.34 重析题档升 strong 走 A 通道，随 128 票攒批对拍验证）。**改规则破坏此数须重新用户裁定**`);
+    ok(diffs.join(',') === 'CD56:cheat>healthy,CD84:healthy>unhealthy,CD95:unhealthy>healthy,CD97:cheat>healthy,CD100:unhealthy>healthy,CD103:unhealthy>healthy,CD105:healthy>unhealthy,CD107:healthy>unhealthy,CD108:cheat>unhealthy,CD113:unhealthy>healthy,CD114:unhealthy>healthy,CD116:unhealthy>healthy,CD119:cheat>healthy,CD121:cheat>healthy',
+      `十四票已知偏差锁定（实际 ${diffs.join(',')}）——CD56 版本漂移/CD108 A 降级（与 CD99 人工漂移对称）/
+CD103+CD113+CD114+CD116=G20/CD416 D 通道退役失载（famous dom=high 家族 expect=unhealthy 由 D 独撑，拦截载体移交 BP ③桶+卖侧 T133/T136/T161/T137 臂）/
 CD95+CD100=G11 退役失载（G 通道黄金集仅存两票正命中 expect=unhealthy，bd=high∧bundleBuy 无键触发点，随通道退役放行）/CD97+CD119+CD121=G 拦截腿消失（expect=cheat，A 通道档位无 strong 是 Jev 旧档判档——sbHold 89.9 的 CD97 曾由 C_sbHold90 拦（G9 退役）再由 G 拦（G11 退役）两轮退出，D3.34 重析承接）/
 CD84+CD105+CD107=G2 E 简化撤豁免代价（用户裁定「活跃度 low 也判 unhealthy，burst 不判 low」：
 t1流吃独食豁免（CD105）+卖笔对手盘豁免（CD107）撤销+CD84 act=low 搁置票；**本表为旧档位
@@ -663,9 +640,9 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
     const r2 = levelsFromObservation(null);
     ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 12,
       '空观测 → 12 键全 null（D3.74 二批 bd 随题退役 13→12；cr/sbp/holdings 同批先例；容缺不冒充）');
-    // 数值锚（用户补点「著名钱包掌控/持仓极不均衡」+D3.28 对敲三键+D3.32 持仓分布五键）：
-    // obs.anchors 持仓占比四键 + washPair 三键 + holdings 五键（CD122 实值）+
-    // extras famous 数值/档位；famousDominance=low/mid/high→0/1/2
+    // 数值锚（用户补点「持仓极不均衡」+D3.28 对敲三键+D3.32 持仓分布五键）：
+    // obs.anchors 持仓占比四键 + washPair 三键 + holdings 五键（CD122 实值）
+    // （extras famous 数值/档位三键已随 G20/CD416 退役）
     const r3 = levelsFromObservation({
       phenomena: {}, extLevels: {},
       anchors: { sameBlockHoldPct: 66.1, equalBandHoldPct: 57.2,
@@ -673,19 +650,20 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
         washPairCount: 10, washPairSellPct: 95.1, washPairBuyPct: 27.3,
         top2HoldSupplyPct: 9.4, top1Top2HoldSupplyPct: 35.0, top1Top2FirstBuyGapSec: 1,
         clusterHoldSupplyPct: 14.5, t1PlusClusterSupplyPct: 40.1 },
-    }, { famousDominancePct: 87.5, famousDominanceLevel: 'high' });
+    });
+    // （extras famousDominancePct/Level 两键已随 G20/CD416 退役——投影键不再产出）
     ok(r3.anchors && r3.anchors.sameBlockHoldPct === 66.1
       && r3.anchors.equalBandHoldPct === 57.2 && r3.anchors.top1HoldSupplyPct === 25.6
-      && r3.anchors.top1HoldCircPct === 53.4 && r3.anchors.famousDominancePct === 87.5
-      && r3.anchors.famousDominanceLevel === 'high' && r3.anchors.famousDominance === 2
+      && r3.anchors.top1HoldCircPct === 53.4
+      && r3.anchors.famousDominancePct === undefined
       && r3.anchors.washPairCount === 10 && r3.anchors.washPairSellPct === 95.1
       && r3.anchors.washPairBuyPct === 27.3
       && r3.anchors.top2HoldSupplyPct === 9.4 && r3.anchors.top1Top2HoldSupplyPct === 35.0
       && r3.anchors.top1Top2FirstBuyGapSec === 1 && r3.anchors.clusterHoldSupplyPct === 14.5
       && r3.anchors.t1PlusClusterSupplyPct === 40.1,
       `anchors 十二键精确映射含 holdings 五键（CD122 实值 t2 9.4/Σ2 35.0/Δ1s/簇 14.5/∪40.1；实际 ${JSON.stringify(r3.anchors)}）`);
-    ok(levelsFromObservation({}, { famousDominanceLevel: 'mid' }).anchors.famousDominance === 1,
-      'famous 档 low/mid/high → 0/1/2（dominance 映射表复用）');
+    ok(levelsFromObservation({}, { famousDominanceLevel: 'mid' }).anchors.famousDominance === undefined,
+      'G20 退役反证: extras 携带 famousDominanceLevel（旧调用形状）不再产出 famousDominance 键');
     const r5 = levelsFromObservation({ phenomena: {}, extLevels: {},
       anchors: { burstMaxGapSec: 65, burstWaveBuyBnb: 1.02, burstWaveWallets: 5, noBuySellPct: 63.3,
         spikeBuyPctInBurst: 99.3, spikeHoldPctAll: 96.7 } });
@@ -720,9 +698,8 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       'abnormalBehavior unclear→null（刻意不在映射表不冒充）+缺题（旧档）null+旧键 participation 在场不消费（D3.39 断代——回测/黄金集重放零变化防线）');
     const r4 = levelsFromObservation({}, { famousDominancePct: -3, famousDominanceLevel: 'extreme' });
     ok(r4.anchors.sameBlockHoldPct === null && r4.anchors.top1HoldCircPct === null
-      && r4.anchors.famousDominancePct === null && r4.anchors.famousDominance === null
-      && r4.anchors.famousDominanceLevel === 'extreme',
-      '锚缺席/负数/未知档 → 数值 null 不冒充（字符串原值照存留档，buckets 哲学）');
+      && r4.anchors.famousDominancePct === undefined && r4.anchors.famousDominance === undefined,
+      '锚缺席 → 数值 null 不冒充；famous 三键 G20/CD416 已退役不再产出（extras 携带=无害忽略）');
   }
 
   // ── CD159 强庄形状规则（SB1，§七.5「曾经命中」粘滞的当轮判定纯函数）──
