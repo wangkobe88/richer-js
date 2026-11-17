@@ -655,14 +655,14 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       && r.levels.stallBurstWave === 1
       && r.levels.sameBlockBuyWave === 3 && r.levels.amountTiering === null
       && r.levels.washPair === 3 && r.levels.activityLevel === 0
-      && r.levels.bundledDominance === 1 && r.levels.burstSpikeConcentration === 2,
-      `levelsFromObservation 13 题映射（D3.74 起 cr/sbp 随题退役 15→13 键；D3.39 abnormalBehavior/D3.51 burstSpikeConcentration；实际 ${JSON.stringify(r.levels)}）`);
+      && r.levels.burstSpikeConcentration === 2,
+      `levelsFromObservation 12 题映射（D3.74 二批 bd 退役 13→12 键；D3.39 abnormalBehavior/D3.51 burstSpikeConcentration；实际 ${JSON.stringify(r.levels)}）`);
     ok(r.buckets.sameBlockBuyWave === 'strong' && r.buckets.stallBurstWave === 'burst'
       && r.buckets.washPair === 'strong' && r.buckets.activityLevel === 'low',
       'buckets 字符串原值（metadata 研究留档）');
     const r2 = levelsFromObservation(null);
-    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 13,
-      '空观测 → 13 键全 null（D3.74 cr/sbp 随题退役 15→13；D3.72 holdingsBalance 同；容缺不冒充）');
+    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 12,
+      '空观测 → 12 键全 null（D3.74 二批 bd 随题退役 13→12；cr/sbp/holdings 同批先例；容缺不冒充）');
     // 数值锚（用户补点「著名钱包掌控/持仓极不均衡」+D3.28 对敲三键+D3.32 持仓分布五键）：
     // obs.anchors 持仓占比四键 + washPair 三键 + holdings 五键（CD122 实值）+
     // extras famous 数值/档位；famousDominance=low/mid/high→0/1/2

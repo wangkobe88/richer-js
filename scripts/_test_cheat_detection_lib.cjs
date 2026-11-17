@@ -626,15 +626,15 @@ const bdAns = (bucket, p = 0.8) => {
   return { type: 'choice', choice: bucket, probabilities: Object.fromEntries(BUNDLED_LEVELS.map((b) => [b, b === bucket ? p : rest])) };
 };
 ok(buildObservation(mkAnswers()).bundledDominance === null,
-  'bundled_trade_dominance 缺席（<D3.8 旧存档）→ null 不 throw（重放兼容）');
+  'bundled_trade_dominance D3.74 二批随题退役：obs 键恒 null（读档函数恒 null=答案忽略；BUNDLED_LEVELS 桶域保留导出供旧档重放兼容）');
 const f2d = buildObservation({ ...mkAnswers(), bundled_trade_dominance: bdAns('high') });
-ok(f2d.bundledDominance.bucket === 'high' && Math.abs(f2d.bundledDominance.prob - 0.8) < 1e-9,
-  'bundled_trade_dominance 在场 → {bucket,prob}（捆绑主导度档进观测记录）');
-threw = false;
+ok(f2d.bundledDominance === null,
+  'D3.74 bd 在场答案（旧档形状）→ 读档忽略恒 null');
+let threwBd2 = false;
 try {
   buildObservation({ ...mkAnswers(), bundled_trade_dominance: { type: 'choice', probabilities: { ultra: 1 } } });
-} catch (_) { threw = true; }
-ok(threw, 'bundled_trade_dominance 在场但档域名 ultra → throw（独立档域校验——BUNDLED_LEVELS 须同步）');
+} catch (_) { threwBd2 = true; }
+ok(!threwBd2, 'D3.74 bd 退役后在场答案（含非法档域）被读档忽略——不校验不 throw');
 ok(JSON.stringify(BUNDLED_LEVELS) === JSON.stringify(['low', 'mid', 'high']),
   'BUNDLED_LEVELS 导出=low/mid/high（题集独立档域三桶对齐）');
 
@@ -1710,11 +1710,11 @@ console.log('I. 著名钱包单极控盘锚');
     'PARTICIPATION_LEVELS 导出已随 D3.39 改名退役（旧常量不得残留——断代防线）');
   const qs = qm.buildCheatQuestions();
   const qids = Object.keys(qs);
-  ok(qids.length === 13
-    && ['equal_amount_split', 'coordinated_sell_back', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'bundled_trade_dominance', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'abnormal_behavior_ratio', 'burst_spike_concentration']
+  ok(qids.length === 12
+    && ['equal_amount_split', 'coordinated_sell_back', 'sell_dispersion', 'stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'activity_level', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'abnormal_behavior_ratio', 'burst_spike_concentration']
       .every((id) => qids.includes(id))
-    && !qids.includes('holdings_balance') && !qids.includes('creator_front_run') && !qids.includes('strong_backer_pressure'),
-    '13 题=存续 4 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + bundled_trade_dominance + insider_supply_sell + slow_grind_pump + wash_pair + abnormal_behavior_ratio（D3.39 改名）+ burst_spike_concentration（D3.51）+ strong_backer_pressure（D3.52 观察期）；holdings_balance D3.72 整题退役（2026-11-17 btv140 BP-T006 案用户裁定「持仓不均衡基本上不会被用来做任何判定」——旧题 id 不得残留）');
+    && !qids.includes('holdings_balance') && !qids.includes('creator_front_run') && !qids.includes('strong_backer_pressure') && !qids.includes('bundled_trade_dominance'),
+    '12 题=存续 3 现象题 + stall_burst_wave + amount_tiering + same_block_buy_wave + activity_level + insider（bundled_trade_dominance D3.74 二批随题退役——G11 后零消费）_supply_sell + slow_grind_pump + wash_pair + abnormal_behavior_ratio（D3.39 改名）+ burst_spike_concentration（D3.51）+ strong_backer_pressure（D3.52 观察期）；holdings_balance D3.72 整题退役（2026-11-17 btv140 BP-T006 案用户裁定「持仓不均衡基本上不会被用来做任何判定」——旧题 id 不得残留）');
   ok(qs.real_participation === undefined,
     '旧题 id real_participation 不得残留（D3.39 改名=换键，旧档答案键缺席容缺断代）');
   // D3.37/D3.38/D3.39：abnormal_behavior_ratio（D3.39 前名 real_participation）题面措辞锚（用户裁定反证——误导表述不得回潮）
@@ -1964,24 +1964,9 @@ console.log('I. 著名钱包单极控盘锚');
     'same_block_buy_wave D3.19 反例补 CD62 形状（13 秒窗 217 行/分四波全独立 tx 金额连续散布、12/13 在场=纯同时性打新并发）');
   ok(bwq.includes('每块恰 5 钱包') && bwq.includes('同额 0.0631 与 0.0197 交替') && bwq.includes('覆盖窗口 40/43 笔买入'),
     'same_block_buy_wave D3.19 正例补 CD67 bot 阵列形状（十钱包两轮同块成对进场、两档同额交替覆盖 40/43 笔=按协同判读）');
-  const bdq = qs.bundled_trade_dominance.instructions;
-  ok(bdq.includes('最硬信号') && bdq.includes('同块多钱包买入波') && bdq.includes('每波轮换'),
-    'bundled_trade_dominance 识别三信号=同 tx 打包/同块波/全新钱包轮换');
-  ok(bdq.includes('捆绑买入占比') && bdq.includes('捆绑持仓占比') && bdq.includes('正净持仓'),
-    'bundled_trade_dominance 双占比算式=买入占比+持仓占比（正净持仓域）');
-  ok(bdq.includes('定档以持仓占比为主、买入占比为辅') && bdq.includes('买完拿着'),
-    'bundled_trade_dominance 定档锚=持仓为主（买完拿着=主导筹码，卖走=刷量）');
-  ok(bdq.includes('背景噪声') && bdq.includes('≥50%') && bdq.includes('15~50%') && bdq.includes('<15%'),
-    'bundled_trade_dominance 档位语义=背景噪声无害/高档 ≥50/中档 15~50/低档 <15');
-  ok(bdq.includes('约 98% 的正净持仓') && bdq.includes('同一笔链上交易'),
-    'bundled_trade_dominance 正例=CD10 簇持仓 98% + CD8 同 tx 打包形状');
-  ok(bdq.includes('已卖出的仓位不算主导') && bdq.includes('不足其买入额的 15%') && bdq.includes('至多中档'),
-    'bundled_trade_dominance D3.9 强化=已卖出仓位不算主导（CD17 裁定：对冲离场=刷量，买入占比 ≥50% 也至多中档）');
-  ok(bdq.includes('买完即对冲卖出'),
-    'bundled_trade_dominance 低档正例含 CD17 形状（波内钱包买完即对冲离场、正净≈0 按刷量定低档）');
-  ok(qm.BUNDLED_LEVELS.every((b) => typeof qs.bundled_trade_dominance.criteria[b] === 'string')
-    && Object.keys(qs.bundled_trade_dominance.criteria).length === 3,
-    'bundled_trade_dominance：criteria 键集=BUNDLED_LEVELS 独立档域（非现象四档轴）');
+  // bd 题面断言块随 D3.74 二批整题退役移除（题对象已删；git 历史留档）
+
+  // bd criteria 键集断言随 D3.74 二批整题退役移除（题对象已删）
   const rat = qs.insider_supply_sell.instructions;
   ok(rat.includes('买入额不足其卖出额 10%') && rat.includes('沉在末尾也要扫到'),
     'insider_supply_sell 判据核心=零买入/低买入卖出钱包（10% 判据）+ [WALLETS] 降序末尾扫到（纯卖出钱包沉底反证）');

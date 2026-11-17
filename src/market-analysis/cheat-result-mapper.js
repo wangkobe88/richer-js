@@ -126,17 +126,8 @@ function _activityLevel(answers) {
  * low/mid/high，非现象四档轴）。容缺：旧存档（<D3.8）无该键 → null（重放兼容）；
  * 在场答案走 argmax + 桶域校验，未知桶名 throw（漂移防线不因容缺放宽）。
  */
-function _bundledDominance(answers) {
-  const a = answers && answers.bundled_trade_dominance;
-  if (!a || !a.probabilities) return null;
-  let best = null;
-  for (const [bucket, p] of Object.entries(a.probabilities)) {
-    if (best === null || p > best.prob) best = { bucket, prob: p };
-  }
-  if (!BUNDLED_LEVELS.includes(best.bucket)) {
-    throw new Error(`捆绑题 bundled_trade_dominance 未知桶名 '${best.bucket}'（题集/映射漂移——BUNDLED_LEVELS 须同步）`);
-  }
-  return { bucket: best.bucket, prob: best.prob };
+function _bundledDominance(answers) { // D3.74 bd 随题退役：恒 null（旧档答案忽略；BUNDLED_LEVELS 桶域保留导出供旧档重放域校验）
+  return null;
 }
 
 /**

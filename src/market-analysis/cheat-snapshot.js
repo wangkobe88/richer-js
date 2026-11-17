@@ -1861,7 +1861,7 @@ function computeDerived(snapshot, famousRoster) {
     totalBuyBnb, totalSellBnb, buyN, sellN,
     walletCount: wallets.length,
     top1BuyPct, top2BuyPct,
-    routerPct, routerBuyN,
+    routerPct, routerBuyN, // routerBuyN 保留=2026-11-05 九址扩录事故现场反证断言载体（lib:52）
     // D3.62 聚合路由入口占比（G17 N 通道源锚；头注见计算段）
     routerEntryBuyPct,
     unresolvedSenderTickCount,

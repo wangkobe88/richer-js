@@ -334,7 +334,6 @@ function levelsFromObservation(observation, extras = {}) {
     // FA cheatHoldingsBalance 键保留恒 null 供存量条件串兼容）
     burstSpikeConcentration: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.burst_spike_concentration), // D3.51（G15 A 主判）
     activityLevel: scoreLevel(CHEAT_LEVEL_SCORES.activity, act),
-    bundledDominance: scoreLevel(CHEAT_LEVEL_SCORES.dominance, dom),
     abnormalBehavior: scoreLevel(CHEAT_LEVEL_SCORES.abnormal, pt), // D3.39（G13 R 通道 abnormal_behavior_ratio；unclear→null）
   };
   const buckets = {
@@ -349,7 +348,6 @@ function levelsFromObservation(observation, extras = {}) {
     washPair: ex.wash_pair ?? null,
     burstSpikeConcentration: ex.burst_spike_concentration ?? null,
     activityLevel: act,
-    bundledDominance: dom,
     abnormalBehavior: pt,
   };
   const an = obs.anchors || {};

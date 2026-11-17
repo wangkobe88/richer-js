@@ -148,7 +148,6 @@ const GOOD_ANSWERS = {
   amount_tiering: phAns('strong'),
   same_block_buy_wave: phAns('strong'),
   activity_level: actAns('mid'),
-  bundled_trade_dominance: bdAns('high'),
   insider_supply_sell: phAns('strong'),
   wash_pair: phAns('none'),
 };
@@ -179,7 +178,6 @@ const NONE_ANSWERS = {
   stall_burst_wave: sbwAns('none'), amount_tiering: phAns('none'),
   same_block_buy_wave: phAns('none'), insider_supply_sell: phAns('none'),
   slow_grind_pump: phAns('none'), activity_level: actAns('mid'),
-  bundled_trade_dominance: bdAns('low'),
 };
 /** A 降级形状（唯一 pump strong ∧ burst ∧ mod<3）→ gradeObservation unhealthy；
  * CD397 起 sbw=burst 触发 burst 臂豁免（单条件）→ 服务出口 healthy+exempt（豁免锁段用） */
@@ -189,7 +187,6 @@ const PUMP_BURST = {
   stall_burst_wave: sbwAns('burst'), amount_tiering: phAns('none'),
   same_block_buy_wave: phAns('none'), insider_supply_sell: phAns('none'),
   slow_grind_pump: phAns('strong'), activity_level: actAns('mid'),
-  bundled_trade_dominance: bdAns('low'),
 };
 /** E 通道 unhealthy 形状（act=low 其余全 none）——unhealthy 每买信号重判/计数
  * 恢复类测试用（CD397 起不可带 sbw=burst：burst 臂单条件豁免会翻 healthy） */
@@ -199,7 +196,6 @@ const UNHEALTHY_LOW = {
   stall_burst_wave: sbwAns('none'), amount_tiering: phAns('none'),
   same_block_buy_wave: phAns('none'), insider_supply_sell: phAns('none'),
   slow_grind_pump: phAns('none'), activity_level: actAns('low'),
-  bundled_trade_dominance: bdAns('low'),
 };
 function makeSvc(db, llm, config = {}, nowRef = { t: 1000000 }) {
   return new CheatCheckService(
@@ -240,7 +236,7 @@ async function main() {
       && row.snapshot_digest.extLevels.same_block_buy_wave === 'strong'
       && row.snapshot_digest.extLevels.insider_supply_sell === 'strong'
       && row.snapshot_digest.activityLevel.bucket === 'mid'
-      && row.snapshot_digest.bundledDominance.bucket === 'high',
+      && row.snapshot_digest.bundledDominance === null,
       `digest 落观测记录主体（phenomena/extLevels 含 sbw 现象二分/tiering/bw/insider/activityLevel/bd；实际 ${JSON.stringify(row.snapshot_digest.phenomena)}/${JSON.stringify(row.snapshot_digest.activityLevel)}）`);
     ok(row.snapshot_digest.anchors && row.snapshot_digest.anchors.equalBandHoldPct === 100,
       `snapshot_digest 落锚快照（数值透传；实际 ${JSON.stringify(row.snapshot_digest.anchors)}）`);

@@ -833,7 +833,7 @@ ok(dCNoPos.exitSellerCount60 === 1, 'C: 清仓卖家计数照算=1（净≤0 有
     && act.nearSegTickN === cd.nearSegTickN && act.nearSegBnbPerMin === cd.nearSegBnbPerMin && act.spanSec === cd.spanSec && act.tickCount === cd.tickCount,
     'C: activity 锚族=cheatDerived 同名同值透传（单点计算不重算——BP 锚窗=买点前窗口）');
   const keysAct = Object.keys(act).sort().join(',');
-  ok(keysAct === 'buyMedianBnb,idlePct,maxDrawdownPct,nearPre20BnbPerMin,nearSegBnbPerMin,nearSegBuyMedianBnb,nearSegBuyN,nearSegMaxGapSec,nearSegSellN,nearSegTickN,nearSegTicksPerMin,nearTail10BnbPerMin,nearTail10BuyBnb,nearTail10BuyN,nearTail10SellBnb,nearTail10SellWallets,nearTail10TickN,nearTail5BuyBnb,nearTail5BuyN,nearTail5BuySharePct,nearTail5TickN,spanSec,throughputBnbPerMin,tickCount', `C: activity 恰 24 键（BP41 尾段占比锚 16→17+CD394 尾窗四键 17→21+BP72 尾 10s 买卖分解三键 21→24：nearTail10BuyN/BuyBnb/SellBnb 臂 A 本地买方在场性主锚（BP 侧自算非 cheat 层），实际 ${keysAct}）`);
+  ok(keysAct === 'actWeightedThroughputBnbPerMin,buyMedianBnb,idlePct,maxDrawdownPct,nearPre20BnbPerMin,nearSegBnbPerMin,nearSegBuyMedianBnb,nearSegBuyN,nearSegMaxGapSec,nearSegSellN,nearSegTickN,nearSegTicksPerMin,nearTail10BnbPerMin,nearTail10BuyBnb,nearTail10BuyN,nearTail10SellBnb,nearTail10SellWallets,nearTail10TickN,nearTail5BuyBnb,nearTail5BuyN,nearTail5BuySharePct,nearTail5TickN,spanSec,throughputBnbPerMin,tickCount', `C: activity 恰 25 键（BP41 16→17+CD394 17→21+BP72 21→24+D3.73 actWeightedThroughputBnbPerMin 24→25 时间衰减加权活跃分：nearTail10BuyN/BuyBnb/SellBnb 臂 A 本地买方在场性主锚（BP 侧自算非 cheat 层），实际 ${keysAct}）`);
   ok(snapAct.buyDerived.activity.maxDrawdownPct === cd.maxDrawdownPct, 'C: maxDrawdownPct 透传（可靠价运行峰回撤）');
 }
 

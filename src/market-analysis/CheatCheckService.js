@@ -1074,7 +1074,7 @@ class CheatCheckService {
         ` spike=${obs.extLevels.burst_spike_concentration ?? '—'}` +
         ` sbp=${obs.extLevels.strong_backer_pressure ?? '—'}` +
         ` hold=${obs.extLevels.holdings_balance ?? '—'}(t2:${snapshot.derived.top2HoldSupplyPct ?? '—'}%/Σ2:${snapshot.derived.top1Top2HoldSupplyPct ?? '—'}%/∪:${snapshot.derived.t1PlusClusterSupplyPct ?? '—'}%Δ${snapshot.derived.top1Top2FirstBuyGapSec ?? '—'}s)` +
-        ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'} bd=${obs.bundledDominance ? obs.bundledDominance.bucket : '—'}` +
+        ` act=${obs.activityLevel ? obs.activityLevel.bucket : '—'}` +
         ` abr=${obs.abnormalBehavior ? obs.abnormalBehavior.bucket : '—'}` +
         ` sbHold=${snapshot.derived.sameBlockHoldPct ?? '—'}% eqHold=${snapshot.derived.equalBandHoldPct ?? '—'}%` +
         ` wash对=${snapshot.derived.washPairCount ?? 0}对/卖占${snapshot.derived.washPairSellPct ?? '—'}%` +
