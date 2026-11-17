@@ -714,13 +714,11 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
     ENG.includes('const _sgPerTickExcl = this._signalGatePerTickExcludedIds();') &&
     ENG.includes('this._buyDebouncer.clear(tokenAddress);') &&
     ENG.includes("{ evalExcludeIds: _sgPerTickExcl }"));
-  ok('回测引擎 per-tick 挂点（C 类票 signalGate 实验补 build；inflightEvals 串行语义）',
-    BT.includes("if (!_evalFactors && this._signalGatePerTickExcludedIds() !== null) {\n            _evalFactors = this._factorAggregator.buildFactorMap(tick.token_address, tick.timestamp);") &&
-    BT.includes("if (_evalFactors) {\n            const _sgPerTickExcl = this._signalGatePerTickExcludedIds();") &&
-    BT.includes('this._buyDebouncer.clear(tick.token_address);') &&
-    BT.includes("{ evalExcludeIds: _sgPerTickExcl }"));
-  ok('legacy 腿不受影响（per-tick 未命中照旧 touch debounce）',
-    BT.includes('if (!_perTickFired) {') &&
+  ok('回测引擎 signalGate 腿统一走 debounce（T132 per-tick 已撤销 2026-11-17）',
+    !BT.includes('this._buyDebouncer.clear(tick.token_address);') &&
+    BT.includes('this._buyDebouncer.touch(tick.token_address, tick);'));
+  ok('legacy 腿不受影响（所有腿统一 debounce touch）',
+    BT.includes('this._buyDebouncer.touch(tick.token_address, tick);') &&
     ENG.includes('this._scheduleDebouncedBuy(tokenAddress, tick);'));
   ok('signalGateReal 门链挂点（signal 落库后先记账→作弊门→BP 门）',
     BT.includes('strategy.signalGate && this._signalGateReal') &&

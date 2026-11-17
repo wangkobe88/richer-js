@@ -1501,197 +1501,8 @@ class BacktestEngine extends AbstractTradingEngine {
    * 回放主循环：tick 按时间升序逐笔驱动（debounce advance → 首见入池 →
    * FA 增量 → 分腿路由），虚拟 30s 桶写组合快照；结束强平 + 终态。
    */
-  // ═══════════════════════════════════════════════════════════════════
-  // T153 两阶段模型（2026-11-16 用户裁定架构方向：Jev 是信号执行层，不应阻塞
-  // tick 回放）：阶段 1 纯内存检测信号点 → 阶段 2 并行 Jev 门链 → 阶段 3 正常
-  // 回放消费预计算结果。33h 窗预期 ~7min（vs 阻塞版 54min）。
-  // ═══════════════════════════════════════════════════════════════════
-
-  /**
-   * 阶段 1：轻量信号检测（纯内存，零门链零交易零卖出）。
-   * 复用主循环的 FA + 策略评估管线，但：
-   * - signalGate 条件照常评估（per-tick 路径）
-   * - 命中时记录信号点（token/strategyId/virtualTs/firePrice/tickIdx）
-   * - 不调门链、不执行买入、不做卖出评估/止损/毕业
-   * 返回信号点数组。
-   */
-  async _detectSignalPoints() {
-    const t0 = Date.now();
-    const points = [];
-    // 检测用独立 FA（不影响主循环 FA 状态——主循环的 FA 会被买入改变）
-    const detectFA = new (require('../../services/FourMemeFactorAggregator'))(
-      this._config, this.logger);
-    const _sgPerTickExcl = this._signalGatePerTickExcludedIds();
-    if (_sgPerTickExcl === null) {
-      this.logger.info(this._experimentId, 'BacktestEngine',
-        '阶段 1 跳过（非 signalGateReal 实验）');
-      return points;
-    }
-    // preFilter 复用
-    detectFA.setPreFilter(this._factorAggregator._preFilter || []);
-
-    let tickIdx = 0;
-    for (const tick of this._ticks) {
-      tickIdx++;
-      const addr = String(tick.token_address || '').toLowerCase();
-      // 注册（首见）
-      const meta = this._tokenMeta.get(addr) || {};
-      if (!detectFA.getTokenState(addr)) {
-        detectFA.registerToken(addr, {
-          createdAtMs: (meta.createdAtSec || Math.floor(tick.timestamp / 1000)) * 1000,
-          totalSupply: meta.totalSupply || 0, symbol: meta.symbol || '',
-          creatorAddress: meta.creator || null, platform: tick.platform || null,
-        });
-      }
-      detectFA.processTick(tick, { emitFactors: false });
-      // 因子构建（preFilter 同主循环：出窗未持仓跳过）
-      const factors = detectFA.buildFactorMap(addr, tick.timestamp);
-      if (!factors) continue;
-      // signalGate 条件评估（与主循环同款——但只记不执行）
-      // token pool 在主循环才填充——Phase 1 用 meta 构造轻量 token（strategyEngine
-      // 消费 symbol/chain 等展示字段，不影响条件评估=纯因子表驱动）
-      const token = this._tokenPool.getToken(addr, 'bsc') || {
-        token: addr, chain: 'bsc', symbol: meta.symbol || '',
-        name: meta.name || meta.symbol || '', platform: tick.platform || 'fourmeme',
-        createdAt: meta.createdAtSec || Math.floor(tick.timestamp / 1000),
-        strategyExecutions: {},
-      };
-      if (!this._tokenPool.getToken(addr, 'bsc')) {
-        this._tokenPool.addToken({ token: addr, chain: 'bsc',
-          symbol: meta.symbol || '', name: meta.name || meta.symbol || '',
-          platform: tick.platform || 'fourmeme', data_source: 'wss',
-          created_at: meta.createdAtSec || Math.floor(tick.timestamp / 1000),
-          current_price_usd: null, creator_address: meta.creator || null });
-      }
-      const exhausted = this._signalGateExcludedIds(addr);
-      const excl = exhausted ? new Set([...exhausted, ..._sgPerTickExcl]) : _sgPerTickExcl;
-      const strategy = this._strategyEngine.evaluate(
-        factors, addr, tick.timestamp, token, 'buy', { excludeStrategyIds: excl });
-      if (strategy) {
-        points.push({
-          token: addr, strategyId: strategy.id, strategyName: strategy.name,
-          signalGate: strategy.signalGate, cards: strategy.cards,
-          virtualTs: tick.timestamp, tickIdx: tickIdx - 1,
-          firePrice: factors.currentPrice || 0,
-          firePriceBnb: factors.currentPriceBnb || 0,
-          // 供阶段 2 消费的因子快照（fire 时刻真值）
-          factors: factors,
-        });
-        // 模拟触发消耗（maxTriggers 计数——检测阶段也要扣，否则阶段 3 的排除集不匹配）
-        this._sgRecordTrigger(addr, strategy.id);
-      }
-    }
-    this.logger.info(this._experimentId, 'BacktestEngine',
-      `📋 阶段 1（信号检测）: ${points.length} 个信号点 | ${((Date.now()-t0)/1000).toFixed(1)}s`);
-    return points;
-  }
-
-  /**
-   * 阶段 2：并行门链评估。
-   * 对每个信号点跑 FP4+cheat+BP 门链，用并发池控制 Jev API 压力。
-   * 返回 Map<key, result>，key=`${token}|${strategyId}|${virtualTs}`。
-   */
-  async _preEvaluateGates(points) {
-    if (!points.length) return new Map();
-    const t0 = Date.now();
-    const results = new Map();
-    const CONCURRENCY = 10;
-    let idx = 0, done = 0;
-
-    const worker = async () => {
-      while (idx < points.length) {
-        const p = points[idx++];
-        const key = `${p.token}|${p.strategyId}|${p.virtualTs}`;
-        try {
-          const meta = this._tokenMeta.get(p.token) || {};
-          const gateToken = {
-            token: p.token, symbol: meta.symbol || p.strategyName,
-            platform: meta.platform || 'fourmeme',
-            createdAt: meta.createdAtSec || Math.floor(p.virtualTs / 1000),
-          };
-          const faState = { platform: gateToken.platform, totalSupply: meta.totalSupply ?? null };
-          // FP4
-          let pass = true, reason = null, fp4Info = null;
-          if (this._buyPointCheckService?.factorEnabled) {
-            const fp4 = await this._buyPointCheckService.evaluateFactorPreBuy(
-              p.token, { address: p.token, symbol: gateToken.symbol, platform: gateToken.platform,
-                createdAtMs: p.virtualTs, totalSupply: meta.totalSupply ?? null },
-              { signalId: `pre_${key}`, signalCreatedAt: p.virtualTs, firePriceBnb: p.firePriceBnb,
-                strategyName: p.strategyName },
-              { anchorMs: p.virtualTs });
-            if (fp4.status === 'assessed') {
-              pass = fp4.pass === true; reason = fp4.reason ?? null;
-              fp4Info = { status: 'assessed', pass, reason, version: fp4.version,
-                pvp: fp4.pvp, arms: fp4.arms, trace: fp4.trace };
-            }
-          }
-          // Cheat（FP4 拒则跳）
-          let cheatInfo = null;
-          if (pass && this._cheatCheckService?.enabled && p.signalGate) {
-            const sg = p.signalGate;
-            const cheat = await this._cheatCheckService.gateBuyPoint(
-              p.token, { address: p.token, symbol: gateToken.symbol, platform: gateToken.platform,
-                createdAtMs: p.virtualTs, totalSupply: meta.totalSupply ?? null },
-              { signalId: `pre_${key}`, experimentId: this._experimentId },
-              { awaitMs: this._cheatGateAwaitMs || 15000, anchorMs: p.virtualTs,
-                ...(sg.cheatRecheck === true ? { recheckUnhealthy: true } : {}) });
-            if (cheat.grade === 'cheat' && !cheat.exempt) { pass = false; reason = `cheat_gate_cheat`; }
-            else if (cheat.grade === 'unhealthy' && !cheat.exempt) { pass = false; reason = 'cheat_gate_unhealthy'; }
-            cheatInfo = cheat;
-          }
-          // BP（前两门过才评）
-          let bpInfo = null;
-          if (pass && this._buyPointCheckService?.enabled && p.signalGate) {
-            const bp = await this._buyPointCheckService.gateBuyPoint(
-              p.token, { address: p.token, symbol: gateToken.symbol, platform: gateToken.platform,
-                createdAtMs: p.virtualTs, totalSupply: meta.totalSupply ?? null },
-              { signalId: `pre_${key}`, experimentId: this._experimentId,
-                firePriceBnb: p.firePriceBnb, strategyName: p.strategyName },
-              { awaitMs: this._bpGateAwaitMs || 15000, anchorMs: p.virtualTs });
-            if (bp.assessment && bp.assessment.bucket) {
-              const levels = p.signalGate.bpPassLevels || ['good', 'neutral'];
-              if (!levels.includes(bp.assessment.bucket)) { pass = false; reason = `bp_gate_${bp.assessment.rule || 'reject'}`; }
-              bpInfo = { status: 'assessed', bucket: bp.assessment.bucket, rule: bp.assessment.rule, prob: bp.assessment.prob };
-            }
-          }
-          results.set(key, { pass, reason, fp4Info, cheatInfo, bpInfo });
-        } catch (e) {
-          results.set(key, { pass: true, reason: null, error: e?.message || String(e) }); // fail-open
-        }
-        done++;
-        if (done % 100 === 0) {
-          this.logger.info(this._experimentId, 'BacktestEngine',
-            `阶段 2 进度: ${done}/${points.length}（${((Date.now()-t0)/1000).toFixed(0)}s）`);
-        }
-      }
-    };
-    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-    const passed = [...results.values()].filter(r => r.pass).length;
-    this.logger.info(this._experimentId, 'BacktestEngine',
-      `📋 阶段 2（门链预评估）: ${passed}/${points.length} 过门 | ${((Date.now()-t0)/1000).toFixed(1)}s`);
-    return results;
-  }
-
-  /**
-   * 两阶段入口：signalGateReal 实验先跑预计算，结果注入 _gateResultCache。
-   */
-  async _runTwoPhasePreCompute() {
-    if (!this._signalGateReal) return;
-    this.logger.info(this._experimentId, 'BacktestEngine', '🔬 T153 两阶段模型启动');
-    const points = await this._detectSignalPoints();
-    this._gateResultCache = await this._preEvaluateGates(points);
-    // 重置触发计数+seenTokens（阶段 1 消耗不影响阶段 3；seenTokens 重置让
-    // _registerToken 在 Phase 3 正常走 addTokenInsert DB 写路径）
-    this._sgTriggerCounts?.clear();
-    this._seenTokens?.clear();
-    this.logger.info(this._experimentId, 'BacktestEngine',
-      `🔬 预计算完成: ${this._gateResultCache.size} 条缓存 | 进入阶段 3（正常回放+缓存消费）`);
-  }
-
   async _runMainLoop() {
     const startTime = Date.now();
-    // T153 两阶段预计算（signalGateReal 实验专用）
-    await this._runTwoPhasePreCompute();
     let completedSuccessfully = false;
 
     try {
@@ -1712,7 +1523,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
         // 虚拟时钟推进：fire 到期的买评估（用截至上一笔 tick 的状态 + 本 tick 时刻）
         _p0 = Date.now();
-        await this._advanceDebouncer(tickTs, tick.token_address);
+        await this._advanceDebouncer(tickTs);
         perf.advance += Date.now() - _p0;
 
         _p0 = Date.now();
@@ -1832,48 +1643,11 @@ class BacktestEngine extends AbstractTradingEngine {
           }
           perf.sell += Date.now() - _p0;
         } else if (!this._buyingTokens.has(tick.token_address) && token.status !== 'bought') {
-          // T132 signalGate 触发腿 per-tick 评估（绕 debounce burst 合并——单 tick 真窗
-          // 形状，与实时引擎 _onFactorsUpdated 同构；动机与语义详基类
-          // _signalGatePerTickExcludedIds）。回放串行语义：eval 进 inflightEvals，
-          // 下一 tick 前 _advanceDebouncer drain 完成后才消费次笔（n=8 的翻假因子
-          // 永远不会覆盖 n=7 的触发判定）。T132b（ea78 案）：tickBuildSkip 开的
-          // C 类票（未持仓窗内）主循环不 build、factors=null——首版在此短路=per-tick
-          // 恒不评（ea78 全程未持仓=纯 C 类，两次回测零信号的双重根因之二）；
-          // 现补 signalGate 实验现 build 全量快照（fire 路径 _runBuyEvaluation 同款
-          // 重读；非 signalGate 实验恒 null 快速跳过零成本，tickBuildSkip 性能收益
-          // 对 legacy 实验保留——signalGate 实验本就逐 tick 找触发点，窗内 build 是
-          // 语义必需的代价）
-          let _perTickFired = false;
-          let _evalFactors = factors;
-          if (!_evalFactors && this._signalGatePerTickExcludedIds() !== null) {
-            _evalFactors = this._factorAggregator.buildFactorMap(tick.token_address, tick.timestamp);
-          }
-          if (_evalFactors) {
-            const _sgPerTickExcl = this._signalGatePerTickExcludedIds();
-            if (_sgPerTickExcl !== null) {
-              const _exhausted = this._signalGateExcludedIds(tick.token_address);
-              const _excl = _exhausted
-                ? new Set([..._exhausted, ..._sgPerTickExcl])
-                : _sgPerTickExcl;
-              const _sgStrategy = this._strategyEngine.evaluate(
-                _evalFactors, tick.token_address, tickTs, token, 'buy', { excludeStrategyIds: _excl });
-              if (_sgStrategy) {
-                _perTickFired = true;
-                this._buyDebouncer.clear(tick.token_address);
-                this.logger.info(this._experimentId, 'BuyEval',
-                  `${token.symbol} signalGate 触发腿 per-tick 命中(绕 debounce): ${_sgStrategy.name}`);
-                const _p = this._evaluateBuyPath(token, _evalFactors, tick, tickTs, { evalExcludeIds: _sgPerTickExcl })
-                  .catch(e => this.logger.error(this._experimentId, 'BuyEval',
-                    `${token.symbol || tick.token_address.slice(0, 10)} 回放买腿评估异常: ${e.message}`));
-                _p._tokenAddress = tick.token_address; this._inflightEvals.add(_p);
-                _p.finally(() => this._inflightEvals.delete(_p));
-              }
-            }
-          }
-          if (!_perTickFired) {
-            if (this._buyDebouncer.pending.has(tick.token_address)) this.metrics.debounceSuppressed++;
-            this._buyDebouncer.touch(tick.token_address, tick);
-          }
+          // 所有买腿（含 signalGate）统一走 debounce——T132 per-tick 绕 debounce
+          // 已撤销（2026-11-17 用户裁定「debounce 是对的，只是加了预检不应改架构」）：
+          // per-tick 使信号量 ×3 → 门链阻塞 ×3 = 54min 性能事故的第二因子
+          if (this._buyDebouncer.pending.has(tick.token_address)) this.metrics.debounceSuppressed++;
+          this._buyDebouncer.touch(tick.token_address, tick);
           perf.other += Date.now() - _p0;
         }
 
@@ -2247,19 +2021,11 @@ class BacktestEngine extends AbstractTradingEngine {
    */
   // 效率终极仪表：主循环阻塞 vs tick 处理累计
 
-  async _advanceDebouncer(tickTs, currentTokenAddress = null) {
+  async _advanceDebouncer(tickTs) {
     this._buyDebouncer.advance(tickTs);
     this._sellConfirmDebouncer.advance(tickTs);
-    // T152b（2026-11-16 T152 二修）：per-token 阻塞——当前 tick 的 token 有 inflight
-    // eval 时等它完成（保住同 token 买卖时序：仓位注册前不跳过卖出窗），其它 token
-    // 的链继续并行。T152 首版全非阻塞=买入仓位注册前主循环已推进数百 tick=窗口内
-    // 卖机会全丢（v138 胜率 11% vs 阻塞版 47% 的根因）。
-    if (currentTokenAddress && this._inflightEvals.size > 0) {
-      const _pending = [];
-      for (const p of this._inflightEvals) {
-        if (p._tokenAddress === currentTokenAddress) _pending.push(p);
-      }
-      if (_pending.length > 0) await Promise.all(_pending);
+    if (this._inflightEvals.size > 0) {
+      await Promise.all([...this._inflightEvals]);
     }
   }
 
@@ -2361,7 +2127,7 @@ class BacktestEngine extends AbstractTradingEngine {
       .catch(e => this.logger.error(this._experimentId, 'BuyEval',
         `${token.symbol || tokenAddress.slice(0, 10)} 回放买腿评估异常: ${e.message}`));
     // 收集 inflight promise：回放主循环 drain 后才推进下一笔 tick / 强平
-    p._tokenAddress = tokenAddress; this._inflightEvals.add(p);
+    this._inflightEvals.add(p);
     p.finally(() => this._inflightEvals.delete(p));
     return p;
   }
@@ -2502,38 +2268,6 @@ class BacktestEngine extends AbstractTradingEngine {
       // （created_at 秒/creator_address 双形状 + _tokenMeta 兜底 meta 缺行——
       // createdAt 锚缺失会让 cheat 题面锚窗退化，尽量补齐）
       if (strategy.signalGate && this._signalGateReal) {
-        // T153 门链缓存消费（两阶段模型）：预计算结果直接应用，零 Jev 零等待
-        const _cacheKey = `${tokenAddress}|${strategy.id}|${nowTs}`;
-        const _cached = this._gateResultCache?.get(_cacheKey);
-        if (_cached) {
-          // 命中缓存：跳过 FP4+cheat+BP 门链，直接应用结果
-          if (!_cached.pass) {
-            if (signalId) {
-              try {
-                await this._updateSignalStatus(signalId, 'failed',
-                  { message: `门链拒买(预计算): ${_cached.reason}`, reason: `gate_${_cached.reason}` },
-                  _cached);
-              } catch (_) {}
-            }
-            return { success: false, reason: `门链拒买(预计算): ${_cached.reason}` };
-          }
-          // 过门：跳过到 preBuy/执行（metadata 写入 signal 行）
-          if (signalId && (_cached.fp4Info || _cached.cheatInfo || _cached.bpInfo)) {
-            try {
-              const _meta = {};
-              if (_cached.fp4Info) _meta.factorCheck = _cached.fp4Info;
-              if (_cached.cheatInfo) _meta.cheatCheck = _cached.cheatInfo;
-              if (_cached.bpInfo) _meta.buyPoint = _cached.bpInfo;
-              await this._updateSignalMetadata(signalId, _meta);
-            } catch (_) {}
-          }
-          // 跳过门链段（goto preBuy）——用标志控制
-          this._skipGateChain = true;
-        } else {
-          // 缓存 miss（阶段 3 新型信号——再买轮等）：走同步门链（旧路径）
-          this.logger.info(this._experimentId, 'SignalGate',
-            `门链缓存 miss（同步评估）| ${token.symbol || tokenAddress.slice(0,10)} ${strategy.name}`);
-        }
         this._sgRecordTrigger(tokenAddress, strategy.id);
 
         const _meta = this._tokenMeta.get(tokenAddress) || {};
@@ -2552,9 +2286,6 @@ class BacktestEngine extends AbstractTradingEngine {
         // 曾错传 factorResults → BP 市值族/CD supply 族锚恒 null，bt-v83/v84 702/702）
         const faState = this._factorAggregator.getTokenState(tokenAddress);
 
-        if (this._skipGateChain) {
-          this._skipGateChain = false; // 一次性标志
-        } else {
         // T143 因子购买前检查门（FP1，门链最前——纯代码零 Jev；anchorMs=回放
         // as-of 截窗防前视；灰度 factorCheck.enabled 缺省关=fail-open 放行）
         const _fp4T0 = Date.now();
@@ -2600,7 +2331,6 @@ class BacktestEngine extends AbstractTradingEngine {
             `链路慢分解 preFP4=${_preFp4}ms fp4=${_fp4Dt}ms cheat=${_chDt}ms bp=${_bpDt}ms | ${token.symbol || tokenAddress.slice(0, 10)}`);
         }
         if (!bpGate.pass) return { success: false, reason: bpGate.reason };
-        } // end skipGateChain else
       }
 
       // ── 购买前检查（与实时引擎同构；checkTime 用回放时点）──
