@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP7'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP8'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP7');
+    assert.strictEqual(r.version, 'FP8');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -527,6 +527,57 @@ console.log('L. FP7 尾声腿3（砸穿发行价）+ CD414 短窗持续密集砸
     assert.strictEqual(tailGate.hit, true);
     const c414 = r.gates.find((x) => x.id === 'cd414');
     assert.ok(c414 && c414.label.includes('短窗持续密集砸盘'));
+  });
+}
+
+console.log('M. FP8 慢拉卸货 + famous 收割完残局（T024/T025 案）');
+{
+  const WIN = (buyBnb, sellBnb) => ({ buyBnb, sellBnb, buyN: 2, sellN: 2, netBnb: 0, buySharePct: 50, ticksPerMin: 10, buyers: 2, sellers: 2, newBuyers: 0 });
+  const TS = (bd, cd) => ({
+    ticks: [{ dt: 400 }],
+    wallets: [W(0.2994, 0.1, 0.2994, 100)],
+    buyDerived: Object.assign({ activity: { nearTail10BuyN: 3 } }, bd),
+    cheatDerived: Object.assign({}, cd),
+  });
+  check('M1 慢拉卸货主案复刻（T024：59点 R2=0.951 峰后3524s tpm0.27）→ 拒 slow_pump_unload', () => {
+    const r = M.evaluateFactorPreBuy(TS({ secSinceAth: 3524, win: { 30: WIN(0.53, 0), 120: WIN(0.53, 0) } }, { pumpStablePoints: 59, pumpStableR2: 0.951 }));
+    assert.strictEqual(r.pass, false); assert.strictEqual(r.reason, 'slow_pump_unload');
+    assert.ok(r.arms.includes('slow_pump_unload'));
+  });
+  check('M2 慢拉但峰后近（599s<600）→ 放行（卸货未充分发生）', () => {
+    assert.strictEqual(M.armSlowPumpUnload(TS({ secSinceAth: 599, win: { 30: WIN(0.5, 0), 120: WIN(0.5, 0) } }, { pumpStablePoints: 59, pumpStableR2: 0.96 })), false);
+  });
+  check('M3 缓推但尾声活跃（tpm120=5）→ 放行（本臂要尾声死流量）', () => {
+    assert.strictEqual(M.armSlowPumpUnload(TS({ secSinceAth: 3000, win: { 30: WIN(5, 0), 120: WIN(5, 0) } }, { pumpStablePoints: 59, pumpStableR2: 0.96 })), false);
+  });
+  check('M4 点数不足（29 点）→ 放行', () => {
+    assert.strictEqual(M.armSlowPumpUnload(TS({ secSinceAth: 3000, win: { 30: WIN(0.5, 0), 120: WIN(0.5, 0) } }, { pumpStablePoints: 29, pumpStableR2: 0.96 })), false);
+  });
+  check('M5 pump 锚缺失 → 放行（宁不拦）', () => {
+    assert.strictEqual(M.armSlowPumpUnload(TS({ secSinceAth: 3000, win: { 30: WIN(0.5, 0), 120: WIN(0.5, 0) } }, {})), false);
+  });
+  check('M6 famous 收割完主案复刻（memes：ath138.8 自卖比1.047 占买15.1 chg30-28）→ 拒 fam_harvested_final', () => {
+    const r = M.evaluateFactorPreBuy(TS({ athVsLaunchPct: 138.8, chg30Pct: -28.1, famousTraces: { wallets: [{}], groupBuyBnb: 1.0, groupSellBnb: 1.047, groupBuyPct: 15.1 } }, {}));
+    assert.strictEqual(r.pass, false); assert.strictEqual(r.reason, 'fam_harvested_final');
+  });
+  check('M7 自卖比不足（0.89 在场持有）→ 放行（小树 0.845 形状留观察）', () => {
+    assert.strictEqual(M.armFamousHarvestFinal(TS({ athVsLaunchPct: 138, chg30Pct: -30, famousTraces: { wallets: [{}], groupBuyBnb: 1.0, groupSellBnb: 0.89, groupBuyPct: 15 } }, {})), false);
+  });
+  check('M8 大涨过但 chg30 未砸落（-19）→ 放行', () => {
+    assert.strictEqual(M.armFamousHarvestFinal(TS({ athVsLaunchPct: 138, chg30Pct: -19, famousTraces: { wallets: [{}], groupBuyBnb: 1.0, groupSellBnb: 1.05, groupBuyPct: 15 } }, {})), false);
+  });
+  check('M9 占买不足（9.9 路过型）→ 放行', () => {
+    assert.strictEqual(M.armFamousHarvestFinal(TS({ athVsLaunchPct: 138, chg30Pct: -30, famousTraces: { wallets: [{}], groupBuyBnb: 0.5, groupSellBnb: 0.6, groupBuyPct: 9.9 } }, {})), false);
+  });
+  check('M10 roster 缺席（famousTraces=null）→ 放行（轴不可评宁不拦）', () => {
+    assert.strictEqual(M.armFamousHarvestFinal(TS({ athVsLaunchPct: 138, chg30Pct: -30 }, {})), false);
+  });
+  check('M11 gates 含两新门', () => {
+    const r = M.evaluateFactorPreBuy(TS({ secSinceAth: 3524, win: { 30: WIN(0.53, 0), 120: WIN(0.53, 0) } }, { pumpStablePoints: 59, pumpStableR2: 0.951 }));
+    const g1 = r.gates.find((x) => x.id === 'slow_pump');
+    assert.strictEqual(g1.hit, true); assert.ok(g1.value.includes('59点'), g1.value);
+    const g2 = r.gates.find((x) => x.id === 'fam_harvest_final');
+    assert.ok(g2 && g2.label.includes('famous收割完残局'));
   });
 }
 

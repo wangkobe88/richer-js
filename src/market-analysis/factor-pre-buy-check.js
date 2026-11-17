@@ -65,7 +65,36 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP7';
+const FACTOR_PREBUY_VERSION = 'FP8';
+
+// ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
+//    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
+//    你可以看一下它的交易，其实是不正常的，这个可以增加一个独立的因子门」——案形
+//    取证：102 分钟窗 0~40min 直线缓推（59 点 R²=0.951 斜率 2.48%/min 边拉几乎零卖）
+//    → 45~50min 单段卸货 1.62B（−30%）→ 50~90min 段段纯卖阴跌砸穿 → 95~100min 完全
+//    死寂 → 买点=死盘后 3 户 0.53B 的反弹（win120 仅此 3 户、tpm 0.27）。判据四腿：
+//    长直线缓推（pumpStablePoints ≥30 ∧ R² ≥0.95=机器缓推痕迹，D3.57 线 15 的两倍
+//    =「慢速」）∧ 峰后远端（secSinceAth ≥600s=卸货已发生）∧ 尾声死流量（win120 吞吐
+//    <1 BNB/min）。127 票扫描 2 票全负零误伤（T024 −0.020/T096 币安共建 −0.008——
+//    后者 FP5 腿1 已拦，本臂独立覆盖同族） ──
+const SLOW_PUMP_MIN_POINTS = 30;
+const SLOW_PUMP_MIN_R2 = 0.95;
+const SLOW_PUMP_MIN_SEC_SINCE_ATH = 600;
+const SLOW_PUMP_MAX_TPM120 = 1;
+
+// ── FP8b famous 收割完残局臂（2026-11-17 同日 BP-T025 memes 0x2bef2b61…7777 案
+//    用户裁定：「memes 我看了一下，比较典型的 famous 收割完的形态，famous 离场（或者
+//    基本离场）并且已经大涨过，这种肯定不能碰，看看怎么控吧」——判据四腿：大涨过
+//    （athVsLaunchPct ≥+100%）∧ famous 已离场（famousTraces 自卖比 ≥0.9=卖了九成）∧
+//    参与度门槛（占买 ≥10% 防路过型）∧ 已砸落（chg30 ≤−20）。127 票扫描 3 票：
+//    memes −0.051/CEPE −0.026 止血 + 鯨 +0.052 误伤（dom=100/自卖比 0.97 与 memes 全轴
+//    同形状却赢——同形状不可分，知情代价；鯨同时是 FP6 observe 面 5 票之一）。比 FP6
+//    observe（dom 轴）更精确表达「收割完」：自卖比轴从 observe 5 票切出收割完成度
+//    最高的 3 张，小树 0.845/XXX 0.768 留观察 ──
+const FAM_HARVEST_MIN_ATH_PCT = 100;
+const FAM_HARVEST_MIN_SOLD_RATIO = 0.9;
+const FAM_HARVEST_MIN_BUY_PCT = 10;
+const FAM_HARVEST_MAX_CHG30_PCT = -20;
 
 // ── FP6 famous 高控+砸落观察臂（2026-11-17 btv140 复审 BP-T007 小树 0x92598590…7777
 //    案用户裁定：「这样吧，这个场景（持有不多还没砸）先不阻挡购买，不过可以在因子
@@ -345,6 +374,33 @@ function judgeTailPhaseActivity(snapshot) {
   return { hit: 0, branch: 'sustained', reason: null, trace };
 }
 
+/** FP8a 慢拉卸货：长直线缓推 ∧ 峰后远端 ∧ 尾声死流量 → 拒 slow_pump_unload */
+function armSlowPumpUnload(snapshot) {
+  const bd = snapshot.buyDerived || {};
+  const cd = snapshot.cheatDerived || {};
+  const w120 = bd.win && bd.win[120];
+  if (typeof cd.pumpStablePoints !== 'number' || typeof cd.pumpStableR2 !== 'number') return false;
+  if (cd.pumpStablePoints < SLOW_PUMP_MIN_POINTS || cd.pumpStableR2 < SLOW_PUMP_MIN_R2) return false;
+  if (typeof bd.secSinceAth !== 'number' || bd.secSinceAth < SLOW_PUMP_MIN_SEC_SINCE_ATH) return false;
+  if (!w120 || typeof w120.buyBnb !== 'number' || typeof w120.sellBnb !== 'number') return false;
+  const tpm120 = (w120.buyBnb + w120.sellBnb) / 2;
+  return tpm120 < SLOW_PUMP_MAX_TPM120;
+}
+
+/** FP8b famous 收割完残局：大涨过 ∧ famous 已离场（自卖比≥0.9）∧ 参与度（占买≥10%）∧ 已砸落 → 拒 fam_harvested_final */
+function armFamousHarvestFinal(snapshot) {
+  const bd = snapshot.buyDerived || {};
+  const ft = bd.famousTraces;
+  if (!ft || !Array.isArray(ft.wallets) || ft.wallets.length === 0) return false;
+  if (typeof bd.athVsLaunchPct !== 'number' || bd.athVsLaunchPct < FAM_HARVEST_MIN_ATH_PCT) return false;
+  if (typeof bd.chg30Pct !== 'number' || bd.chg30Pct > FAM_HARVEST_MAX_CHG30_PCT) return false;
+  const groupBuy = typeof ft.groupBuyBnb === 'number' ? ft.groupBuyBnb : 0;
+  const groupSell = typeof ft.groupSellBnb === 'number' ? ft.groupSellBnb : 0;
+  const soldRatio = groupBuy > 0 ? groupSell / groupBuy : null;
+  if (soldRatio === null || soldRatio < FAM_HARVEST_MIN_SOLD_RATIO) return false;
+  return typeof ft.groupBuyPct === 'number' && ft.groupBuyPct >= FAM_HARVEST_MIN_BUY_PCT;
+}
+
 /** CD414 短窗持续密集砸盘：win30 独立卖钱包 ≥15 ∧ 卖 ≥2B ∧ 净 ≤−1.5B → 拒
  *  （observe fam_dominance_fall 命中票由调用点排除——上轮 famous 观察裁定） */
 function armDenseDump(bd) {
@@ -503,6 +559,26 @@ function buildFactorGates(parts) {
       observe: parts.domFall.observe === true,
     });
   }
+  // FP8a 慢拉卸货（键源 cd.pumpStable*+bd.secSinceAth+win120）
+  {
+    const cd2 = parts.cd || {};
+    const w120g = (parts.bd && parts.bd.win && parts.bd.win[120]) || null;
+    g.push({
+      id: 'slow_pump', label: 'FP8a·慢拉卸货',
+      value: `稳定段${d(cd2.pumpStablePoints, '点')} R²${d(cd2.pumpStableR2)} 峰后${d(parts.bd && parts.bd.secSinceAth, 's')} 吞吐${d(w120g ? (w120g.buyBnb + w120g.sellBnb) / 2 : null, 'B/min')}`,
+      line: '≥30点 ∧ R²≥0.95 ∧ 峰后≥600s ∧ 吞吐<1B/min', hit: parts.armHits.includes('slow_pump_unload'),
+    });
+  }
+  // FP8b famous 收割完残局
+  {
+    const ft = parts.bd && parts.bd.famousTraces;
+    const sr = ft && typeof ft.groupBuyBnb === 'number' && ft.groupBuyBnb > 0 && typeof ft.groupSellBnb === 'number' ? (ft.groupSellBnb / ft.groupBuyBnb).toFixed(2) : null;
+    g.push({
+      id: 'fam_harvest_final', label: 'FP8b·famous收割完残局',
+      value: `ath${d(parts.bd && parts.bd.athVsLaunchPct, '%')} 自卖比${d(sr)} 占买${d(ft && ft.groupBuyPct, '%')} chg30${d(parts.bd && parts.bd.chg30Pct, '%')}`,
+      line: 'ath≥100% ∧ 自卖比≥0.9 ∧ 占买≥10% ∧ chg30≤−20%', hit: parts.armHits.includes('fam_harvested_final'),
+    });
+  }
   return g;
 }
 
@@ -654,6 +730,8 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     else if (armBurstBundledWave(cd)) arms.push('cd405_burst_bundled_wave');
     else if (armExtremeDumpSellers(cd, snapshot.buyDerived)) arms.push('cd412_extreme_dump_sellers');
     else if (armDenseDump(snapshot.buyDerived) && !domFall.observe) arms.push('cd414_dense_dump'); // FP7 短窗持续密集砸盘（observe 命中票排除——famous 场景归观察）
+    else if (armSlowPumpUnload(snapshot)) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）
+    else if (armFamousHarvestFinal(snapshot)) arms.push('fam_harvested_final'); // FP8b famous 收割完残局（大涨过+已离场+已砸落）
   }
   // T144 活跃度门（BP act 题整题迁入）：PVP 后、CD 臂前
   const activity = enableActivity
@@ -693,6 +771,8 @@ module.exports = {
   FAM_DOM_FALL_DOM_PCT, FAM_DOM_FALL_CHG30_PCT,
   TAIL_BROKE_FLOOR_PCT,
   DENSE_DUMP_MIN_SELLERS, DENSE_DUMP_MIN_SELL_BNB, DENSE_DUMP_MAX_NET_BNB,
+  SLOW_PUMP_MIN_POINTS, SLOW_PUMP_MIN_R2, SLOW_PUMP_MIN_SEC_SINCE_ATH, SLOW_PUMP_MAX_TPM120,
+  FAM_HARVEST_MIN_ATH_PCT, FAM_HARVEST_MIN_SOLD_RATIO, FAM_HARVEST_MIN_BUY_PCT, FAM_HARVEST_MAX_CHG30_PCT,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
   EXTREME_DUMP_MIN_SELLERS, EXTREME_DUMP_MIN_BNB,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
@@ -702,6 +782,6 @@ module.exports = {
   judgeRetailPvp, judgeActivityLevel, judgeFamousDanger, judgeTailPhaseActivity,
   judgeFamousDominanceFall, buildFactorGates,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
-  armExtremeDumpSellers, armDenseDump,
+  armExtremeDumpSellers, armDenseDump, armSlowPumpUnload, armFamousHarvestFinal,
   evaluateFactorPreBuy,
 };
