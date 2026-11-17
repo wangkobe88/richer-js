@@ -559,6 +559,27 @@ function testStrategyEngineSellDebounce() {
     }
 }
 
+/**
+ * T165 引擎组装层透传源码锁（2026-11-17 事故现场反证）：
+ * 实验 config 腿 → strategyArray 的白名单组装在两引擎（实时 FourMemeWssTradingEngine
+ * 卖腿段 / BacktestEngine）曾漏透传 sellDebounce——T109 立法（2026-11-03）至发现日
+ * 腿级覆盖在实验路径静默失效，T163b 库部署的 2s 延迟腿全部死配置（v15 GMGN
+ * 透传事故同款形状：单测只锁 StrategyEngine 装载层，组装层缺口漏网）。此处源码
+ * 锁防回流：白名单重组时不得再丢该字段。
+ */
+function testEngineAssemblySellDebounceSourceLock() {
+    const fs = require('fs');
+    const files = [
+        ['实时引擎卖腿组装', path.join(ROOT, 'src/trading-engine/implementations/FourMemeWssTradingEngine.js')],
+        ['回测引擎卖腿组装', path.join(ROOT, 'src/trading-engine/implementations/BacktestEngine.js')],
+    ];
+    for (const [label, file] of files) {
+        const src = fs.readFileSync(file, 'utf8');
+        ok(src.includes('sellDebounce: s.sellDebounce,'),
+            `${label}：sellDebounce 原样透传在场（T165 事故反证：曾漏=腿级覆盖实验路径死配置）`);
+    }
+}
+
 async function main() {
     console.log('═'.repeat(72));
     console.log('pumpfun 回迁批 2 卖腿机制测试');
@@ -586,6 +607,8 @@ async function main() {
     console.log('  ✓ T109 sellDebounce 装载校验（归一化/拒启六形状/validateLegs 同口径）');
     testStrategyEnginePassthrough();
     console.log('  ✓ StrategyEngine 腿字段透传');
+    testEngineAssemblySellDebounceSourceLock();
+    console.log('  ✓ T165 引擎组装层 sellDebounce 透传源码锁（两引擎）');
 
     console.log('\n' + '═'.repeat(72));
     console.log(`结果：${passed} 通过 / ${failed} 失败`);

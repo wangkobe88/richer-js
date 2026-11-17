@@ -758,6 +758,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           bypassDebounce: !!s.bypassDebounce,
           lockTokenAfterSell: !!s.lockTokenAfterSell,
           cumulativeLossLockPct: typeof s.cumulativeLossLockPct === 'number' ? s.cumulativeLossLockPct : null,
+          // T109 腿级卖确认去抖覆盖段：原样透传（归一化/校验在 loadStrategies
+          // normalizeSellDebounce 单点）。★白名单漏透传=腿级覆盖在实验路径静默
+          // 失效（T165 发现：T109 立法至 2026-11-17 组装层一直没透传，T163b
+          // 库部署的 2s 延迟腿全部死配置——v15 GMGN 透传事故同款形状）
+          sellDebounce: s.sellDebounce,
           // sellPercentage 已退役（2026-10-24）：刻意原样透传（勿归一化吞掉）——
           // loadStrategies fail-fast 靠它识别携带旧字段的存量实验并拒启（groups/cycle
           // 同款防线；静默失效= sizing 静默变全清，危险方向）
