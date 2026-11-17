@@ -38,6 +38,7 @@ const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { TxSeenSignal } = require('../core/TxSeenSignal.js');
 const { createIpfsCacheWriter } = require('../core/IpfsCacheWriter.js');
+const { resolveAlmostLaunchStallMs, shouldExtendStallWindow } = require('../core/stall-close-almost-launch.js');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const Logger = require('../../services/logger');
 const Decimal = require('decimal.js');
@@ -907,10 +908,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const _scMin = Number(_sc.minTickBnb);
     this._stallCloseMinTickBnb = Number.isFinite(_scMin) && _scMin > 0 ? _scMin : null;
     if (this._stallCloseMinTickBnb != null) this._factorAggregator.setSubstantialTickBnb(this._stallCloseMinTickBnb);
+    // T170 almost_launch 域断流延长（fd57 案 2026-11-17 用户裁定「如果价格都跌到
+    // almost launch 这个范围，断流时间就延长到 1 分钟吧」）：检测时点现价 ≤+10（含
+    // 破发）→ 断流阈值放宽到 almostLaunchStallMs（缺省 60s，恒 max(stallMs,·) 只延长
+    // 不缩短；显式 0=关）。纯函数/口径详见 core/stall-close-almost-launch.js。
+    this._stallCloseAlmostLaunchMs = resolveAlmostLaunchStallMs(_sc, this._stallCloseMs);
     if (this._stallCloseMs != null) {
       this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
         `🛡️ 流动性止损已启用 | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓（` +
-        `${this._stallCloseMinTickBnb != null ? `足额门≥${this._stallCloseMinTickBnb}BNB，FA lastSubstantialTickAt 判据` : 'FA lastTickAt 判据'}，1s 墙钟扫描）`);
+        `${this._stallCloseMinTickBnb != null ? `足额门≥${this._stallCloseMinTickBnb}BNB，FA lastSubstantialTickAt 判据` : 'FA lastTickAt 判据'}，1s 墙钟扫描）` +
+        `${this._stallCloseAlmostLaunchMs != null ? `｜almost_launch 域(≤+10%)延长到${this._stallCloseAlmostLaunchMs / 1000}s` : ''}）`);
     }
 
     // 7. live 执行层（FourMemeDirectTrader + 钱包），必须在重启恢复之前就绪
@@ -3038,6 +3045,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (stalledMs <= this._stallCloseMs) continue;
       const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
       if (!factors) continue;
+      // T170 almost_launch 域断流延长：检测时点现价已 ≤+10%（含破发）→ 延长窗内
+      // 继续持仓（fd57 案：40s 止损后 5s 即来足额买盘、66s 后 +140%）。域外/curVs
+      // 缺失/窗已耗尽 → 照卖（原机制不变）。
+      if (shouldExtendStallWindow({
+        almostLaunchStallMs: this._stallCloseAlmostLaunchMs,
+        stalledMs,
+        currentVsLaunchPct: factors.currentVsLaunchPct,
+      })) continue;
       await this._emitStallCloseSell(token, factors, stalledMs);
     }
   }

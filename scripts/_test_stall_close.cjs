@@ -26,6 +26,14 @@
  *      足额近期不触发 / 水位 null fail-open / 关=原口径 / 策略名 ≥vBNB 后缀 /
  *      回测 asOf=lastSubstantialTickAt+stallMs 检测时点 parity）
  *
+ *   E. T170 almost_launch 域断流延长（fd57 Cashless 案 2026-11-17 用户裁定「价格
+ *      都跌到 almost launch 这个范围，断流时间就延长到 1 分钟吧，没啥等待成本，
+ *      但是有可能可以救回来大票」）：纯函数（配置归一化 max/缺省 60s/显式 0 关/
+ *      域判定 ≤+10 含破发 null 不在域）+ 实时（域内 45s 不卖/65s 卖、域外与缺
+ *      证据原阈值照卖、臂关零变化、fd57 事故现场反证=延长窗内足额买盘到达水位
+ *      重置零卖出）+ 回测（延长判定吃基础检测点因子、域内耗尽重锚延长点 asOf、
+ *      域外票哪怕晚检也保持 T104 基础检测点 parity）
+ *
  * 用法：node scripts/_test_stall_close.cjs
  */
 'use strict';
@@ -342,6 +350,136 @@ console.log('D3. 回测引擎足额门（虚拟时钟 + asOf 检测时点 parity
   });
   await eng2._scanStallClose(T0);
   check('足额近期（5s<10s）不触发', true, true);
+}
+
+// ═══ E. T170 almost_launch 域断流延长 ═══
+console.log('E0. 纯函数 stall-close-almost-launch（配置归一化 + 域判定 + 延长判定）');
+{
+  const M = require('../src/trading-engine/core/stall-close-almost-launch.js');
+  // resolveAlmostLaunchStallMs：缺省 60s / max 只延长不缩短 / 显式 0 关 / 机制整体关
+  check('缺省 60s（裁定值）', M.resolveAlmostLaunchStallMs({}, 40000), 60000);
+  check('配置 45s 生效（40s→45s，max 只延长不缩短）', M.resolveAlmostLaunchStallMs({ almostLaunchStallMs: 45000 }, 40000), 45000);
+  check('配置 90s 生效（>缺省）', M.resolveAlmostLaunchStallMs({ almostLaunchStallMs: 90000 }, 40000), 90000);
+  check('stallMs 本身 ≥60s → 等于 stallMs（不缩短）', M.resolveAlmostLaunchStallMs({}, 90000), 90000);
+  check('显式 0=关', M.resolveAlmostLaunchStallMs({ almostLaunchStallMs: 0 }, 40000), null);
+  check('stallClose 机制整体关 → 延长臂随关', M.resolveAlmostLaunchStallMs({ almostLaunchStallMs: 60000 }, null), null);
+  check('段缺失（{}兜底）缺省 60s', M.resolveAlmostLaunchStallMs(null, 40000), 60000);
+  // isAlmostLaunchDomain：≤+10 含破发；null 不在域（fail-closed）
+  check('域判定 10 恰等在内（<=）', M.isAlmostLaunchDomain(10), true);
+  check('域判定 10.01 在外', M.isAlmostLaunchDomain(10.01), false);
+  check('域判定 破发 -38.4 在内', M.isAlmostLaunchDomain(-38.4), true);
+  check('域判定 null 不在域（缺证据不延长）', M.isAlmostLaunchDomain(null), false);
+  // shouldExtendStallWindow：臂关/窗耗尽/域内
+  const ext = (o) => M.shouldExtendStallWindow({ almostLaunchStallMs: 60000, ...o });
+  check('延长判定 域内 45s → true', ext({ stalledMs: 45000, currentVsLaunchPct: 0 }), true);
+  check('延长判定 域内恰等 60s → true（>语义与基础阈值同）', ext({ stalledMs: 60000, currentVsLaunchPct: 5 }), true);
+  check('延长判定 域内 60s+1 → false（窗耗尽照卖）', ext({ stalledMs: 60001, currentVsLaunchPct: 5 }), false);
+  check('延长判定 域外 45s → false', ext({ stalledMs: 45000, currentVsLaunchPct: 28.5 }), false);
+  check('延长判定 curVs null 45s → false（fail-closed）', ext({ stalledMs: 45000, currentVsLaunchPct: null }), false);
+  check('延长判定 臂关 → false 恒卖', M.shouldExtendStallWindow({ almostLaunchStallMs: null, stalledMs: 45000, currentVsLaunchPct: 0 }), false);
+}
+
+console.log('E1. 实时引擎延长臂（stallMs=10000，almostLaunchStallMs=60000）');
+{
+  const now = Date.now();
+  const run = async ({ almostMs = 60000, lastSubstantialAgoMs, curVs }) => {
+    const calls = [];
+    const buildCalls = [];
+    const eng = makeWssEngine({
+      _stallCloseMs: 10000,
+      _stallCloseAlmostLaunchMs: almostMs,
+      _getAllHoldings: () => [{ tokenAddress: '0xt' }],
+      _tokenPool: { getToken: () => ({ token: '0xt', status: 'bought' }) },
+      _factorAggregator: {
+        getTokenState: () => ({ lastTickAt: now - lastSubstantialAgoMs, lastSubstantialTickAt: now - lastSubstantialAgoMs }),
+        buildFactorMap: (a, t) => { buildCalls.push({ a, t }); return { currentVsLaunchPct: curVs }; },
+      },
+      _sellingTokens: new Set(), _buyingTokens: new Set(),
+      _emitStallCloseSell: async (token, factors, stalledMs) => { calls.push({ addr: token.token, factors, stalledMs }); },
+    });
+    await eng._scanStallClose();
+    return { calls, buildCalls };
+  };
+  // fd57 案形状：stallMs=40s 已越（45s>40s），检测时点 curVs≈0（贴地板）→ 延长不卖
+  const e1 = await run({ lastSubstantialAgoMs: 45000, curVs: 0 });
+  check('域内 45s（越 40s 基础线）不卖=fd57 救回形状', e1.calls, []);
+  check('延长判定吃检测时点因子（build 被调）', e1.buildCalls.length, 1);
+  const e2 = await run({ lastSubstantialAgoMs: 65000, curVs: 0 });
+  check('域内 65s（延长窗耗尽）照卖', e2.calls.map(c => c.addr), ['0xt']);
+  const e3 = await run({ lastSubstantialAgoMs: 45000, curVs: 28.5 });
+  check('域外 45s 原阈值照卖（almost_launch 域限定）', e3.calls.map(c => c.addr), ['0xt']);
+  const e4 = await run({ lastSubstantialAgoMs: 45000, curVs: null });
+  check('curVs 缺失不延长照卖（fail-closed）', e4.calls.map(c => c.addr), ['0xt']);
+  const e5 = await run({ almostMs: null, lastSubstantialAgoMs: 45000, curVs: 0 });
+  check('臂关（显式 0/未配段旧实验形状）零变化照卖', e5.calls.map(c => c.addr), ['0xt']);
+
+  // fd57 事故现场反证：延长窗内第二波足额买盘到达 → 水位重置 → 两轮扫描零卖出
+  // （11:30:13 末足额 → 40s 线 11:30:54 卖〔旧〕；11:30:59 4×0.11B 足额到达重置水位）
+  {
+    const calls = [];
+    let watermarkAgoMs = 45000; // 11:30:13 末足额笔，距首检 45s（40s 线已越 5s）
+    const eng = makeWssEngine({
+      _stallCloseMs: 40000, _stallCloseAlmostLaunchMs: 60000,
+      _getAllHoldings: () => [{ tokenAddress: '0xfd57' }],
+      _tokenPool: { getToken: () => ({ token: '0xfd57', status: 'bought' }) },
+      _factorAggregator: {
+        getTokenState: () => ({ lastSubstantialTickAt: now - watermarkAgoMs }),
+        buildFactorMap: () => ({ currentVsLaunchPct: 0 }),
+      },
+      _sellingTokens: new Set(), _buyingTokens: new Set(),
+      _emitStallCloseSell: async (token) => { calls.push(token.token); },
+    });
+    const origNow = Date.now; Date.now = () => now;
+    try {
+      await eng._scanStallClose();            // 11:30:54 形状：越 40s 但域内 ≤60s → 不卖
+      watermarkAgoMs = 1000;                  // 11:30:59 形状：4×0.11B 足额重置水位
+      await eng._scanStallClose();            // 1s 前足额 → 基础线都没越 → 不卖
+    } finally { Date.now = origNow; }
+    check('★fd57 反证：延长窗内足额买盘到达 → 全程零卖出（旧 40s 口径此票已清仓）', calls, []);
+  }
+}
+
+console.log('E2. 回测引擎延长臂（虚拟时钟 + 检测时点 asOf parity）');
+{
+  // buildFactorMap 按 asOf 返回可区分对象：基础检测点 lastTickAt+stallMs vs 延长点
+  // lastTickAt+almostLaunchStallMs——fire 收到哪个对象即断言 asOf 锚在哪
+  const run = async ({ lastTickAt, curVsByAsOf = () => 0, stallMs = 10000, almostMs = 60000 }) => {
+    const calls = [];
+    const buildCalls = [];
+    const eng = makeBtEngine({
+      _stallCloseMs: stallMs,
+      _stallCloseAlmostLaunchMs: almostMs,
+      _getAllHoldings: () => [{ tokenAddress: '0xt' }],
+      _tokenPool: { getToken: () => ({ token: '0xt', status: 'bought' }) },
+      _factorAggregator: {
+        getTokenState: () => ({ lastTickAt }),
+        buildFactorMap: (a, asOf) => {
+          buildCalls.push({ a, asOf });
+          return { currentVsLaunchPct: curVsByAsOf(asOf), _asOf: asOf };
+        },
+      },
+      _sellingTokens: new Set(), _buyingTokens: new Set(),
+      _emitStallCloseSell: async (token, factors, stalledMs, ts) => { calls.push({ addr: token.token, factors, stalledMs, ts }); },
+    });
+    await eng._scanStallClose(T0);
+    return { calls, buildCalls };
+  };
+  // 域内 45s：延长判定吃基础检测点因子（断流期 state 冻结，价格键与延长点无差）
+  const r1 = await run({ lastTickAt: T0 - 45000 });
+  check('域内 45s 不卖（回测同判）', r1.calls, []);
+  check('延长判定 asOf=基础检测点 lastTickAt+stallMs', r1.buildCalls[0].asOf, T0 - 45000 + 10000);
+  // 域内 65s：耗尽真卖，fire 因子重锚延长点（=实时墙钟 fire 时刻的回放等价）
+  const r2 = await run({ lastTickAt: T0 - 65000 });
+  check('域内 65s 卖（唯一）', r2.calls.map(c => c.addr), ['0xt']);
+  check('★fire 因子 asOf=延长点 lastTickAt+60000（非基础检测点非 nowTs）', r2.calls[0].factors._asOf, T0 - 65000 + 60000);
+  check('两次 build（基础点判延长 + 延长点重锚）', r2.buildCalls.map(b => b.asOf), [T0 - 65000 + 10000, T0 - 65000 + 60000]);
+  // 域外票晚检（全市场静默后首检落 65s）：照卖且保持 T104 基础检测点（不被延长臂污染）
+  const r3 = await run({ lastTickAt: T0 - 65000, curVsByAsOf: () => 28.5 });
+  check('域外晚检照卖', r3.calls.map(c => c.addr), ['0xt']);
+  check('★域外 fire asOf=基础检测点（T104 parity 零变化，仅一次 build）', [r3.calls[0].factors._asOf, r3.buildCalls.length], [T0 - 65000 + 10000, 1]);
+  // curVs 缺失：不延长照卖
+  const r4 = await run({ lastTickAt: T0 - 45000, curVsByAsOf: () => null });
+  check('curVs 缺失照卖（回测 fail-closed）', r4.calls.map(c => c.addr), ['0xt']);
 }
 
 console.log(`\n结果: ${pass} pass / ${fail} fail`);
