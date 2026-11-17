@@ -14,7 +14,7 @@ async function tokenPnl(c, expId) {
     const { data, error } = await c.from('trades')
       .select('token_address,token_symbol,trade_direction,input_amount,output_amount,executed_at')
       .eq('experiment_id', expId)
-      .eq('trade_status', 'completed')
+      .eq('success', true)
       .range(from, from + 999);
     if (error) throw new Error(error.message);
     rows.push(...data);
