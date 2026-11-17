@@ -139,9 +139,13 @@ function memPullTicksFromIndex(index, tokenAddress, anchorMs) {
   // anchorMs 缺席=全量（回放主循环恒传 nowTs，缺席=防御形状）
   let cut = rows.length;
   if (anchorMs && Number.isFinite(anchorMs) && anchorMs > 0) {
-    const anchorIso = new Date(anchorMs).toISOString();
+    // T148c（2026-11-17 mem miss 根因修复）：用 timestamp（毫秒数字，主循环保证
+    // 存在）替代 block_time（字符串）——tick 对象在引擎装载管线中不带 block_time
+    // 属性（cache 行有但 _ticks 数组的变换对象没有），字符串比较 undefined<=iso
+    // 恒 false → 全部行被过滤 → miss → 600ms sleep × 259 次/2h = 155s 性能损失
     for (let i = rows.length - 1; i >= 0; i--) {
-      if (rows[i].block_time <= anchorIso) break;
+      const ts = rows[i].timestamp ?? (rows[i].block_time ? Date.parse(rows[i].block_time) : Infinity);
+      if (ts <= anchorMs) break;
       cut = i;
     }
   }
