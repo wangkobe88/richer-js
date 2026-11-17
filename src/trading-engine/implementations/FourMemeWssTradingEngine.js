@@ -461,6 +461,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._gmgnEntryService = this._gmgnEntryEnabled
       ? new (require('../core/GmgnEntryCheckService').GmgnEntryCheckService)(gecCfg)
       : null;
+
+    // T157/T157b 因子卖出过滤门（2026-11-17 famous HOLD 迁移+全腿化）：所有卖出
+    // 信号统一过纯代码因子过滤；famous 阻挡的管辖臂清单在配置 arms 内圈定。
+    // 缺段=关零行为；配置非法/arms 引用未知因子 → throw 拒启（fail-fast）
+    this._initFactorSellFilter(this._mergedWsConfig().factorSellFilter);
+
     // per-token 检查态：{ done?: boolean, checkedAt?: number, lastAttemptAt?: number }
     this._gmgnEntryStates = new Map();
     this._gmgnEntryHoldMs = Number.isFinite(gecCfg.holdSec) && gecCfg.holdSec > 0
@@ -3393,9 +3399,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       return { success: false, reason: '无触发卖出策略' };
     }
 
-    // T157 因子卖出过滤门：腿带 factorSellFilter 且拦截 → 视同腿未触发（与原
-    // 条件串释放臂假=evaluate 不返回该腿 bit 对齐：清 pending、放行后重新首真起算）
-    const fsf = this._factorSellFilterEvaluate(token, strategy, factors);
+    // T157/T157b 因子卖出过滤门（全腿）：拦截 → 视同腿未触发（与原条件串释放臂
+    // 假=evaluate 不返回该腿 bit 对齐：清 pending、放行后重新首真起算）
+    const fsf = this._factorSellFilterEvaluate(token, strategy, factors, Date.now());
     if (fsf.blocked) {
       this._sellConfirmDebouncer.clear(tokenAddress);
       return { success: false, reason: `因子卖出过滤拦截（${fsf.rule}）` };
@@ -3451,8 +3457,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const strategy = this._strategyEngine.evaluate(factors, tokenAddress, Date.now(), token, 'sell');
     if (!strategy) return { success: false, reason: '条件恢复，不卖' };
 
-    // T157 因子卖出过滤门（fire 重评点，与首评同口径：原条件串释放臂参与重评）
-    const fsf = this._factorSellFilterEvaluate(token, strategy, factors);
+    // T157/T157b 因子卖出过滤门（fire 重评点，与首评同口径：原条件串释放臂参与重评）
+    const fsf = this._factorSellFilterEvaluate(token, strategy, factors, Date.now());
     if (fsf.blocked) return { success: false, reason: `因子卖出过滤拦截（${fsf.rule}）` };
 
     return this._emitSellSignal(token, strategy, factors, null);

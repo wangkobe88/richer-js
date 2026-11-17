@@ -1867,17 +1867,58 @@ class AbstractTradingEngine extends ITradingEngine {
   }
 
   /**
-   * T157 因子卖出过滤门（famous HOLD 迁移案，2026-11-17）：卖信号纯代码因子
-   * 过滤（对标买侧 T143 因子购买前检查门形态，零 Jev/零 DB/零网络）。消费点=
-   * 两引擎 _evaluateSellPath（evaluate 返回触发腿后、bypass/去抖分流前）与
-   * _reconfirmAndSell（去抖 fire 重评）——拦截=视同腿未触发（与原条件串释放臂
-   * 假=evaluate 不返回该腿 bit 对齐：首评拦截清 pending、放行后重新首真起算）。
-   * 判定逻辑单一真相源 core/factor-sell-filter.js（judgeFactorSellFilter）。
-   * 日志去重：评估点每 tick 调用，同 (token, 腿) 持续拦截只打首条，放行后重置。
+   * T157/T157b 因子卖出过滤门初始化（实验级 fourmemeWs.factorSellFilter 段，
+   * flap/gang 经各自 ws 段同键）：归一化（core/factor-sell-filter 单点）+ arms
+   * 管辖臂清单语法/因子域校验（ConditionEvaluator+FA 因子集——arms 写错因子名
+   * =匹配静默失配=危险方向，fail-fast 拒启）。缺段/null=机制关零行为。
+   * 由两引擎 ctor 显式调用（实时=_mergedWsConfig().factorSellFilter，
+   * 回测=wsConfig.factorSellFilter——段名跟随平台）。
+   */
+  _initFactorSellFilter(rawCfg) {
+    this._factorSellFilterCfg = null;
+    if (rawCfg == null) return;
+    const { normalizeFactorSellFilterConfig } = require('./factor-sell-filter');
+    const r = normalizeFactorSellFilterConfig(rawCfg);
+    if (r.error) throw new Error(`factorSellFilter 配置非法：${r.error}，拒绝启动`);
+    // arms 表达式语法+FA 因子域校验（unknown-factor 三防线同精神；
+    // validateCondition 吃 AST——必须先 parseCondition，语法错 parse 即 throw）
+    const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
+    const { getAvailableFactorIds } = require('./FactorBuilder');
+    const evaluator = new ConditionEvaluator();
+    const faIds = new Set(getAvailableFactorIds());
+    for (const arm of r.normalized.famousHold.arms) {
+      try {
+        const validation = evaluator.validateCondition(evaluator.parseCondition(arm), faIds);
+        const errs = (validation && validation.errors) || [];
+        if (errs.length) {
+          throw new Error(errs.join(', '));
+        }
+      } catch (e) {
+        throw new Error(`factorSellFilter.famousHold.arms 条目 "${arm}" 语法非法/引用未知因子: ${e?.message || e}（管辖臂失配=famous 阻挡静默失效），拒绝启动`);
+      }
+    }
+    this._factorSellFilterCfg = r.normalized;
+    this.logger.info(this._experimentId, 'SellEval',
+      `因子卖出过滤门启用 | famousHold 管辖臂 ${r.normalized.famousHold.arms.length} 条（pp≥${r.normalized.famousHold.minProfitPct} ∧ famous ${r.normalized.famousHold.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${r.normalized.famousHold.sellReleaseBnb} → 拦截）`);
+  }
+
+  /**
+   * T157/T157b 因子卖出过滤门（famous HOLD 迁移案）：**所有卖信号统一过本门**
+   * （纯代码零 Jev/零网络；判定+管辖臂匹配单一真相源 core/factor-sell-filter）。
+   * 消费点=两引擎 _evaluateSellPath（evaluate 返回触发腿后、bypass/去抖分流前）
+   * 与 _reconfirmAndSell（去抖 fire 重评）——拦截=视同腿未触发（与原条件串释放
+   * 臂假=evaluate 不返回该腿 bit 对齐：首评拦截清 pending、放行后重新首真起算）。
+   * famous 阻挡只对配置圈定的管辖臂（arms 清单匹配触发腿 condition）生效，其余
+   * 腿（止损/毕业/bypass 保命腿等）恒放行。拦截留痕：连续拦截 per (token,腿)
+   * 只落首行 SELL 信号行（execution_status='blocked'+factorSellFilter 判据段，
+   * signals 页展示）；日志同 key 去重。
+   * @param {number} nowTs - 信号时刻（实时=Date.now()；回测=虚拟时钟——落行
+   *   created_at 与其它回测信号行同源）
    * @returns {{blocked:boolean, rule:string|null, info:Object|null}}
    */
-  _factorSellFilterEvaluate(token, strategy, factors) {
-    const res = judgeFactorSellFilter(strategy && strategy.factorSellFilter, factors);
+  _factorSellFilterEvaluate(token, strategy, factors, nowTs) {
+    if (!this._factorSellFilterCfg) return { blocked: false, rule: null, info: null };
+    const res = judgeFactorSellFilter(this._factorSellFilterCfg, strategy, factors);
     if (!res.blocked) {
       if (this._factorSellFilterLogSeen) {
         this._factorSellFilterLogSeen.delete(`${token?.token}|${strategy?.id}`);
@@ -1886,14 +1927,56 @@ class AbstractTradingEngine extends ITradingEngine {
     }
     const key = `${token?.token}|${strategy?.id}`;
     if (!this._factorSellFilterLogSeen) this._factorSellFilterLogSeen = new Map();
-    if (this._factorSellFilterLogSeen.get(key) === res.rule) return res; // 持续拦截静默
+    if (this._factorSellFilterLogSeen.get(key) === res.rule) return res; // 持续拦截静默（日志+落行同 key 去重）
     this._factorSellFilterLogSeen.set(key, res.rule);
     const i = res.info || {};
     this.logger.info(this._experimentId, 'SellEval',
       `🛡 因子卖出过滤拦截（${res.rule}）| ${token?.symbol || String(token?.token || '').slice(0, 10)} 腿=${strategy?.name}` +
       ` | pp=${i.profitPercent} sinceLastFamousBigBuySec=${i.sinceLastFamousBigBuySec} recentFamousSellBnb=${i.recentFamousSellBnb}` +
       `（HOLD=famous ${i.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${i.sellReleaseBnb} ∧ pp≥${i.minProfitPct}——放行=出窗/撤退达线/跌破保护域）`);
+    // 拦截留痕：落 SELL blocked 行（fire-and-forget——失败 warn 不阻塞卖评估路径）
+    try {
+      this._persistFactorSellFilterSignal(token, strategy, factors, res, nowTs)
+        .catch((e) => this.logger.warn(this._experimentId, 'SellEval',
+          `因子卖出过滤拦截行落库失败（已吞） | ${token?.symbol || String(token?.token || '').slice(0, 10)} ${e?.message || e}`));
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'SellEval',
+        `因子卖出过滤拦截行构造失败（已吞） | ${token?.symbol || ''} ${e?.message || e}`);
+    }
     return res;
+  }
+
+  /**
+   * 拦截留痕行（T157b 信号页可观测性）：SELL 信号行 executed=false +
+   * metadata.execution_status='blocked' + factorSellFilter 判据段——signals 页
+   * 蓝紫「已拦截」徽章+判据明细展示。created_at=nowTs（回测虚拟时钟同源）。
+   */
+  async _persistFactorSellFilterSignal(token, strategy, factors, res, nowTs) {
+    const { TradeSignal } = require('../entities/TradeSignal');
+    const reason = `因子卖出过滤拦截（${res.rule}）`;
+    const sig = new TradeSignal({
+      experimentId: this._experimentId,
+      tokenAddress: token?.token,
+      tokenSymbol: token?.symbol || null,
+      chain: 'bsc',
+      signalType: 'SELL',
+      action: 'sell',
+      confidence: 0,
+      reason: `🛡 ${reason}`,
+      metadata: {
+        execution_status: 'blocked',
+        execution_reason: reason,
+        factorSellFilter: res.info,
+        strategyId: strategy?.id || null,
+        strategyName: strategy?.name || null,
+        price: factors?.currentPrice ?? null,
+        currentPrice: factors?.currentPrice ?? null,
+        profitPercent: factors?.profitPercent ?? null,
+      },
+      executed: false,
+      createdAt: new Date(Number.isFinite(nowTs) ? nowTs : Date.now()),
+    });
+    await sig.save();
   }
 
   /** FA 因子投影（grade 三键+题档+锚+CD159 观察臂；值=最近一次判定；stop 逐 token 清） */

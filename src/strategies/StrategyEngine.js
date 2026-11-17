@@ -6,8 +6,6 @@
  */
 
 const { ConditionEvaluator } = require('./ConditionEvaluator');
-// T157 因子卖出过滤门：归一化/判定纯函数单一真相源（零依赖模块，两引擎+校验链共用）
-const { normalizeFactorSellFilter: _normalizeFactorSellFilter } = require('../trading-engine/core/factor-sell-filter');
 
 /**
  * 卡牌张数归一化（迁自 rich-js 卡牌仓位机制）
@@ -74,21 +72,6 @@ function normalizeSellDebounce(raw) {
 
 /** signalGate 允许的 BP 综合判定桶全集（与 buy-point 题集综合题四桶同域） */
 const SIGNAL_GATE_BP_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
-
-/**
- * 因子卖出过滤门归一化（T157 2026-11-17 famous HOLD 迁移案）：卖腿携带
- * factorSellFilter = 卖信号过纯代码因子过滤门（现行唯一规则 famousHold——
- * famous 仍在入场（180s 内 ≥0.1B 大买）且卖出未达释放线（<0.4，D 修买优先
- * 于卖）∧ pp≥100 时拦截卖出信号）。形状/值域 fail-fast 单点校验（与
- * validateLegs 同源防漂移）；归一化与判定逻辑在
- * trading-engine/core/factor-sell-filter.js（纯函数单一真相源，两引擎共用）。
- * @param {*} raw - 腿配置原始值
- * @returns {{normalized: Object|null, error: string|null}}
- */
-function normalizeFactorSellFilter(raw) {
-    const r = _normalizeFactorSellFilter(raw);
-    return { normalized: r.normalized ?? null, error: r.error ?? null };
-}
 
 /**
  * 信号源门链段归一化（T117 2026-11-05 买入策略整体调整）：
@@ -370,17 +353,13 @@ class StrategyEngine {
                     throw new Error(`策略[${config.id}] 非卖腿携带 sellDebounce（T109 卖腿确认去抖覆盖）：该字段仅卖腿可配，拒绝启动`);
                 }
 
-                // 因子卖出过滤门（T157 2026-11-17 famous HOLD 迁移案）：仅卖腿可配——
-                // 卖信号 fire 后过纯代码因子过滤（famousHold：famous 仍在入场且卖出
-                // 未达释放线 ∧ pp≥100 → 拦截）。形状/值域 fail-fast（单点归一化，与
-                // validateLegs 同源）；拦截语义=视同腿未触发（与原条件串释放臂假
-                // =evaluate 不返回 bit 对齐）。买腿携带即拒启（buyPhase 先例风格）
-                const fsf = normalizeFactorSellFilter(config.factorSellFilter);
-                if (fsf.error) {
-                    throw new Error(`策略[${config.id}] ${fsf.error}（T157 因子卖出过滤门），拒绝启动`);
-                }
-                if (fsf.normalized != null && config.action !== 'sell') {
-                    throw new Error(`策略[${config.id}] 非卖腿携带 factorSellFilter（T157 因子卖出过滤门）：该字段仅卖腿可配，拒绝启动`);
+                // 因子卖出过滤门（T157 2026-11-17；T157b 同日全腿化二修）：卖腿字段
+                // factorSellFilter 已退役——所有卖出信号统一过模块（实验级
+                // fourmemeWs.factorSellFilter 配置，famous 阻挡的管辖臂清单在模块
+                // 内圈定，不逐腿标记）。携带即拒启（显式报错优于静默忽略——存量
+                // 误解防线，sellPercentage/groups 先例风格）
+                if (config.factorSellFilter !== undefined && config.factorSellFilter !== null) {
+                    throw new Error(`策略[${config.id}] 携带已退役字段 factorSellFilter（T157b 全腿化：卖出过滤=实验级 fourmemeWs.factorSellFilter 配置全腿生效，管辖臂清单在模块 arms 内圈定，不逐腿标记），拒绝启动`);
                 }
 
                 // 构建策略对象
@@ -431,10 +410,6 @@ class StrategyEngine {
                     // MinTicks/MaxWaitMs）；pending entry 首真起算时固化（消费点=
                     // _evaluateSellPath → SellConfirmDebouncer.touch 第三参）
                     sellDebounce: sd.normalized,
-                    // 因子卖出过滤门（T157）：null=不走（零行为）；携带=卖信号 fire
-                    // 后过纯代码因子过滤（消费点=两引擎 _evaluateSellPath /
-                    // _reconfirmAndSell 的 evaluate 返回后插桩——拦截视同腿未触发）
-                    factorSellFilter: fsf.normalized,
                     lockTokenAfterSell: !!config.lockTokenAfterSell,
                     cumulativeLossLockPct: typeof config.cumulativeLossLockPct === 'number'
                         ? config.cumulativeLossLockPct : null,
@@ -677,4 +652,4 @@ class StrategyEngine {
     }
 }
 
-module.exports = { StrategyEngine, normalizeSellDebounce, normalizeSignalGate, normalizeFactorSellFilter, SIGNAL_GATE_BP_LEVELS };
+module.exports = { StrategyEngine, normalizeSellDebounce, normalizeSignalGate, SIGNAL_GATE_BP_LEVELS };

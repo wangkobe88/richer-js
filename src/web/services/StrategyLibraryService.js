@@ -41,7 +41,7 @@ function validateLegs(side, legs) {
     }
     // lazy require：保持「require 本文件零依赖」的可测性；require 缓存后无重复开销
     const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
-    const { normalizeSellDebounce, normalizeSignalGate, normalizeFactorSellFilter } = require('../../strategies/StrategyEngine');
+    const { normalizeSellDebounce, normalizeSignalGate } = require('../../strategies/StrategyEngine');
     const { getAvailableFactorIds } = require('../../trading-engine/core/FactorBuilder');
     const { PreBuyCheckService } = require('../../trading-engine/pre-check/PreBuyCheckService');
     const { GmgnRiskCheckService } = require('../../trading-engine/pre-check/GmgnRiskCheckService');
@@ -108,14 +108,11 @@ function validateLegs(side, legs) {
         } else if (sd.normalized != null && side !== 'sell') {
             errors.push(`腿[${i}] 非卖腿携带 sellDebounce（T109 卖腿确认去抖覆盖：该字段仅卖腿可配）`);
         }
-        // 因子卖出过滤门（T157 2026-11-17 famous HOLD 迁移案）：仅卖腿可配，形状/
-        // 值域共享引擎侧 normalizeFactorSellFilter 单点校验（入库 400 与
-        // loadStrategies 拒启同口径防漂移）
-        const fsf = normalizeFactorSellFilter(leg.factorSellFilter);
-        if (fsf.error) {
-            errors.push(`腿[${i}] ${fsf.error}（T157 因子卖出过滤门）`);
-        } else if (fsf.normalized != null && side !== 'sell') {
-            errors.push(`腿[${i}] 非卖腿携带 factorSellFilter（T157 因子卖出过滤门：该字段仅卖腿可配）`);
+        // 因子卖出过滤门（T157 2026-11-17；T157b 同日全腿化二修）：腿字段
+        // factorSellFilter 已退役（所有卖信号统一过模块，实验级配置）——携带
+        // 即 400（与引擎 loadStrategies 拒启同口径防漂移）
+        if (leg.factorSellFilter !== undefined && leg.factorSellFilter !== null) {
+            errors.push(`腿[${i}] 携带已退役字段 factorSellFilter（T157b 全腿化：卖出过滤=实验级 fourmemeWs.factorSellFilter 配置全腿生效，不逐腿标记）`);
         }
         // 买信号驱动作弊门条件（CD158 2026-11-03）：仅买腿可配——与引擎
         // loadStrategies 拒启同口径（入库 400 防漂移）

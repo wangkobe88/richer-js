@@ -1760,10 +1760,15 @@ class ExperimentSignals {
       const signalType = signal.signal_type || signal.action?.toUpperCase();
       const isBuy = signalType === 'BUY';
       const isExecuted = signal.executed === true || signal.executed === 'true';
-      const borderColor = isExecuted
-        ? (isBuy ? '#22c55e' : '#dc2626')
-        : (isBuy ? '#86efac' : '#fca5a5');
-      const labelText = (isBuy ? 'BUY' : 'SELL') + (isExecuted ? ' ✓' : ' ✗');
+      // T157 因子卖出过滤拦截（famous HOLD）：靛蓝虚线+🛡 标签——区别「SELL ✗ 失败」
+      // （拦截=延缓卖出，后续放行会再卖，非执行失败）
+      const isBlocked = signal.execution_status === 'blocked';
+      const borderColor = isBlocked ? '#6366f1'
+        : isExecuted
+          ? (isBuy ? '#22c55e' : '#dc2626')
+          : (isBuy ? '#86efac' : '#fca5a5');
+      const labelText = isBlocked ? 'SELL 🛡'
+        : (isBuy ? 'BUY' : 'SELL') + (isExecuted ? ' ✓' : ' ✗');
       const idx = stackCount.get(signalTime) || 0;
       stackCount.set(signalTime, idx + 1);
       annotations.push({
@@ -2890,16 +2895,20 @@ class ExperimentSignals {
 
     // 检查是否是被拒绝的信号
     const isRejected = this.isSignalRejected(signal);
+    // T157 因子卖出过滤门拦截（famous HOLD 延缓卖出，非拒绝/失败）
+    const isBlocked = this.isSignalBlocked(signal);
     // 观察信号（2026-10-23 ₿DOG 案）：OBSERVE 行恒终态（executed=false 无后续推进），
     // 独立灰底徽章，不走三态
     const isObserve = signal.signal_type === 'OBSERVE';
     const executedStatus = isObserve ?
       '<span class="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded-full">👁 观察</span>' :
-      (signal.executed ?
-        '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 已执行</span>' :
-        (isRejected ?
-          '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">🚫 被拒绝</span>' :
-          '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">⏳ 未执行</span>'));
+      (isBlocked ?
+        '<span class="text-xs px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full">🛡 已拦截</span>' :
+        (signal.executed ?
+          '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 已执行</span>' :
+          (isRejected ?
+            '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">🚫 被拒绝</span>' :
+            '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">⏳ 未执行</span>')));
 
     // 从 metadata 中获取策略信息
     const metadata = signal.metadata || {};
@@ -2975,6 +2984,36 @@ class ExperimentSignals {
           ${factorRejectDetailHtml}
         </div>
       `;
+    }
+
+    // T157 因子卖出过滤门拦截明细（famous HOLD 判据展示——蓝紫系区别红色拒绝；
+    // 判据源=metadata.factorSellFilter 段：管辖臂+三因子值+阈值+放行条件）
+    let blockedInfoHtml = '';
+    if (isBlocked) {
+      const fsf = metadata.factorSellFilter || {};
+      if (fsf.rule === 'famous_hold' || fsf.sinceLastFamousBigBuySec != null) {
+        const fmt = (v) => (v == null ? '—' : v);
+        blockedInfoHtml = `
+        <div class="mt-2 p-2 bg-indigo-50 rounded border border-indigo-200">
+          <div class="flex items-center space-x-2">
+            <span class="text-indigo-700 font-medium text-sm">🛡 famous HOLD 拦截:</span>
+            <span class="text-indigo-900 text-sm">famous 仍在入场，延缓卖出</span>
+          </div>
+          <div class="text-xs text-indigo-900 mt-1 space-y-0.5">
+            <div>浮盈=${fmt(fsf.profitPercent)}%（保护域 ≥${fmt(fsf.minProfitPct)}%）· 距 famous 大买=${fmt(fsf.sinceLastFamousBigBuySec)}s（窗 ≤${fmt(fsf.maxSinceBuySec)}s）· 60s 内 famous 卖出=${fmt(fsf.recentFamousSellBnb)} BNB（释放线 ≥${fmt(fsf.sellReleaseBnb)}）</div>
+            ${fsf.arm ? `<div class="text-indigo-700">管辖臂: ${this._escapeHtml(fsf.arm)}</div>` : ''}
+            <div class="text-indigo-600">放行条件：famous 超窗未入场 / 60s 卖出达释放线 / 浮盈跌破保护域</div>
+          </div>
+        </div>`;
+      } else {
+        blockedInfoHtml = `
+        <div class="mt-2 p-2 bg-indigo-50 rounded border border-indigo-200">
+          <div class="flex items-center space-x-2">
+            <span class="text-indigo-700 font-medium text-sm">🛡 因子卖出过滤拦截:</span>
+            <span class="text-indigo-900 text-sm">${this._escapeHtml(executionReason || '触发条件落在管辖臂内')}</span>
+          </div>
+        </div>`;
+      }
     }
 
     // 构建策略信息HTML
@@ -3756,6 +3795,8 @@ class ExperimentSignals {
 
       ${rejectionInfoHtml}
 
+      ${blockedInfoHtml}
+
       ${strategyInfoHtml}
 
       ${observationInfoHtml}
@@ -3818,6 +3859,10 @@ class ExperimentSignals {
     if (signal && signal.execution_status === 'failed') {
       return 'signal-rejected';
     }
+    // T157 因子卖出过滤门拦截（famous HOLD）：蓝紫系区别红色拒绝——卖出被延缓非失败
+    if (signal && signal.execution_status === 'blocked') {
+      return 'signal-blocked';
+    }
     switch (action.toUpperCase()) {
       case 'BUY': return 'signal-buy';
       case 'SELL': return 'signal-sell';
@@ -3830,6 +3875,9 @@ class ExperimentSignals {
     // 检查是否是被拒绝的信号
     if (signal && signal.execution_status === 'failed') {
       return 'badge-rejected';
+    }
+    if (signal && signal.execution_status === 'blocked') {
+      return 'badge-blocked';
     }
     switch (action.toUpperCase()) {
       case 'BUY': return 'badge-buy';
@@ -3846,6 +3894,13 @@ class ExperimentSignals {
    */
   isSignalRejected(signal) {
     return signal && signal.execution_status === 'failed';
+  }
+
+  /**
+   * 检查信号是否被因子卖出过滤门拦截（T157 famous HOLD——卖出被延缓非失败）
+   */
+  isSignalBlocked(signal) {
+    return signal && signal.execution_status === 'blocked';
   }
 
   highlightSignal(signal) {
