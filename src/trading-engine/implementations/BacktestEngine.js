@@ -2314,6 +2314,9 @@ class BacktestEngine extends AbstractTradingEngine {
             firePriceBnb,
             strategyName: strategy.name,
             signalCreatedAt: nowTs,
+            // T155（2026-11-17 用户裁定「全部对齐 FA」）：FA 因子表已有的值不再重算——
+            // BP 位置门消费 FA 的 currentVsLaunchPct（信号触发时已过 28.5 检查的值）
+            faCurrentVsLaunchPct: factorResults.currentVsLaunchPct ?? null,
           });
         const _fp4Dt = Date.now() - _fp4T0;
         if (!factorGate.pass) return { success: false, reason: factorGate.reason };

@@ -1684,6 +1684,8 @@ class AbstractTradingEngine extends ITradingEngine {
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
           // BP67：cheat 门 burst 判定输入（activity_level burst 桶证据行；null=无证据不注入）
           ...(ctx.cheatBurst ? { cheatBurst: ctx.cheatBurst } : {}),
+          // T155：FA 因子表已有值不再重算——BP 位置门消费 FA 的 curVs
+          ...(Number.isFinite(ctx.faCurrentVsLaunchPct) ? { faCurrentVsLaunchPct: ctx.faCurrentVsLaunchPct } : {}),
         });
         if (res && res.status === 'assessed') {
           const bucket = res.assessment?.bucket ?? null;
