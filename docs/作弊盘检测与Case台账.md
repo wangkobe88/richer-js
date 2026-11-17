@@ -187,6 +187,14 @@
 
 ## Case 倒序
 
+### CD413 holdings_balance 整题退役 + slow_grind_pump 合力反锚第二通道（G19/D3.72）——btv140 复审 BP-T006 食蟹猴二案（2026-11-17）
+
+**案源**：BP-T006 食蟹猴(二) `0x387c9be8…7777`（−0.025）：第一信号 07:26:24 cheat 门判 cheat 三码（A_strong:slow_grind_pump+D_famous_dominance+J_holdings_strong）正确拒；3 秒后第二信号（P11 腿）activityLevel mid→high 翻档 → CD379 activity_high 豁免把 cheat 翻 healthy 放行。用户两裁定：「holdingsBalance 这一臂去掉」+追裁定「holdings_balance 可以直接删除，持仓不均衡基本上不会被用来做任何判定了，有必要的话，会加入到因子过滤中」；「slowGrindPump 也明显判的不对，这就是代币放出来然后一个 famous 进了，然后跟进了一些流量，slowGrindPump 的特点是上涨阶段活跃度不高，单极推高，但这个明显不是」。
+
+**落法（G18→G19 / D3.71→D3.72，commit 0dfff13d）**：①holdings_balance **题整题删除**（16→15 题）+EXT_PHENOMENON_IDS 移除（旧档答案被清单忽略，历史 buckets 行留档）+J_holdings_strong 臂退役+持仓分布数值锚族（top2/Σ2/∪/分层基数等）照算纯观察+FA `cheatHoldingsBalance` 键保留恒 null 供存量条件串兼容（levelsFromObservation 16→15 键）；②slow_grind_pump 合力反锚**第二通道**：独立进场钱包 ≥15 ∧ 买入吞吐 ≥3 BNB/min ∧ 金额连续散布无档位聚集=「大户/famous 进场带动流量跟进」的合力行情至多 moderate——原反锚 ≥10 BNB/min 单腿前提线把本例（7.35 BNB/min/28 买家/金额散布）挡在反锚外误判 strong；等额阵列/同块齐到/尘埃垫推天然不满足散布腿不受影响；同服从拉高出货例外约束。
+
+**验证**：主案重判 3/3 稳定 pump=strong→**none**（grade=cheat→unhealthy，仅剩 D_famous_dominance——act=high 仍豁免放行，豁免收紧另案）；定向回归 CD53/CD54/CD99/CD102/CD106 全 PASS 零误翻（等额阵列/缓推正例 pump 保持 strong）；黄金集 42 票 extLevels 无 holdings 键零翻动；单测 grade 133/lib 662/gate_engine 180 全绿（lib D3.32/D3.41/D3.54/D3.60 holdings 题面断言块随题退役移除）。⚠️`_test_cheat_detection_service` 存量失败 1 项（CD407 簇外承接行为锁——stash 实证与本案无关，攒批待裁）。
+
 ### CD412 极端捆绑砸盘独立臂（cd412_extreme_dump_sellers）——btv134 R3 POORNANCE 案（2026-11-16；FP4 因子门，纯代码零 Jev）
 
 **用户裁定原话**：「按道理如果流量来自正常传播下跌到这个幅度也算好点位，但这个出现了非常严重的捆绑砸盘（异常作弊，散户感觉不会砸这么快）」+「如果下跌到最底部破发，这个作弊行为也被豁免（防止归零后新庄入场）」。
