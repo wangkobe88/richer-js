@@ -112,8 +112,19 @@ const BURST_SEG_SEARCH_SEC = 60;
  * 内 per-block 捆绑买入的钱包计数=块内单钱包买入合计 ≥此值才计入——尘单堆凑
  * 的钱包数不算组织性捆绑（M4GA 案第 5 钱包 0.0010 尘埃单天然门外）。规模线
  * （≥7）在 CheatCheckService._exemptDeniedReason（burst_bundled_wave 臂）。
+ * **CD420（2026-11-17 bt-v143 M4GA `0xba5ed45b…7777` 案，用户裁定「0.01 的
+ * 买入如果算一个钱包，有点不合理了」）0.01→0.03**：M4GA 首信号锚（07:40:46）
+ * burst 波=4×0.123 等额捆绑块+相邻 slot 杂单 0.078/0.118/0.020，0.01 口径
+ * Adj=4+3=7 贴线 denied 拦下 sbw=burst 豁免票（错过 90 秒后 +730% frenzy；
+ * CD405 落地对拍时 M4GA 同票锚=4w/0 门外放行——同票不同锚形状差异非立法漏验）；
+ * 0.03 口径 0.020 剔除 → Adj=4+2=6 放行。判例影响面回放（生产 buildSnapshot
+ * FromRows 直读）：Callcat大写 13 户全 0.036~0.043 → Max=13 保持拦；Crypto
+ * Winter 217 块 2×0.0741+218 块 5 户（0.0129 剔）→ Adj=2+5=7 贴线保持拦；
+ * 网上南宁 6+3→3+2=5 / callcat小 4+3→4+2=6 翻出本臂，但两票对拍留痕由先序
+ * 更具体码认领（dump_no_absorption / burst_exit_sell_pressure）→ 拒买结论
+ * 不变同拒不同码；比格多栋 3/0 门外不变。四张命中判例零翻坏。
  */
-const BURST_BUNDLE_WALLET_DUST_BNB = 0.01;
+const BURST_BUNDLE_WALLET_DUST_BNB = 0.03;
 /**
  * CD407 burst 流量簇切分阈值（2026-11-14，btv113 Cashless 0xbcb72829 案——用户
  * 裁定原话「我们考量 burst 的对象……只考量『这一波突然的流量』即可。这里四个
@@ -1155,7 +1166,9 @@ function computeDerived(snapshot, famousRoster) {
   //                             （Crypto Winter 案 2+6=8——连续 slot 分批=同批
   //                             bundler 跨块拆分的组织性形状；合计口径=用户裁定
   //                             「连续 2 个 slot 数量够了」）
-  // 去尘=块内单钱包买入合计 ≥BURST_BUNDLE_WALLET_DUST_BNB 才计数；剔聚合路由
+  // 去尘=块内单钱包买入合计 ≥BURST_BUNDLE_WALLET_DUST_BNB 才计数（**CD420 起
+  // 0.03**——0.01 级买入算捆绑钱包不合理，M4GA 案相邻 slot 杂单 0.020 堆凑
+  // 贴线 denied 误拦 burst 豁免票）；剔聚合路由
   // 伪钱包（wallet=sender||trader 小写）；block 缺失行不进块统计（CD400 同款）。
   // 无 ≥30s 静默段 → 全族 null（burst 语境缺席=臂不触发，不扩大收紧面）；有段
   // 波窗无买块/无相邻对 → 0 有证据零值。阈值（≥7）在 CheatCheckService.

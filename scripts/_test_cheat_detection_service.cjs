@@ -1379,9 +1379,9 @@ async function main() {
     ];
     const CHEAT_HIGH = { ...GOOD_ANSWERS, activity_level: actAns('high') };
 
-    // ① 主形状（Callcat 复刻）：cheat ∧ act=high ∧ 出口同块 13 钱包各 0.02
-    //    → denied 保持 cheat+拉黑+细分计数+digest/r 两键精确透传
-    const db1 = makeDb({ ticks: waveBase([[70, 200, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 0.02]]) });
+    // ① 主形状（Callcat 复刻，CD420 后金额 0.04=生产 0.036~0.043 级全数过 0.03 尘线）：
+    //    cheat ∧ act=high ∧ 出口同块 13 钱包 → denied 保持 cheat+拉黑+细分计数+digest/r 两键精确透传
+    const db1 = makeDb({ ticks: waveBase([[70, 200, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 0.04]]) });
     const svc1 = makeSvc(db1, makeLlm({ answers: CHEAT_HIGH }));
     const r1 = await svc1.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     ok(r1.grade === 'cheat' && r1.exemptDenied === 'burst_bundled_wave' && svc1.isGateBlocked('0xtok') === true
@@ -1393,13 +1393,14 @@ async function main() {
     ok(r1.anchors && r1.anchors.burstWaveBundleMaxWallets === 13 && r1.anchors.burstWaveBundleAdjPairSum === 0,
       'r.anchors 判据键白名单透传（CD400 同形——门侧消费需要）');
 
-    // ② 相邻 slot 合计线（Crypto Winter 复刻）：2+6=8 → denied；门外最近 2+4=6（TukTuk）→ 照豁免
-    const db2a = makeDb({ ticks: waveBase([[70, 200, [1, 2], 0.02], [71, 201, [1, 2, 3, 4, 5, 6], 0.03]]) });
+    // ② 相邻 slot 合计线（Crypto Winter 复刻，CD420 后 0.03 尘线）：2+6=8 → denied；
+    //    门外最近 2+4=6（TukTuk）→ 照豁免
+    const db2a = makeDb({ ticks: waveBase([[70, 200, [1, 2], 0.0741], [71, 201, [1, 2, 3, 4, 5, 6], 0.03]]) });
     const svc2a = makeSvc(db2a, makeLlm({ answers: CHEAT_HIGH }));
     const r2a = await svc2a.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     ok(r2a.grade === 'cheat' && r2a.exemptDenied === 'burst_bundled_wave' && svc2a.stats.burstBundleDenied === 1,
       `相邻 slot 2+6=8 合计命中（Crypto Winter 复刻连续 slot 拆分形状；实际 ${r2a.grade}/${r2a.exemptDenied}）`);
-    const db2b = makeDb({ ticks: waveBase([[70, 200, [1, 2], 0.02], [71, 201, [1, 2, 3, 4], 0.02]]) });
+    const db2b = makeDb({ ticks: waveBase([[70, 200, [1, 2], 0.03], [71, 201, [1, 2, 3, 4], 0.03]]) });
     const svc2b = makeSvc(db2b, makeLlm({ answers: CHEAT_HIGH }));
     const r2b = await svc2b.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
     ok(r2b.grade === 'healthy' && r2b.exempt && r2b.exempt.code === 'activity_high' && svc2b.stats.burstBundleDenied === 0,

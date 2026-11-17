@@ -2780,53 +2780,54 @@ console.log('I. 著名钱包单极控盘锚（cheat 门消费已退役，锚族=
     // gap 前铺垫行（sec10 block100；与出口 sec70 gap=60s ≥30 成段）
     const pre = mkRow(10, 100, 1, 'buy', 0.2, 1e-9, { sender: w405(90) });
 
-    // ① Callcat 复刻：出口行同块 13 钱包各 0.02（单块 ≥7 形状）→ Max=13/Adj=0
-    const d1 = d405([pre, ...bundle(70, 200, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 0.02)]);
+    // ① Callcat 复刻：出口行同块 13 钱包各 0.04（生产真实 0.036~0.043 级，CD420
+    //    0.03 尘线后仍全数计入）→ Max=13/Adj=0
+    const d1 = d405([pre, ...bundle(70, 200, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13], 0.04)]);
     ok(d1.burstWaveBundleMaxWallets === 13 && d1.burstWaveBundleAdjPairSum === 0,
       `CD405 单块 13 钱包（Callcat 复刻——出口行自身同块全数计入；实际 ${d1.burstWaveBundleMaxWallets}/${d1.burstWaveBundleAdjPairSum}）`);
 
-    // ② Crypto Winter 复刻：相邻 slot 200(2w)+201(6w) 连续分批 → Max=6/Adj=2+6=8
+    // ② Crypto Winter 复刻：相邻 slot 200(2w×0.0741)+201(6w×0.03) 连续分批 → Max=6/Adj=2+6=8
     const d2 = d405([
       pre,
-      ...bundle(70, 200, [1, 2], 0.02),
+      ...bundle(70, 200, [1, 2], 0.0741),
       ...bundle(71, 201, [3, 4, 5, 6, 7, 8], 0.03),
     ]);
     ok(d2.burstWaveBundleMaxWallets === 6 && d2.burstWaveBundleAdjPairSum === 8,
       `CD405 相邻两 slot 合计（Crypto Winter 复刻 2+6=8 连续 slot 拆分形状；实际 ${d2.burstWaveBundleMaxWallets}/${d2.burstWaveBundleAdjPairSum}）`);
 
-    // ③ M4GA 复刻：4 钱包 0.02 + 1 尘埃钱包 0.001 同块 → 去尘 Max=4；单买块无相邻对 Adj=0（有证据零值）
-    const d3 = d405([pre, ...bundle(70, 200, [1, 2, 3, 4], 0.02), ...bundle(70, 200, [99], 0.001, 10)]);
+    // ③ M4GA 复刻：4 钱包 0.123 + 1 尘埃钱包 0.001 同块 → 去尘 Max=4；单买块无相邻对 Adj=0（有证据零值）
+    const d3 = d405([pre, ...bundle(70, 200, [1, 2, 3, 4], 0.123), ...bundle(70, 200, [99], 0.001, 10)]);
     ok(d3.burstWaveBundleMaxWallets === 4 && d3.burstWaveBundleAdjPairSum === 0,
-      `CD405 尘埃钱包不计（M4GA 复刻 0.001 <0.01 去尘线；实际 ${d3.burstWaveBundleMaxWallets}/${d3.burstWaveBundleAdjPairSum}）`);
+      `CD405 尘埃钱包不计（M4GA 复刻 0.001 <0.03 去尘线；实际 ${d3.burstWaveBundleMaxWallets}/${d3.burstWaveBundleAdjPairSum}）`);
 
     // ④ TukTuk 门外最近形状：2+4=6 → 6/6（阈值 ≥7 在 service——lib 锁精确值）
-    const d4 = d405([pre, ...bundle(70, 200, [1, 2], 0.02), ...bundle(71, 201, [3, 4, 5, 6], 0.02)]);
+    const d4 = d405([pre, ...bundle(70, 200, [1, 2], 0.03), ...bundle(71, 201, [3, 4, 5, 6], 0.03)]);
     ok(d4.burstWaveBundleMaxWallets === 4 && d4.burstWaveBundleAdjPairSum === 6,
       `CD405 门外最近形状（TukTuk 2+4=6 复刻——零误伤带边界；实际 ${d4.burstWaveBundleMaxWallets}/${d4.burstWaveBundleAdjPairSum}）`);
 
     // ⑤ 无 ≥30s 静默段 → 两键 null（无沉积=burst 语境缺席，同块 8 捆绑钱包也不评；CD406 50→30 后 gap 29s 仍在段外）
     const d5 = d405([
       mkRow(10, 100, 1, 'buy', 0.2, 1e-9, { sender: w405(90) }),
-      ...bundle(39, 200, [1, 2, 3, 4, 5, 6, 7, 8], 0.02), // gap 29s <30 无段
+      ...bundle(39, 200, [1, 2, 3, 4, 5, 6, 7, 8], 0.04), // gap 29s <30 无段
     ]);
     ok(d5.burstWaveBundleMaxWallets === null && d5.burstWaveBundleAdjPairSum === null,
       'CD405 无静默段全族 null（gap 29s <30；臂不触发，不扩大收紧面）');
 
-    // ⑥ 去尘边界+同钱包同块多笔合并：0.009 不计/0.01 恰计/两笔 0.005+0.005 合并 0.01 计 → 2
+    // ⑥ 去尘边界+同钱包同块多笔合并（CD420 后 0.03 线）：0.029 不计/0.03 恰计/两笔 0.015+0.015 合并 0.03 计 → 2
     const d6 = d405([
       pre,
-      mkRow(70, 200, 1, 'buy', 0.009, 1e-9, { sender: w405(1) }),
-      mkRow(70, 200, 2, 'buy', 0.01, 1e-9, { sender: w405(2) }),
-      mkRow(70, 200, 3, 'buy', 0.005, 1e-9, { sender: w405(3) }),
-      mkRow(70, 200, 4, 'buy', 0.005, 1e-9, { sender: w405(3) }),
+      mkRow(70, 200, 1, 'buy', 0.029, 1e-9, { sender: w405(1) }),
+      mkRow(70, 200, 2, 'buy', 0.03, 1e-9, { sender: w405(2) }),
+      mkRow(70, 200, 3, 'buy', 0.015, 1e-9, { sender: w405(3) }),
+      mkRow(70, 200, 4, 'buy', 0.015, 1e-9, { sender: w405(3) }),
     ]);
     ok(d6.burstWaveBundleMaxWallets === 2,
-      `CD405 去尘边界（per-wallet 块内 Σ买 ≥0.01：0.009 不计/0.01 恰计/同钱包两笔合并计；实际 ${d6.burstWaveBundleMaxWallets}）`);
+      `CD405 去尘边界（CD420 后 per-wallet 块内 Σ买 ≥0.03：0.029 不计/0.03 恰计/同钱包两笔合并计；实际 ${d6.burstWaveBundleMaxWallets}）`);
 
     // ⑦ 路由伪钱包与卖行不计：GMGN 路由行（sender null→wallet null）+卖行只计买腿
     const d7 = d405([
       pre,
-      ...bundle(70, 200, [1, 2], 0.02),
+      ...bundle(70, 200, [1, 2], 0.04),
       mkRow(70, 200, 5, 'buy', 0.05, 1e-9, { trader: ROUTER, sender: null }),
       mkRow(70, 200, 6, 'sell', 0.5, 1e-9, { sender: w405(50) }),
     ]);
@@ -2837,14 +2838,41 @@ console.log('I. 著名钱包单极控盘锚（cheat 门消费已退役，锚族=
     //（sec95/sec115 两填充行防后续行间出现 ≥30s 间隔把出口挪走——CD406 30 线下间隔须全 <30）
     const d8 = d405([
       pre,
-      ...bundle(70, 200, [1], 0.02),
-      ...bundle(95, 250, [20], 0.02), // 填充行（70→95=25s <30）
-      ...bundle(115, 270, [21], 0.02), // 填充行（95→115=20s <30，出口保持 sec70）
-      ...bundle(130, 300, [2, 3, 4, 5, 6, 7, 8], 0.02), // +60s 恰达界=计入（>60 才 break）
-      ...bundle(131, 301, [10, 11, 12, 13, 14, 15, 16, 17], 0.02), // +61s 界外不计
+      ...bundle(70, 200, [1], 0.04),
+      ...bundle(95, 250, [20], 0.04), // 填充行（70→95=25s <30）
+      ...bundle(115, 270, [21], 0.04), // 填充行（95→115=20s <30，出口保持 sec70）
+      ...bundle(130, 300, [2, 3, 4, 5, 6, 7, 8], 0.04), // +60s 恰达界=计入（>60 才 break）
+      ...bundle(131, 301, [10, 11, 12, 13, 14, 15, 16, 17], 0.04), // +61s 界外不计
     ]);
     ok(d8.burstWaveBundleMaxWallets === 7 && d8.burstWaveBundleAdjPairSum === 0,
       `CD405 波窗 60s 硬界（+60s 块 7 钱包计入/+61s 块 8 钱包界外不计；实际 ${d8.burstWaveBundleMaxWallets}/${d8.burstWaveBundleAdjPairSum}）`);
+
+    // ⑨ CD420 生产形状锁（bt-v143 M4GA 07:40:46 锚 / Crypto Winter 真实数值，0.03 尘线）：
+    //    M4GA=4×0.123 等额捆绑块+相邻 slot 杂单 0.078/0.118/0.020——0.020<0.03 剔 →
+    //    Max=4/Adj=4+2=6 <7 放行（旧 0.01 口径 Adj=7 denied 误拦 sbw=burst 豁免票）；
+    //    CW=217 块 2×0.0741+218 块 0.0585/0.0372/0.0569/0.0367/0.0330/0.0129（0.0129 剔
+    //    →5 户）→ Max=5/Adj=2+5=7 恰达线保持拦（判例不翻的贴线锚）。
+    const d9 = d405([
+      pre,
+      ...bundle(70, 200, [1, 2, 3, 4], 0.123),
+      mkRow(71, 201, 1, 'buy', 0.078, 1e-9, { sender: w405(5) }),
+      mkRow(71, 201, 2, 'buy', 0.118, 1e-9, { sender: w405(6) }),
+      mkRow(71, 201, 3, 'buy', 0.020, 1e-9, { sender: w405(7) }),
+    ]);
+    ok(d9.burstWaveBundleMaxWallets === 4 && d9.burstWaveBundleAdjPairSum === 6,
+      `CD420 M4GA 生产形状（0.020<0.03 剔 → 4+2=6 放行；实际 ${d9.burstWaveBundleMaxWallets}/${d9.burstWaveBundleAdjPairSum}）`);
+    const d10 = d405([
+      pre,
+      ...bundle(70, 200, [1, 2], 0.0741),
+      mkRow(71, 201, 1, 'buy', 0.0585, 1e-9, { sender: w405(3) }),
+      mkRow(71, 201, 2, 'buy', 0.0372, 1e-9, { sender: w405(4) }),
+      mkRow(71, 201, 3, 'buy', 0.0569, 1e-9, { sender: w405(5) }),
+      mkRow(71, 201, 4, 'buy', 0.0367, 1e-9, { sender: w405(6) }),
+      mkRow(71, 201, 5, 'buy', 0.0330, 1e-9, { sender: w405(7) }),
+      mkRow(71, 201, 6, 'buy', 0.0129, 1e-9, { sender: w405(8) }),
+    ]);
+    ok(d10.burstWaveBundleMaxWallets === 5 && d10.burstWaveBundleAdjPairSum === 7,
+      `CD420 Crypto Winter 真实数值（0.0129 剔 → 2+5=7 恰达线保持拦；实际 ${d10.burstWaveBundleMaxWallets}/${d10.burstWaveBundleAdjPairSum}）`);
   }
 
   // ═══════════════ CD407 burst 流量簇三键（btv113 Cashless「这一波突然的流量」） ═══════════════

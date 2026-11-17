@@ -531,8 +531,13 @@ class CheatCheckService {
  *    后续的买入，挡不住就算了）」）：波窗（最后 ≥30s 静默段出口后 60s，D3.67
  *    段定位同源）内 单块去尘捆绑钱包 ≥BURST_BUNDLE_MIN_WALLETS(7) ∨ 相邻两
  *    slot（block 差恰 1）去尘合计 ≥7 → denied 'burst_bundled_wave'。去尘=块内
- *    单钱包买入合计 ≥0.01 BNB 才计数（BURST_BUNDLE_WALLET_DUST_BNB，snapshot
- *    计算侧——尘单堆凑的钱包数不算组织性捆绑）+ 剔聚合路由伪钱包。同块 7+
+ *    单钱包买入合计 ≥0.03 BNB 才计数（BURST_BUNDLE_WALLET_DUST_BNB，snapshot
+ *    计算侧——尘单堆凑的钱包数不算组织性捆绑；**CD420 0.01→0.03**：0.01 级
+ *    买入算一个捆绑钱包不合理，M4GA `0xba5ed45b` 案相邻 slot 杂单 0.020 堆凑
+ *    Adj=7 贴线误拦 sbw=burst 豁免票；0.03 口径四张命中判例零翻坏——Callcat
+ *    13 户 0.036~0.043/CW 2×0.0741+5 户 Adj=7 贴线保持、南宁/callcat小翻出
+ *    本臂但先序码 dump_no_absorption/burst_exit_sell_pressure 认领同拒）+
+ *    剔聚合路由伪钱包。同块 7+
  *    钱包=组织性捆绑拉高（散户到不了同块规模；BP77 塞单门 ≥8/CD403 卖方 ≥8
  *    买侧对偶）；连续 slot 分批=同批 bundler 跨块拆分。**四基底命中面=4 票
  *    全负 Σ−0.0671 零误伤**（Callcat 同块 13w −0.0367 / Crypto Winter 2+6=8
