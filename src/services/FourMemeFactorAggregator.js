@@ -2991,10 +2991,12 @@ class FourMemeFactorAggregator extends EventEmitter {
         const sized = buyDust > 0
             ? rows.filter(e => (state._launchWalletBuys.get(e.w) || 0) >= buyDust)
             : rows;
-        // T151 大户合计买入（累计口径：出生窗每钱包累计 ≥0.2B 者合计其全部累计买入——
-        // 与预扫验证口径一致；首买 only 口径漏分单小队（天仔 0.75→1.34 过线案））
+        // T151 大户合计买入（累计口径：出生窗每钱包累计 ≥0.19B 者合计其全部累计买入——
+        // 与预扫验证口径一致；首买 only 口径漏分单小队（天仔 0.75→1.34 过线案））。
+        // T169（2026-11-17 用户裁定 0.2→0.19）：0.19~0.2 视同 0.2 级——BP19 大户参与
+        // 同惯例（贴线单 0.1973 案 0x6fc2…7777：0.2 线下漏计致合计 0.86<1 推迟门放行）
         let bigBuySum = 0;
-        for (const v of state._launchWalletBuys.values()) if (v >= 0.2) bigBuySum += v;
+        for (const v of state._launchWalletBuys.values()) if (v >= 0.19) bigBuySum += v;
         // 同块簇（T150 选优改钱包数优先：BNB 选优被鲸单劫持——0x6e3a 案 0.594 鲸买
         // 单钱包簇压住 6 钱包簇/0.1155 三连买簇致 clu=1 退化，簇键语义=同块钱包数）
         const byBlock = new Map();
@@ -3051,8 +3053,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
         // T151 前期买入太多载体（2026-11-16 用户课题「前期买入太多→推迟买入」）：
-        // 出生窗内累计买入 ≥0.2B 的大户（分单小队不漏）合计买入 BNB。窗内（launchBundleWinMs）为
-        // 出生窗内首买累计 ≥0.2B 的大户合计买入 BNB（全量 rows 口径——与 f0/wave 的
+        // 出生窗内累计买入 ≥0.19B（T169 起 0.2→0.19，0.19~0.2 视同 0.2 级）的大户（分单
+        // 小队不漏）合计买入 BNB。窗内（launchBundleWinMs）为
+        // 出生窗内首买累计 ≥0.19B 的大户合计买入 BNB（全量 rows 口径——与 f0/wave 的
         // 站立过滤刻意分开：「前期买入太多」是历史事实载体，不吃抛压过滤）；
         // 出窗后随 _launchFrozen 冻结。ladder v25 推迟臂
         // (launchBigBuyBnb < 3 OR sinceFirstTradeSec > 60) 的判据——「60 秒应该

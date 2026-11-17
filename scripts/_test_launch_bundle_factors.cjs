@@ -775,6 +775,16 @@ console.log('W. T151 launchBigBuyBnb（前期买入太多载体）+ 推迟门');
   ]);
   check('W1b 分单小队 0.15+0.15=0.3 计入（累计口径）→ 0.3+0.4=0.7', () =>
     assert.strictEqual(F(fa2, T0 + 5000).launchBigBuyBnb, 0.7));
+  // T169 大户线 0.2→0.19（0.19~0.2 视同 0.2 级，BP19 同惯例；案源 0x6fc2…7777
+  // 边界钱包 0.1973 在 0.2 线下漏计致合计 0.86<1 推迟门放行、0.19 口径 1.06≥1 推迟）
+  const fa3 = newFA();
+  feed(fa3, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wB1', trader_address: '0xeB1', bnb_amount: 0.5911 },
+    { timestamp: T0 + 3000, block_number: 102, log_index: 1, sender_address: 'wB2', trader_address: '0xeB2', bnb_amount: 0.1973 },
+    { timestamp: T0 + 4000, block_number: 103, log_index: 1, sender_address: 'wB3', trader_address: '0xeB3', bnb_amount: 0.1899 },
+  ]);
+  check('W1c 大户线 0.19：0.1973 计入（视同 0.2 级）、0.1899 门外 → 0.5911+0.1973=0.7884', () =>
+    assert.strictEqual(F(fa3, T0 + 5000).launchBigBuyBnb, 0.7884));
   // 推迟门求值：heavy(<60s 挡/60s 后放) vs light
   const gate = 'launchBigBuyBnb < 1 OR sinceFirstTradeSec > 60';
   const ev = new ConditionEvaluator();
