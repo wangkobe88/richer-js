@@ -1881,26 +1881,9 @@ class AbstractTradingEngine extends ITradingEngine {
     const { normalizeFactorSellFilterConfig } = require('./factor-sell-filter');
     const r = normalizeFactorSellFilterConfig(rawCfg);
     if (r.error) throw new Error(`factorSellFilter 配置非法：${r.error}，拒绝启动`);
-    // arms 表达式语法+FA 因子域校验（unknown-factor 三防线同精神；
-    // validateCondition 吃 AST——必须先 parseCondition，语法错 parse 即 throw）
-    const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
-    const { getAvailableFactorIds } = require('./FactorBuilder');
-    const evaluator = new ConditionEvaluator();
-    const faIds = new Set(getAvailableFactorIds());
-    for (const arm of r.normalized.famousHold.arms) {
-      try {
-        const validation = evaluator.validateCondition(evaluator.parseCondition(arm), faIds);
-        const errs = (validation && validation.errors) || [];
-        if (errs.length) {
-          throw new Error(errs.join(', '));
-        }
-      } catch (e) {
-        throw new Error(`factorSellFilter.famousHold.arms 条目 "${arm}" 语法非法/引用未知因子: ${e?.message || e}（管辖臂失配=famous 阻挡静默失效），拒绝启动`);
-      }
-    }
     this._factorSellFilterCfg = r.normalized;
     this.logger.info(this._experimentId, 'SellEval',
-      `因子卖出过滤门启用 | famousHold 管辖臂 ${r.normalized.famousHold.arms.length} 条（pp≥${r.normalized.famousHold.minProfitPct} ∧ famous ${r.normalized.famousHold.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${r.normalized.famousHold.sellReleaseBnb} → 拦截）`);
+      `因子卖出过滤门启用 | famousHold 全臂管辖（pp≥${r.normalized.famousHold.minProfitPct} 的卖信号统一过门：famous ${r.normalized.famousHold.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${r.normalized.famousHold.sellReleaseBnb} → 拦截）`);
   }
 
   /**
@@ -1909,8 +1892,9 @@ class AbstractTradingEngine extends ITradingEngine {
    * 消费点=两引擎 _evaluateSellPath（evaluate 返回触发腿后、bypass/去抖分流前）
    * 与 _reconfirmAndSell（去抖 fire 重评）——拦截=视同腿未触发（与原条件串释放
    * 臂假=evaluate 不返回该腿 bit 对齐：首评拦截清 pending、放行后重新首真起算）。
-   * famous 阻挡只对配置圈定的管辖臂（arms 清单匹配触发腿 condition）生效，其余
-   * 腿（止损/毕业/bypass 保命腿等）恒放行。拦截留痕：连续拦截 per (token,腿)
+   * T157c 管辖门：**所有卖出臂统一过门**——管辖判定=profitPercent ≥ minProfitPct
+   * (100) 本身（pp<100 的卖信号恒放行），与触发腿条件形状无关；bypass 保命腿
+   * 同样受管（famous 还在入场=HOLD 语义一致适用）。拦截留痕：连续拦截 per (token,腿)
    * 只落首行 SELL 信号行（execution_status='blocked'+factorSellFilter 判据段，
    * signals 页展示）；日志同 key 去重。
    * @param {number} nowTs - 信号时刻（实时=Date.now()；回测=虚拟时钟——落行
@@ -1919,7 +1903,8 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   _factorSellFilterEvaluate(token, strategy, factors, nowTs) {
     if (!this._factorSellFilterCfg) return { blocked: false, rule: null, info: null };
-    const res = judgeFactorSellFilter(this._factorSellFilterCfg, strategy, factors);
+    // T157c 全臂管辖：判定只吃因子表（pp≥100 即管，不看触发腿条件形状）
+    const res = judgeFactorSellFilter(this._factorSellFilterCfg, factors);
     if (!res.blocked) {
       if (this._factorSellFilterLogSeen) {
         this._factorSellFilterLogSeen.delete(`${token?.token}|${strategy?.id}`);
