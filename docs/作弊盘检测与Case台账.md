@@ -187,6 +187,15 @@
 
 ## Case 倒序
 
+### CD415 creator_front_run + strong_backer_pressure 两题整题退役（D3.74）——btv140 复审轮零消费裁定（2026-11-17，commit 08a29154）
+
+**用户裁定原话**：「creator_front_run 和 strong_backer_pressure 这俩 cheat 检测中的锚是不是根本没用？如果是，就删除了吧」。
+
+**零消费查证**：①cr 被 A 主判显式剔除（「四现象剔 cr」——MAIN_IDS 只列 eq/cb/sd+EXT）且无任何其它通道（D/E/L/R/M/N 全不读 cr，「cr（创建者行为）不用于判断」长期现行）；②sbp 观察期 13 天（CD159 2026-11-04 立项→11-17）豁免规则从未立法、MAIN_IDS 显式排除不进 A、SB1 纯观察函数 grade 零消费；③FP/BP 门零消费；④strategy_library 全库+运行中实验条件串对 cheatCreatorFrontRun/cheatStrongBackerPressure/cheatAnchorBuySellRatio 零引用。
+
+**删除面**：两题对象（15→13 题）、PHENOMENON_IDS 删 cr（四现象 4→3）、EXT_PHENOMENON_IDS 删 sbp、grade levelsFromObservation/buckets 两键（15→13）、state「锚窗买压」行（sbp 唯一判读消费者）。**保留**：FA 档位键 cheatCreatorFrontRun/cheatStrongBackerPressure 恒 null（存量条件串兼容）、anchorBuySellRatio 数值锚照算纯观察、SB1 强庄池研究函数与 snapshot 锚族不受影响、历史 buckets 行留档。单测 lib 652/grade 129/gate_engine 180 全绿（service 存量失败 1 项=CD407 簇外承接行为锁，stash 实证与本案无关）；182 冒烟 CD1/CD53/CD99 三票 PASS（13 题链路通、cr=undefined 键缺席、pump strong 正例档位保持）。
+
+
 ### CD413 holdings_balance 整题退役 + slow_grind_pump 合力反锚第二通道（G19/D3.72）——btv140 复审 BP-T006 食蟹猴二案（2026-11-17）
 
 **案源**：BP-T006 食蟹猴(二) `0x387c9be8…7777`（−0.025）：第一信号 07:26:24 cheat 门判 cheat 三码（A_strong:slow_grind_pump+D_famous_dominance+J_holdings_strong）正确拒；3 秒后第二信号（P11 腿）activityLevel mid→high 翻档 → CD379 activity_high 豁免把 cheat 翻 healthy 放行。用户两裁定：「holdingsBalance 这一臂去掉」+追裁定「holdings_balance 可以直接删除，持仓不均衡基本上不会被用来做任何判定了，有必要的话，会加入到因子过滤中」；「slowGrindPump 也明显判的不对，这就是代币放出来然后一个 famous 进了，然后跟进了一些流量，slowGrindPump 的特点是上涨阶段活跃度不高，单极推高，但这个明显不是」。
