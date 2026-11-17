@@ -9,6 +9,17 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
+ * 规则（G21=G20−A 主判 burst_spike_concentration（2026-11-17 CD418/D3.76 用户
+ * 裁定原话「burst_spike_concentration 删除吧，这里有一个逻辑错误，burst 是
+ * 豁免低活跃度的，也就是 burst 会直接走到下一层，所以没必要在这里再判一次」：
+ * sbw=burst 票经 CD397 sbw==1 豁免资格臂天然放行——E 通道 sbw=burst 跳过、
+ * cheat∧burst 豁免翻正，尖刺形状判 cheat（G15 拉黑级）与豁免链方向相抵=
+ * A 主判冗余；题随 D3.76 整题删除+EXT 清单移除，MAIN_IDS 自动收缩九→八主判；
+ * A 降级豁免的「spike+pump 双 strong 封堵」臂随题退役（pump 唯一 strong∧
+ * sbw=burst∧mod<3 照降级 unhealthy）；FA cheatBurstSpikeConcentration 键保留
+ * 恒 null 供存量条件串兼容；尖刺两锚 spikeBuyPctInBurst/spikeHoldPctAll 照算
+ * 照落纯观察（G9-G11 死指标红线同款）；黄金集 D3.26 存档无该题答案→重放
+ * 零变化）。
  * 规则（G18=G17−G8 弱 burst 代码臂（2026-11-11 CD397 族三 14 票取证收官，
  * 用户四条裁定第 3 条原话「burst 的判定被代码魔改了，我的建议依然是不要魔改，
  * 用 Jev 判断」）：E 通道 burst 豁免的弱波承接前提（sbw=burst ∧ 最长停滞 ≥60s
@@ -284,7 +295,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G20';
+const CHEAT_GRADE_RULES_VERSION = 'G21';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -310,7 +321,7 @@ function scoreLevel(map, value) {
 
 /**
  * 观测产物 → FA 因子投影原料（service 分析链尾部调用，随返回形状透传引擎）：
- * levels=15 题数值档（FA 出口键；washPair D3.28/holdingsBalance D3.32/burstSpike D3.51 起入列）、buckets=字符串原值
+ * levels=11 题数值档（FA 出口键；washPair D3.28 起入列；holdingsBalance D3.72/burstSpike D3.76 随题退役出列）、buckets=字符串原值
  * （metadata/日志研究友好）、anchors=数值锚（2026-11-01 用户补点「著名钱包
  * 掌控/持仓极不均衡」：obs.anchors 持仓占比四键 sb/eq/t1 供/流；**extras
  * famous 数值/档位三键已随 G20/CD416 退役**；D3.28 同块对敲三键 washPair
@@ -338,7 +349,8 @@ function levelsFromObservation(observation, extras = {}) {
     washPair: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.wash_pair),
     // holdingsBalance D3.72/G19 随题退役（题删+EXT 清单移除——ex 恒 undefined；
     // FA cheatHoldingsBalance 键保留恒 null 供存量条件串兼容）
-    burstSpikeConcentration: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.burst_spike_concentration), // D3.51（G15 A 主判）
+    // burstSpikeConcentration D3.76/G21 随题退役（同款：ex 恒 undefined；FA
+    // cheatBurstSpikeConcentration 键保留恒 null 供存量条件串兼容）
     activityLevel: scoreLevel(CHEAT_LEVEL_SCORES.activity, act),
     abnormalBehavior: scoreLevel(CHEAT_LEVEL_SCORES.abnormal, pt), // D3.39（G13 R 通道 abnormal_behavior_ratio；unclear→null）
   };
@@ -352,7 +364,6 @@ function levelsFromObservation(observation, extras = {}) {
     insiderSupplySell: ex.insider_supply_sell ?? null,
     slowGrindPump: ex.slow_grind_pump ?? null,
     washPair: ex.wash_pair ?? null,
-    burstSpikeConcentration: ex.burst_spike_concentration ?? null,
     activityLevel: act,
     abnormalBehavior: pt,
   };
@@ -424,8 +435,9 @@ function levelsFromObservation(observation, extras = {}) {
     // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的伤害
     // 量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）
     noBuySellVolumePct: _pct(an.noBuySellVolumePct),
-    // D3.51 burst 尖刺两锚（burst_spike_concentration（A 主判 G15）同源数值：
-    // 尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；题面判读原料非门侧消费）
+    // D3.51 burst 尖刺两锚（burst_spike_concentration 题同源数值；D3.76/G21
+    // 随题退役改纯观察留档：尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；
+    // 无门侧消费，FA 投影/研究侧自由消费）
     spikeBuyPctInBurst: _pct(an.spikeBuyPctInBurst),
     spikeHoldPctAll: _pct(an.spikeHoldPctAll),
     // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 强庄币锚
@@ -457,20 +469,20 @@ function levelsFromObservation(observation, extras = {}) {
 /** 四现象题（B 通道现象门原料） */
 const PHEN_IDS = PHENOMENON_IDS; // [equal_amount_split, coordinated_sell_back, creator_front_run, sell_dispersion]
 
-/** 九主判题：四现象剔 cr + EXT 剔 sbw（cr/sbw=辅助判定不进主判；wash_pair D3.28
+/** 八主判题：三现象 + EXT 剔 sbw（cr/sbw=辅助判定不进主判；wash_pair D3.28
  *  随 EXT 清单自动入列；**holdings_balance D3.32 刻意排除**——G7 用户裁定独立
- *  J 通道（strong→unhealthy）不进 A 主判清单，组合垄断=拒买级非拉黑级；
- *  burst_spike_concentration D3.51 随 EXT 清单自动入列（G15——伏击尖刺=
- *  拉黑级铁证，与 G7 拒买级通道不同类）；**strong_backer_pressure D3.52 刻意
- *  排除——CD159 强庄币锚观察期**：用户裁定「这个锚先实现，但是可以先不起作用，
- *  我们攒个一批数据看看」，豁免方向题绝不拉黑（EXT 自动吸收 strong→cheat 与
- *  豁免意图相反），档位只进 FA 投影攒分布，豁免规则（预期作用点=J/R/M/E 等
+ *  J 通道（strong→unhealthy）不进 A 主判清单，组合垄断=拒买级非拉黑级（J 臂
+ *  后随 G19 退役）；burst_spike_concentration D3.51 入列→**D3.76/G21 随题
+ *  退役出列（CD418——sbw=burst 豁免链天然放行，A 主判冗余）**；
+ *  **strong_backer_pressure D3.52 刻意排除——CD159 强庄币锚观察期**（题后随
+ *  D3.74 退役）：豁免方向题绝不拉黑（EXT 自动吸收 strong→cheat 与豁免意图
+ *  相反），档位只进 FA 投影攒分布，豁免规则（预期作用点=J/R/M/E 等
  *  unhealthy 通道、绝不绕 A 主判）攒 ~10 张干净强庄 case 后再裁 */
 const MAIN_IDS = [
   'equal_amount_split',
   'coordinated_sell_back',
   'sell_dispersion',
-  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave'), // tier/bw/rat/pump/wash/spike（strong_backer_pressure D3.74 已随题退役出 EXT 清单；holdings_balance D3.72 同）
+  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave'), // tier/bw/rat/pump/wash（burst_spike_concentration D3.76 随题退役出 EXT 清单；strong_backer_pressure D3.74/holdings_balance D3.72 同）
 ];
 
 /**
@@ -550,7 +562,7 @@ function gradeObservation(observation, extras = {}) {
 
   const reasons = [];
 
-  // A：七主判任一 strong → cheat；单 pump+burst 形状降级 unhealthy
+  // A：八主判任一 strong → cheat；单 pump+burst 形状降级 unhealthy
   if (strongHit.length > 0) {
     const lonePumpBurst = strongHit.length === 1
       && strongHit[0] === 'slow_grind_pump'

@@ -4388,7 +4388,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatSlowGrindPump = _lv ? _lv.slowGrindPump ?? null : null;
             factors.cheatWashPair = _lv ? _lv.washPair ?? null : null;
             factors.cheatHoldingsBalance = _lv ? _lv.holdingsBalance ?? null : null;
-            // D3.51 burst 尖刺集中档位（G15 A 主判同源：伏击尖刺 strong→cheat）
+            // D3.51 burst 尖刺集中档位（D3.76/CD418 随题退役：levels 键已移除
+            // →恒 null 供存量条件串兼容，holdingsBalance 同款断代）
             factors.cheatBurstSpikeConcentration = _lv ? _lv.burstSpikeConcentration ?? null : null;
             // D3.52 强庄持续买压档位（CD159 立项**观察期**：cheat-grade MAIN_IDS
             // 显式排除不进 A 主判——豁免方向题绝不拉黑，grade 零消费；本键纯观察
@@ -4421,8 +4422,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatBurstWaveBuyBnb = _an ? _an.burstWaveBuyBnb ?? null : null;
             factors.cheatBurstWaveWallets = _an ? _an.burstWaveWallets ?? null : null;
             factors.cheatNoBuySellPct = _an ? _an.noBuySellPct ?? null : null;
-            // D3.51 burst 尖刺两锚（burst_spike_concentration 题档同源数值：
-            // 尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；纯观察可进条件串）
+            // D3.51 burst 尖刺两锚（D3.76/CD418 随题退役改纯观察留档：
+            // 尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；可进条件串）
             factors.cheatSpikeBuyPctInBurst = _an ? _an.spikeBuyPctInBurst ?? null : null;
             factors.cheatSpikeHoldPctAll = _an ? _an.spikeHoldPctAll ?? null : null;
             // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 观察

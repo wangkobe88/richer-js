@@ -166,7 +166,9 @@ const BURST_WAVE_TAIL_GAP_SEC = 5;
  * 25 票分离度定论（data/tmp-spike-sep.json@182）：cheat 9 票尖刺持仓 46.1-96.7
  * 全过 46 线，但 healthy CD104(54.6)/CD98(48.8) 数值孪生落群=**硬门不可行**
  * （与 G9/G10/G11 死指标退役同构）——结构分界在尖刺位置/户均金额/前停滞深度/
- * 尖刺后行为，判读交 Jev（题面 burst_spike_concentration，A 主判 strong→cheat）。
+ * 尖刺后行为，判读曾交 Jev（题面 burst_spike_concentration，G15 A 主判
+ * strong→cheat）；**D3.76/CD418 随题退役（sbw=burst 豁免链天然放行，A 主判
+ * 冗余）——本族锚照算照落改纯观察留档，state 行/题面/门侧消费全撤**。
  */
 const SPIKE_SEC = 3;
 const SPIKE_CLUSTER_GAP_SEC = 60;
@@ -1400,10 +1402,10 @@ function computeDerived(snapshot, famousRoster) {
   }
 
   // ── burst 尖刺族（D3.51，头注见 SPIKE_SEC）：簇内最密 3s 滑窗两占比+结构
-  // 事实（簇大小/跨度/位置/停滞深度），state「burst 尖刺集中度」行与
-  // burst_spike_concentration 题的判读原料；dt 缺失（<2 有效行）全族 null、
-  // 簇内无买入尖刺子族 null、Σ正净=0 持仓占比 null——绝不冒充（tmp-spike-sep
-  // 口径 bit 一致：平手取钱包多者的双指针、正净域=wallets 剔路由）──
+  // 事实（簇大小/跨度/位置/停滞深度）；D3.76/CD418 随题退役改纯观察留档
+  // （FA 投影/digest 照落，state 行/题面判读已撤）；dt 缺失（<2 有效行）全族
+  // null、簇内无买入尖刺子族 null、Σ正净=0 持仓占比 null——绝不冒充
+  // （tmp-spike-sep 口径 bit 一致：平手取钱包多者的双指针、正净域=wallets 剔路由）──
   let spikePreGapSec = null, spikeClusterSplit = null, spikeClusterN = null;
   let spikeClusterSpanSec = null, spikeClusterBuyBnb = null;
   let spikeBuyBnb = null, spikeBuyN = null, spikeWallets = null;
@@ -1955,7 +1957,7 @@ function computeDerived(snapshot, famousRoster) {
     nearDumpQualBlocks, nearDumpMinAbsorbBnb,
     nearDumpWorstSellers, nearDumpWorstSellBnb,
     nearDumpWorstSecToAnchor, nearDumpWorstSameBlkBuyBnb,
-    // D3.51 burst 尖刺族（头注见 SPIKE_SEC；题面 burst_spike_concentration 判读原料）
+    // D3.51 burst 尖刺族（头注见 SPIKE_SEC；D3.76/CD418 随题退役改纯观察留档）
     spikePreGapSec, spikeClusterSplit, spikeClusterN, spikeClusterSpanSec, spikeClusterBuyBnb,
     spikeBuyBnb, spikeBuyN, spikeWallets, spikeFromDt, spikeToDt, spikePosPct,
     spikeBuyPctInBurst, spikePosNetBnb, spikeHoldPctAll,

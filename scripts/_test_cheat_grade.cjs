@@ -58,13 +58,13 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G20', '版本常量 G20（改规则必须 bump+同步台账+跑黄金集；G20=G19−D 通道（2026-11-17 CD416 用户裁定「cheat 门的 famous 锚删除」）：D_famous_dominance/near_band 不再产出——CD379 活跃度豁免下实际拦截为零（famous 进场票天然 act=high 被豁免翻正），famous 拦截载体=BP ③桶 famousTraces+卖侧 T133/T136/T161/T137 臂；snapshot famous 锚族七键/FA 投影两键/state 行同批退役，历史行留档；G19=−J_holdings_strong 臂（btv140 食蟹猴二案「holdingsBalance 这一臂去掉」）+D3.72 slow_grind_pump 合力反锚第二通道；G18=−G8 弱 burst 代码臂（CD397）；G17=N 通道（CD374）；G16=D 邻界联立臂（CD323，已随 G20 整体退役）；G15=burst_spike 入 EXT；G14=M 通道 ultra')
-  ok(MAIN_IDS.length === 9 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
+  ok(CHEAT_GRADE_RULES_VERSION === 'G21', '版本常量 G21（改规则必须 bump+同步台账+跑黄金集；G21=G20−A 主判 burst_spike_concentration（2026-11-17 CD418/D3.76 用户裁定原话「burst_spike_concentration 删除吧，这里有一个逻辑错误，burst 是豁免低活跃度的，也就是 burst 会直接走到下一层，所以没必要在这里再判一次」：sbw=burst 票经 CD397 sbw==1 豁免资格臂天然放行——E 通道 sbw=burst 跳过、cheat∧burst 豁免翻正，尖刺形状判 cheat 与豁免链方向相抵=A 主判冗余；题随 D3.76 整题删除+EXT 清单移除，MAIN_IDS 自动收缩九→八主判；spike+pump 双 strong 封堵降级豁免臂随题退役（pump 唯一 strong∧sbw=burst∧mod<3 照降级 unhealthy）；FA cheatBurstSpikeConcentration 键保留恒 null，尖刺两锚照算纯观察；黄金集 D3.26 存档无该题答案→重放零变化）；G20=−D 通道（CD416 famous 锚删除——CD379 活跃度豁免下实际拦截为零，famous 拦截载体=BP ③桶+卖侧 T133/T136/T161/T137 臂）；G19=−J_holdings_strong 臂（btv140 食蟹猴二案）+D3.72 slow_grind_pump 合力反锚第二通道；G18=−G8 弱 burst 代码臂（CD397）；G17=N 通道（CD374）；G16=D 邻界联立臂（CD323，已随 G20 整体退役）；G15=burst_spike 入 EXT（→G21 出列）；G14=M 通道 ultra')
+  ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance')
-    && MAIN_IDS.includes('burst_spike_concentration') && !MAIN_IDS.includes('strong_backer_pressure'),
-    `九主判=四现象剔 cr + tier/bw/rat/pump/wash/spike（cr/sbw 辅助判定不进主判；holdings_balance G7 刻意排除=独立 J 通道；burst_spike_concentration D3.51 入列=拉黑级铁证与 J 拒买级不同类；**strong_backer_pressure D3.52 刻意排除——CD159 强庄币锚观察期：用户裁定「这个锚先实现，但是可以先不起作用，我们攒个一批数据看看」，EXT 清单会自动吸收 strong→cheat 与豁免意图相反（豁免方向题绝不拉黑），档位只进 FA 投影攒分布，豁免规则攒 case 后再裁，实际 ${MAIN_IDS.join(',')}）`);
+    && !MAIN_IDS.includes('burst_spike_concentration') && !MAIN_IDS.includes('strong_backer_pressure'),
+    `八主判=三现象 + tier/bw/rat/pump/wash（cr/sbw 辅助判定不进主判；holdings_balance G7 刻意排除=独立 J 通道；burst_spike_concentration D3.51 入列→D3.76/G21 随题退役出列（CD418——sbw=burst 豁免链天然放行，A 主判冗余）；**strong_backer_pressure D3.52 刻意排除——CD159 强庄币锚观察期：豁免方向题绝不拉黑（EXT 清单会自动吸收 strong→cheat 与豁免意图相反），档位只进 FA 投影攒分布，实际 ${MAIN_IDS.join(',')}）`);
 
-  console.log('A. 九主判 strong → cheat');
+  console.log('A. 八主判 strong → cheat');
   {
     for (const id of MAIN_IDS) {
       // 直接设八题各一 strong（phen/ext 键重复无害——按 id 域写）
@@ -85,29 +85,25 @@ function main() {
     ok(grade(obs2).grade === 'healthy', 'sbw=burst 单独不触发任何通道（辅助判定）');
   }
 
-  console.log('A3. burst 尖刺集中 A 吸收（G15/D3.51——CD157/CD102 裁定立项，EXT 入列即主判）');
+  console.log('A3. burst 尖刺集中随题退役（G21/CD418/D3.76——sbw=burst 豁免链天然放行，A 主判冗余）');
   {
-    // strong → cheat（九主判循环已覆盖；此处锁 reason 码+锚无关性——门侧零数值消费）
+    // 旧档/在场 spike strong 答案被 EXT 清单忽略 → 不触发任何 A 留痕（断代防线）
     const obs = withExt(baseObs(), 'burst_spike_concentration', 'strong');
     obs.anchors.spikeBuyPctInBurst = 99.0; obs.anchors.spikeHoldPctAll = 53.8;
     const r = grade(obs);
-    ok(r.grade === 'cheat' && r.reasons[0].code === 'A_strong:burst_spike_concentration',
-      'burst_spike strong → cheat A_strong 留痕（档位即载体——两锚纯观察不进门侧判据，25 票孪生定论）');
-    // moderate 单独不触发 A（A 只收 strong——数值孪生反锚下档位保守）
+    ok(r.grade === 'healthy' && r.reasons.every((x) => !x.code.startsWith('A_strong')),
+      'burst_spike 旧档 strong 答案被 EXT 清单忽略不触发 A（D3.76 断代——黄金集 42 票重放零变化防线；两锚纯观察照落不进门侧判据）');
     const r2 = grade(withExt(baseObs(), 'burst_spike_concentration', 'moderate'));
-    ok(r2.grade === 'healthy' && r2.reasons.every((x) => !x.code.startsWith('A_strong:burst_spike')),
-      'burst_spike moderate 单独不触发 A（healthy 落点——A 只收 strong）');
-    // 档位缺席（≤D3.50 旧档重放）→ 不触发（黄金集 42 票重放零变化防线）
-    const r0 = grade(baseObs());
-    ok(r0.grade === 'healthy' && r0.reasons.every((x) => !x.code.startsWith('A_strong:burst_spike')),
-      'burst_spike 缺席 null 不触发（EXT 容缺断代——旧档重放零变化）');
-    // spike+pump 双 strong：A 降级豁免只认「唯一 strong=pump」→ 双 strong 豁免不成立照 cheat
+    ok(r2.grade === 'healthy' && r2.reasons.every((x) => !x.code.startsWith('A_strong')),
+      'burst_spike moderate 同被忽略（healthy 落点）');
+    // spike+pump 双 strong：spike 已不在 MAIN_IDS → strongHit 只剩 pump=唯一 strong
+    // ∧ sbw=burst ∧ mod<3 → A 降级豁免成立（G21 起 spike 不再封堵——burst 方向豁免一致性）
     const obs3 = withExt(baseObs(), 'burst_spike_concentration', 'strong');
     withExt(obs3, 'slow_grind_pump', 'strong');
     withExt(obs3, 'stall_burst_wave', 'burst');
     const r3 = grade(obs3, { anchorSellCount: 5 });
-    ok(r3.grade === 'cheat' && r3.reasons[0].code === 'A_strong:slow_grind_pump+burst_spike_concentration',
-      'spike+pump 双 strong 降级豁免不成立照 cheat（豁免只认唯一 strong=pump——spike strong 在场即非「停滞后自然涌入」；reason 双题合并留痕）');
+    ok(r3.grade === 'unhealthy' && r3.reasons[0].code === 'A_downgrade_single_pump_burst',
+      'spike+pump 双 strong → pump 唯一 strong∧sbw=burst 降级豁免成立 unhealthy（G15 时代「spike strong 在场即非停滞后自然涌入」封堵臂随题退役——CD418 burst 直通下一层语义）');
   }
 
   console.log('A2. 单 pump+burst 降级豁免（CD99 形状；G10 起 sbHold<50 腿退役）');
@@ -632,14 +628,15 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       && r.levels.stallBurstWave === 1
       && r.levels.sameBlockBuyWave === 3 && r.levels.amountTiering === null
       && r.levels.washPair === 3 && r.levels.activityLevel === 0
-      && r.levels.burstSpikeConcentration === 2,
-      `levelsFromObservation 12 题映射（D3.74 二批 bd 退役 13→12 键；D3.39 abnormalBehavior/D3.51 burstSpikeConcentration；实际 ${JSON.stringify(r.levels)}）`);
+      && r.levels.burstSpikeConcentration === undefined,
+      `levelsFromObservation 11 题映射（D3.76/G21 spike 随题退役 12→11 键——fixture 在场旧答案 'moderate' 被忽略键缺席；D3.39 abnormalBehavior；实际 ${JSON.stringify(r.levels)}）`);
     ok(r.buckets.sameBlockBuyWave === 'strong' && r.buckets.stallBurstWave === 'burst'
-      && r.buckets.washPair === 'strong' && r.buckets.activityLevel === 'low',
-      'buckets 字符串原值（metadata 研究留档）');
+      && r.buckets.washPair === 'strong' && r.buckets.activityLevel === 'low'
+      && r.buckets.burstSpikeConcentration === undefined,
+      'buckets 字符串原值（metadata 研究留档；spike 键 D3.76 同批缺席）');
     const r2 = levelsFromObservation(null);
-    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 12,
-      '空观测 → 12 键全 null（D3.74 二批 bd 随题退役 13→12；cr/sbp/holdings 同批先例；容缺不冒充）');
+    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 11,
+      '空观测 → 11 键全 null（D3.76 spike 随题退役 12→11；cr/sbp/holdings/bd 同批先例；容缺不冒充）');
     // 数值锚（用户补点「持仓极不均衡」+D3.28 对敲三键+D3.32 持仓分布五键）：
     // obs.anchors 持仓占比四键 + washPair 三键 + holdings 五键（CD122 实值）
     // （extras famous 数值/档位三键已随 G20/CD416 退役）

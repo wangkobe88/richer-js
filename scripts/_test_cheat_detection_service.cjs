@@ -925,7 +925,7 @@ async function main() {
       && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
       '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
     ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
-      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G20'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G21'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
     // Z1b 因子化：analyzed 返回带 levels（数值档，FA 出口原料）+ buckets（字符串
@@ -967,9 +967,9 @@ async function main() {
     // ÷Σ正净 0.8=25.0）
     ok(r1.anchors.spikeBuyPctInBurst === 14.3 && r1.anchors.spikeHoldPctAll === 25,
       `D3.51 尖刺两锚精确值（占簇买 14.3%/尖刺持 25.0）（实际 ${r1.anchors.spikeBuyPctInBurst}/${r1.anchors.spikeHoldPctAll}）`);
-    ok(r1.levels && r1.levels.burstSpikeConcentration === null
-      && r1.buckets && r1.buckets.burstSpikeConcentration === null,
-      'GOOD 基底无 burst_spike_concentration 答案（stub 题集未含新题）→ levels/buckets 容缺 null（≤D3.50 旧档断代重放零变化防线）');
+    ok(r1.levels && r1.levels.burstSpikeConcentration === undefined
+      && r1.buckets && r1.buckets.burstSpikeConcentration === undefined,
+      'GOOD 基底 burst_spike_concentration levels/buckets 键已随 D3.76/CD418 随题退役移除 → undefined（FA cheatBurstSpikeConcentration 兜 ?? null 恒 null；旧档断代重放零变化防线）');
     // D3.35 协同买入四键+创建者峰值（genTicks(20) 手算：14 买×0.1 全 0xw0-9 十钱包；
     // 买块 100-109 各 1-2 笔、最大 2 笔并列四块（Σ同 0.2 取先到块 100=首买块）→
     // count=2/pct=0.2/1.4=14.3/preGap=null（首买块无前摇）；全 0.1000 档 10/10=100

@@ -962,9 +962,9 @@ class CheatCheckService {
           clusterRoundTripPct: snapshot.derived.clusterRoundTripPct,
           clusterRoundTripSellPct: snapshot.derived.clusterRoundTripSellPct,
           clusterRoundTripBlocks: snapshot.derived.clusterRoundTripBlocks,
-          // D3.51 burst 尖刺两锚（burst_spike_concentration（A 主判 G15）同源
-          // 数值：尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；簇内无买/dt
-          // 缺失/Σ正净=0 → null 不冒充，头注见 cheat-snapshot SPIKE_SEC）
+          // D3.51 burst 尖刺两锚（burst_spike_concentration 题同源数值；
+          // D3.76/CD418 随题退役改纯观察留档：尖刺买入占簇买入%/尖刺钱包正净
+          // 占全窗正净%；簇内无买/dt 缺失/Σ正净=0 → null 不冒充）
           spikeBuyPctInBurst: snapshot.derived.spikeBuyPctInBurst,
           spikeHoldPctAll: snapshot.derived.spikeHoldPctAll,
           // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 强庄币锚

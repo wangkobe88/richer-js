@@ -45,7 +45,7 @@ const PHENOMENON_IDS = [
  * 现象二分桶域（none/burst），读档走 _stallBurst——D3.3-D3.8 四档值、
  * D3.9 burst_suspect、D3.10 burst_cheat/burst_normal 桶值语义不可比=断代 null。
  */
-const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair', 'burst_spike_concentration']; // wash_pair D3.28（同块对敲）/ burst_spike_concentration D3.51（burst 尖刺集中，A 主判自动吸收）/ strong_backer_pressure D3.52→D3.74 随题退役（观察期零消费，2026-11-17 btv140 复审轮用户裁定删除；档位 FA 键保留恒 null）/ holdings_balance D3.32→D3.72 退役（btv140 BP-T006 案）
+const EXT_PHENOMENON_IDS = ['stall_burst_wave', 'amount_tiering', 'same_block_buy_wave', 'insider_supply_sell', 'slow_grind_pump', 'wash_pair']; // wash_pair D3.28（同块对敲）/ burst_spike_concentration D3.51→D3.76 随题退役（CD418：sbw=burst 豁免链天然放行、A 主判冗余；档位 FA 键保留恒 null，尖刺两锚照算纯观察）/ strong_backer_pressure D3.52→D3.74 随题退役（观察期零消费，2026-11-17 btv140 复审轮用户裁定删除；档位 FA 键保留恒 null）/ holdings_balance D3.32→D3.72 退役（btv140 BP-T006 案）
 
 /** 程度档位序（与题集 PHENOMENON_LEVELS 一致；档位比较用） */
 const LEVEL_ORDER = { none: 0, weak: 1, moderate: 2, strong: 3 };
@@ -292,8 +292,9 @@ function buildObservation(answers, anchors = null) {
       clusterRoundTripPct: _anchorPct(anchors, 'clusterRoundTripPct'),
       clusterRoundTripSellPct: _anchorPct(anchors, 'clusterRoundTripSellPct'),
       clusterRoundTripBlocks: _anchorPct(anchors, 'clusterRoundTripBlocks'),
-      // D3.51 burst 尖刺两锚（burst_spike_concentration 题同源数值：尖刺买入
-      // 占簇买入%/尖刺钱包正净占全窗正净%；dt 缺失/簇内无买/Σ正净=0 → null）
+      // D3.51 burst 尖刺两锚（burst_spike_concentration 题同源数值；D3.76/CD418
+      // 随题退役改纯观察留档：尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；
+      // dt 缺失/簇内无买/Σ正净=0 → null）
       spikeBuyPctInBurst: _anchorPct(anchors, 'spikeBuyPctInBurst'),
       spikeHoldPctAll: _anchorPct(anchors, 'spikeHoldPctAll'),
       // D3.52 锚窗买卖比（strong_backer_pressure 题判读原料——CD159 强庄币锚

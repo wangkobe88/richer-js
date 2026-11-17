@@ -26,7 +26,7 @@
  * 数组改动=行为变化，必须走台账 case 流程（case+定向对拍+回归收录）。
  */
 
-export const CHEAT_QUESTIONS_VERSION = 'D3.75';
+export const CHEAT_QUESTIONS_VERSION = 'D3.76';
 
 /** 现象程度四桶（题面与 mapper LEVELS 序必须一致——mapper 按档位序消费） */
 export const PHENOMENON_LEVELS = ['none', 'weak', 'moderate', 'strong'];
@@ -59,20 +59,20 @@ const LEVEL_CRITERIA = {
 };
 
 /**
- * 构建作弊盘检测问题集（16 题）：4 现象题 + EXT 十二题
+ * 构建作弊盘检测问题集（11 题）：3 现象题 + EXT 八题
  * （stall_burst_wave / amount_tiering / same_block_buy_wave / activity_level
- * / bundled_trade_dominance / insider_supply_sell / slow_grind_pump / wash_pair
- * / holdings_balance / abnormal_behavior_ratio / burst_spike_concentration
- * / strong_backer_pressure）。strong_backer_pressure **观察期 grade 零消费**：
- * MAIN_IDS 显式排除不进 A 主判，档位+锚窗买卖比只进 FA 投影攒分布数据。
+ * / insider_supply_sell / slow_grind_pump / wash_pair / abnormal_behavior_ratio）。
+ * （creator_front_run / strong_backer_pressure / bundled_trade_dominance D3.74、
+ * holdings_balance D3.72、burst_spike_concentration D3.76 四批随题退役——
+ * 旧档答案被读档清单忽略、历史 buckets 行留档，git 历史留题面全文。）
  *
  * 每题=定义 + 从哪段材料看 + **怎么算**（显式算法段——占比/配对/分散度的
  * 算式教给 Jev 自算，代码不预计算）+ 真实 case 样本（正例+反例，只述形状
  * 事实）。**只判现象不判性质**（题面绝不预告各现象对应什么分类，防答题被
- * 结论锚定；样本同样只述发生了什么）。EXT 十二题走 mapper 容缺读档（后增
+ * 结论锚定；样本同样只述发生了什么）。EXT 题走 mapper 容缺读档（后增
  * 题通道，旧存档重放兼容：sbw 旧桶值、abr 旧键 real_participation 答案缺席
- * 或语义不可比一律断代 null 不映射）；activity_level / bundled_trade_dominance
- * / abnormal_behavior_ratio 为独立档域题（Jev 直读自判，非现象四档强度轴）。
+ * 或语义不可比一律断代 null 不映射）；activity_level / abnormal_behavior_ratio
+ * 为独立档域题（Jev 直读自判，非现象四档强度轴）。
  * @returns {Object} questions {id: {type, instructions, criteria}}
  */
 export function buildCheatQuestions() {
@@ -276,20 +276,16 @@ export function buildCheatQuestions() {
       },
     },
 
-    // 15. burst 尖刺集中——波内秒级尖刺集中+锁筹（涌入节奏归 sbw 题，本题
-    //     只看内部结构；数值孪生反锚=结构腿定档）；演进见台账
-    burst_spike_concentration: {
-      type: 'choice',
-      instructions: `观察「burst 尖刺集中」现象：一波涌入流量（burst 簇）里存在一个秒级尖刺——极短时间窗（数秒/一两块）内挤进高度集中的买入，且这批钱包此后握着筹码不动。瞬间制造买压与成交活跃的表像、实际把筹码锁在一小批手里，是「停滞后涌入」里更窄的形状（涌入节奏由停滞突发题判有无，本题只看这股流量的**内部结构**是否尖刺化+锁筹）。
-怎么算：[PRECOMPUTED] 的「burst 尖刺集中度」行已按固定口径算好，直接采信——簇=窗内最大交易间隔 ≥60 秒之后的全部行（无此间隔=整个窗口）；尖刺=簇内买入最密的 3 秒滑窗；两占比=尖刺买入占簇买入%（流动性集中度）与尖刺钱包当前正净持仓占全窗正净持仓合计%（筹码集中度）。两占比之外的结构腿由你从 [TICKS]/[WALLETS] 补齐：①钱包数与户均金额——少数钱包×规整同档金额（分仓阵列）vs 众多钱包×金额连续散布（独立抢筹合力）；②尖刺在簇内的位置——簇起点/头部=涌入的第一波明买（开盘抢筹常见）vs 簇尾/末端伏击（先死寂观望、恰在流动性最好的时点前几秒一次性进场）；③尖刺前停滞深度——尖刺距此前最后一笔交易的间隔（[PRECOMPUTED] 行已给出窗内最大间隔）；④尖刺后行为——买入后零卖出零回吐、筹码全锁（正净持仓行可对上）vs 正常获利回吐/部分离场。
-**数值孪生反锚**：两占比本身分不开真实抢筹与分仓伏击——同样的尖刺持仓占比，开盘段大户连续明买（金额各异、时间连续、此后有人获利回吐）是真实抢筹；占比高只说明流量集中，给明显及以上档必须有结构腿（同档金额规整/一次性钱包阵列/死寂后簇尾伏击/尖刺后零动锁筹至少其一坐实）。窗口整体活跃、尖刺占比不足三成、或尖刺钱包此后有明显正常交易行为的，不给高档。
-真实样本（正·死寂后簇尾伏击）：某票死寂 1226 秒后 burst 簇尾 3 秒内 8 个钱包各买 ≈0.102（同档近额规整），尖刺买入占簇买入约 99%、尖刺钱包握全窗正净持仓约 54%，此后无一卖出——先死寂观望、恰在买点前数秒一次性同档阵列进场、筹码全锁。
-真实样本（正·一次性钱包锁筹）：某票 3 秒内 12 笔买入来自 12 个一次性钱包、各买 ≈0.075 同档，尖刺买入占簇买入 99.3%、尖刺钱包握全窗正净持仓 96.7%，此后零卖零动；这 3 秒制造的买压把量能与人气指标全部喂绿，数秒后到来的真实买点恰好接在这波尖刺顶上。
-真实样本（反·开盘大户明买）：某票开盘簇起点 3 秒内 5 个大额钱包买入（金额 0.4~0.9 连续散布各不相同），尖刺买入占簇约 60%、尖刺钱包握正净约 55%——数值与伏击形状接近，但这是开盘段大户明买抢筹：尖刺在簇起点（涌入头部）、金额各异不规整、时间连续不是死寂后伏击，不给明显及以上档。
-真实样本（反·散户分散涌入）：某票停滞后涌入波的买入散布在整簇（尖刺 3 秒买入占簇不足三成）、数十个钱包金额从小到大连续散布、此后有人获利有人回吐——流量集中度低、行为各异，正常涌入。
-只描述现象程度，不下任何盘面结论。`,
-      criteria: LEVEL_CRITERIA,
-    },
+    // 15.（已退役，D3.76/CD418，2026-11-17 用户裁定「burst_spike_concentration
+    //     删除吧，这里有一个逻辑错误，burst 是豁免低活跃度的，也就是 burst 会
+    //     直接走到下一层，所以没必要在这里再判一次」——sbw=burst 票经 CD397
+    //     sbw==1 豁免资格臂天然放行（E 通道 sbw=burst 跳过、cheat∧burst 豁免
+    //     翻正），尖刺形状判 cheat 与豁免链方向相抵=A 主判（G15 拉黑级）冗余；
+    //     题整题删除（12→11 题）+G21 MAIN_IDS 自动收缩，旧档答案被 EXT 清单
+    //     忽略、历史 buckets.burst_spike_concentration 行留档；FA
+    //     cheatBurstSpikeConcentration 键保留恒 null 供存量条件串兼容，尖刺两锚
+    //     （spikeBuyPctInBurst/spikeHoldPctAll）照算照落纯观察。
+    //     git 历史留题面全文。）
 
     // 16.（已退役，D3.74 同批——观察期 13 天（2026-11-04 CD159 立项→11-17）豁免规则从未立法、MAIN_IDS 显式排除不进 A、无任何通道/FP/BP 门消费、条件串零引用；档位与买卖比 FA 投影键保留恒 null 供存量兼容，anchorBuySellRatio 数值锚照算纯观察、SB1 强庄池研究函数不受影响。git 历史留题面全文。）
   };
