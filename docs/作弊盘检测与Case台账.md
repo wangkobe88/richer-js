@@ -197,6 +197,8 @@
 
 **黄金集**：G20 基线 28/42（十四票偏差锁定）→ G21 **28/42 零变化**（D3.26 存档 answers 无该题键=EXT 容缺断代防线，重放逐位一致）；golden json rulesVersion 标 G21。单测：lib 641/service 200/grade 120/gate_engine 180 全绿。
 
+**182 定向对拍（11-17 跑毕，commit 046573a3，三票真调 D3.76）**：①CD27（wash 立法票）`cheat[A_strong:wash_pair,R_abnormal_dominant]`——EXT 收缩后 wash_pair A 主判照常拉黑零副作用；②CD157（spike 原立项票 가나）sbw=burst∧pump strong∧mod≥3 → `cheat[A_strong:slow_grind_pump]` 降级豁免正确不成立（三 moderate）照 cheat 与人工一致——spike 删除后由 pump 承载；③**CD102（SAFU，另一 spike 立法票）`cheat→unhealthy[R_abnormal_dominant]`**：当年 `A_strong:eq+pump+spike` 三 strong，现无 strong 落 R 拒买级——**已知语义代价面**（生产门链下该票 sbw=burst∧act=high 还会被 CD379 豁免翻正放行=「burst 直通下一层」裁定方向的直接兑现；拒买级仍在且可重判，不拉黑）。机器×人工 2/3（分歧 CD102=删除预期变化非回归）。
+
 **部署注记**：生产重启后 D3.76 域 bootstrap 冷启动一次（`.eq(question_version)` 不续接旧拉黑/粘滞=版本 bump 常规语义）；每票 Jev 配额 −1 题。
 
 ### CD417 act 题⑦密集臂段前背景反锚（D3.75）——0xba67 对倒盘尾段脉冲冒充高活跃案（2026-11-17）
