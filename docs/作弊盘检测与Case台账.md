@@ -189,6 +189,8 @@
 
 ### CD415 creator_front_run + strong_backer_pressure 两题整题退役（D3.74）——btv140 复审轮零消费裁定（2026-11-17，commit 08a29154）
 
+**二批（同日，commit ab6b8b38）**：用户追裁定「如果还有其它不消费的锚，也可以删除」——61 derived 键+13 题六面全量消费扫描（grade 通道/豁免臂/题面/state 渲染/FP 门/BP 侧）第二例=**bundled_trade_dominance 题**（G11 通道 CD133 退役后门侧零消费、条件串全库零引用，与 sbp 同形态纯观察题）整题删除（13→12）：读档函数恒 null、BUNDLED_LEVELS 桶域保留导出、FA cheatBundledDominance 键恒 null、观测行/runner 渲染删。扫描附带裁定：equalClusters 保留（单测形状锁=等额簇计算校验锚）、routerBuyN 保留（九址扩录事故现场反证载体——测试反证=合法消费者）、spike/creator 族保留（state 事实行渲染=题面判读间接原料，insider 反锚引用创建者）。同车：buy_point_lib activity 24→25 键断言补（D3.73 加权分键当日漏更）+发现存量失败 2 项（cheat_detection_service CD407 簇外承接行为锁+buy_point_lib E 段 T156 位置门删除漏更断言——均 stash 实证与本批无关，攒批待裁）。
+
 **用户裁定原话**：「creator_front_run 和 strong_backer_pressure 这俩 cheat 检测中的锚是不是根本没用？如果是，就删除了吧」。
 
 **零消费查证**：①cr 被 A 主判显式剔除（「四现象剔 cr」——MAIN_IDS 只列 eq/cb/sd+EXT）且无任何其它通道（D/E/L/R/M/N 全不读 cr，「cr（创建者行为）不用于判断」长期现行）；②sbp 观察期 13 天（CD159 2026-11-04 立项→11-17）豁免规则从未立法、MAIN_IDS 显式排除不进 A、SB1 纯观察函数 grade 零消费；③FP/BP 门零消费；④strategy_library 全库+运行中实验条件串对 cheatCreatorFrontRun/cheatStrongBackerPressure/cheatAnchorBuySellRatio 零引用。
