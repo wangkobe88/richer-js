@@ -933,6 +933,28 @@ function computeDerived(snapshot, famousRoster) {
   let nearTail10TickN = null, nearTail10BnbPerMin = null, nearPre20BnbPerMin = null;
   let nearTail5TickN = null, nearTail5BuyN = null, nearTail5BuyBnb = null;
   let nearTail10SellWallets = null;
+  // D3.73 时间衰减加权活跃度（btv140 复审 BP-T010 1105 一号案用户裁定：「活跃度
+  // 窗口主要看 30 秒，但是也要参考 30 秒之前的一段时间，如果窗口前活跃度极低，
+  // 不能给 high。我觉得可以模拟出一个函数，只取点位之前 3 分钟窗口，距离购买
+  // 点位越近，对活跃度分数的影响越大，越远则相对越小，但一定不是没有任何影响」
+  // +追裁定「或者 2 分钟窗口也可能就够了」——取 120s 窗）：w(dt)=exp(−dt/60)
+  // （τ=60s：锚处 1.0、60s 前 0.37、120s 前 0.14），per-tick 资金口径 bnb 加权，
+  // 归一 ∫w dt（分钟）→ 等效 BNB/min。近端主导、远端非零的时间结构分数：「仅近
+  // 30s 有量、前面 90s 空白」的单点脉冲该值远低于近段吞吐（案值：1105 一号近
+  // 30s 1.86 BNB/min 而加权分 1.02——中间 90s 纯空白）。dt 缺失 null 绝不冒充。
+  let actWeightedThroughputBnbPerMin = null;
+  if (dts.length >= 2) {
+    const tEndW = dts[dts.length - 1];
+    let wsum = 0;
+    for (const t of ticks) {
+      if (t.dt === null || t.dt === undefined) continue;
+      const dtAgo = tEndW - t.dt;
+      if (dtAgo < 0 || dtAgo > 120) continue;
+      wsum += (t.bnb || 0) * Math.exp(-dtAgo / 60);
+    }
+    const normMin = (60 * (1 - Math.exp(-2))) / 60; // ∫₀^120 w dt = 60(1−e⁻²) 秒 → 分钟
+    actWeightedThroughputBnbPerMin = +(wsum / normMin).toFixed(2);
+  }
   if (dts.length >= 2) {
     const spanClampedAmt = Math.max(1, spanSec);
     const buyAmts = [];
@@ -1868,6 +1890,8 @@ function computeDerived(snapshot, famousRoster) {
     // CD394 尾窗键（act 题⑦定档主锚判读原料——尾 10s/前 20s/尾 5s）
     nearTail10TickN, nearTail10BnbPerMin, nearPre20BnbPerMin,
     nearTail5TickN, nearTail5BuyN, nearTail5BuyBnb, nearTail10SellWallets,
+    // D3.73 时间衰减加权活跃度（act 题时间结构判读原料——非 burst 时 high 档须过此线）
+    actWeightedThroughputBnbPerMin,
     burstWaveBuyBnb, burstWaveWallets,
     // CD392 burst 波起点价锚（D3.66 起纯观察——第四腿判据源移交 burstExitVsLaunchPct）
     burstWaveStartVsLaunchPct,
