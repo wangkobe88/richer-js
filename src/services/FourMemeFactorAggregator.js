@@ -1093,6 +1093,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (!deferWallet && _famousCopyWallets && _famousCopyWallets.size > 0
                 && walletAddr && _famousCopyWallets.has(walletAddr)) {
                 this._noteFamousFlow(state, isBuy, bnbAmount, ts);
+                // T161 famous 发行价上方域流（famous-trim 两段减仓卖臂原料，写点①；
+                // priceBnb=本块可靠价——区间判定与 T133 同锚同呈现口径）
+                this._noteFamousLaunchZoneFlow(state, priceBnb, isBuy, bnbAmount);
             }
 
             // ── 分类器 running 标量（回迁批 3.1：OPB 专用；与 token-classifier computeTickMetrics 同口径）──
@@ -1376,6 +1379,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             && _famousCopyWallets && _famousCopyWallets.size > 0
             && walletAddr && _famousCopyWallets.has(walletAddr)) {
             this._noteFamousFlow(state, isBuy, bnbAmount, tick.timestamp);
+            // T161 域流写点②（defer 补跑，防双计同款）：tick.price_bnb=该行可靠价
+            this._noteFamousLaunchZoneFlow(state, tick.price_bnb || 0, isBuy, bnbAmount);
         }
 
         // ── holderTrend 原料（2026-10-14 slot 化改造）：blockNumber 桶持有者序列——
@@ -1751,6 +1756,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             entryFamousNearLaunchBuys: state._famousNearLaunchBuys || 0,
             // T136 金额锚快照（卖臂 v2 金额门）：同计数锚并行的 BNB 累计（差值 latch 同款）
             entryFamousNearLaunchBuyBnb: state._famousNearLaunchBuyBnb || 0,
+            // T161 famous 发行价上方域锚快照（famous-trim 两段减仓卖臂）：买/卖双累计
+            // 各自差值 latch（补买轮各自重锚，T113 同款）
+            entryFamousLaunchZoneBuyBnb: state._famousLaunchZoneBuyBnb || 0,
+            entryFamousLaunchZoneSellBnb: state._famousLaunchZoneSellBnb || 0,
             // T147 等额捆绑簇（bundle-wave-exit 卖臂）：**入场清零**（per-仓计数器语义=
             // 「本仓入场以来涌现的最大等额捆绑簇钱包数」——max 型计数器差值会被入场前
             // 更大历史簇淹没〔入场后 5 簇在历史 9 簇下不可见，C1 夹具反证〕，清零直读
@@ -2009,6 +2018,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             _minRelPriceBnb: 0,         // T134 滚动最低可靠价（launch 地板原料：min(常量, 首买, ≤t 最低可靠价)；min 更新幂等=任意序回放收敛；0=未见可靠价）
             _famousNearLaunchBuys: 0,   // T133 famous near_launch 入场计数（全史单调计数器；写点=价格段/wallet 段补跑双段，见 _countFamousNearLaunchBuy）
             _famousNearLaunchBuyBnb: 0, // T136 同判据金额累计（BNB；卖臂 v2 金额门原料，见 _countFamousNearLaunchBuy）
+            _famousLaunchZoneBuyBnb: 0,  // T161 famous 发行价上方域 (+10,+60] 买入累计（BNB；famous-trim 两段减仓卖臂原料，见 _noteFamousLaunchZoneFlow）
+            _famousLaunchZoneSellBnb: 0, // T161 同域 famous 卖出累计（「全部砸光」判定=域内卖 ≥ 域内买；砸存量老底仓同计=净撤退语义）
             // T147 锚后等额捆绑簇（bundle-wave-exit 卖臂原料）：单调 max=史上最大
             // 同块等额买入簇钱包数（settle 于块切换；setBuyState 快照+持仓期差值投影
             // sinceEntryEqualBundleWallets）；pending=当前未结算块的等额桶
@@ -2547,6 +2558,38 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
+     * T161 famous 发行价上方域流（2026-11-17 Qmini 0x7008466b…7777 案，famous-trim
+     * 两段减仓卖臂原料）：famous roster 钱包在 (+10,+60] 域（near_launch∪low 下段，
+     * 地板锚口径）的买入/卖出分别累计 BNB。案源形状：famous 0xd216cf8e 入场后 29s
+     * 买 0.3456 BNB@地板锚 +52.0%（T133 旧域 (+10,+40] 零命中——低开票地板=首买价
+     * 抬高 curVs ~12.6pp，拉升段 famous 进场是旧域结构性盲区）→ 55s 后域内全砸
+     * 0.3576@+45.1%（净清仓）→ 盘面阴跌 −6→−19.5% 四段止损离场。
+     * 域上界 60（用户裁定「保守一点」——首版 80 收窄：>+60 的 famous 进场视为正常
+     * 接力不计，防把好票提前卖了）；与 T133（(10,40] 买向计数）刻意并存两套域：
+     * 旧 famous-entry-exit 0.5 全清门不动（用户裁定），新域独立累计。
+     * 「全部砸光」=域内卖 ≥ 域内买（消费侧 NetBnb ≤ 0）；砸存量老底仓同计（净
+     * 撤退语义——famous 买 0.25 后砸老仓 1.0 也是撤离）。锚与呈现口径同 T133：
+     * _floorLaunchPriceBnb(常量, 滚动最低||首买价) ?? 首可靠价 + curVs toFixed(2)；
+     * 锚不可得不计数（宁漏不冒充）。单调累计 → sinceEntry 差值天然事件 latch。
+     * 回放任意序：单笔 tick 价 × write-once 锚独立判定收敛（T133 同款）。
+     */
+    _noteFamousLaunchZoneFlow(state, priceBnb, isBuy, bnbAmount = 0) {
+        if (!(priceBnb > 0) || !(bnbAmount > 0)) return;
+        const launch = _floorLaunchPriceBnb(
+            _resolveLaunchPriceBnb(state.platform, state.quoteToken),
+            state._minRelPriceBnb || state._firstBuyPriceBnb,
+        ) ?? state._relFirstPriceBnb;
+        if (!(launch > 0)) return;
+        const curVs = parseFloat((100 * (priceBnb / launch - 1)).toFixed(2));
+        if (!(curVs > 10 && curVs <= 60)) return;
+        if (isBuy) {
+            state._famousLaunchZoneBuyBnb = (state._famousLaunchZoneBuyBnb || 0) + bnbAmount;
+        } else {
+            state._famousLaunchZoneSellBnb = (state._famousLaunchZoneSellBnb || 0) + bnbAmount;
+        }
+    }
+
+    /**
      * act* 9 键派生（2026-10-15 交易活跃度滑窗，取代同日删除的 cycle 分桶路由）：
      * activityWinMs（默认 10s，factorParams 可覆盖）窗内单趟全扫。
      *   actBuyBnb/actSellBnb/actNetBnb —— 窗内买/卖/净 BNB 量；
@@ -2916,9 +2959,12 @@ class FourMemeFactorAggregator extends EventEmitter {
      *                                  ——「狙击小队先头在首块+同波续单在后续块」合并计数；
      *                                  首买语义跨块天然去重。两键均纯事实计数（不内建 f0≥2
      *                                  提纯——门串组合表达），空窗/锚缺失全 0 有证据零值。
-     *                                  T150（2026-11-16 用户立法「抛压理念」双修）：①f0/wave/
-     *                                  clu 三键计数只认净持仓 > 尘线（_holderDustTokens）的
-     *                                  「站立抛压」钱包——已清仓/尘埃持仓不计（抛压已释放）；
+     *                                  T150（2026-11-16 用户立法「抛压理念」）：①f0/wave/
+     *                                  clu 三键计数剔小额参与钱包（★T162 2026-11-17 用户
+     *                                  修正措辞与方向：本意「前期的小额**买入**不要计在
+     *                                  钱包里头」——买入额 < holderDustBnb 尘线的钱包不计；
+     *                                  净持仓口径否证：小队清仓=抛压已砸给接盘方、盘面
+     *                                  已坏，恰是需要冷却的信号而非放行理由，已清仓照计）；
      *                                  ②波窗从「第一个有交易块」扩为 2s 内全部块（0x6e3a 案
      *                                  0.0385×3 三连买在第二块漏计）；③clu 选优 BNB→钱包数
      *                                  （0.594 鲸单劫持退化案）。等额簇两键不滤（金额指纹
@@ -2934,16 +2980,17 @@ class FourMemeFactorAggregator extends EventEmitter {
     _launchBundleFactors(state) {
         if (state._launchFrozen) return state._launchFrozen;
         const rows = [...state._launchFirstBuys.values()];
-        // T150 站立抛压过滤（2026-11-16 用户立法「我们整个策略希望解决的问题是早期
-        // 参与者太多所以抛压会大，那么小额持仓自然就不应该算在其中」）：f0/wave/clu
-        // 三键计数只认「净持仓 > 尘线」的钱包——已清仓/尘埃持仓钱包的抛压已释放或
-        // 可忽略。尘线=T98 token 域常量 _holderDustTokens（holderDustBnb÷首可靠价；
-        // 0=无首可靠价退化 → 只剔已清仓 net≤0，与 holdersExDust fail-open 哲学同向）。
-        // 净持仓随回放推进实时变化（冻结前每次读取现算）——组织小队出货后计数自动
-        // 回落=「抛压释放」语义。等额簇两键刻意**不滤**（0.0385×3 出货后金额指纹
-        // 仍在——纯观察键，出生期取证语义）。
-        const dustTok = state._holderDustTokens || 0;
-        const standing = rows.filter(e => (state._walletNetTokens.get(e.w) || 0) > dustTok);
+        // T162 买入额过滤（2026-11-17 用户修正 T150：「小额持仓」措辞应为「小额买入」——
+        // 前期小额买入的钱包不计入 f0/wave/clu 计数；净持仓口径否证撤销：小队清仓=抛压
+        // 已经砸给接盘方、盘子已经往坏了走——恰是需要冷却的信号而非放行理由（0x1dc9 案：
+        // 首块 3 钱包 5~19s 全出货，净持仓过滤 f0 崩 0 放行 −0.023）。尘线=holderDustBnb
+        // （BNB 域直接可比，显式 0=关=raw 人头计数）；判据=出生窗累计买入 _launchWalletBuys
+        // （T151 同源累计口径——分单小额拆买不漏计）。**不随卖出回落**（清仓照计=冷却语义）。
+        // 等额簇两键刻意**不滤**（0.0385×3 出货后金额指纹仍在——纯观察键，出生期取证语义）。
+        const buyDust = this._fp.holderDustBnb || 0;
+        const sized = buyDust > 0
+            ? rows.filter(e => (state._launchWalletBuys.get(e.w) || 0) >= buyDust)
+            : rows;
         // T151 大户合计买入（累计口径：出生窗每钱包累计 ≥0.2B 者合计其全部累计买入——
         // 与预扫验证口径一致；首买 only 口径漏分单小队（天仔 0.75→1.34 过线案））
         let bigBuySum = 0;
@@ -2951,7 +2998,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 同块簇（T150 选优改钱包数优先：BNB 选优被鲸单劫持——0x6e3a 案 0.594 鲸买
         // 单钱包簇压住 6 钱包簇/0.1155 三连买簇致 clu=1 退化，簇键语义=同块钱包数）
         const byBlock = new Map();
-        for (const e of standing) {
+        for (const e of sized) {
             if (e.blk === null) continue;
             let c = byBlock.get(e.blk);
             if (!c) { c = { bnb: 0, n: 0 }; byBlock.set(e.blk, c); }
@@ -2993,14 +3040,14 @@ class FourMemeFactorAggregator extends EventEmitter {
         const fb = state.firstBlockNumber;
         let f0 = 0, fNext = 0;
         if (fb !== null) {
-            for (const e of standing) if (e.blk === fb) f0++;
+            for (const e of sized) if (e.blk === fb) f0++;
             const fbTs = state._launchBlkFirstTs.get(fb);
             if (fbTs !== undefined) {
                 const waveBlks = new Set();
                 for (const [blk, ts] of state._launchBlkFirstTs) {
                     if (blk > fb && ts - fbTs <= LAUNCH_FIRST_WAVE_MS) waveBlks.add(blk);
                 }
-                for (const e of standing) if (waveBlks.has(e.blk)) fNext++;
+                for (const e of sized) if (waveBlks.has(e.blk)) fNext++;
             }
         }
         // T151 前期买入太多载体（2026-11-16 用户课题「前期买入太多→推迟买入」）：
@@ -3204,6 +3251,17 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 新进场 BNB 累计（单调 latch 同款；0=无进场有证据零值，非 null）
         const sinceEntryFamousNearLaunchBuyBnb = Math.max(0,
             (state._famousNearLaunchBuyBnb || 0) - (pos.entryFamousNearLaunchBuyBnb || 0));
+        // T161 famous 发行价上方域 (+10,+60] 差值三键（famous-trim 两段减仓卖臂）：
+        // Buy=本仓入场以来域内 famous 买额（腿 A 门 ≥0.2）；Sell=域内卖额（观察键，
+        // 净额原料）；Net=Buy−Sell 可负（≤0=famous 域内全部砸光=腿 B 触发——砸存量
+        // 老底仓同计=净撤退语义）。Math.max(0,·) 同 T133 防锚竞态瞬时负；Net 由两
+        // 差值相减，竞态窗内可能瞬时偏移、收敛后正确（同 T113 ratio 口径）
+        const sinceEntryFamousLaunchZoneBuyBnb = Math.max(0,
+            (state._famousLaunchZoneBuyBnb || 0) - (pos.entryFamousLaunchZoneBuyBnb || 0));
+        const sinceEntryFamousLaunchZoneSellBnb = Math.max(0,
+            (state._famousLaunchZoneSellBnb || 0) - (pos.entryFamousLaunchZoneSellBnb || 0));
+        const sinceEntryFamousLaunchZoneNetBnb =
+            sinceEntryFamousLaunchZoneBuyBnb - sinceEntryFamousLaunchZoneSellBnb;
         // T147 等额捆绑簇（bundle-wave-exit 卖臂主键）：本仓入场以来涌现的最大同块
         // 等额买入簇钱包数——setBuyState 入场清零后直读（0=无新簇有证据零值）
         const sinceEntryEqualBundleWallets = state._maxEqualBundleWallets || 0;
@@ -3217,6 +3275,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceEntryFamousNearLaunchBuys,
             // T136 卖臂 v2 金额主键（v1 计数键降观察；0 同语义）
             sinceEntryFamousNearLaunchBuyBnb,
+            // T161 famous 发行价上方域三键（famous-trim 卖臂：A 门=Buy≥0.2 卖 2 卡；
+            // B=Buy≥0.2 ∧ Net≤0 再卖 2 卡——域内全部砸光；Sell 纯观察）
+            sinceEntryFamousLaunchZoneBuyBnb,
+            sinceEntryFamousLaunchZoneSellBnb,
+            sinceEntryFamousLaunchZoneNetBnb,
             // T147 卖臂主键（bundle-wave-exit：入场后涌现等额捆绑簇钱包数）
             sinceEntryEqualBundleWallets,
             buyPrice: pos.buyPriceUsd || pos.buyPriceBnb, // USD 优先（买入时点锁定），缺 USD 时退 BNB（比值因子不受影响）
@@ -3358,6 +3421,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceEntryFamousNearLaunchBuys: null,
             // T136 金额差值（未持仓 → null fail-closed）
             sinceEntryFamousNearLaunchBuyBnb: null,
+            // T161 famous 发行价上方域三键（未持仓 → null fail-closed）
+            sinceEntryFamousLaunchZoneBuyBnb: null,
+            sinceEntryFamousLaunchZoneSellBnb: null,
+            sinceEntryFamousLaunchZoneNetBnb: null,
             // T147 等额捆绑簇差值（未持仓 → null fail-closed）
             sinceEntryEqualBundleWallets: null,
         };
@@ -3687,6 +3754,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceEntryFamousNearLaunchBuys: positionFactors.sinceEntryFamousNearLaunchBuys ?? null,
             // T136 金额差值（2026-11-12 卖臂 v2 主键；无持仓 → null）
             sinceEntryFamousNearLaunchBuyBnb: positionFactors.sinceEntryFamousNearLaunchBuyBnb ?? null,
+            // T161 famous 发行价上方域三键（2026-11-17 famous-trim 两段减仓卖臂；
+            // Buy=腿 A 门 / Net≤0=腿 B 全部砸光判定 / Sell 纯观察；无持仓 → null）
+            sinceEntryFamousLaunchZoneBuyBnb: positionFactors.sinceEntryFamousLaunchZoneBuyBnb ?? null,
+            sinceEntryFamousLaunchZoneSellBnb: positionFactors.sinceEntryFamousLaunchZoneSellBnb ?? null,
+            sinceEntryFamousLaunchZoneNetBnb: positionFactors.sinceEntryFamousLaunchZoneNetBnb ?? null,
             // T147 等额捆绑簇差值（2026-11-16 bundle-wave-exit 卖臂主键；无持仓 → null）
             sinceEntryEqualBundleWallets: positionFactors.sinceEntryEqualBundleWallets ?? null,
 

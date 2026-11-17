@@ -100,6 +100,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 立即清仓/为何没清）需 fire 时刻值，序列不可重建；旧 FA/未持仓 → null 不掩盖
     sinceEntryFamousNearLaunchBuys: factorResults.sinceEntryFamousNearLaunchBuys ?? null,
     sinceEntryFamousNearLaunchBuyBnb: factorResults.sinceEntryFamousNearLaunchBuyBnb ?? null,
+    // T161 famous 发行价上方域三键（2026-11-17 Qmini 案 famous-trim 两段减仓卖臂）：
+    // Buy（腿 A 门）/Net（腿 B 全部砸光判定 ≤0）/Sell（观察）——触发复盘需 fire
+    // 时刻值，序列不可重建；旧 FA/未持仓 → null 不掩盖
+    sinceEntryFamousLaunchZoneBuyBnb: factorResults.sinceEntryFamousLaunchZoneBuyBnb ?? null,
+    sinceEntryFamousLaunchZoneSellBnb: factorResults.sinceEntryFamousLaunchZoneSellBnb ?? null,
+    sinceEntryFamousLaunchZoneNetBnb: factorResults.sinceEntryFamousLaunchZoneNetBnb ?? null,
     sinceEntryEqualBundleWallets: factorResults.sinceEntryEqualBundleWallets ?? null,
     // T137 KOL HOLD 两键（2026-11-13）：famous 大买最后时刻距今秒数（HOLD 触发
     // 口径载体）+60s 窗 famous 卖出合计（释放臂载体）——HOLD 触发/释放复盘需

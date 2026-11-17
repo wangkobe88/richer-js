@@ -630,5 +630,163 @@ console.log('K. T137 KOL HOLD 两键（sinceLastFamousBigBuySec / recentFamousSe
     }
 }
 
+// ═══════════════ L. T161 famous 发行价上方域 (10,60] 三键（famous-trim 两段减仓卖臂）═══════════════
+console.log('L. T161 famous 发行价上方域（2026-11-17 Qmini 0x7008466b…7777 案：famous 0xd216cf8e 入场后 29s 买 0.3456@地板锚 +52.0%（旧域 (10,40] 零命中=低开票盲区）→ 55s 后域内全砸 0.3576@+45.1% → 盘面阴跌四段止损离场。卖臂：A=Buy≥0.2 立即卖 2 卡；B=Buy≥0.2 ∧ Net≤0 再卖 2 卡）');
+{
+    const FAM = '0xfamous1111111111111111111111111111111111111';
+    const NOTFAM = '0xother22222222222222222222222222222222222222';
+    const P0 = 0.00001;
+    const famFlow = (pct, isBuy, bnb, ts) => mkTick({
+        sender_address: FAM, trade_type: isBuy ? 'buy' : 'sell', bnb_amount: bnb,
+        price_bnb: P0 * (1 + pct / 100), timestamp: ts,
+    });
+    let liL = 0;
+    const tickL = (t) => Object.assign({}, t, { tx_hash: '0xl' + (++liL), log_index: liL });
+
+    FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set([FAM]));
+    try {
+        // L1 区间口径：(10,60] 含 60 不含 10（首版 80 收窄为 60——用户裁定「保守一点，
+        //     防把好票提前卖了」：>+60 famous 进场=正常接力不计）；买/卖双向计（与 T133
+        //     isBuy 门不同——「域内砸光」需要卖额）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+            fa.processTick(tickL(famFlow(5, true, 0.1, T0 + 3000)));    // almost → 不计
+            fa.processTick(tickL(famFlow(10, true, 0.1, T0 + 4000)));   // 恰 10（开边界）→ 不计
+            fa.processTick(tickL(famFlow(15, true, 0.2, T0 + 5000)));   // 计
+            fa.processTick(tickL(famFlow(60, true, 0.15, T0 + 6000)));  // 恰 60（闭边界）→ 计
+            fa.processTick(tickL(famFlow(65, true, 0.3, T0 + 7000)));   // >60（收窄案反证）→ 不计
+            fa.processTick(tickL(famFlow(80, true, 0.3, T0 + 7500)));   // 首版 80 域值 → 不计
+            fa.processTick(tickL(famFlow(30, false, 0.25, T0 + 8000))); // famous 卖在域内 → Sell 计
+            fa.processTick(tickL(famFlow(90, false, 0.4, T0 + 8500)));  // 卖在域外 → 不计
+            const f = fa.buildFactorMap('0xtoken', T0 + 9000);
+            check('L1 区间口径：(10,60] 买 0.35 / 域内卖 0.25（65%/80% 买与 90% 卖不计）', () => {
+                assert.ok(Math.abs(f.sinceEntryFamousLaunchZoneBuyBnb - 0.35) < 1e-9, `Buy=${f.sinceEntryFamousLaunchZoneBuyBnb}`);
+                assert.ok(Math.abs(f.sinceEntryFamousLaunchZoneSellBnb - 0.25) < 1e-9, `Sell=${f.sinceEntryFamousLaunchZoneSellBnb}`);
+            });
+            check('L1b 净额 Net = 0.35−0.25 = 0.10（>0 未砸光）', () =>
+                assert.ok(Math.abs(f.sinceEntryFamousLaunchZoneNetBnb - 0.10) < 1e-9, `Net=${f.sinceEntryFamousLaunchZoneNetBnb}`));
+        }
+        // L2 名单外不计；卖额→「全部砸光」Net ≤0（砸老底仓同计=净撤退）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+            fa.processTick(tickL(mkTick({ sender_address: NOTFAM, bnb_amount: 0.5, price_bnb: P0 * 1.3, timestamp: T0 + 3000 })));
+            fa.processTick(tickL(famFlow(20, true, 0.25, T0 + 4000)));   // famous 域内买 0.25
+            fa.processTick(tickL(famFlow(25, false, 1.0, T0 + 5000)));   // 砸老底仓 1.0（域内卖）
+            const f = fa.buildFactorMap('0xtoken', T0 + 6000);
+            check('L2 名单外不计 + 砸老底仓计净撤退：Buy=0.25 / Net=−0.75 ≤0（腿 B 命中）', () => {
+                assert.ok(Math.abs(f.sinceEntryFamousLaunchZoneBuyBnb - 0.25) < 1e-9);
+                assert.ok(f.sinceEntryFamousLaunchZoneNetBnb <= 0, `Net=${f.sinceEntryFamousLaunchZoneNetBnb}`);
+            });
+        }
+        // L3 与旧域并存互不污染：30% 买两域都计；50% 买仅新域计（本案形状）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+            fa.processTick(tickL(famFlow(30, true, 0.2, T0 + 3000)));   // 旧域+新域都计
+            fa.processTick(tickL(famFlow(50, true, 0.3, T0 + 4000)));   // 仅新域（旧域上界 40）
+            const f = fa.buildFactorMap('0xtoken', T0 + 5000);
+            check('L3 两域并存：旧键计 1 笔 0.2 / 新域 Buy=0.5（famous-entry-exit 0.5 门与 trim 臂各自消费）', () => {
+                assert.strictEqual(f.sinceEntryFamousNearLaunchBuys, 1);
+                assert.ok(Math.abs(f.sinceEntryFamousNearLaunchBuyBnb - 0.2) < 1e-9);
+                assert.ok(Math.abs(f.sinceEntryFamousLaunchZoneBuyBnb - 0.5) < 1e-9);
+            });
+        }
+        // L4 差值 latch + 补买重锚 + 未持仓 null
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tickL(famFlow(30, true, 0.5, T0 + 1500)));  // 入场前域内买
+            let f = fa.buildFactorMap('0xtoken', T0 + 1800);
+            check('L4a 未持仓 → 三键 null（fail-closed：`>= 0.2` 恒 false 不触发）', () => {
+                assert.strictEqual(f.sinceEntryFamousLaunchZoneBuyBnb, null);
+                assert.strictEqual(f.sinceEntryFamousLaunchZoneNetBnb, null);
+            });
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+            f = fa.buildFactorMap('0xtoken', T0 + 2500);
+            check('L4b 入场锚前 famous 域内买不进差值 → 0', () =>
+                assert.strictEqual(f.sinceEntryFamousLaunchZoneBuyBnb, 0));
+            fa.processTick(tickL(famFlow(40, true, 0.3456, T0 + 3000)));
+            f = fa.buildFactorMap('0xtoken', T0 + 3500);
+            check('L4c 入场后域内买 → 0.3456（腿 A 门 ≥0.2 命中）', () =>
+                assert.ok(Math.abs(f.sinceEntryFamousLaunchZoneBuyBnb - 0.3456) < 1e-9));
+            fa.clearBuyState('0xtoken');
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 5000 });
+            f = fa.buildFactorMap('0xtoken', T0 + 5500);
+            check('L4d 补买轮重锚 → 0（每仓独立）', () =>
+                assert.strictEqual(f.sinceEntryFamousLaunchZoneBuyBnb, 0));
+        }
+        // L5 ★事故现场反证（Qmini 0x7008466b…7777 端到端重放，flap 低开票）：
+        //    首买价 4.92e-9 < flap 常量 5.546e-9 → T134 地板=首买价（curVs 抬高
+        //    ~12.6pp）；famous 买 7.477e-9=地板锚 +51.96%（新域命中/旧域零命中=
+        //    盲区实锤）、砸 7.146e-9=+45.14%（域内 Sell）→ Net=−0.012 ≤0 腿 B 命中
+        {
+            const FA2 = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+            const TOK = '0xqmini7008466bef405bceb5fe3a23265710ea2a9e7777';
+            FA2.registerToken(TOK, { createdAtMs: T0, totalSupply: 1e9, symbol: 'Qmini', platform: 'flap' });
+            let liQ = 0;
+            const q = (o) => Object.assign({
+                token_address: TOK, trade_type: 'buy', trader_address: '0xa', sender_address: null,
+                price_bnb: 4.92e-9, bnb_amount: 0.1, token_amount: 1e6,
+                block_number: 100, timestamp: T0 + 1000, tx_hash: '0xq', log_index: 0,
+            }, { tx_hash: '0xq' + (++liQ), log_index: liQ }, o);
+            FA2.processTick(q({ bnb_amount: 0.5 }));                                    // 首买价=地板 4.92e-9（低于 flap 常量）
+            FA2.setBuyState(TOK, { buyPriceBnb: 5.86e-9, buyPriceUsd: 4.13e-6, buyTime: T0 + 31000 }); // 07:50:31 入场 @+19%
+            FA2.processTick(q({ sender_address: FAM, bnb_amount: 0.3456, price_bnb: 7.477e-9, timestamp: T0 + 60000 }));  // 07:51:00 famous 买
+            FA2.processTick(q({ sender_address: FAM, trade_type: 'sell', bnb_amount: 0.3576, price_bnb: 7.146e-9, timestamp: T0 + 115000 })); // 07:51:55 砸光
+            const f = FA2.buildFactorMap(TOK, T0 + 120000);
+            check('L5a 事故反证：famous 域内买 0.3456 计入新域（腿 A ≥0.2 命中）', () =>
+                assert.ok(Math.abs(f.sinceEntryFamousLaunchZoneBuyBnb - 0.3456) < 1e-9, `Buy=${f.sinceEntryFamousLaunchZoneBuyBnb}`));
+            check('L5b 事故反证：域内砸光 Net=0.3456−0.3576=−0.012 ≤0（腿 B 命中；卖额含砸老底仓）', () => {
+                assert.ok(Math.abs(f.sinceEntryFamousLaunchZoneNetBnb - (0.3456 - 0.3576)) < 1e-9, `Net=${f.sinceEntryFamousLaunchZoneNetBnb}`);
+                assert.ok(f.sinceEntryFamousLaunchZoneNetBnb <= 0);
+            });
+            check('L5c 盲区实锤：旧域 (10,40] 对本案零命中（+52% 超上界——famous-entry-exit 旧门不触发的根因）', () =>
+                assert.strictEqual(f.sinceEntryFamousNearLaunchBuys, 0));
+        }
+        // L6 条件串可评估（真实两腿条件形状 + null 侧 fail-closed）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.setBuyState('0xtoken', { buyPriceBnb: P0, buyPriceUsd: 5, buyTime: T0 + 2000 });
+            fa.processTick(tickL(famFlow(50, true, 0.25, T0 + 3000)));
+            const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+            const condA = 'sinceEntryFamousLaunchZoneBuyBnb >= 0.2';
+            const condB = 'sinceEntryFamousLaunchZoneBuyBnb >= 0.2 AND sinceEntryFamousLaunchZoneNetBnb <= 0';
+            check('L6a 腿 A 条件真（Buy=0.25）', () =>
+                assert.strictEqual(fa.evaluateCondition ? fa.evaluateCondition(condA, f) : new StrategyEngine({}).evaluateCondition(condA, f), true));
+            check('L6b 腿 B 条件假（未砸光 Net=0.25>0）', () =>
+                assert.strictEqual(new StrategyEngine({}).evaluateCondition(condB, f), false));
+            fa.processTick(tickL(famFlow(48, false, 0.3, T0 + 5000)));
+            const f2 = fa.buildFactorMap('0xtoken', T0 + 6000);
+            check('L6c 砸光后腿 B 条件真（Net=−0.05 ≤0）', () =>
+                assert.strictEqual(new StrategyEngine({}).evaluateCondition(condB, f2), true));
+            const fNull = fa.buildFactorMap('0xnotoken', T0 + 7000) || {};
+            check('L6d 未持仓 null 侧 fail-closed（`>= 0.2` 恒 false 不误触发）', () =>
+                assert.notStrictEqual(fNull.sinceEntryFamousLaunchZoneBuyBnb >= 0.2, true));
+        }
+        // L7 源码口径断言：域界 60 硬编码单点 + 买/卖双累计器命名锚定
+        {
+            const src = read('src/services/FourMemeFactorAggregator.js');
+            check('L7a 域界 60 单点硬编码（curVs > 10 && curVs <= 60）', () =>
+                assert.ok(/curVs > 10 && curVs <= 60/.test(src), '域界断言失败——收窄案（80→60）防线'));
+            check('L7b 双累计器在 state 初始化（写点 latch 原料）', () =>
+                assert.ok(src.includes('_famousLaunchZoneBuyBnb: 0') && src.includes('_famousLaunchZoneSellBnb: 0')));
+            check('L7c 快照白名单透传（FactorBuilder 三键）', () => {
+                const fb = read('src/trading-engine/core/FactorBuilder.js');
+                for (const k of ['sinceEntryFamousLaunchZoneBuyBnb', 'sinceEntryFamousLaunchZoneSellBnb', 'sinceEntryFamousLaunchZoneNetBnb']) {
+                    assert.ok(fb.includes(k), `FactorBuilder 缺 ${k}`);
+                }
+            });
+        }
+    } finally {
+        FourMemeFactorAggregator.setFamousCopyWalletsForTest(null);
+    }
+}
+
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
 process.exit(failed ? 1 : 0);

@@ -59,8 +59,8 @@ function mkTick(over) {
     price_bnb: 0.00001, price_usd: 5, bnb_amount: 1, token_amount: null,
     block_number: 100, timestamp: T0 + 1000, tx_hash: '0xtx', log_index: 0,
   }, over);
-  // T150：净持仓尘线（_holderDustTokens=0.015/1e-5=1500 token）参与 f0/wave/clu 计数
-  // ——token_amount 缺省按 bnb/price 真实化（原固定 1000 会让所有单笔钱包全落尘线下）
+  // T162：买入额尘线（holderDustBnb=0.015 BNB）参与 f0/wave/clu 计数；token_amount
+  // 仍按 bnb/price 真实化（holders 族/等额簇键照用真实持仓量纲）
   if (t.token_amount == null) t.token_amount = t.bnb_amount / t.price_bnb;
   return t;
 }
@@ -401,9 +401,13 @@ console.log('P. 源码口径反证（T141）');
     const m = src.match(/if \(!state\._launchWindowClosed && blockNumber !== null\) \{\s*const _lt = state\._launchBlkFirstTs\.get\(blockNumber\);[\s\S]*?\n        \}/);
     assert.ok(m, '写点守卫段未找到');
   });
-  check('P3 波窗判定=blk>首块 ∧ 块首时间差≤2000 **全部块**入集（T150 替换旧「最小 blk 单块」实现）∧ 站立过滤在计数前', () => {
+  check('P3 波窗判定=blk>首块 ∧ 块首时间差≤2000 **全部块**入集（T150 替换旧「最小 blk 单块」实现）∧ T162 买入额过滤在计数前（源码锁：_launchWalletBuys 累计 ≥ holderDustBnb，禁 _walletNetTokens 净持仓口径回流）', () => {
     assert.ok(/if \(blk > fb && ts - fbTs <= LAUNCH_FIRST_WAVE_MS\) waveBlks\.add\(blk\);/.test(src), '波窗判定行缺失');
-    assert.ok(/for \(const e of standing\) if \(waveBlks\.has\(e\.blk\)\) fNext\+\+;/.test(src), '站立计数行缺失');
+    assert.ok(/for \(const e of sized\) if \(waveBlks\.has\(e\.blk\)\) fNext\+\+;/.test(src), '买入额过滤计数行缺失');
+    const seg = src.match(/const buyDust = this\._fp\.holderDustBnb \|\| 0;[\s\S]*?\n\s*: rows;/);
+    assert.ok(seg, '买入额过滤段缺失');
+    assert.ok(/_launchWalletBuys\.get\(e\.w\)/.test(seg[0]), '判据不是 _launchWalletBuys 累计口径');
+    assert.ok(!/_walletNetTokens/.test(seg[0]), '净持仓口径回流（T162 已否证）');
   });
   check('P4 FactorBuilder 快照含两键', () => {
     const fbSrc = fs.readFileSync(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'), 'utf8');
@@ -640,10 +644,10 @@ console.log('U. v24 门串求值（T149 二修：年龄放行臂=(tokenAgeSec>60
   });
 }
 
-console.log('V. T150 站立抛压三修（2026-11-16 用户立法：①f0/wave/clu 计数剔净持仓≤尘线 ②wave 扩 2s 全部块 ③clu 选优钱包数优先）');
+console.log('V. T162 买入额过滤修正（2026-11-17 用户修正 T150：「小额持仓」应为「小额买入」；净持仓口径否证——清仓=抛压已砸、盘面已坏，仍需冷却不回落）');
 {
   const gateOf = (m) => (m.launchBundleClusterSize < 3 && m.launchFirstBlockWallets < 2 && m.launchFirstWaveWallets < 3);
-  // V1 0x6e3a 形状：组织小队三块齐进（1+2+3）后全清仓 → 抛压已释放 → 计数塌、门放行
+  // V1 0x6e3a/0x1dc9 形状：组织小队三块齐进（1+2+3）后全清仓 → 买入额过滤不随卖出回落 → 仍挡（冷却）
   {
     const fa = newFA();
     const buys = [
@@ -656,18 +660,18 @@ console.log('V. T150 站立抛压三修（2026-11-16 用户立法：①f0/wave/c
     ];
     feed(fa, buys);
     const before = F(fa, T0 + 6000);
-    check('V1a 清仓前：f0=1 wave=5（2s 全块 101/102 全计，但 wB 0.009 净持仓 900<尘线 1500 剔——立法的小额持仓剔除在清仓前已生效）clu=3 → 门挡', () => {
+    check('V1a 清仓前：f0=1 wave=5（2s 全块 101/102 全计，wB 0.009<0.015 尘买剔除——「前期小额买入不计」在清仓前已生效）clu=3 → 门挡', () => {
       assert.deepStrictEqual([before.launchFirstBlockWallets, before.launchFirstWaveWallets, before.launchBundleClusterSize], [1, 5, 3]);
       assert.strictEqual(gateOf(before), false);
     });
-    // 全员清仓（原额卖出）
+    // 全员清仓（原额卖出）——T162 修正核心断言：计数不回落（0x1dc9 案现场反证）
     for (const b of buys) {
       feed(fa, [{ timestamp: T0 + 15000, block_number: 500, log_index: 1, trade_type: 'sell', sender_address: b.sender_address, trader_address: b.trader_address, bnb_amount: b.bnb_amount }]);
     }
     const after = F(fa, T0 + 20000);
-    check('V1b 全清仓后（抛压已释放）：f0=0 wave=0 clu=0 → 门放行（0x6e3a 立法形状）', () => {
-      assert.deepStrictEqual([after.launchFirstBlockWallets, after.launchFirstWaveWallets, after.launchBundleClusterSize], [0, 0, 0]);
-      assert.strictEqual(gateOf(after), true);
+    check('V1b 全清仓后（T162）：f0/wave/clu 逐位不变=1/5/3 → 门仍挡（清仓=抛压已砸给接盘方、盘面已坏，需冷却非放行）', () => {
+      assert.deepStrictEqual([after.launchFirstBlockWallets, after.launchFirstWaveWallets, after.launchBundleClusterSize], [1, 5, 3]);
+      assert.strictEqual(gateOf(after), false);
     });
     check('V1c 等额簇键不滤尘（0.0385×3 出货后金额指纹仍在）', () => {
       assert.strictEqual(after.launchEqualClusterWallets, 3);
@@ -685,24 +689,24 @@ console.log('V. T150 站立抛压三修（2026-11-16 用户立法：①f0/wave/c
       { timestamp: T0 + 3000, block_number: 102, log_index: 3, sender_address: 'wZ', trader_address: '0xeZ', bnb_amount: 0.0385 },
     ]);
     const m = F(fa, T0 + 20000);
-    check('V2 站立抛压保持：wave=6/clu=3 → 门仍挡（真·抛压未释放）', () => {
+    check('V2 大额买入保持：wave=5/clu=3 → 门仍挡', () => {
       assert.strictEqual(gateOf(m), false);
     });
   }
-  // V3 BINANCE 形状：首块 2（1 尘 1 站立）+波 2（1 清仓 1 站立）→ f0=1/wave=2 → 放行
+  // V3 BINANCE 形状（T150 原立法动机票）：wQ 尘买剔除，wS 已清仓**照计** → wave=3 达线 → 门挡（T162 知情代价：用户裁定清仓=盘已坏仍需冷却）
   {
     const fa = newFA();
     feed(fa, [
       { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wP', trader_address: '0xeP', bnb_amount: 0.066 },
-      { timestamp: T0 + 1000, block_number: 100, log_index: 2, sender_address: 'wQ', trader_address: '0xeQ', bnb_amount: 0.010 }, // 尘（0.010B<0.015 尘线）
+      { timestamp: T0 + 1000, block_number: 100, log_index: 2, sender_address: 'wQ', trader_address: '0xeQ', bnb_amount: 0.010 }, // 尘买（0.010B<0.015 尘线）
       { timestamp: T0 + 1600, block_number: 101, log_index: 1, sender_address: 'wR', trader_address: '0xeR', bnb_amount: 0.020 },
       { timestamp: T0 + 1600, block_number: 101, log_index: 2, sender_address: 'wS', trader_address: '0xeS', bnb_amount: 0.049 },
     ]);
     feed(fa, [{ timestamp: T0 + 3000, block_number: 102, log_index: 1, trade_type: 'sell', sender_address: 'wS', trader_address: '0xeS', bnb_amount: 0.049 }]); // wS 清仓
     const m = F(fa, T0 + 10000);
-    check('V3 BINANCE 救回形状：wQ 尘+wS 清仓出列 → f0=1（wP）wave=2（+wR）clu=1 → 门放行', () => {
-      assert.deepStrictEqual([m.launchFirstBlockWallets, m.launchFirstWaveWallets, m.launchBundleClusterSize], [1, 2, 1]);
-      assert.strictEqual(gateOf(m), true);
+    check('V3 BINANCE 修正后回挡：wQ 尘买出列、wS 清仓照计 → f0=1（wP）wave=3（+wR+wS）clu=2 → 门挡（T150 救回语义随净持仓口径一并否证）', () => {
+      assert.deepStrictEqual([m.launchFirstBlockWallets, m.launchFirstWaveWallets, m.launchBundleClusterSize], [1, 3, 2]);
+      assert.strictEqual(gateOf(m), false);
     });
   }
   // V4 clu 鲸单劫持修复（0x6e3a 案 0.594 鲸买 vs 0.0385×3 簇）
@@ -719,20 +723,20 @@ console.log('V. T150 站立抛压三修（2026-11-16 用户立法：①f0/wave/c
       assert.strictEqual(m.launchBundleClusterSize, 3);
     });
   }
-  // V5 尘线退化（price_bnb=0 → 无可靠价 → _holderDustTokens=0 → 只剔已清仓 net≤0）
+  // V5 无可靠价独立性（price_bnb=0）：T162 过滤在 BNB 域直接可比——尘买 wA 剔除、已清仓 wB 照计（T150 净持仓口径需 _holderDustTokens 价格换算在此退化）
   {
     const fa = newFA();
     feed(fa, [
-      { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wA', trader_address: '0xeA', bnb_amount: 0.005, price_bnb: 0, token_amount: 500 }, // 尘额但持有
+      { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wA', trader_address: '0xeA', bnb_amount: 0.005, price_bnb: 0, token_amount: 500 }, // 尘买（<0.015）
       { timestamp: T0 + 1000, block_number: 100, log_index: 2, sender_address: 'wB', trader_address: '0xeB', bnb_amount: 0.02, price_bnb: 0, token_amount: 2000 },
     ]);
     feed(fa, [{ timestamp: T0 + 3000, block_number: 101, log_index: 1, trade_type: 'sell', sender_address: 'wB', trader_address: '0xeB', bnb_amount: 0.02, price_bnb: 0, token_amount: 2000 }]); // wB 清仓
     const m = F(fa, T0 + 10000);
-    check('V5 dustTok=0 退化：只剔已清仓（wB net=0 出列）——尘埃持有 wA net>0 照计 f0=1', () => {
+    check('V5 无可靠价不退化：wA 尘买剔除、wB 清仓照计 f0=1（BNB 域过滤无价格依赖）', () => {
       assert.strictEqual(m.launchFirstBlockWallets, 1);
     });
   }
-  // V6 抛压释放动态（冻结前实时回落）
+  // V6 清仓不回落（T162 核心语义：冻结前每次读取现算，卖出不影响计数）
   {
     const fa = newFA();
     feed(fa, [
@@ -742,9 +746,9 @@ console.log('V. T150 站立抛压三修（2026-11-16 用户立法：①f0/wave/c
     const t1 = F(fa, T0 + 5000);
     feed(fa, [{ timestamp: T0 + 8000, block_number: 103, log_index: 1, trade_type: 'sell', sender_address: 'wB', trader_address: '0xeB', bnb_amount: 0.05 }]);
     const t2 = F(fa, T0 + 10000);
-    check('V6 小队半数离场：f0=2 → 1 实时回落（冻结前每次读取现算=抛压释放语义）', () => {
+    check('V6 小队半数清仓：f0=2 → 2 不回落（卖出不改变计数=冷却语义，T150 回落语义否证）', () => {
       assert.strictEqual(t1.launchFirstBlockWallets, 2);
-      assert.strictEqual(t2.launchFirstBlockWallets, 1);
+      assert.strictEqual(t2.launchFirstBlockWallets, 2);
     });
   }
 }
@@ -780,11 +784,12 @@ console.log('W. T151 launchBigBuyBnb（前期买入太多载体）+ 推迟门');
     assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.4, sinceFirstTradeSec: 61 }), true));
   check('W4 light@+20s → 放（0.9<1）', () =>
     assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.9, sinceFirstTradeSec: 20 }), true));
-  check('W5 deploy DELAY_GATE 逐字一致（防漂移）', () => {
+  check('W5 deploy DELAY_GATE 逐字一致（防漂移；v27 起推迟门同享破发豁免臂——T162 顺手补齐 v27 漏更）', () => {
     const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
     const mm = deploySrc.match(/const DELAY_GATE = '((?:[^'\\]|\\.)*)'/);
     assert.ok(mm, 'DELAY_GATE 缺失');
-    assert.strictEqual(mm[1].replace(/^ AND \(/, '').replace(/\)$/, ''), gate);
+    assert.strictEqual(mm[1].replace(/^ AND \(/, '').replace(/\)$/, ''),
+      'launchBigBuyBnb < 1 OR sinceFirstTradeSec > 60 OR launchMinVsFloorPct < 0');
   });
 }
 

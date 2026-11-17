@@ -616,6 +616,11 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-11-13 T137 KOL HOLD 两键（famous 大买时刻/卖出窗合计——卡级 HOLD
         // 触发与释放臂载体；详见 _test_since_entry_factors.cjs K 段）
         'sinceLastFamousBigBuySec', 'recentFamousSellBnb',
+        // 2026-11-17 T161 famous 发行价上方域 (10,60] 三键（Qmini 0x7008466b 案
+        // famous-trim 两段减仓卖臂：A=Buy≥0.2 卖 2 卡 / B=Buy≥0.2 ∧ Net≤0 再卖 2 卡；
+        // 详见 _test_since_entry_factors.cjs L 段）
+        'sinceEntryFamousLaunchZoneBuyBnb', 'sinceEntryFamousLaunchZoneSellBnb',
+        'sinceEntryFamousLaunchZoneNetBnb',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删
