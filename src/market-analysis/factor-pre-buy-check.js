@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP6';
+const FACTOR_PREBUY_VERSION = 'FP7';
 
 // ── FP6 famous 高控+砸落观察臂（2026-11-17 btv140 复审 BP-T007 小树 0x92598590…7777
 //    案用户裁定：「这样吧，这个场景（持有不多还没砸）先不阻挡购买，不过可以在因子
@@ -153,6 +153,34 @@ const TAIL_WIN120_TPM_BNB = 1;
 /** 延伸活跃腿2线：前 90s 延伸段买入（win120BuyBnb−win30BuyBnb）<0.1（尘埃级
  *  ——买入只发生在最后 30s=小波动，30s 前无人在买） */
 const TAIL_EXT_BUY_BNB = 0.1;
+/** 延伸活跃腿3线（FP7，2026-11-17 btv140 复审 BP-T009 猴子币 0xd827bc26…7777 案
+ *  用户裁定：「不要接『已经交易了很久，盘子整体已经到了末尾』的情况，未起来/小波
+ *  一次的票都可以，但是这种已经经历了大涨/丰富交易的票，不可抄底（我们抄底的
+ *  点位，基本上是走向灭亡的点位）」——minVsLaunchPct（锚窗涨起后最低价较发行
+ *  价 %）≤3=大涨+丰富交易后**砸穿过/贴近发行价**（灭亡确认），活跃持续不救
+ *  （猴子币 win120 131 笔/min/85 买家=砸盘流量自身制造的高活跃）。127 票扫描：
+ *  ath≥100∧vol≥20∧minVs≤3 面 4 票全负 Σ−0.045 零误伤（猴子币/币安兄弟/币安共建/
+ *  Echo——后两张 FP5 腿1 已拦）；vsAth 深回撤轴（≤−50/−60）误伤 GCB +0.032
+ *  （回落深但未砸穿发行价=还有救）——「砸穿发行价」才是走向灭亡的精确操作化；
+ *  分离带：命中面 max 0.3 vs 正票最近 5.9（GIGA +0.031），取 3 中偏保守） */
+const TAIL_BROKE_FLOOR_PCT = 3;
+
+// ── CD414 短窗持续密集砸盘臂（FP7，2026-11-17 btv140 复审 BP-T009 猴子币
+//    0xd827bc26…7777 案用户裁定）：「这个票出现了捆绑密集砸盘，是非常明显的
+//    作弊了，出现这种现象的票，也要挡住」+判据澄清「异常是这十几秒综合体现的，
+//    所以这个感觉是一个持续稍微长时间段的，密集砸盘」——案形：锚前 15 秒
+//    **54 笔卖出 3.73 BNB/47 个独立卖钱包**（买侧仅 0.44），含同组 5 钱包连续
+//    两块等衰减序列（0.0574→0.0556→0.0539…程序化分仓抛售）+单块 5 笔 0.13~0.19
+//    级齐砸。判据=**win30 持续段综合**：独立卖钱包 ≥15 ∧ 卖出 ≥2 BNB ∧ 净流
+//    ≤−1.5 BNB（散户不可能 30 秒内十几个钱包协调砸出净 1.5B+ 卖压）。
+//    127 票扫描：5 票（猴子币 48/3.76/−3.2、币安兄弟 45/9.7/−2.6、XXX 27/2.6/
+//    −1.6、MEOW 16/2.7/−1.8、鯨 22/2.3/−1.8）——**排除 FP6 observe 命中票**
+//    （XXX/鯨=上轮「famous 高控+砸落先不阻挡购买」裁定面，两轴正交各管各的）：
+//    实拦 3 票全负 Σ−0.056 零新误伤。与 CD412（单块 ≥15 户极端）正交：本臂看
+//    持续段协同、不看单块不看承接 ──
+const DENSE_DUMP_MIN_SELLERS = 15;
+const DENSE_DUMP_MIN_SELL_BNB = 2;
+const DENSE_DUMP_MAX_NET_BNB = -1.5;
 
 // ── CD401 sbw 机械化代理线（用户两分法路线 1；预扫描校准点） ──
 /** 波贴近锚：出口波末笔距今 ≤ 此秒（「当下事件」非历史遗迹） */
@@ -294,12 +322,17 @@ function judgeTailPhaseActivity(snapshot) {
       ? +(((w120.buyBnb + w120.sellBnb) / 120) * 60).toFixed(2) : null,
     extBuyBnb: w120 && w30 && typeof w120.buyBnb === 'number' && typeof w30.buyBnb === 'number'
       ? +(w120.buyBnb - w30.buyBnb).toFixed(4) : null,
+    minVsLaunchPct: typeof bd.minVsLaunchPct === 'number' ? bd.minVsLaunchPct : null, // FP7 腿3
   };
   if (trace.athVsLaunchPct === null || trace.totalVolumeBnb === null) {
     return { hit: 0, branch: 'anchors_missing', reason: null, trace };
   }
   if (trace.athVsLaunchPct < TAIL_ATH_VS_LAUNCH_PCT || trace.totalVolumeBnb < TAIL_TOTAL_VOLUME_BNB) {
     return { hit: 0, branch: 'not_fully_risen', reason: null, trace };
+  }
+  // 腿3（FP7）：砸穿过/贴近发行价=灭亡确认，活跃持续不救（用户裁定「不可抄底」）
+  if (trace.minVsLaunchPct !== null && trace.minVsLaunchPct <= TAIL_BROKE_FLOOR_PCT) {
+    return { hit: 1, branch: 'tail_broke_floor', reason: 'act_tail_flat', trace };
   }
   if (trace.tpm120 === null && trace.extBuyBnb === null) {
     return { hit: 0, branch: 'win_missing', reason: null, trace };
@@ -310,6 +343,16 @@ function judgeTailPhaseActivity(snapshot) {
     return { hit: 1, branch: tpmLow ? 'tail_tpm_dead' : 'tail_ext_buy_gap', reason: 'act_tail_flat', trace };
   }
   return { hit: 0, branch: 'sustained', reason: null, trace };
+}
+
+/** CD414 短窗持续密集砸盘：win30 独立卖钱包 ≥15 ∧ 卖 ≥2B ∧ 净 ≤−1.5B → 拒
+ *  （observe fam_dominance_fall 命中票由调用点排除——上轮 famous 观察裁定） */
+function armDenseDump(bd) {
+  const w30 = bd && bd.win && bd.win[30];
+  if (!w30 || typeof w30.sellers !== 'number' || typeof w30.sellBnb !== 'number' || typeof w30.netBnb !== 'number') return false;
+  return w30.sellers >= DENSE_DUMP_MIN_SELLERS
+    && w30.sellBnb >= DENSE_DUMP_MIN_SELL_BNB
+    && w30.netBnb <= DENSE_DUMP_MAX_NET_BNB;
 }
 
 // ═══════════════ famous 高控+砸落观察臂（FP6：标记不拦截，留待找方案） ═══════════════
@@ -420,6 +463,12 @@ function buildFactorGates(parts) {
       value: `卖方${d(cd.nearDumpWorstSellers)} 块卖${d(cd.nearDumpWorstSellBnb, 'B')}`,
       line: '≥15户 ∧ ≥1B（破发豁免）', hit: parts.armHits.includes('cd412_extreme_dump_sellers'),
     });
+    const w30g = (parts.bd && parts.bd.win && parts.bd.win[30]) || null;
+    g.push({
+      id: 'cd414', label: 'CD414·短窗持续密集砸盘',
+      value: `30s卖方${d(w30g && w30g.sellers)} 卖${d(w30g && w30g.sellBnb, 'B')} 净${d(w30g && w30g.netBnb, 'B')}`,
+      line: '≥15户 ∧ ≥2B ∧ 净≤−1.5B（observe 命中票除外）', hit: parts.armHits.includes('cd414_dense_dump'),
+    });
   }
   // FP3 famous 两法
   {
@@ -439,9 +488,9 @@ function buildFactorGates(parts) {
   {
     const t = parts.tail.trace || {};
     g.push({
-      id: 'tail_activity', label: 'FP5·尾声延伸活跃',
-      value: `ath${d(t.athVsLaunchPct, '%')} 总额${d(t.totalVolumeBnb, 'B')} win120吞吐${d(t.tpm120, 'B/min')} 前90s买${d(t.extBuyBnb, 'B')}`,
-      line: 'ath≥100% ∧ 总额≥20B ∧（吞吐<1B/min ∨ 延伸买<0.1B）', hit: !!parts.tail.reason,
+      id: 'tail_activity', label: 'FP5/FP7·尾声延伸活跃',
+      value: `ath${d(t.athVsLaunchPct, '%')} 总额${d(t.totalVolumeBnb, 'B')} win120吞吐${d(t.tpm120, 'B/min')} 前90s买${d(t.extBuyBnb, 'B')} minVs${d(t.minVsLaunchPct, '%')}`,
+      line: 'ath≥100% ∧ 总额≥20B ∧（吞吐<1B/min ∨ 延伸买<0.1B ∨ 砸穿发行价 minVs≤3%）', hit: !!parts.tail.reason,
     });
   }
   // FP6 famous 高控+砸落（观察门——不拦截）
@@ -596,12 +645,15 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     : { hit: 0, branch: 'disabled', reason: null, trace: {} };
   const arms = [];
   const cd = snapshot.cheatDerived || {};
+  // FP6 observe（famous 高控+砸落）前置判定——CD414 臂排除消费（上轮裁定先观察）
+  const domFall = judgeFamousDominanceFall(snapshot);
   if (enableCheatArms) {
     if (armDumpNoAbsorption(cd)) arms.push('cd400_dump_no_absorption');
     else if (armDumpLowAbsorption(cd)) arms.push('cd403_dump_low_absorption');
     else if (armBurstExitSellPressure(cd)) arms.push('cd401_burst_exit_sell_pressure');
     else if (armBurstBundledWave(cd)) arms.push('cd405_burst_bundled_wave');
     else if (armExtremeDumpSellers(cd, snapshot.buyDerived)) arms.push('cd412_extreme_dump_sellers');
+    else if (armDenseDump(snapshot.buyDerived) && !domFall.observe) arms.push('cd414_dense_dump'); // FP7 短窗持续密集砸盘（observe 命中票排除——famous 场景归观察）
   }
   // T144 活跃度门（BP act 题整题迁入）：PVP 后、CD 臂前
   const activity = enableActivity
@@ -619,11 +671,10 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     ? judgeFamousDanger(snapshot)
     : { hit: 0, branch: 'disabled', reason: null, trace: {} };
   if (famous.hit === 1) arms.push(famous.reason);
-  // FP6 famous 高控+砸落观察臂（标记不拦截——留待找方案）
-  const domFall = judgeFamousDominanceFall(snapshot);
+  // FP6 famous 高控+砸落观察臂（标记不拦截——留待找方案；判定已前移 CD414 排除消费）
   const reason = activity.level === 'low' ? 'act_low'
     : (activity.level === 'ultra' ? 'act_ultra' : (pvp.reason || tail.reason || famous.reason || (arms.length ? arms[0] : null)));
-  const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, armHits: arms });
+  const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, bd: snapshot.buyDerived || {}, armHits: arms });
   return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, tail, famous, arms,
     gates,
     observe: domFall.observe ? { code: 'fam_dominance_fall', ...domFall.trace } : null,
@@ -640,6 +691,8 @@ module.exports = {
   ACT_ULTRA_SELL_WALLETS, ACT_ULTRA_BUY_N_MAX, ACT_ULTRA_BUY_BNB_MAX, ACT_ULTRA_TPM, ACT_ULTRA_IDLE_PCT,
   TAIL_ATH_VS_LAUNCH_PCT, TAIL_TOTAL_VOLUME_BNB, TAIL_WIN120_TPM_BNB, TAIL_EXT_BUY_BNB,
   FAM_DOM_FALL_DOM_PCT, FAM_DOM_FALL_CHG30_PCT,
+  TAIL_BROKE_FLOOR_PCT,
+  DENSE_DUMP_MIN_SELLERS, DENSE_DUMP_MIN_SELL_BNB, DENSE_DUMP_MAX_NET_BNB,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
   EXTREME_DUMP_MIN_SELLERS, EXTREME_DUMP_MIN_BNB,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
@@ -649,6 +702,6 @@ module.exports = {
   judgeRetailPvp, judgeActivityLevel, judgeFamousDanger, judgeTailPhaseActivity,
   judgeFamousDominanceFall, buildFactorGates,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
-  armExtremeDumpSellers,
+  armExtremeDumpSellers, armDenseDump,
   evaluateFactorPreBuy,
 };

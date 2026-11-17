@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP6'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP7'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP6');
+    assert.strictEqual(r.version, 'FP7');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -474,6 +474,59 @@ console.log('K. FP6 famous 高控+砸落观察臂 + 门/值对 gates（btv140 BP
     const blocked = M.evaluateFactorPreBuy(TS({ athVsLaunchPct: 233.7, totalVolumeBnb: 47.29, win: { 30: WIN(0.2475, 0.4879), 120: WIN(0.2475, 0.5861) } }, {}));
     assert.strictEqual(blocked.reason, 'act_tail_flat');
     assert.strictEqual(blocked.gates.find((x) => x.id === 'tail_activity').hit, true);
+  });
+}
+
+console.log('L. FP7 尾声腿3（砸穿发行价）+ CD414 短窗持续密集砸盘（btv140 BP-T009 猴子币案）');
+{
+  const WIN = (o) => Object.assign({ buyBnb: 0.5, sellBnb: 1, buyN: 3, sellN: 5, netBnb: -0.5, buySharePct: 33, ticksPerMin: 20, buyers: 3, sellers: 5, newBuyers: 1 }, o);
+  const TS = (bd, cd) => ({
+    ticks: [{ dt: 400 }],
+    wallets: [W(0.2994, 0.1, 0.2994, 100)], // PVP 过
+    buyDerived: Object.assign({ activity: { nearTail10BuyN: 3 } }, bd),
+    cheatDerived: Object.assign({}, cd),
+  });
+  check('L1 tail 腿3 主案复刻（猴子币：ath317.9/vol40.1/minVs0.3 活跃高 131笔/min）→ 拦（活跃不救）', () => {
+    const r = M.judgeTailPhaseActivity(TS({ athVsLaunchPct: 317.9, totalVolumeBnb: 40.07, minVsLaunchPct: 0.3, win: { 30: WIN({ buyBnb: 5.85, sellBnb: 0.5, netBnb: 5.3, ticksPerMin: 131 }), 120: WIN({ buyBnb: 5.85, sellBnb: 0.5, netBnb: 5.3, ticksPerMin: 131 }) } }));
+    assert.strictEqual(r.hit, 1); assert.strictEqual(r.branch, 'tail_broke_floor'); assert.strictEqual(r.reason, 'act_tail_flat');
+  });
+  check('L2 tail 腿3 贴发行价线（minVs=3 线上）→ 拦；minVs=5.9（GIGA 正票）→ 放行 sustained', () => {
+    const hit = M.judgeTailPhaseActivity(TS({ athVsLaunchPct: 200, totalVolumeBnb: 30, minVsLaunchPct: 3, win: { 30: WIN(), 120: WIN() } }));
+    assert.strictEqual(hit.branch, 'tail_broke_floor');
+    const pass = M.judgeTailPhaseActivity(TS({ athVsLaunchPct: 173.6, totalVolumeBnb: 22.6, minVsLaunchPct: 5.9, win: { 30: WIN({ buyBnb: 5, sellBnb: 2, netBnb: 3 }), 120: WIN({ buyBnb: 5.3, sellBnb: 2, netBnb: 3.3 }) } }));
+    assert.strictEqual(pass.hit, 0); assert.strictEqual(pass.branch, 'sustained');
+  });
+  check('L3 tail 腿3 minVs 锚缺失 → 回落活跃两腿评估（不因缺锚拦）', () => {
+    const r = M.judgeTailPhaseActivity(TS({ athVsLaunchPct: 200, totalVolumeBnb: 30, win: { 30: WIN({ buyBnb: 5, sellBnb: 2, netBnb: 3 }), 120: WIN({ buyBnb: 5.3, sellBnb: 2, netBnb: 3.3 }) } }));
+    assert.strictEqual(r.hit, 0); assert.strictEqual(r.branch, 'sustained');
+  });
+  check('L4 CD414 主案复刻（win30 48 卖方/3.76B/净−3.18）→ 拒 cd414_dense_dump', () => {
+    const r = M.evaluateFactorPreBuy(TS({ win: { 30: WIN({ sellers: 48, sellBnb: 3.7578, netBnb: -3.175 }) }, chg30Pct: -56.7 }));
+    assert.strictEqual(r.pass, false); assert.strictEqual(r.reason, 'cd414_dense_dump');
+    assert.ok(r.arms.includes('cd414_dense_dump'));
+  });
+  check('L5 CD414 observe 排除（同形状+famDominance 100/chg30 −50=鯨）→ 不拦（famous 场景归观察）', () => {
+    const r = M.evaluateFactorPreBuy(TS({ win: { 30: WIN({ sellers: 22, sellBnb: 2.263, netBnb: -1.84 }) }, chg30Pct: -50 }, { famousDominancePct: 100 }));
+    assert.strictEqual(r.observe.code, 'fam_dominance_fall'); // observe 在身
+    assert.ok(!r.arms.includes('cd414_dense_dump')); // 臂被排除
+    assert.strictEqual(r.pass, true); // 不拦
+  });
+  check('L6 CD414 卖方不达线（14 户）→ 放行', () => {
+    assert.strictEqual(M.armDenseDump({ win: { 30: WIN({ sellers: 14, sellBnb: 3, netBnb: -2 }) } }), false);
+  });
+  check('L7 CD414 净流不达线（−1.4）→ 放行（高换手双向盘）', () => {
+    assert.strictEqual(M.armDenseDump({ win: { 30: WIN({ sellers: 20, sellBnb: 3, netBnb: -1.4 }) } }), false);
+  });
+  check('L8 CD414 win30 缺失 → 放行（宁不拦）', () => {
+    assert.strictEqual(M.armDenseDump({}), false);
+  });
+  check('L9 gates 含 cd414 门与 tail minVs 值', () => {
+    const r = M.evaluateFactorPreBuy(TS({ athVsLaunchPct: 317.9, totalVolumeBnb: 40.07, minVsLaunchPct: 0.3, win: { 30: WIN({ buyBnb: 5.85, sellBnb: 0.5 }), 120: WIN({ buyBnb: 5.85, sellBnb: 0.5 }) } }));
+    const tailGate = r.gates.find((x) => x.id === 'tail_activity');
+    assert.ok(tailGate.value.includes('minVs0.3%'), tailGate.value);
+    assert.strictEqual(tailGate.hit, true);
+    const c414 = r.gates.find((x) => x.id === 'cd414');
+    assert.ok(c414 && c414.label.includes('短窗持续密集砸盘'));
   });
 }
 
