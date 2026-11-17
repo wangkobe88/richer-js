@@ -279,7 +279,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G18';
+const CHEAT_GRADE_RULES_VERSION = 'G19';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -331,7 +331,8 @@ function levelsFromObservation(observation, extras = {}) {
     insiderSupplySell: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.insider_supply_sell),
     slowGrindPump: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.slow_grind_pump),
     washPair: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.wash_pair),
-    holdingsBalance: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.holdings_balance), // D3.32（G7 J 通道）
+    // holdingsBalance D3.72/G19 随题退役（题删+EXT 清单移除——ex 恒 undefined；
+    // FA cheatHoldingsBalance 键保留恒 null 供存量条件串兼容）
     burstSpikeConcentration: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.burst_spike_concentration), // D3.51（G15 A 主判）
     strongBackerPressure: scoreLevel(CHEAT_LEVEL_SCORES.level, ex.strong_backer_pressure), // D3.52（CD159 观察期——**无通道消费**：MAIN_IDS 显式排除不进 A，档位只进 FA 投影攒分布，豁免规则攒 case 后再裁）
     activityLevel: scoreLevel(CHEAT_LEVEL_SCORES.activity, act),
@@ -349,7 +350,6 @@ function levelsFromObservation(observation, extras = {}) {
     insiderSupplySell: ex.insider_supply_sell ?? null,
     slowGrindPump: ex.slow_grind_pump ?? null,
     washPair: ex.wash_pair ?? null,
-    holdingsBalance: ex.holdings_balance ?? null,
     burstSpikeConcentration: ex.burst_spike_concentration ?? null,
     strongBackerPressure: ex.strong_backer_pressure ?? null, // D3.52（CD159 观察期攒数据）
     activityLevel: act,
@@ -474,7 +474,7 @@ const MAIN_IDS = [
   'equal_amount_split',
   'coordinated_sell_back',
   'sell_dispersion',
-  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave' && id !== 'holdings_balance' && id !== 'strong_backer_pressure'), // tier/bw/rat/pump/wash/spike（sbp 观察期排除）
+  ...EXT_PHENOMENON_IDS.filter((id) => id !== 'stall_burst_wave' && id !== 'strong_backer_pressure'), // tier/bw/rat/pump/wash/spike（sbp 观察期排除；holdings_balance D3.72 已随题退役出 EXT 清单）
 ];
 
 /**
@@ -636,17 +636,12 @@ function gradeObservation(observation, extras = {}) {
   //  档承载（equal_amount_split/same_block_buy_wave，D3.34 题面加前端默认档反锚
   //  与同块同额双协同判据），头注 G11 段；git 历史留档）
 
-  // J：前几大持仓组合垄断（G7，2026-11-02 批次五 CD122 立项——用户裁定「给 Jev
-  // 增加 持仓均衡 门吧。注意总供应量占比最重要，第二 CD122 的 top2 不是单一
-  // 钱包，而是捆绑簇。需要利用 Jev 的能力处理复杂情况」+「strong→unhealthy
-  // （独立通道，不进 A 通道）」）：holdings_balance（D3.32 第 13 题）strong →
-  // unhealthy。组合垄断=拒买级非拉黑级（F/G 同档语义）；单一钱包独大 ≥40 供仍
-  // 由 I 通道 cheat 管并取最重——本题补 I 够不着的形状（CD122：top1 供 25.6<40
-  // 但第1大∪簇并集 40.1%+第二大背靠背块紧邻进场 3 秒卖一半）。档位 null
-  // （<D3.32 旧档断代/总供应量缺失缺主口径）不触发（EXT 容缺语义同族）。
-  if (lv.holdings_balance === 'strong') {
-    reasons.push({ level: 'unhealthy', code: 'J_holdings_strong' });
-  }
+  // J：（G19 退役，2026-11-17 btv140 复审 BP-T006 食蟹猴二 `0x387c9be8…7777` 案
+  //  用户裁定「holdingsBalance 这一臂去掉」——top1 控盘形状的拦截由 A/D 通道
+  //  与豁免臂成色条件另行承载，持仓维度不再独立产生 unhealthy 拒。holdings_balance
+  //  题照算照落档（观察+FA 投影不变），历史 J_holdings_strong 行留档。
+  //  立法史：G7/CD122（2026-11-02 strong→unhealthy 独立通道立项）→G19 退役。）
+
 
   // L：insider 题升格联立臂（G8 双修第二落法——insider_supply_sell 原为 EXT 纯
   // 观察题不进任何通道，CD5 分仓形状该题 moderate 但 G7 无消费点）：Jev 内幕

@@ -58,7 +58,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { famousLevel: null, anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G18', '版本常量 G18（改规则必须 bump+同步台账+跑黄金集；G18=G17−G8 弱 burst 代码臂（2026-11-11 CD397 族三 14 票取证收官，用户四条裁定第三条「burst 的判定被代码魔改了，不要魔改，用 Jev 判断」）：E 通道恢复 sbw 单条件——act=low ∧ sbw≠burst 才拦，sbw=burst 即跳过；代码硬线（gap≥60s/买<1.05/户<13）与 CD383 豁免四腿同批拆除，「停滞后只涌入一点小流量」的排除教学移交 sbw 题 D3.67 题面四判轴（跨度 secSinceWaveEnd/尘埃 户均+中位/流向 净额+卖回率/位置仅参考）；E_low_activity_weak_burst 码随臂退役（历史行留档）；定线研究=17 票 sbw=burst 豁免挡住的全是自己人（14 票 Jev act 已判 low）——弱波判定权归 Jev 后该防线由题面接棒；G17=N 通道聚合路由入口占比（CD374）<10% 且买 ≥15 笔 ROUTER_ENTRY_MIN_BUYS null fail-open → unhealthy N_no_retail_entry<值>，独立不进 A；G16=D 邻界联立臂（CD323）top3≥35∧组织买≥70 双贴线不显著 → 拦 D_famous_near_band；G15=burst_spike_concentration 入 EXT 清单被 A 自动吸收；G14=M 通道 ultra→unhealthy M_hyper_activity）');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G19', '版本常量 G19（改规则必须 bump+同步台账+跑黄金集；G19=G18−J_holdings_strong 臂（2026-11-17 btv140 复审 BP-T006 食蟹猴二 0x387c9be8…7777 案用户裁定「holdingsBalance 这一臂去掉」）：holdings_balance strong 不再产生 unhealthy 拒，题照算照落档（观察+FA 投影不变），历史行留档；同车 D3.72 slow_grind_pump 题面合力反锚第二通道（独立买家 ≥15 ∧ 吞吐 ≥3 BNB/min ∧ 金额散布=大户/famous 进场带流量跟进的合力形状至多 moderate，同案用户裁定「slowGrindPump 的特点是上涨阶段活跃度不高单极推高，famous 进了跟进流量的不是」）；G18=G17−G8 弱 burst 代码臂（CD397）：E 通道 sbw 单条件、代码硬线与 CD383 四腿同批拆除、sbw 题 D3.67 题面四判轴接棒；G17=N 通道聚合路由入口占比（CD374）；G16=D 邻界联立臂（CD323）；G15=burst_spike_concentration 入 EXT；G14=M 通道 ultra→unhealthy M_hyper_activity）');
   ok(MAIN_IDS.length === 9 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance')
     && MAIN_IDS.includes('burst_spike_concentration') && !MAIN_IDS.includes('strong_backer_pressure'),
@@ -256,32 +256,33 @@ function main() {
       't1 供 42 + act=low → unhealthy（E 留痕；I 已退役不产 cheat——已知代价：独大铁证形状依赖 holdings 题档 strong 或 J/L）');
   }
 
-  console.log('J. holdings_balance=strong → unhealthy 独立通道（G7，2026-11-02 批次五 CD122 裁定——「给 Jev 增加 持仓均衡 门吧。注意总供应量占比最重要，第二 CD122 的 top2 不是单一钱包，而是捆绑簇。需要利用 Jev 的能力处理复杂情况」+「strong→unhealthy（独立通道，不进 A 通道）」）');
+  console.log('J.（G19 退役反证，2026-11-17 btv140 BP-T006 食蟹猴二案用户裁定「holdingsBalance 这一臂去掉」）holdings_balance strong 不再产生 unhealthy 拒——题照算照落档，历史 J_holdings_strong 行留档');
   {
-    // CD122 形状：top1 供 25.6（<40 I 不触发）+ top2=同块捆绑簇成员背靠背进场
-    // 3 秒卖一半，第1大∪簇并集 40.1% → holdings_balance strong → J unhealthy
+    // CD122 形状：top1 供 25.6 + 并集 40.1% → holdings_balance strong
+    // G19 起 J 臂退役：不再 unhealthy（持仓维度拦截由 A/D 通道与豁免臂成色另行承载）
     const obs = withExt(baseObs(), 'holdings_balance', 'strong');
     obs.anchors.top1HoldSupplyPct = 25.6;
     obs.anchors.top1Top2HoldSupplyPct = 35.0;
     obs.anchors.t1PlusClusterSupplyPct = 40.1;
     const r = grade(obs, { famousLevel: null, anchorSellCount: 5 });
-    ok(r.grade === 'unhealthy' && r.reasons.some((x) => x.code === 'J_holdings_strong'),
-      'holdings_balance strong（CD122 形状：t1 供 25.6<40 I 不触发、并集 40.1）→ unhealthy J_holdings_strong');
-    // moderate 不触发（拒买级通道只消费 strong——用户裁定档位）
+    ok(r.grade === 'healthy' && !r.reasons.some((x) => x.code === 'J_holdings_strong'),
+      'holdings_balance strong（CD122 形状）→ G19 退役不再 unhealthy（J_holdings_strong 不产出）');
+    // moderate 同样不触发（J 全档退役）
     const obs2 = withExt(baseObs(), 'holdings_balance', 'moderate');
     ok(grade(obs2, { famousLevel: null, anchorSellCount: 5 }).grade === 'healthy',
-      'holdings_balance moderate → 不触发（J 只消费 strong）');
+      'holdings_balance moderate → 不触发');
     // 旧档断代（<D3.32 答案缺席）不触发——黄金集重放零变化防线
     const obs3 = baseObs();
     delete obs3.extLevels.holdings_balance;
     ok(grade(obs3, { famousLevel: null, anchorSellCount: 5 }).grade === 'healthy',
       'holdings_balance 键缺席（旧档断代/容缺）→ J 不触发（EXT 容缺语义同族，黄金集 34/42 沿用防线）');
-    // 单一独大 46.5 同时 holdings strong（CD69 形状）：I 已退役（G9），J 承载 unhealthy
+    // 单一独大 46.5 同时 holdings strong（CD69 形状）：I 已退役（G9）、J 退役（G19）
+    // → 持仓维度不再产 unhealthy；独大形状的拦截依赖 A/D 通道与豁免臂成色（G19 已知代价）
     const obs4 = withExt(baseObs(), 'holdings_balance', 'strong');
     obs4.anchors.top1HoldSupplyPct = 46.5;
     const r4 = grade(obs4, { famousLevel: null, anchorSellCount: 10 });
-    ok(r4.grade === 'unhealthy' && r4.reasons.some((x) => x.code === 'J_holdings_strong'),
-      'holdings strong + t1 供 46.5 → unhealthy J（I 已退役 G9：独大数值不再直读产 cheat，档位承载）');
+    ok(r4.grade === 'healthy' && !r4.reasons.some((x) => x.code === 'J_holdings_strong'),
+      'holdings strong + t1 供 46.5 → G19 退役不再 unhealthy（独大数值不直读，档位通道已撤）');
   }
 
   console.log('D. 著名钱包主导 → unhealthy（G5 补跟单集中度豁免）');
@@ -685,8 +686,8 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       && r.buckets.washPair === 'strong' && r.buckets.activityLevel === 'low',
       'buckets 字符串原值（metadata 研究留档）');
     const r2 = levelsFromObservation(null);
-    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 16,
-      '空观测 → 16 键全 null（容缺不冒充；abnormalBehavior D3.39/burstSpikeConcentration D3.51/strongBackerPressure D3.52 入列）');
+    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 15,
+      '空观测 → 15 键全 null（D3.72 holdingsBalance 键随题退役 16→15；容缺不冒充；abnormalBehavior D3.39/burstSpikeConcentration D3.51/strongBackerPressure D3.52 入列）');
     // 数值锚（用户补点「著名钱包掌控/持仓极不均衡」+D3.28 对敲三键+D3.32 持仓分布五键）：
     // obs.anchors 持仓占比四键 + washPair 三键 + holdings 五键（CD122 实值）+
     // extras famous 数值/档位；famousDominance=low/mid/high→0/1/2
