@@ -1492,6 +1492,8 @@ class CheatCheckService {
           nearTail5BuyBnb: derived.nearTail5BuyBnb ?? null,
           nearTail10SellWallets: derived.nearTail10SellWallets ?? null, // CD394 出货臂判读线（末 10s 独立卖侧钱包数，参考 ≥10）
           actWeightedThroughputBnbPerMin: derived.actWeightedThroughputBnbPerMin ?? null, // D3.73 时间衰减加权活跃分（题面判读原料）
+          nearPre10GapSec: derived.nearPre10GapSec ?? null, // D3.75 段前静默秒数（密集臂段前背景反锚——脉冲紧前纯静默）
+          nearPre10Wallets: derived.nearPre10Wallets ?? null, // D3.75 段前独立钱包数（同上——参与者轴，对倒托金额不托钱包）
           level: derived.activityLevel ?? null,
           cv: derived.activityCv ?? null,
           uneven: derived.activityUneven ?? null,

@@ -936,6 +936,12 @@ function computeDerived(snapshot, famousRoster) {
   let nearTail10TickN = null, nearTail10BnbPerMin = null, nearPre20BnbPerMin = null;
   let nearTail5TickN = null, nearTail5BuyN = null, nearTail5BuyBnb = null;
   let nearTail10SellWallets = null;
+  // D3.75 段前背景两键（0xba67f3e1…7777 案，act 题⑦密集臂段前背景反锚原料）：
+  // nearPre10GapSec=尾 10s 窗首行距其上一行的秒数（尾段脉冲紧前的纯静默长度）；
+  // nearPre10Wallets=尾 10s 窗之前的锚窗独立钱包数（sender||trader）。段前无行
+  // （整窗都在尾 10s 内=极早价格发现窗）两键 null fail-open（act 题④极早窗
+  // 反锚另有管辖）；dt 缺失行不计（与尾窗键同口径）。
+  let nearPre10GapSec = null, nearPre10Wallets = null;
   // D3.73 时间衰减加权活跃度（btv140 复审 BP-T010 1105 一号案用户裁定：「活跃度
   // 窗口主要看 30 秒，但是也要参考 30 秒之前的一段时间，如果窗口前活跃度极低，
   // 不能给 high。我觉得可以模拟出一个函数，只取点位之前 3 分钟窗口，距离购买
@@ -1041,6 +1047,29 @@ function computeDerived(snapshot, famousRoster) {
     nearTail5BuyN = _t5BuyN;
     nearTail5BuyBnb = +_t5BuyBnb.toFixed(4);
     nearTail10SellWallets = _t10SellW.size;
+
+    // ── D3.75 段前背景两键：案值 0xba67…7777（2026-11-02 12:06:16 买点）全窗
+    // 9 笔——0x2696cac8 一钱包买 0.7188 → 分三笔卖光（对倒离场），尾 1s 同块
+    // 5 新钱包涌入 0.34；脉冲前 24s 纯静默、段前独立钱包=1。D3.73 时间衰减加权
+    // 分被对倒大额托起（1.39 vs 尾 10s 4.14，比值 0.65 不达「远低于」）——金额
+    // 轴的时间结构对「有量但无人」的自转对倒失明，须补参与者轴。gap=尾 10s 窗
+    // 首行 dt − 段前行最大 dt（段前无行=null）；wallets=段前行 wallet Set size
+    // （段前无行=0 有证据零值，与 gap null 联动反锚不触发）。──
+    let _preMaxDt = null, _tailMinDt = null;
+    const _pre10W = new Set();
+    for (const t of ticks) {
+      if (t.dt === null || t.dt === undefined) continue;
+      if (t.dt > _lastDt - 10) {
+        if (_tailMinDt === null || t.dt < _tailMinDt) _tailMinDt = t.dt;
+      } else {
+        if (_preMaxDt === null || t.dt > _preMaxDt) _preMaxDt = t.dt;
+        if (t.wallet) _pre10W.add(t.wallet);
+      }
+    }
+    if (_preMaxDt !== null && _tailMinDt !== null) {
+      nearPre10GapSec = _tailMinDt - _preMaxDt;
+      nearPre10Wallets = _pre10W.size;
+    }
   }
 
   // ── burst 波强度两键（G8 弱 burst 代码臂，头注见 BURST_WAVE_SEC/BURST_NEAR_SEC）：
@@ -1895,6 +1924,8 @@ function computeDerived(snapshot, famousRoster) {
     nearTail5TickN, nearTail5BuyN, nearTail5BuyBnb, nearTail10SellWallets,
     // D3.73 时间衰减加权活跃度（act 题时间结构判读原料——非 burst 时 high 档须过此线）
     actWeightedThroughputBnbPerMin,
+    // D3.75 段前背景两键（act 题⑦密集臂段前背景反锚——脉冲紧前静默/段前独立钱包）
+    nearPre10GapSec, nearPre10Wallets,
     burstWaveBuyBnb, burstWaveWallets,
     // CD392 burst 波起点价锚（D3.66 起纯观察——第四腿判据源移交 burstExitVsLaunchPct）
     burstWaveStartVsLaunchPct,
