@@ -128,6 +128,11 @@ class ExperimentSignals {
     // action 筛选视图会排除 OBSERVE 行（防挤占 limit），标注不能依赖 this.signals
     this._lastObserveSignals = [];
 
+    // 🔥 famous 钱包名单（/api/rosters/famous-wallets，famous-copy-wallets.json 同源）：
+    // 价格图 famous 操作标记的数据源；null=未加载/拉取失败（零标记 fail-open 不阻塞主图）
+    this._famousWallets = null;
+    this._famousRosterPromise = null;
+
     // 🔥 区块链信息（用于生成GMGN链接）
     this.blockchain = 'bsc';  // 默认BSC
 
@@ -327,6 +332,9 @@ class ExperimentSignals {
       }
 
       console.log(`📥 全量 ticks 拉取完成: ${token.symbol || tokenAddress} 共 ${all.length} 条`);
+
+      // famous 标记依赖名单（正常流已在 loadKlineForToken 加载；此处兜底保证按钮直击路径也有）
+      await this.ensureFamousRoster();
 
       // 更新缓存 + 清掉窗口输入，进入全量模式后重渲染
       const input = document.getElementById('tick-time-window');
@@ -674,6 +682,7 @@ class ExperimentSignals {
         this.fetchObserveSignals(token.address),
         this.fetchCheatDetections(token.address),
         this.fetchNarrativeDetail(token.address),
+        this.ensureFamousRoster(), // famous 操作标记（memoized，切换代币零成本）
       ]);
       // 切换代币后过期响应直接丢弃
       if (this.selectedToken !== token.address) return;
@@ -732,6 +741,60 @@ class ExperimentSignals {
       console.error('获取tick数据失败:', error);
       return { success: false, data: [] };
     }
+  }
+
+  /**
+   * 拉取 famous 钱包名单（memoized：页面生命周期内拉一次；失败也 memoize 成空 Set，
+   * 与其它图表标注数据源同策略——缺席不阻塞主图，仅零标记）
+   * @returns {Promise<Set<string>>} 小写地址集合
+   */
+  ensureFamousRoster() {
+    if (this._famousWallets) return Promise.resolve(this._famousWallets);
+    if (!this._famousRosterPromise) {
+      this._famousRosterPromise = fetch('/api/rosters/famous-wallets')
+        .then(r => (r.ok ? r.json() : null))
+        .then(json => {
+          const wallets = (json?.success && Array.isArray(json.data?.wallets)) ? json.data.wallets : [];
+          this._famousWallets = new Set(wallets.map(w => String(w).toLowerCase()));
+          console.log(`⭐ famous 名单加载: ${this._famousWallets.size} 址 (v${json?.data?.version ?? '?'})`);
+          return this._famousWallets;
+        })
+        .catch(err => {
+          console.warn('⚠️ famous 名单加载失败，价格图将无 famous 标记:', err);
+          this._famousWallets = new Set();
+          return this._famousWallets;
+        });
+    }
+    return this._famousRosterPromise;
+  }
+
+  /**
+   * 🔥 famous 钱包操作点位（散点图气泡/K线图 scatter 双图表共用）：
+   * wallet 口径 = sender_address || trader_address（与 FA/引擎一致）；名单缺席=空数组。
+   * 价格/金额门槛与散点图主气泡同口径（MIN_BNB=0.005、price_usd 有效）。
+   * @param {Array} trimmedTickData - 已过窗口裁剪的 ticks（含 sender_address）
+   * @returns {{buyPoints:Array, sellPoints:Array}} 点位 {x,y,r,_famous:{wallet,bnb}}
+   */
+  _buildFamousPoints(trimmedTickData) {
+    const buyPoints = [], sellPoints = [];
+    if (!this._famousWallets || this._famousWallets.size === 0) return { buyPoints, sellPoints };
+    const MIN_BNB = 0.005; // 与主气泡同口径（小额 tick 价格精度不足）
+    for (const tick of trimmedTickData) {
+      const wallet = (tick.sender_address || tick.trader_address || '').toLowerCase();
+      if (!wallet || !this._famousWallets.has(wallet)) continue;
+      const bnbAmount = parseFloat(tick.bnb_amount) || 0;
+      if (bnbAmount < MIN_BNB) continue;
+      const priceUsd = parseFloat(tick.price_usd);
+      if (!priceUsd || priceUsd <= 0) continue;
+      const tradeType = tick.trade_type === 'buy' ? '买' : '卖';
+      (tick.trade_type === 'buy' ? buyPoints : sellPoints).push({
+        x: new Date(tick.block_time).getTime(),
+        y: priceUsd,
+        r: this._mapTickRadius(bnbAmount),
+        _famous: { wallet, bnb: bnbAmount, tradeType },
+      });
+    }
+    return { buyPoints, sellPoints };
   }
 
   /**
@@ -1372,6 +1435,11 @@ class ExperimentSignals {
       // 分离买卖 tick（过滤极小交易，价格精度不足）
       const buys = [], sells = [];
       const MIN_BNB = 0.005; // 小额 tick 价格精度不足
+      // 🔥 famous 操作点位（与主气泡同口径独立构建；主 buys/sells 剔除 famous 行防
+      // 双计（图例计数/悬停双气泡），famous 金/紫独立气泡叠顶层）
+      const famousMarks = this._buildFamousPoints(trimmedTickData);
+      const famousKeys = new Set([...famousMarks.buyPoints, ...famousMarks.sellPoints]
+        .map(p => `${p.x}|${p._famous.wallet}`));
       for (const tick of trimmedTickData) {
         const bnbAmount = parseFloat(tick.bnb_amount) || 0;
         if (bnbAmount < MIN_BNB) continue;
@@ -1380,6 +1448,10 @@ class ExperimentSignals {
         if (!priceUsd || priceUsd <= 0) continue;
 
         const timestamp = new Date(tick.block_time).getTime();
+
+        // famous 行已进独立数据集，主数据集跳过
+        const wallet = (tick.sender_address || tick.trader_address || '').toLowerCase();
+        if (famousKeys.has(`${timestamp}|${wallet}`)) continue;
 
         const point = {
           x: timestamp,
@@ -1407,6 +1479,21 @@ class ExperimentSignals {
         type: 'bubble',
         data: {
           datasets: [
+            // 🔥 famous 独立气泡（金=买/紫=卖）：Chart.js 倒序绘制——排最前=叠在普通气泡顶层
+            {
+              label: `⭐Famous买 (${famousMarks.buyPoints.length})`,
+              data: famousMarks.buyPoints,
+              backgroundColor: 'rgba(250,204,21,0.9)',
+              borderColor: '#b45309',
+              borderWidth: 1.5,
+            },
+            {
+              label: `⭐Famous卖 (${famousMarks.sellPoints.length})`,
+              data: famousMarks.sellPoints,
+              backgroundColor: 'rgba(192,132,252,0.9)',
+              borderColor: '#6b21a8',
+              borderWidth: 1.5,
+            },
             {
               label: `Buy (${buys.length})`,
               data: buys,
@@ -1471,6 +1558,16 @@ class ExperimentSignals {
                     if (t._delaySec != null) lines.push(`信号→成交延迟: ${t._delaySec.toFixed(1)}s`);
                     if (t._slipPct != null) lines.push(`价差: ${t._slipPct >= 0 ? '+' : ''}${t._slipPct.toFixed(2)}%`);
                     return lines;
+                  }
+                  // ⭐ famous 气泡：钱包地址+金额（镜像分化复盘=看谁在买卖）
+                  if (item.raw._famous) {
+                    const f = item.raw._famous;
+                    const w = f.wallet;
+                    return [
+                      `⭐Famous ${f.tradeType || ''} | ${f.bnb.toFixed(4)} BNB`,
+                      `Price: $${item.raw.y.toExponential(3)}`,
+                      `钱包: ${w.slice(0, 8)}…${w.slice(-6)}`,
+                    ];
                   }
                   const raw = item.raw._raw;
                   const bnb = (parseFloat(raw.bnb_amount) || 0).toFixed(4);
@@ -1797,6 +1894,8 @@ class ExperimentSignals {
     signalAnnotations.push(...this._buildObserveAnnotations(this._lastObserveSignals, trimStart, trimEnd));
     // 反作弊判定时刻标注（G12）：点虚线按 grade 着色（与散点图同款）
     signalAnnotations.push(...this._buildCheatAnnotations(this._lastCheatDetections, trimStart, trimEnd));
+    // ⭐ famous 操作点位（金▲买/紫▼卖，与散点图同款口径与配色）
+    const famousMarks = this._buildFamousPoints(trimmed);
     // 涨跌配色：close>=open 绿，否则红（与散点图 buy绿/sell红 一致）
     const up = 'rgba(34,197,94,0.85)', down = 'rgba(239,68,68,0.85)';
 
@@ -1807,6 +1906,12 @@ class ExperimentSignals {
       data: { datasets: [
         { label: 'OHLC(USD)', data: data.ohlc,
           backgroundColors: { up, down, unchanged: up }, borderColors: { up, down, unchanged: up } },
+        { label: `⭐Famous买 (${famousMarks.buyPoints.length})`, data: famousMarks.buyPoints, type: 'scatter',
+          pointStyle: 'triangle', radius: 8, hoverRadius: 10,
+          backgroundColor: 'rgba(250,204,21,0.95)', borderColor: '#b45309', borderWidth: 1.5 },
+        { label: `⭐Famous卖 (${famousMarks.sellPoints.length})`, data: famousMarks.sellPoints, type: 'scatter',
+          pointStyle: 'triangle', rotation: 180, radius: 8, hoverRadius: 10,
+          backgroundColor: 'rgba(192,132,252,0.95)', borderColor: '#6b21a8', borderWidth: 1.5 },
         { label: `成交▲ (${tradeMarks.buyPoints.length})`, data: tradeMarks.buyPoints, type: 'scatter',
           pointStyle: 'triangle', radius: 8, hoverRadius: 10,
           backgroundColor: 'rgba(21,128,61,0.95)', borderColor: '#bbf7d0', borderWidth: 1.5 },
@@ -1830,6 +1935,16 @@ class ExperimentSignals {
                 if (t._delaySec != null) lines.push(`信号→成交延迟: ${t._delaySec.toFixed(1)}s`);
                 if (t._slipPct != null) lines.push(`价差: ${t._slipPct >= 0 ? '+' : ''}${t._slipPct.toFixed(2)}%`);
                 return lines;
+              }
+              // ⭐ famous 点位：钱包地址+金额（与散点图同款）
+              if (it.raw._famous) {
+                const f = it.raw._famous;
+                const w = f.wallet;
+                return [
+                  `⭐Famous ${f.tradeType || ''} | ${f.bnb.toFixed(4)} BNB`,
+                  `Price: $${it.raw.y.toExponential(3)}`,
+                  `钱包: ${w.slice(0, 8)}…${w.slice(-6)}`,
+                ];
               }
               const p = it.raw, dir = p.c >= p.o ? '▲' : '▼';
               return [`${dir} O $${p.o.toExponential(2)}  H $${p.h.toExponential(2)}`, `   L $${p.l.toExponential(2)}  C $${p.c.toExponential(2)}`];

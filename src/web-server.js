@@ -9,6 +9,7 @@ require('dotenv').config({ path: '../config/.env' });
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const Logger = require('./services/logger');
 
@@ -2660,7 +2661,7 @@ class RicherJsWebServer {
 
         let query = supabase
           .from('wss_price_ticks')
-          .select('block_time, block_number, price_usd, price_bnb, bnb_amount, token_amount, trade_type, trader_address, tx_hash', { count: 'exact' })
+          .select('block_time, block_number, price_usd, price_bnb, bnb_amount, token_amount, trade_type, trader_address, sender_address, tx_hash', { count: 'exact' })
           .eq('token_address', tokenAddress)
           .eq('price_outlier', false)
           .not('price_usd', 'is', null)
@@ -2704,6 +2705,26 @@ class RicherJsWebServer {
         });
       } catch (error) {
         this.logger.error('WebServer', '获取tick数据失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 著名钱包名单（famous-copy-wallets.json，FA famousCopyWalletCircPct 同源用户点名
+    // 集合）：signals 页价格图 famous 操作标记的数据源。文件极小（几十址+note），
+    // mtime 缓存（名单随案迭代更新，重启不必）；读取失败=空名单（前端零标记 fail-open）
+    this.app.get('/api/rosters/famous-wallets', (req, res) => {
+      try {
+        const rosterPath = path.resolve(__dirname, '..', 'config', 'rosters', 'famous-copy-wallets.json');
+        const stat = fs.statSync(rosterPath);
+        if (!this._famousRosterCache || this._famousRosterCache.mtimeMs !== stat.mtimeMs) {
+          const parsed = JSON.parse(fs.readFileSync(rosterPath, 'utf8'));
+          const wallets = Array.isArray(parsed.wallets)
+            ? parsed.wallets.map((w) => String(w).toLowerCase()) : [];
+          this._famousRosterCache = { mtimeMs: stat.mtimeMs, version: parsed.version || null, wallets };
+        }
+        res.json({ success: true, data: this._famousRosterCache });
+      } catch (error) {
+        this.logger.error('WebServer', '读取 famous 名单失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
