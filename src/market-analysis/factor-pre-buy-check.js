@@ -65,7 +65,22 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP5';
+const FACTOR_PREBUY_VERSION = 'FP6';
+
+// ── FP6 famous 高控+砸落观察臂（2026-11-17 btv140 复审 BP-T007 小树 0x92598590…7777
+//    案用户裁定：「这样吧，这个场景（持有不多还没砸）先不阻挡购买，不过可以在因子
+//    过滤这个环节中，把这种情况标记一下（不阻挡过滤），留待之后再寻找方案」——
+//    famousDominancePct（famous∪跟单者在场筹码控制度，cheatDerived 筹码口径——与
+//    famousTraces 流量口径互补：小树 dom=100% 但本人占买仅 9.6%）≥90 ∧ chg30≤−20
+//    （已砸落）→ observe 标记不拦截。btv140 19 票 D 码豁免口袋扫描：该形状 5 票
+//    （memes/小树/XXX/CEPE/鯨）止血 4 Σ−0.15 与误伤 1（鯨 +0.052）同形状不可分
+//    ——净 −0.099/窗，故先观察攒分布后找分化轴。同批：FP 输出整理为门/值对
+//    （gates——用户裁定「跟 Jev 购买前检查模块由各个锚组成门控一样…在信号页面
+//    中也要展示各个门的值」） ──
+/** 观察臂线：famous∪跟单筹码控制度 ≥90% */
+const FAM_DOM_FALL_DOM_PCT = 90;
+/** 观察臂线：chg30 ≤−20%（盘面已砸落） */
+const FAM_DOM_FALL_CHG30_PCT = -20;
 
 // ── FP3 famous 两法（btv134 复审轮立法，2026-11-16 用户两分法裁定：「第一种，
 //    盘面尚未起来，famous 抢跑，如果持有过多，就很危险，它一般会选择砸盘；
@@ -297,6 +312,151 @@ function judgeTailPhaseActivity(snapshot) {
   return { hit: 0, branch: 'sustained', reason: null, trace };
 }
 
+// ═══════════════ famous 高控+砸落观察臂（FP6：标记不拦截，留待找方案） ═══════════════
+
+/**
+ * famous 高控+砸落观察判定（FP6，纯观察零拦截）：famousDominancePct（cheatDerived
+ * 筹码口径=famous∪60s 跟单者合计控制在场筹码 %）≥90 ∧ chg30Pct ≤−20 → observe
+ * 标记（fam_dominance_fall）。原料值（自卖比/占卖/在场净）随 trace 落盘供后续
+ * 找分化轴；锚缺失不标记（同 T143 容缺哲学——观察方向证据缺席不标）。
+ */
+function judgeFamousDominanceFall(snapshot) {
+  const bd = snapshot.buyDerived || {};
+  const cd = snapshot.cheatDerived || {};
+  const dom = typeof cd.famousDominancePct === 'number' ? cd.famousDominancePct : null;
+  const chg30 = typeof bd.chg30Pct === 'number' ? bd.chg30Pct : null;
+  const trace = { domPct: dom, chg30Pct: chg30 };
+  if (dom === null || chg30 === null) {
+    return { observe: false, branch: 'anchors_missing', trace };
+  }
+  if (dom >= FAM_DOM_FALL_DOM_PCT && chg30 <= FAM_DOM_FALL_CHG30_PCT) {
+    return { observe: true, branch: 'fam_dominance_fall', trace };
+  }
+  return { observe: false, branch: 'clear', trace };
+}
+
+// ═══════════════ 门/值对组装（FP6：FP 输出整理为门控形态，信号页展示各门值） ═══════════════
+
+/**
+ * 组装 FP 门/值对（用户裁定 2026-11-17：「因子过滤这个环节其实也是形成了好多个
+ * 门控，跟 Jev 购买前检查模块由各个锚组成门控一样，所以因子过滤的输出也整理
+ * 一下形成门/值对这样的格式，在信号页面中也要展示各个门的值」）。
+ * 每门 {id,label,value,line,hit,observe}——value/line 为预拼展示串（null 一律 '-'）；
+ * hit=该门拦截命中（进 arms/reason）；observe=观察标记门（不拦截）。
+ * @param {object} parts evaluateFactorPreBuy 组装中的各判定结果
+ */
+function buildFactorGates(parts) {
+  const d = (v, unit = '') => (v === null || v === undefined ? '-' : `${v}${unit}`);
+  const g = [];
+  // PVP
+  {
+    const t = parts.pvp.trace || {};
+    g.push({
+      id: 'pvp', label: 'PVP·像样买方在场',
+      value: `0.2级×${d(t.act20)} 0.3级×${d(t.act30)} 同块捆绑${d(t.volBundledBnb, 'B')}`,
+      line: '钱包≥2 ∨ 0.3级≥1 ∨ 捆绑>0.3B', hit: !!parts.pvp.reason,
+    });
+  }
+  // act 族（trace 同源 judgeActivityLevel）
+  {
+    const t = parts.activity.trace || {};
+    const branch = parts.activity.branch;
+    g.push({
+      id: 'act_idle', label: '活跃·静默死寂',
+      value: `静默${d(t.idlePct, '%')} 吞吐${d(t.throughputBnbPerMin, 'B/min')}`,
+      line: '≥60% ∧ <0.5B/min', hit: branch === 'act_low_idle',
+    });
+    g.push({
+      id: 'act_sparse', label: '活跃·稀疏死水',
+      value: `${d(t.ticksPerMin, '笔/min')} 吞吐${d(t.throughputBnbPerMin, 'B/min')} 中位${d(t.buyMedianBnb, 'B')}`,
+      line: '<10笔/min ∧ <1B/min ∧ <0.05B', hit: branch === 'act_low_sparse_quad',
+    });
+    g.push({
+      id: 'act_dust', label: '活跃·尘埃假活跃',
+      value: `买中位${d(t.buyMedianBnb, 'B')} 吞吐${d(t.throughputBnbPerMin, 'B/min')}`,
+      line: '<0.05B ∧ <1B/min', hit: branch === 'act_low_dust_dead',
+    });
+    g.push({
+      id: 'act_near_dead', label: '活跃·临近死寂',
+      value: `临近中位${d(t.nearSegBuyMedianBnb, 'B')} 临近吞吐${d(t.nearSegBnbPerMin, 'B/min')}`,
+      line: '<0.05B ∧ <1B/min', hit: branch === 'act_low_near_dead',
+    });
+    g.push({
+      id: 'act_ultra_sell', label: '活跃·协同出货',
+      value: `末10s卖钱包${d(t.nearTail10SellWallets)} 买${d(t.nearTail10BuyN, '笔')}/${d(t.nearTail10BuyBnb, 'B')}`,
+      line: '≥10钱包 ∧ ≤2笔 ∧ <0.1B', hit: branch === 'act_ultra_coordinated_selling',
+    });
+    g.push({
+      id: 'act_ultra_density', label: '活跃·极端密度',
+      value: `${d(t.ticksPerMin, '笔/min')} 静默${d(t.idlePct, '%')}`,
+      line: '≥150笔/min ∧ <5%', hit: branch === 'act_ultra_density',
+    });
+  }
+  // CD 四臂+CD412（cd 输入重取）
+  {
+    const cd = parts.cd || {};
+    g.push({
+      id: 'cd400', label: 'CD400·贴锚砸出零承接',
+      value: `达标块${d(cd.nearDumpQualBlocks)} 最恶承接${d(cd.nearDumpMinAbsorbBnb, 'B')}`,
+      line: '≥1块 ∧ 承接<0.05B', hit: parts.armHits.includes('cd400_dump_no_absorption'),
+    });
+    g.push({
+      id: 'cd403', label: 'CD403·捆绑砸盘低承接',
+      value: `卖方${d(cd.nearDumpWorstSellers)} 承接比${(typeof cd.nearDumpMinAbsorbBnb === 'number' && typeof cd.nearDumpWorstSellBnb === 'number' && cd.nearDumpWorstSellBnb > 0) ? (cd.nearDumpMinAbsorbBnb / cd.nearDumpWorstSellBnb).toFixed(2) : '-'}`,
+      line: '卖方≥8 ∧ 比<0.3', hit: parts.armHits.includes('cd403_dump_low_absorption'),
+    });
+    g.push({
+      id: 'cd401', label: 'CD401·burst出口卖压',
+      value: `簇卖占${d(cd.burstWaveSegSellPct, '%')} 卖额${d(cd.burstWaveSegSellBnb, 'B')}`,
+      line: '≥30% ∧ ≥0.3B（sbw=1 资格）', hit: parts.armHits.includes('cd401_burst_exit_sell_pressure'),
+    });
+    g.push({
+      id: 'cd405', label: 'CD405·burst捆绑收割',
+      value: `单块${d(cd.burstWaveBundleMaxWallets, '户')} 相邻slot${d(cd.burstWaveBundleAdjPairSum, '户')}`,
+      line: '去尘捆绑≥7户', hit: parts.armHits.includes('cd405_burst_bundled_wave'),
+    });
+    g.push({
+      id: 'cd412', label: 'CD412·极端捆绑砸盘',
+      value: `卖方${d(cd.nearDumpWorstSellers)} 块卖${d(cd.nearDumpWorstSellBnb, 'B')}`,
+      line: '≥15户 ∧ ≥1B（破发豁免）', hit: parts.armHits.includes('cd412_extreme_dump_sellers'),
+    });
+  }
+  // FP3 famous 两法
+  {
+    const t = parts.famous.trace || {};
+    g.push({
+      id: 'fam_holding', label: 'FP3·famous持重危险',
+      value: `自卖比${d(t.soldRatio)} 总买${d(t.totalBuyBnb, 'B')} chg30${d(t.chg30Pct, '%')}`,
+      line: '自卖比<0.7 ∧（总买<3B ∨ chg30<-15%）', hit: parts.famous.reason === 'fam_holding_thin' || parts.famous.reason === 'fam_holding_dumping',
+    });
+    g.push({
+      id: 'fam_harvest', label: 'FP3·famous收割砸盘',
+      value: `自卖比${d(t.soldRatio)} 占买${d(t.groupBuyPct, '%')} 占卖${d(t.groupSellPct, '%')}`,
+      line: '≥0.7 ∧ 占买≥10% ∧ 占卖≥20%', hit: parts.famous.reason === 'fam_harvested_dump',
+    });
+  }
+  // FP5 尾声延伸
+  {
+    const t = parts.tail.trace || {};
+    g.push({
+      id: 'tail_activity', label: 'FP5·尾声延伸活跃',
+      value: `ath${d(t.athVsLaunchPct, '%')} 总额${d(t.totalVolumeBnb, 'B')} win120吞吐${d(t.tpm120, 'B/min')} 前90s买${d(t.extBuyBnb, 'B')}`,
+      line: 'ath≥100% ∧ 总额≥20B ∧（吞吐<1B/min ∨ 延伸买<0.1B）', hit: !!parts.tail.reason,
+    });
+  }
+  // FP6 famous 高控+砸落（观察门——不拦截）
+  {
+    const t = parts.domFall.trace || {};
+    g.push({
+      id: 'fam_dom_fall', label: 'FP6·famous高控+砸落（观察）',
+      value: `dom${d(t.domPct, '%')} chg30${d(t.chg30Pct, '%')}`,
+      line: 'dom≥90% ∧ chg30≤−20%（标记不拦截，留待找方案）', hit: false,
+      observe: parts.domFall.observe === true,
+    });
+  }
+  return g;
+}
+
 // ═══════════════ CD 四臂升格（CD408；判据=cheat 侧 _exemptDeniedReason 数值照抄） ═══════════════
 
 /** CD400 贴锚砸块零承接：qualBlocks ≥1 ∧ 最恶性块承接 <0.05 */
@@ -459,10 +619,15 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     ? judgeFamousDanger(snapshot)
     : { hit: 0, branch: 'disabled', reason: null, trace: {} };
   if (famous.hit === 1) arms.push(famous.reason);
+  // FP6 famous 高控+砸落观察臂（标记不拦截——留待找方案）
+  const domFall = judgeFamousDominanceFall(snapshot);
   const reason = activity.level === 'low' ? 'act_low'
     : (activity.level === 'ultra' ? 'act_ultra' : (pvp.reason || tail.reason || famous.reason || (arms.length ? arms[0] : null)));
+  const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, armHits: arms });
   return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, tail, famous, arms,
-    trace: { ...pvp.trace, act: activity.branch, tail: tail.branch, fam: famous.branch } };
+    gates,
+    observe: domFall.observe ? { code: 'fam_dominance_fall', ...domFall.trace } : null,
+    trace: { ...pvp.trace, act: activity.branch, tail: tail.branch, fam: famous.branch, domFall: domFall.branch } };
 }
 
 module.exports = {
@@ -474,6 +639,7 @@ module.exports = {
   ACT_TAIL5_ACTIVATE_N, ACT_TAIL5_ACTIVATE_BNB, ACT_BURST_WAVE_BUY_BNB,
   ACT_ULTRA_SELL_WALLETS, ACT_ULTRA_BUY_N_MAX, ACT_ULTRA_BUY_BNB_MAX, ACT_ULTRA_TPM, ACT_ULTRA_IDLE_PCT,
   TAIL_ATH_VS_LAUNCH_PCT, TAIL_TOTAL_VOLUME_BNB, TAIL_WIN120_TPM_BNB, TAIL_EXT_BUY_BNB,
+  FAM_DOM_FALL_DOM_PCT, FAM_DOM_FALL_CHG30_PCT,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
   EXTREME_DUMP_MIN_SELLERS, EXTREME_DUMP_MIN_BNB,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
@@ -481,6 +647,7 @@ module.exports = {
   FAM_HOLDING_SOLD_RATIO, FAM_THIN_TOTAL_BUY_BNB, FAM_DUMPING_CHG30_PCT,
   FAM_HARVEST_SOLD_RATIO, FAM_HARVEST_BUY_PCT, FAM_HARVEST_SELL_PCT,
   judgeRetailPvp, judgeActivityLevel, judgeFamousDanger, judgeTailPhaseActivity,
+  judgeFamousDominanceFall, buildFactorGates,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
   armExtremeDumpSellers,
   evaluateFactorPreBuy,

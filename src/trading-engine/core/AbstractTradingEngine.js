@@ -1822,6 +1822,7 @@ class AbstractTradingEngine extends ITradingEngine {
             status: 'assessed', pass, reason: res.reason ?? null,
             version: res.version ?? null,
             pvp: res.pvp ?? null, arms: res.arms ?? null, trace: res.trace ?? null,
+            gates: res.gates ?? null, observe: res.observe ?? null, // FP6 门/值对（信号页展示）+ 观察臂标记（不拦截）
           };
           this.logger.info(this._experimentId, 'SignalGate',
             `因子门${pass ? '放行' : '拒买'} | ${token.symbol || tokenAddress.slice(0, 10)}${pass ? '' : ` ${res.reason}`}`);

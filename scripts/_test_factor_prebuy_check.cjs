@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP5'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP6'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP5');
+    assert.strictEqual(r.version, 'FP6');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -418,6 +418,62 @@ console.log('J. FP5 尾声延伸活跃度门（btv140 BP-T013 1105 案：充分�
     assert.strictEqual(r.reason, 'act_tail_flat');
     assert.strictEqual(r2.reason, 'pvp_no_big_participation');
     assert.ok(r2.arms.includes('act_tail_flat')); // tail 同中留痕 arms
+  });
+}
+
+console.log('K. FP6 famous 高控+砸落观察臂 + 门/值对 gates（btv140 BP-T007 小树案——标记不拦截留待找方案）');
+{
+  const WIN = (buyBnb, sellBnb) => ({ buyBnb, sellBnb, buyN: 2, sellN: 2, netBnb: 0, buySharePct: 50, ticksPerMin: 10, buyers: 2, sellers: 2, newBuyers: 0 });
+  const TS = (bd, cd) => ({
+    ticks: [{ dt: 400 }],
+    wallets: [W(0.2994, 0.1, 0.2994, 100)], // PVP 过
+    buyDerived: Object.assign({ activity: { nearTail10BuyN: 3 } }, bd),
+    cheatDerived: Object.assign({}, cd),
+  });
+  check('K1 观察臂命中（dom=100 ∧ chg30=−31.9 小树形状）→ observe=true 但 pass 不受影响', () => {
+    const r = M.judgeFamousDominanceFall(TS({ chg30Pct: -31.92 }, { famousDominancePct: 100 }));
+    assert.strictEqual(r.observe, true); assert.strictEqual(r.branch, 'fam_dominance_fall');
+    const full = M.evaluateFactorPreBuy(TS({ chg30Pct: -31.92 }, { famousDominancePct: 100 }));
+    assert.strictEqual(full.pass, true); // 观察不拦截
+    assert.strictEqual(full.observe.code, 'fam_dominance_fall');
+    assert.strictEqual(full.observe.domPct, 100);
+    assert.ok(!full.arms.includes('fam_dominance_fall')); // 不进 arms
+  });
+  check('K2 观察臂不命中（dom=82.8 chg30=+17 거침없이形状）→ observe=null', () => {
+    const full = M.evaluateFactorPreBuy(TS({ chg30Pct: 16.98 }, { famousDominancePct: 82.8 }));
+    assert.strictEqual(full.observe, null);
+  });
+  check('K3 锚缺失（dom/chg30 缺）→ 不标记', () => {
+    const r = M.judgeFamousDominanceFall(TS({}, {}));
+    assert.strictEqual(r.observe, false); assert.strictEqual(r.branch, 'anchors_missing');
+  });
+  check('K4 gates 门/值对结构：17 门齐全、命中门 hit=true、观察门 observe 标记', () => {
+    const full = M.evaluateFactorPreBuy(TS({
+      chg30Pct: -31.92, athVsLaunchPct: 233.7, totalVolumeBnb: 47.29,
+      win: { 30: WIN(0.2475, 0.4879), 120: WIN(0.2475, 0.5861) }, // FP5 尾声同中
+    }, { famousDominancePct: 100 }));
+    const ids = full.gates.map((x) => x.id);
+    for (const want of ['pvp', 'act_idle', 'act_sparse', 'act_dust', 'act_near_dead', 'act_ultra_sell', 'act_ultra_density', 'cd400', 'cd403', 'cd401', 'cd405', 'cd412', 'fam_holding', 'fam_harvest', 'tail_activity', 'fam_dom_fall']) {
+      assert.ok(ids.includes(want), `缺门 ${want}`);
+    }
+    const tailGate = full.gates.find((x) => x.id === 'tail_activity');
+    assert.strictEqual(tailGate.hit, true); // FP5 拦截门 hit
+    assert.ok(tailGate.value.includes('ath233.7%'), tailGate.value);
+    const domGate = full.gates.find((x) => x.id === 'fam_dom_fall');
+    assert.strictEqual(domGate.hit, false); assert.strictEqual(domGate.observe, true);
+    assert.ok(domGate.value.includes('dom100%'), domGate.value);
+    // 门结构完整：每门有 id/label/value/line
+    for (const gate of full.gates) {
+      assert.ok(gate.id && gate.label && typeof gate.value === 'string' && typeof gate.line === 'string', `门形状非法 ${gate.id}`);
+    }
+  });
+  check('K5 gates 与拦截联动：拦截时对应门 hit、放行时全 false（观察门除外）', () => {
+    const pass = M.evaluateFactorPreBuy(TS({ chg30Pct: 0 }, {}));
+    assert.strictEqual(pass.pass, true);
+    assert.ok(pass.gates.every((x) => !x.hit));
+    const blocked = M.evaluateFactorPreBuy(TS({ athVsLaunchPct: 233.7, totalVolumeBnb: 47.29, win: { 30: WIN(0.2475, 0.4879), 120: WIN(0.2475, 0.5861) } }, {}));
+    assert.strictEqual(blocked.reason, 'act_tail_flat');
+    assert.strictEqual(blocked.gates.find((x) => x.id === 'tail_activity').hit, true);
   });
 }
 

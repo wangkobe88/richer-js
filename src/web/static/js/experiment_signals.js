@@ -3184,6 +3184,19 @@ class ExperimentSignals {
           const armChips = (Array.isArray(factorCheckInfo.arms) && factorCheckInfo.arms.length
             ? factorCheckInfo.arms.map((a) => `<span class="px-1.5 py-0.5 rounded border border-red-300 bg-red-100 text-red-900 text-xs">${this._escapeHtml(a)}</span>`).join(' ')
             : '');
+          // FP6 门/值对表（用户裁定：因子过滤输出整理成门/值对，信号页展示各门值）
+          const gatesTable = (Array.isArray(factorCheckInfo.gates) && factorCheckInfo.gates.length
+            ? `<details class="mt-1" open><summary class="text-xs text-emerald-800 cursor-pointer select-none">🚪 因子门门/值对（${factorCheckInfo.gates.length} 门${factorCheckInfo.observe ? ' · 含观察标记' : ''}）</summary><div class="mt-1 overflow-x-auto"><table class="w-full text-xs border border-gray-400"><thead><tr class="bg-gray-200"><th class="text-left px-2 py-0.5">门</th><th class="text-left px-2 py-0.5">值</th><th class="text-left px-2 py-0.5">线</th></tr></thead><tbody>${factorCheckInfo.gates.map((ge) => `
+              <tr class="${ge.hit ? 'bg-red-100' : (ge.observe ? 'bg-amber-100' : '')}">
+                <td class="px-2 py-0.5 border-t border-gray-300 whitespace-nowrap">${this._escapeHtml(ge.label || ge.id)}${ge.hit ? ' 🚫' : (ge.observe ? ' 👁' : '')}</td>
+                <td class="px-2 py-0.5 border-t border-gray-300 font-mono">${this._escapeHtml(ge.value || '—')}</td>
+                <td class="px-2 py-0.5 border-t border-gray-300 text-gray-600">${this._escapeHtml(ge.line || '')}</td>
+              </tr>`).join('')}</tbody></table></div></details>`
+            : '');
+          // FP6 观察臂标记（不拦截——留待找方案）
+          const observeChip = (factorCheckInfo.observe
+            ? `<span class="px-1.5 py-0.5 rounded border border-amber-300 bg-amber-100 text-amber-900 text-xs">👁 观察 ${this._escapeHtml(factorCheckInfo.observe.code || '')}（不拦截）</span>`
+            : '');
           factorGateHtml = `
           <div class="mt-2 pt-2 border-t border-emerald-300">
             <div class="flex items-center justify-between mb-1">
@@ -3195,7 +3208,8 @@ class ExperimentSignals {
               ${factorCheckInfo.pvp && factorCheckInfo.pvp.branch ? `<span>PVP 分支 <code class="bg-gray-900 px-1 rounded">${this._escapeHtml(factorCheckInfo.pvp.branch)}</code>${pvpHit ? '（PVP 命中）' : ''}</span>` : ''}
               <span class="text-gray-600">FP${this._escapeHtml(String(factorCheckInfo.version || '1'))}</span>
             </div>
-            ${armChips ? `<div class="flex flex-wrap gap-1 mb-1">${armChips}</div>` : ''}
+            ${armChips ? `<div class="flex flex-wrap gap-1 mb-1">${armChips} ${observeChip}</div>` : (observeChip ? `<div class="flex flex-wrap gap-1 mb-1">${observeChip}</div>` : '')}
+            ${gatesTable}
             ${traceRows ? `<details class="mt-1"><summary class="text-xs text-emerald-800 cursor-pointer select-none">📐 PVP 判定树计数（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-5">${traceRows}</div></details>` : ''}
           </div>
           `;
