@@ -3393,6 +3393,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       return { success: false, reason: '无触发卖出策略' };
     }
 
+    // T157 因子卖出过滤门：腿带 factorSellFilter 且拦截 → 视同腿未触发（与原
+    // 条件串释放臂假=evaluate 不返回该腿 bit 对齐：清 pending、放行后重新首真起算）
+    const fsf = this._factorSellFilterEvaluate(token, strategy, factors);
+    if (fsf.blocked) {
+      this._sellConfirmDebouncer.clear(tokenAddress);
+      return { success: false, reason: `因子卖出过滤拦截（${fsf.rule}）` };
+    }
+
     // B/C 分流：bypassDebounce 或去抖关闭 → 立即卖；趋势失去类默认腿 → 进确认去抖
     const effSellDebounce = this._effectiveSellDebounceParams(strategy);
     if (strategy.bypassDebounce || effSellDebounce.debounceMs <= 0) {
@@ -3442,6 +3450,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     const strategy = this._strategyEngine.evaluate(factors, tokenAddress, Date.now(), token, 'sell');
     if (!strategy) return { success: false, reason: '条件恢复，不卖' };
+
+    // T157 因子卖出过滤门（fire 重评点，与首评同口径：原条件串释放臂参与重评）
+    const fsf = this._factorSellFilterEvaluate(token, strategy, factors);
+    if (fsf.blocked) return { success: false, reason: `因子卖出过滤拦截（${fsf.rule}）` };
 
     return this._emitSellSignal(token, strategy, factors, null);
   }

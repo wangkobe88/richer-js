@@ -14,6 +14,8 @@ const Logger = require('../../services/logger');
 const TelegramNotifier = require('../../services/TelegramNotifier');
 const ExperimentEventService = require('../../web/services/ExperimentEventService');
 const baseConfig = require('../../../config/default.json');
+// T157 因子卖出过滤门：famousHold 纯函数判定（两引擎卖腿评估点共用单一真相源）
+const { judgeFactorSellFilter } = require('./factor-sell-filter');
 
 // 延迟导入以避免循环依赖
 let TokenPool = null;
@@ -1862,6 +1864,36 @@ class AbstractTradingEngine extends ITradingEngine {
     return pass
       ? { pass: true, info }
       : { pass: false, reason: `因子门拒买（${info.reason}）` };
+  }
+
+  /**
+   * T157 因子卖出过滤门（famous HOLD 迁移案，2026-11-17）：卖信号纯代码因子
+   * 过滤（对标买侧 T143 因子购买前检查门形态，零 Jev/零 DB/零网络）。消费点=
+   * 两引擎 _evaluateSellPath（evaluate 返回触发腿后、bypass/去抖分流前）与
+   * _reconfirmAndSell（去抖 fire 重评）——拦截=视同腿未触发（与原条件串释放臂
+   * 假=evaluate 不返回该腿 bit 对齐：首评拦截清 pending、放行后重新首真起算）。
+   * 判定逻辑单一真相源 core/factor-sell-filter.js（judgeFactorSellFilter）。
+   * 日志去重：评估点每 tick 调用，同 (token, 腿) 持续拦截只打首条，放行后重置。
+   * @returns {{blocked:boolean, rule:string|null, info:Object|null}}
+   */
+  _factorSellFilterEvaluate(token, strategy, factors) {
+    const res = judgeFactorSellFilter(strategy && strategy.factorSellFilter, factors);
+    if (!res.blocked) {
+      if (this._factorSellFilterLogSeen) {
+        this._factorSellFilterLogSeen.delete(`${token?.token}|${strategy?.id}`);
+      }
+      return res;
+    }
+    const key = `${token?.token}|${strategy?.id}`;
+    if (!this._factorSellFilterLogSeen) this._factorSellFilterLogSeen = new Map();
+    if (this._factorSellFilterLogSeen.get(key) === res.rule) return res; // 持续拦截静默
+    this._factorSellFilterLogSeen.set(key, res.rule);
+    const i = res.info || {};
+    this.logger.info(this._experimentId, 'SellEval',
+      `🛡 因子卖出过滤拦截（${res.rule}）| ${token?.symbol || String(token?.token || '').slice(0, 10)} 腿=${strategy?.name}` +
+      ` | pp=${i.profitPercent} sinceLastFamousBigBuySec=${i.sinceLastFamousBigBuySec} recentFamousSellBnb=${i.recentFamousSellBnb}` +
+      `（HOLD=famous ${i.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${i.sellReleaseBnb} ∧ pp≥${i.minProfitPct}——放行=出窗/撤退达线/跌破保护域）`);
+    return res;
   }
 
   /** FA 因子投影（grade 三键+题档+锚+CD159 观察臂；值=最近一次判定；stop 逐 token 清） */
