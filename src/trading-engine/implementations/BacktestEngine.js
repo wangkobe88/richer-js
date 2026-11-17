@@ -525,7 +525,11 @@ class BacktestEngine extends AbstractTradingEngine {
         memPullTicksFromIndex(this._tokenTickIndex, tokenAddress, anchorMs) };
       // 调试：检查闭包看到的索引
       const _origPull = _memDeps.pullTicks;
-      _memDeps.pullTicks = (t, a) => { const _r = _origPull(t, a); if (!_r || !_r.rows || _r.rows.length === 0) { console.error(`[MEM-MISS-DEBUG] idxSize=${this._tokenTickIndex?.size ?? 'NULL'} token=${t} has=${this._tokenTickIndex?.has(String(t||'').toLowerCase())} anchor=${a}`); } return _r; };
+      _memDeps.pullTicks = (t, a) => { const _r = _origPull(t, a); if (!_r || !_r.rows || _r.rows.length === 0) { { const _idx = this._tokenTickIndex; const _tok = String(t||'').toLowerCase();
+          const _rows = _idx?.get(_tok);
+          const _anchorIso = a ? new Date(a).toISOString() : 'null';
+          console.error(`[MEM-MISS-DEBUG] idxSize=${_idx?.size ?? 'NULL'} token=${t} has=${_idx?.has(_tok)} anchor=${a} anchorIso=${_anchorIso} firstBT=${_rows?.[0]?.block_time ?? 'N/A'} lastBT=${_rows?.[_rows.length-1]?.block_time ?? 'N/A'} rowCount=${_rows?.length ?? 0}`);
+        } } return _r; };
       this._cheatCheckService = new CheatCheckService(
         { ...(_wsCfg.cheatCheck || {}), persist: false, settleDelayMs: 0 }, this.logger, _memDeps);
       this._buyPointCheckService = new BuyPointCheckService(
