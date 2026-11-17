@@ -182,9 +182,8 @@ function obsLine(interp) {
   const p = interp.phenomena;
   const ext = (id) => (interp.extLevels && interp.extLevels[id] !== undefined ? interp.extLevels[id] : null);
   const act = interp.activityLevel ? interp.activityLevel.bucket : null;
-  const bd = interp.bundledDominance ? interp.bundledDominance.bucket : null;
   const part = interp.abnormalBehavior ? interp.abnormalBehavior.bucket : null;
-  return `eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} cr=${p.creator_front_run} sd=${p.sell_dispersion} sbw=${ext('stall_burst_wave') ?? '-'} tier=${ext('amount_tiering') ?? '-'} bw=${ext('same_block_buy_wave') ?? '-'} rat=${ext('insider_supply_sell') ?? '-'} pump=${ext('slow_grind_pump') ?? '-'} act=${act ?? '-'} bd=${bd ?? '-'} abr=${part ?? '-'}`;
+  return `eq=${p.equal_amount_split} sb=${p.coordinated_sell_back} sd=${p.sell_dispersion} sbw=${ext('stall_burst_wave') ?? '-'} tier=${ext('amount_tiering') ?? '-'} bw=${ext('same_block_buy_wave') ?? '-'} rat=${ext('insider_supply_sell') ?? '-'} pump=${ext('slow_grind_pump') ?? '-'} act=${act ?? '-'} abr=${part ?? '-'}`;
 }
 
 /** 单 case 全链（锚截窗→快照→state→[Jev]→mapper 观测组装；CD393 起判定窗=锚截窗原样） */
