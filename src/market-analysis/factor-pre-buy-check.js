@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP11';
+const FACTOR_PREBUY_VERSION = 'FP12';
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -145,6 +145,13 @@ const FAM_LOW_EXIT_MAX_PRESENCE_BNB = 0.05;
 const FAM_LOW_EXIT_MAX_VS_PCT = 40;
 /** FP10 冷却窗：末笔 famous 卖距锚 ≤120s 内不接盘（「至少冷却一段时间」） */
 const FAM_LOW_EXIT_COOLDOWN_SEC = 120;
+/** FP10 破发豁免线（T167b，2026-11-17 bt-v143 28ad 案用户裁定「famous 买入后破发豁免
+ *  ——破发意味着这个 famous 带来的流量已经基本清场了，之后这一波起来基本不受影响」；
+ *  破发锚=盘面跌破 famous 买入价）：群体首买后盘面最低较 famous 加权成本深破 ≥20% →
+ *  豁免不拦。定标：28ad 破深 28.8 vs 现行 FP10 四命中票全 ≤14.3（T029 14.3/T055 13.1/
+ *  T056 12.4/T107 4.4）分离带 14.5pp 取中偏保守 20；「末卖价低于成本」口径刻意不用
+ *  （T055 sellBreach 13.1 ≈ 28ad 11.5 分不开，182 对拍实证）；null 不豁免宁拦不冒充 */
+const FAM_LOW_EXIT_BREACH_EXEMPT_PCT = 20;
 
 // ── FP11 famous 早窗快闪双支臂（2026-11-17 bt-v141 复审用户点名两票立法：
 //    거침없이 0x288b3aad…7777（−0.0553 全窗最差）/ SI 0x13ccc4b9…7777（−0.0508
@@ -537,6 +544,18 @@ function armFamousLowExit(snapshot) {
   return typeof ft.lastSellToAnchorSec === 'number' && ft.lastSellToAnchorSec <= FAM_LOW_EXIT_COOLDOWN_SEC;
 }
 
+/** FP10 破发豁免（T167b/28ad 案）：盘面（famous 群体首买后、锚窗内）最低价较 famous
+ *  加权入场成本深破 ≥FAM_LOW_EXIT_BREACH_EXEMPT_PCT → famous 带来的流量已清场
+ *  （famous 清仓=上一轮遗迹，重启波不受残留影响）→ FP10 不拦。键源 T167b 直供
+ *  groupEntryAvgBnb/postEntryMinBnb；任一 null/非正 → 不豁免（保持拦截）。
+ *  注意「末卖价低于成本」不是豁免判据（T055 立法案同形状，182 对拍 13.1≈11.5
+ *  分不开）——深破必须是盘面事实而非 famous 自己的卖价。 */
+function famousBreachExemptPct(ft) {
+  if (!ft || typeof ft.groupEntryAvgBnb !== 'number' || !(ft.groupEntryAvgBnb > 0)) return null;
+  if (typeof ft.postEntryMinBnb !== 'number' || !(ft.postEntryMinBnb > 0)) return null;
+  return (1 - ft.postEntryMinBnb / ft.groupEntryAvgBnb) * 100;
+}
+
 /** FP11 famous 早窗快闪双支：极早入场（首买 ≤10s ∨ 全盘 BUY 顺位 ≤5——用户裁定
  *  「这次先控极早入场，就是前几个顺位或者前几秒入场」）∧ 群买 ≥0.2B 前提下
  *  A 支（自卖比 ≥0.7 ∧ 残仓比 ≥0.15 → 'fam_early_flip_partial'：砸到一半+大额
@@ -744,10 +763,12 @@ function buildFactorGates(parts) {
   // FP10 famous 低价全清冷却
   {
     const ft2 = parts.bd && parts.bd.famousTraces;
+    const breach = famousBreachExemptPct(ft2);
+    const exempted = breach !== null && breach >= FAM_LOW_EXIT_BREACH_EXEMPT_PCT;
     g.push({
       id: 'fam_low_exit', label: 'FP10·famous低价全清冷却',
-      value: `末卖@+${d(ft2 && ft2.lastSellVsLaunchPct, '%')} 距锚${d(ft2 && ft2.lastSellToAnchorSec, 's')} 买${d(ft2 && ft2.groupBuyBnb, 'B')} 残仓${d(ft2 && ft2.presenceNetBnb, 'B')}`,
-      line: '买≥0.2B ∧ 自卖比≥0.9 ∧ 残仓≤0.05B ∧ 卖价≤+40% ∧ 距锚≤120s', hit: parts.armHits.includes('fam_low_exit_cooldown'),
+      value: `末卖@+${d(ft2 && ft2.lastSellVsLaunchPct, '%')} 距锚${d(ft2 && ft2.lastSellToAnchorSec, 's')} 买${d(ft2 && ft2.groupBuyBnb, 'B')} 残仓${d(ft2 && ft2.presenceNetBnb, 'B')} 破深${d(breach !== null ? +breach.toFixed(1) : null, '%')}${exempted ? '→破发豁免' : ''}`,
+      line: '买≥0.2B ∧ 自卖比≥0.9 ∧ 残仓≤0.05B ∧ 卖价≤+40% ∧ 距锚≤120s ∧ 破深<20%（famous 成本深破≥20%=流量已清场豁免）', hit: parts.armHits.includes('fam_low_exit_cooldown'),
     });
   }
   // FP11 famous 早窗快闪双支
@@ -918,7 +939,10 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     else if (armSlowPumpUnload(snapshot)) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）
     else if (armFamousHarvestFinal(snapshot)) arms.push('fam_harvested_final'); // FP8b famous 收割完残局（大涨过+已离场+已砸落）
     else if (armFamousBurstWave(snapshot.buyDerived)) arms.push('fam_burst_wave'); // FP9 famous 系突发波（burst 纯 famous 带起来的）
-    else if (armFamousLowExit(snapshot)) arms.push('fam_low_exit_cooldown'); // FP10 famous 低价全清冷却（立马接盘 → 拒）
+    else if (armFamousLowExit(snapshot)) { // FP10 famous 低价全清冷却（立马接盘 → 拒；破发豁免=流量清场已兑现，T167b/28ad 案）
+      const breach = famousBreachExemptPct(snapshot.buyDerived && snapshot.buyDerived.famousTraces);
+      if (breach === null || breach < FAM_LOW_EXIT_BREACH_EXEMPT_PCT) arms.push('fam_low_exit_cooldown');
+    }
     else { // FP11 famous 早窗快闪双支（T171 거침없이/SI 案；FP10 子集形状已被上面更具体码认领）
       const earlyFlip = armFamousEarlyFlip(snapshot);
       if (earlyFlip) arms.push(earlyFlip);
@@ -977,7 +1001,7 @@ module.exports = {
   judgeFamousDominanceFall, buildFactorGates,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
   armExtremeDumpSellers, armDenseDump, armSlowPumpUnload, armFamousHarvestFinal, armFamousBurstWave,
-  armFamousLowExit,
+  armFamousLowExit, famousBreachExemptPct, FAM_LOW_EXIT_BREACH_EXEMPT_PCT,
   armFamousEarlyFlip,
   evaluateFactorPreBuy,
 };

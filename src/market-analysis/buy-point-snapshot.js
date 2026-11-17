@@ -1070,6 +1070,29 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       return best;
     })();
     const tEndFt = ticks.length ? ticks[ticks.length - 1].dt : null;
+    // ── T167b/FP10 famous 破发豁免原料（bt-v143 28ad 案，2026-11-17 用户裁定「famous
+    // 买入后破发豁免——破发意味着这个 famous 带来的流量已经基本清场了，之后这一波起来
+    // 基本不受影响」，破发锚=盘面跌破 famous 买入价）──群体可靠价买行 BNB 加权平均入场
+    // 价 + 群体首买时刻之后盘面可靠价最低（时序限定：首买前的低价不算——低位进场票
+    // 不构成「流量清场」证据）。无可靠价买行/首买后无可靠价 → null fail-closed（豁免是
+    // 放行方向例外，证据缺失保持拦截宁拦不冒充）；判定归 FP 因子门（破深 ≥20% 豁免）。
+    let entryCostSum = 0, entryAmtSum = 0;
+    for (const t of ticks) {
+      if (t.side !== 'BUY' || !t.wallet) continue;
+      if (!rosterFt.has(String(t.wallet).toLowerCase())) continue;
+      if (t.outlier || !t.priceBnb || t.priceBnb <= 0) continue;
+      entryCostSum += (t.bnb || 0) * t.priceBnb;
+      entryAmtSum += t.bnb || 0;
+    }
+    const groupEntryAvgBnb = entryAmtSum > 0 ? entryCostSum / entryAmtSum : null;
+    let postEntryMinBnb = null;
+    if (groupFirstBuyDt !== null) {
+      for (const t of ticks) {
+        if (t.outlier || !t.priceBnb || t.priceBnb <= 0) continue;
+        if (t.dt === null || t.dt === undefined || t.dt < groupFirstBuyDt) continue;
+        if (postEntryMinBnb === null || t.priceBnb < postEntryMinBnb) postEntryMinBnb = t.priceBnb;
+      }
+    }
     return {
       wallets,
       lastSellDt: lastRelSell ? lastRelSell.dt : null,
@@ -1079,6 +1102,8 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       lastSellToAnchorSec: lastRelSell && tEndFt !== null && tEndFt !== undefined ? tEndFt - lastRelSell.dt : null,
       groupBuyBnb,
       groupBuyPct: cd.totalBuyBnb > 0 ? +((groupBuyBnb / cd.totalBuyBnb) * 100).toFixed(1) : null,
+      // T167b/FP10 破发豁免直供（上段注释）：加权入场价 + 首买后盘面最低（可靠价域）
+      groupEntryAvgBnb, postEntryMinBnb,
       groupSellBnb,
       groupSellPct: cd.totalSellBnb > 0 ? +((groupSellBnb / cd.totalSellBnb) * 100).toFixed(1) : null,
       groupFirstBuyDt, groupFirstBuyRank,

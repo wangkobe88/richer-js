@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP11'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP12'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP11');
+    assert.strictEqual(r.version, 'FP12');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -684,6 +684,32 @@ console.log('O. FP10 famous 低价全清冷却臂（T167：btv140 BP-T055/T056�
   check('O10 版本号断言随 FP11 上线移交 P13（此处不再锁旧值）', () => {
     assert.ok(typeof M.FACTOR_PREBUY_VERSION === 'string');
   });
+  check('O11 T167b 破发豁免：28ad 形状（破深 28.8 ≥20——盘面最低较 famous 加权成本深破）→ 五腿命中但不拦（arms/reason 均无）', () => {
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: { famousTraces: FT({ groupEntryAvgBnb: 6.368e-9, postEntryMinBnb: 4.53e-9 }) } }), true); // 五腿原样命中（豁免在调用点）
+    const r = M.evaluateFactorPreBuy(SNAPF(FT({ groupEntryAvgBnb: 6.368e-9, postEntryMinBnb: 4.53e-9 }))); // 1-4.53/6.368=28.8%
+    assert.ok(!r.arms.includes('fam_low_exit_cooldown'));
+    assert.notStrictEqual(r.reason, 'fam_low_exit_cooldown');
+  });
+  check('O12 T055 形状保持拦截（破深 13.1 <20）+ 边界恰 20 豁免', () => {
+    const r = M.evaluateFactorPreBuy(SNAPF(FT({ groupEntryAvgBnb: 6.5e-9, postEntryMinBnb: 5.647e-9 }))); // 13.1%
+    assert.strictEqual(r.reason, 'fam_low_exit_cooldown');
+    const rb = M.evaluateFactorPreBuy(SNAPF(FT({ groupEntryAvgBnb: 6.368e-9, postEntryMinBnb: 5.09e-9 }))); // 破深 20.03%（1-5.09/6.368）过线豁免；恰 20 因浮点不表达，判据数值上 >=
+    assert.ok(!rb.arms.includes('fam_low_exit_cooldown'));
+  });
+  check('O13 破发豁免键容缺（avg/min null——无可靠价买行/首买后无可靠价）→ 不豁免保持拦截（宁拦不冒充）', () => {
+    assert.strictEqual(M.famousBreachExemptPct(null), null);
+    assert.strictEqual(M.famousBreachExemptPct(FT()), null); // 无两新键（旧档形状）
+    assert.strictEqual(M.famousBreachExemptPct(FT({ groupEntryAvgBnb: null, postEntryMinBnb: 1e-9 })), null);
+    assert.strictEqual(M.famousBreachExemptPct(FT({ groupEntryAvgBnb: 6e-9, postEntryMinBnb: null })), null);
+    const r = M.evaluateFactorPreBuy(SNAPF(FT()));
+    assert.strictEqual(r.reason, 'fam_low_exit_cooldown');
+  });
+  check('O14 gates FP10 值带破深与豁免标注（28ad 形状 → 破发豁免字样）', () => {
+    const r = M.evaluateFactorPreBuy(SNAPF(FT({ groupEntryAvgBnb: 6.368e-9, postEntryMinBnb: 4.53e-9 })));
+    const g = r.gates.find((x) => x.id === 'fam_low_exit');
+    assert.ok(g && g.value.includes('28.9%') && g.value.includes('破发豁免'), g.value);
+    assert.strictEqual(g.hit, false);
+  });
 }
 
 console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/SI 点名两票——famous 极早快闪=基本无救）');
@@ -759,8 +785,8 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.value.includes('7s') && g.value.includes('0.7493') && g.value.includes('0.75') && g.value.includes('0.25'), g.value);
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
-  check('P13 版本 FP11', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP11');
+  check('P13 版本 FP12（T167b 破发豁免上线）', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP12');
   });
 }
 
