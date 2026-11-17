@@ -350,10 +350,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatNoBuySellPct: factorResults.cheatNoBuySellPct ?? null,
     cheatFamousDominancePct: factorResults.cheatFamousDominancePct ?? null,
     cheatFamousDominance: factorResults.cheatFamousDominance ?? null,
-    // D3.39 异常行为占比档位（G13 R 通道同源（D3.35 real_participation 改名+
-    // 理念重构——无罪推定）：negligible=0/noticeable=1/dominant=2，
-    // unclear→null）+ 协同买入参考四键 + 创建者曾持峰值锚（abnormal_behavior_ratio/
-    // holdings_balance 同源；首买块前摇 null=开盘形状证据缺席；创建者无 BUY 行
+    // D3.39 异常行为占比档位（D3.77/CD419 随 abr 题退役恒 null 供存量条件串
+    // 兼容）+ 协同买入参考四键 + 创建者曾持峰值锚（abr/holdings 题退役后
+    // 纯观察留档；首买块前摇 null=开盘形状证据缺席；创建者无 BUY 行
     // null=链外转入域 swap 不可见）；旧 FA/历史信号无键 → null 不掩盖
     cheatAbnormalBehaviorRatio: factorResults.cheatAbnormalBehaviorRatio ?? null,
     cheatMaxBlockBuyCount: factorResults.cheatMaxBlockBuyCount ?? null,

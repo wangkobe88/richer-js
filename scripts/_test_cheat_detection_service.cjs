@@ -925,7 +925,7 @@ async function main() {
       && llm.calls.ask === before && svc.stats.gateBlockedHits === 1,
       '拉黑秒回 grade=cheat blocked=true（零 Jev 配额）');
     ok(db.state.inserts.length === 1 && db.state.inserts[0].snapshot_digest.grade === 'cheat'
-      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G21'
+      && db.state.inserts[0].snapshot_digest.gradeVersion === 'G22'
       && Number.isFinite(db.state.inserts[0].snapshot_digest.anchorSellCount),
       'digest 落 grade/gradeVersion/anchorSellCount（重放对拍原料）');
     // Z1b 因子化：analyzed 返回带 levels（数值档，FA 出口原料）+ buckets（字符串
@@ -979,9 +979,9 @@ async function main() {
       && r1.anchors.maxBlockPreGapSec === null && r1.anchors.sameAmountWalletPct === 100
       && r1.anchors.creatorPeakHoldSupplyPct === null,
       `D3.35 五新锚精确值（最大块 2 笔/14.3%/首买块 preGap null/同档 10 钱包=100%/创建者无行 null）（实际 ${r1.anchors.maxBlockBuyCount}/${r1.anchors.maxBlockBuyPct}/${r1.anchors.maxBlockPreGapSec}/${r1.anchors.sameAmountWalletPct}/${r1.anchors.creatorPeakHoldSupplyPct}）`);
-    ok(r1.levels && r1.levels.abnormalBehavior === null && r1.buckets && r1.buckets.abnormalBehavior === null
+    ok(r1.levels && r1.levels.abnormalBehavior === undefined && r1.buckets && r1.buckets.abnormalBehavior === undefined
       && r1.levels.realParticipation === undefined,
-      'GOOD 基底无 abnormal_behavior_ratio 答案（stub 题集未含新题）→ levels/buckets 容缺 null+旧键 realParticipation 不残留（<D3.39 断代重放零变化防线）');
+      'GOOD 基底 abnormal_behavior_ratio levels/buckets 键已随 D3.77/CD419 随题退役移除 → undefined+旧键 realParticipation 不残留（FA cheatAbnormalBehaviorRatio 兜 ?? null 恒 null；旧档断代重放零变化防线）');
     ok(r2.levels && r2.levels.sameBlockBuyWave === 3 && r2.anchors && 'sameBlockHoldPct' in r2.anchors,
       '拉黑秒回也带 levels+anchors（_lastGrade 透传——gate 短路路径因子不缺位）');
     // Z1d D3.67/CD397 单段绑定波族十键（genTicks 基底无 ≥30s 静默段——无沉积=无

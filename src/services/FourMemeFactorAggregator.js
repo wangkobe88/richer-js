@@ -4347,13 +4347,12 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    + D3.52 两键 cheatStrongBackerPressure/cheatAnchorBuySellRatio
         //    （CD159 强庄币锚**观察期**：档位+锚窗买卖比只攒分布，grade 零消费
         //    ——MAIN_IDS 显式排除不进 A 主判，豁免规则攒 case 后再裁）
-        //    + D3.39 六键 cheatAbnormalBehaviorRatio（异常行为
-        //    占比档位（D3.35 real_participation 改名+理念重构——无罪推定，无可见
-        //    异常即正常）negligible=0/noticeable=1/dominant=2，unclear→null）+
+        //    + D3.39 六键（cheatAbnormalBehaviorRatio 档位 D3.77/CD419 随题退役
+        //    恒 null 供存量条件串兼容）+
         //    协同买入参考四键
         //    cheatMaxBlockBuyCount/cheatMaxBlockBuyPct/cheatMaxBlockPreGapSec/
         //    cheatSameAmountWalletPct + cheatCreatorPeakHoldSupplyPct（创建者曾持
-        //    峰值占总供应量%，G13 R 通道/holdings_balance 同源；参考数值非门槛）
+        //    峰值占总供应量%；abr/holdings 题退役后四键+峰值锚纯观察留档非门槛）
         //    + D3.58 断流重启段六键 cheatPostStallSpanSec/cheatPostStallBuyBnb/
         //    cheatPostStallBuyerCount/cheatPostStallFreshBuyerPct/
         //    cheatPostStallEqualClusterPct/cheatPostStallMaxBlockBuyPct（CD183：
@@ -4459,10 +4458,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // （cheatFamousDominancePct/cheatFamousDominance 两键已随 G20/CD416
             //  cheat 门 famous 锚族退役——库条目与存量实验条件串零引用已核；
             //  旧信号行快照里两键照留档）
-            // D3.39 异常行为占比档位（G13 R 通道同源：negligible=0/noticeable=1/
-            // dominant=2，unclear 不在映射表→null 不冒充；D3.35-D3.38 旧档
-            // real_participation 断代 null）+ 协同买入参考四键与创建者曾持峰值锚
-            // （abnormal_behavior_ratio/holdings_balance 参考数值，纯观察可进条件串；
+            // D3.39 异常行为占比档位（D3.77/CD419 随题退役：levels 键已移除→
+            // 恒 null 供存量条件串兼容，G22 R 通道同批退役）+ 协同买入参考四键
+            // 与创建者曾持峰值锚（随题退役改纯观察留档可进条件串；
             // 首买块前摇 null=开盘形状证据缺席；创建者无 BUY 行 null=链外转入域
             // swap 不可见，绝不以 0 冒充「从未持有」）
             factors.cheatAbnormalBehaviorRatio = _lv ? _lv.abnormalBehavior ?? null : null;

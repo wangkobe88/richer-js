@@ -945,10 +945,9 @@ class CheatCheckService {
           noBuySellVolumePct: snapshot.derived.noBuySellVolumePct,
           // D3.62 聚合路由入口占比（G17 N 通道源锚；头注见 cheat-snapshot）
           routerEntryBuyPct: snapshot.derived.routerEntryBuyPct,
-          // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前
-          // real_participation）参考数值非门槛，头注见
-          // snapshot）+ 创建者曾持峰值锚（holdings_balance 补腿；无 BUY 行=null
-          // 链外转入域不可见，绝不以 0 冒充「从未持有」）
+          // D3.35 协同买入参考四键（abnormal_behavior_ratio 题参考数值；
+          // D3.77/CD419 随题退役改纯观察留档——泛异常分工移交 FP 因子门）
+          // + 创建者曾持峰值锚（无 BUY 行=null 链外转入域不可见，绝不以 0 冒充）
           maxBlockBuyCount: snapshot.derived.maxBlockBuyCount,
           maxBlockBuyPct: snapshot.derived.maxBlockBuyPct,
           maxBlockPreGapSec: snapshot.derived.maxBlockPreGapSec,
@@ -1458,7 +1457,10 @@ class CheatCheckService {
         extLevels: mapped.extLevels ?? null,         // 观察题档位（sbw D3.3/tiering D3.7/buy_wave D3.8 容缺 null）
         activityLevel: mapped.activityLevel ?? null, // Jev 活跃度题档位（<D3.5 旧档缺席 null）
         bundledDominance: mapped.bundledDominance ?? null, // Jev 捆绑主导度档位（D3.8；<D3.8 旧档缺席 null）
-        abnormalBehavior: mapped.abnormalBehavior ?? null, // Jev 异常行为占比档位（D3.39 改名 real_participation→abnormal_behavior_ratio；旧档 digest.participation 键断代不映射——G13 R 通道重放对拍原料）
+        // abnormalBehavior 档位键已随 abnormal_behavior_ratio 题 D3.77/CD419
+        // 随题退役（G22 R 通道同批退役）——新档恒 null（键保留兼容旧档重放），
+        // 历史 digest 行留档
+        abnormalBehavior: null,
         anchors: mapped.anchors ?? null,             // 持仓占比数值锚（重放对拍用）
         // G1 分级（2026-11-01：档位→交易三级映射；失败行/观察模式旧路径无键=null）
         grade: mapped.grade ?? null,

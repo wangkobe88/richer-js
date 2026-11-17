@@ -551,8 +551,9 @@ function computeDerived(snapshot, famousRoster) {
   // 与立项票 9.8%/62.3% 完全孪生——占比数字分不开，G10 sbHold 活跃度函数问题
   // 同款）；结构性分界=脉冲孤立性：立项票三脉冲块间 16/11 个空块整段空窗
   // （孤立脉冲节拍=协同迹象），RAM/CD60/CD98 脉冲块背靠背相邻（连续活跃带，
-  // 高活跃盘撞块常态 CD133 反锚）。孤立性判读归 Jev（abnormal_behavior_ratio
-  // 题判读要点①，数值行只给间隔事实），代码不立门（D3.5 哲学）：
+  // 高活跃盘撞块常态 CD133 反锚）。孤立性判读曾归 Jev（abnormal_behavior_ratio
+  // 题判读要点①；D3.77/CD419 随题退役——本题族改纯观察留档，泛异常分工移交
+  // FP 因子门），代码不立门（D3.5 哲学）：
   //   pulseBlockCount   = 脉冲块数（无合格脉冲块 → null 有证据缺席）
   //   pulseBlockBuyPct  = 脉冲块买入金额合计 ÷ 窗口总买入 ×100（无脉冲块/
   //                       总买≤0 → null）
@@ -1559,9 +1560,10 @@ function computeDerived(snapshot, famousRoster) {
 
   // ── 协同买入参考四键（D3.35，2026-11-02 用户裁定「将 Jev 转化为一个真实的
   // 交易者……一些指标也可以作为参考，但是不要有非常硬的标准，尽量从交易者
-  // 角度，去看看交易信息是否正常」：买侧节奏四事实进 [PRECOMPUTED] 供
-  // abnormal_behavior_ratio 题（D3.39 前 real_participation）参考判读——**参考数值非门槛**，判读交 Jev 交易者角色
-  // 综合；口径与 128 票分布研究（tmp-coop-buy-stats@182）bit 一致：全量 BUY 行
+  // 角度，去看看交易信息是否正常」：买侧节奏四事实曾供 abnormal_behavior_ratio
+  // 题（D3.39 前 real_participation）参考判读——**D3.77/CD419 随题退役改纯观察
+  // 留档（泛异常分工移交 FP 因子门）**；口径与 128 票分布研究
+  // （tmp-coop-buy-stats@182）bit 一致：全量 BUY 行
   // 不滤 outlier（资金口径）、钱包=sender||trader 原样小写**不去 router**
   // （与 [TICKS] w= 同域，未解析行证据洞由 unresolvedSenderTickCount 承载）──
   //   maxBlockBuyCount    = 最大单块买入笔数（并列取买入额大者；无买入=0）
@@ -1973,7 +1975,8 @@ function computeDerived(snapshot, famousRoster) {
     exactEqualBlockBuyPct, exactEqualBlockClusterCount, exactEqualBlockMaxWallets,
     exactEqualBlockClusters,
     // D3.54 同块脉冲节拍（CD161：abnormal_behavior_ratio/holdings_balance 时间
-    // 形状判读原料；pulseGapBlocks/pulseBlockClusters 仅 state 渲染）
+    // 形状判读原料；D3.77 随 abr 题退役改纯观察留档；pulseGapBlocks/
+    // pulseBlockClusters 原 state 渲染随题移除）
     pulseBlockCount, pulseBlockBuyPct, pulseMaxGapBlocks, pulseGapBlocks,
     pulseBlockClusters,
     // D3.58 断流重启段锚族（CD183：same_block_buy_wave/equal_amount_split 题分段
@@ -1981,8 +1984,8 @@ function computeDerived(snapshot, famousRoster) {
     // 全族 null）
     postStallSpanSec, postStallBuyBnb, postStallBuyerCount,
     postStallFreshBuyerPct, postStallEqualClusterPct, postStallMaxBlockBuyPct,
-    // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）参考数值非门槛）+ holdings
-    // 补腿（创建者曾持峰值锚；holdingsProfile 项含 circPct 在场流通口径）
+    // D3.35 协同买入参考四键（abnormal_behavior_ratio 题参考数值；D3.77/CD419
+    // 随题退役改纯观察留档）+ 创建者曾持峰值锚（holdingsProfile 项含 circPct 在场流通口径）
     maxBlockBuyCount, maxBlockBuyPct, maxBlockPreGapSec, sameAmountWalletPct,
     creatorPeakHoldSupplyPct, creatorWallet,
     creatorBuyBnb, creatorBuyN, creatorSellBnb, creatorSellN,

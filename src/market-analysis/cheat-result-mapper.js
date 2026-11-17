@@ -56,12 +56,8 @@ const ACTIVITY_LEVELS = ['low', 'mid', 'high', 'ultra'];
 /** 捆绑交易题独立档域（与题集 BUNDLED_LEVELS 一致；D3.8 用户裁定高中低三档） */
 const BUNDLED_LEVELS = ['low', 'mid', 'high'];
 
-/** 异常行为占比题独立档域（与题集 ABNORMAL_BEHAVIOR_LEVELS 一致；D3.35 立项
- *  real_participation→D3.39 改名+理念重构——用户裁定「异常行为识别与比例计算」
- *  无罪推定：无可见异常即正常，不要求自证真实用户；四桶异常占比轴
- *  negligible/noticeable/dominant/unclear（镜像原参与度轴 minimal_genuine≈
- *  dominant；D3.35-D3.38 旧档 real_participation 答案键缺席容缺 null 断代） */
-const ABNORMAL_BEHAVIOR_LEVELS = ['negligible', 'noticeable', 'dominant', 'unclear'];
+// （ABNORMAL_BEHAVIOR_LEVELS 常量已随 abnormal_behavior_ratio 题 D3.77/CD419
+//  随题退役移除——题集侧导出同批移除；旧档答案被读档层忽略。git 历史留全文。）
 
 /** 停滞突发波二分类桶域（与题集 STALL_BURST_LEVELS 一致；D3.11 用户裁定退回
  *  纯现象二分「burst_cheat 就不再次检测了……只做一个是否有 停滞后涌入 的现象
@@ -130,26 +126,11 @@ function _bundledDominance(answers) { // D3.74 bd 随题退役：恒 null（旧�
   return null;
 }
 
-/**
- * 异常行为占比题答案读取（D3.39：题 id abnormal_behavior_ratio，独立档域四桶
- * ——异常行为识别与比例计算综合题「明显异常形状合计解释盘面流量多大比例」，
- * 无罪推定。D3.35-D3.38 旧档 real_participation 答案键不映射（改名=换键，
- * 参与度轴与异常占比轴语义镜像不可比）。容缺：旧存档（<D3.39）无该键 → null
- * （重放兼容）；在场答案走 argmax + 桶域校验，未知桶名 throw（漂移防线不因
- * 容缺放宽）。
- */
-function _abnormalBehavior(answers) {
-  const a = answers && answers.abnormal_behavior_ratio;
-  if (!a || !a.probabilities) return null;
-  let best = null;
-  for (const [bucket, p] of Object.entries(a.probabilities)) {
-    if (best === null || p > best.prob) best = { bucket, prob: p };
-  }
-  if (!ABNORMAL_BEHAVIOR_LEVELS.includes(best.bucket)) {
-    throw new Error(`异常行为占比题 abnormal_behavior_ratio 未知桶名 '${best.bucket}'（题集/映射漂移——ABNORMAL_BEHAVIOR_LEVELS 须同步）`);
-  }
-  return { bucket: best.bucket, prob: best.prob };
-}
+// （_abnormalBehavior 读档函数已随 abnormal_behavior_ratio 题 D3.77/CD419
+//  随题退役移除（泛异常兜底题分工移交 FP 因子门——用户裁定「如果发现有一些
+//  异常现象在 cheat 的其它锚不好控，会增加因子过滤锚」）；旧档在场答案
+//  （含 real_participation 期）被读档层忽略、历史 observation.abnormalBehavior
+//  行留档自然降级无害。git 历史留全文。）
 
 /**
  * 停滞突发波题答案读取（D3.11：题 id stall_burst_wave，现象二分桶域
@@ -210,9 +191,9 @@ function buildObservation(answers, anchors = null) {
     activityLevel: _activityLevel(answers),
     // 捆绑交易主导度档位（Jev 直读自判；<D3.8 旧存档缺席=null）
     bundledDominance: _bundledDominance(answers),
-    // 异常行为占比档位（D3.39 异常行为识别与比例计算；<D3.39 旧档（含
-    // D3.35-D3.38 real_participation 期）缺席=null 断代不映射）
-    abnormalBehavior: _abnormalBehavior(answers),
+    // （abnormalBehavior 档位键已随 abnormal_behavior_ratio 题 D3.77/CD419
+    //  随题退役移除——新档 observation 无该键；旧档重放携带=无害忽略，
+    //  grade R 通道同批退役不再消费）
     // 代码数值锚（只述数值事实；异常形状缺席不冒充）
     anchors: {
       sameBlockHoldPct: _anchorPct(anchors, 'sameBlockHoldPct'),
@@ -271,11 +252,11 @@ function buildObservation(answers, anchors = null) {
       // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的
       // 伤害量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）
       noBuySellVolumePct: _anchorPct(anchors, 'noBuySellVolumePct'),
-      // D3.35 协同买入参考四键（abnormal_behavior_ratio 题（D3.39 前 real_participation）
-      // 参考数值非门槛：最大单块
+      // D3.35 协同买入参考四键（abnormal_behavior_ratio 题参考数值；D3.77 随题
+      // 退役改纯观察留档：最大单块
       // 买入笔数/占比/与前买块间隔秒 + 最大同档金额钱包去重占比；首买块前摇
       // null=开盘形状证据缺席；无买入 count=0 其余 null）+ 创建者曾持峰值占总
-      // 供应量%（holdings_balance 补腿——创建者无 BUY 行 null=链外转入域 swap
+      // 供应量%（创建者无 BUY 行 null=链外转入域 swap
       // 不可见，绝不以 0 冒充「从未持有」）
       maxBlockBuyCount: _anchorPct(anchors, 'maxBlockBuyCount'),
       maxBlockBuyPct: _anchorPct(anchors, 'maxBlockBuyPct'),
@@ -307,8 +288,8 @@ function buildObservation(answers, anchors = null) {
       exactEqualBlockClusterCount: _anchorPct(anchors, 'exactEqualBlockClusterCount'),
       exactEqualBlockMaxWallets: _anchorPct(anchors, 'exactEqualBlockMaxWallets'),
       // D3.54 同块脉冲节拍三键（CD161：abnormal_behavior_ratio/holdings_balance
-      // 时间形状判读原料——**无门侧消费**（grade G15 不动），state 事实行+FA
-      // 投影同源；无合格脉冲块/<2 脉冲（maxGap）→ null 不冒充）
+      // 时间形状判读原料；D3.77 随题退役改纯观察留档（两消费题均已退役，
+      // FA 投影同源照落）；无合格脉冲块/<2 脉冲（maxGap）→ null 不冒充）
       pulseBlockCount: _anchorPct(anchors, 'pulseBlockCount'),
       pulseBlockBuyPct: _anchorPct(anchors, 'pulseBlockBuyPct'),
       pulseMaxGapBlocks: _anchorPct(anchors, 'pulseMaxGapBlocks'),
@@ -374,5 +355,5 @@ module.exports = {
   ACTIVITY_LEVELS,
   BUNDLED_LEVELS,
   STALL_BURST_LEVELS,
-  ABNORMAL_BEHAVIOR_LEVELS,
+  // ABNORMAL_BEHAVIOR_LEVELS 已随 abnormal_behavior_ratio 题 D3.77/CD419 退役移除
 };

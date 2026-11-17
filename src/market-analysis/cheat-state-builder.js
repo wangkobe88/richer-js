@@ -116,6 +116,10 @@ function buildCheatState(snapshot) {
     if (d.noBuySellPct !== null && d.noBuySellPct !== undefined) {
       lines.push(`零买入纯卖方: ${d.noBuySellWallets} 个钱包（窗内零买入、只卖出）合计卖出 ${fmtBnb(d.noBuySellBnb)} BNB，占全部卖出 ${d.noBuySellPct.toFixed(1)}%，占窗口总交易量（买入+卖出合计）${d.noBuySellVolumePct.toFixed(1)}%（口径：钱包聚合已剔聚合路由伪钱包；是否存在链外转入分仓出货由你结合 insider_supply_sell 判断）`);
     }
+    // （注：本行原判读语境=abnormal_behavior_ratio 交易者角色，D3.77/CD419 随题
+    //  退役后保留为通用金额分布参考——sameAmountWalletPct=全窗同档金额去重钱包
+    //  占比（GMGN 前端默认档指纹），amount_tiering/equal_amount_split 判读可用；
+    //  同门「单块买入集中度」行已随题移除）
     // D3.36 同档金额参考（D3.35 单块三键撤出 state 输入——2026-11-02 用户裁定
     // 「单块也是这个问题，如果这个数据给结果会造成困扰，我不建议放到数据输入中」：
     // CD60 ultra 活跃盘撞块 12 笔仅占 3%/CD104 吃独食 2 笔占 58.7% 两误伤形状里
@@ -142,22 +146,9 @@ function buildCheatState(snapshot) {
       if (cls.length > 3) parts.push(`另有 ${cls.length - 3} 簇`);
       lines.push(`精确等额同块购买: ${d.exactEqualBlockClusterCount} 簇合计占窗口总买入 ${d.exactEqualBlockBuyPct.toFixed(1)}%（${parts.join('；')}）——事实数值非门槛：完全相等金额（四位小数）∧同一区块的多钱包买入=时间+金额双协同形状（同块撞块的独立买家金额通常各异；前端默认档跟风是跨块长尾不聚同块；经聚合路由的默认档买入钱包同址天然不成簇）；簇占比高且金额反推名义非常见默认档=配置单痕迹，如何定档由你按 equal_amount_split 题面判读`);
     }
-    // D3.54 同块脉冲节拍事实行（CD161：MAX 0xbe0d62b9…7777 立项——「block
-    // 之间间隔时间很久+单块挤多笔」的孤立脉冲节拍；2026-11-04 用户裁定
-    // 「把这个现象描述出来」同哲学：数值行只给脉冲块数/占比/间隔事实，孤立
-    // 性判读归 Jev（abnormal_behavior_ratio 题判读要点①）。分布孪生反锚入行
-    // （RAM@41 活跃块占比/脉冲占比与立项票孪生——分界在间隔不在占比）；无
-    // 合格脉冲块不渲染行（缺席语义）。
-    if (d.pulseBlockBuyPct !== null && d.pulseBlockBuyPct !== undefined) {
-      const cls = d.pulseBlockClusters || [];
-      const parts = cls.slice(0, 3).map((c) => `t+${c.dt}s 块${c.block} 挤 ${c.n} 笔`);
-      if (cls.length > 3) parts.push(`另有 ${cls.length - 3} 块`);
-      const gaps = d.pulseGapBlocks || [];
-      const gapStr = gaps.length > 0
-        ? `；相邻脉冲间隔 ${gaps.join('/')} 个空块` + (gaps.length === 1 ? '' : `（最大 ${d.pulseMaxGapBlocks}）`)
-        : '（仅一个脉冲块，无节拍间隔证据）';
-      lines.push(`同块脉冲节拍: ${d.pulseBlockCount} 个脉冲块（单块 ≥3 笔买入）合计占窗口总买入 ${d.pulseBlockBuyPct.toFixed(1)}%（${parts.join('；')}${gapStr}）——事实数值非门槛：脉冲块之间存在整段空块的孤立脉冲节拍（多波同块挤入+波间死寂，真实散户到达沿块散布不会只挑同样的少数块反复成波）是协同节拍迹象；脉冲块相邻成带（间隔 0-2 块）=连续活跃带撞块常态（高活跃盘独立买家并发，不因同块加档）；占比本身分不开两种形状，判读看间隔结构，如何计异常份额由你按 abnormal_behavior_ratio 题面判读`);
-    }
+    // （D3.54「同块脉冲节拍」事实行已随 abnormal_behavior_ratio 题退役移除
+    //  （D3.77/CD419——唯一判读消费题，泛异常分工移交 FP 因子门）；脉冲三键
+    //  数值锚 snapshot 照算、FA 投影/digest 纯观察留档）
     // D3.58 断流重启段事实行（CD183：0xdee305bc…7777 断流 741s 后全新钱包等额
     // 簇三波重启案立项——用户裁定「计算指标的时候，可以只取一个时间窗口，burst
     // 的指标单独自己算」+「给Jev判断的时候也可以说明这个问题」）：全窗占比的
@@ -169,23 +160,9 @@ function buildCheatState(snapshot) {
     if (d.postStallSpanSec !== null && d.postStallSpanSec !== undefined) {
       lines.push(`断流重启段: 窗内最长完全静默 ${d.maxGapSec} 秒后重启，段长 ${d.postStallSpanSec} 秒、段内买入 ${fmtBnb(d.postStallBuyBnb)} BNB / ${d.postStallBuyerCount} 个买入钱包（其中断流前从未出现过的新钱包占 ${d.postStallFreshBuyerPct !== null && d.postStallFreshBuyerPct !== undefined ? d.postStallFreshBuyerPct + '%' : '—'}），段内精确等额同块簇买入占段内买入 ${d.postStallEqualClusterPct !== null && d.postStallEqualClusterPct !== undefined ? d.postStallEqualClusterPct + '%' : '—'} / 段内最大单块买入占段内买入 ${d.postStallMaxBlockBuyPct !== null && d.postStallMaxBlockBuyPct !== undefined ? d.postStallMaxBlockBuyPct + '%' : '—'}（口径：段=最长静默 ≥300 秒之后的全部行；**占比分母=段内买入——全窗口径的占比会被断流前的流量稀释，本行段内口径单独度量重启段的集中度**。长静默后重启段内多波同块等额簇且买家全新=协同结构证据（波间间隔即静默本身）；慢热盘断流后自然回暖的买家通常新旧混合、同块等额簇不聚集；事实数值非门槛，如何定档由你按各题面判读）`);
     }
-    // D3.38 单块买入集中度形状行（CD135 续，2026-11-02 用户裁定换喂法 C——
-    // 「形状提示不给具体数字降锚定力」）：D3.36 撤出精确数字后 CD6 回退
-    // （minimal 0.66→meaningful 0.4 放行——单块集中形状有信息量），而撤前
-    // CD104/CD60 被精确数字（58.7%/12 笔）锚定误伤——问题在伪精度不在形状；
-    // 本行只给档位定性不给数值：占比三档（<10/10-30/≥30）+前摇定性档
-    // （≥30s 明显静默/5-30s 短暂静默/<5s 不注），笔数刻意不给（CD60 教训=
-    // ultra 活跃盘 12 笔仅占 3%，笔数单独看是噪音、占比才是分母）；无买入不渲染
-    if (d.maxBlockBuyPct !== null && d.maxBlockBuyPct !== undefined) {
-      const tier = d.maxBlockBuyPct < 10 ? '不足一成，散布常态'
-        : d.maxBlockBuyPct < 30 ? '一至三成，存在集中段'
-        : '三成以上，高度集中段';
-      const gap = d.maxBlockPreGapSec === null || d.maxBlockPreGapSec === undefined
-        ? '（该块为首个买块，无前摇证据）'
-        : d.maxBlockPreGapSec >= 30 ? '（此前有明显静默段）'
-          : d.maxBlockPreGapSec >= 5 ? '（此前有短暂静默）' : '';
-      lines.push(`单块买入集中度: 最大单块买入占窗口总买入【${tier}】${gap}——形状参考非门槛：高活跃盘与开盘打新段单块多为独立买家并发（撞块常态），占比档位高本身不定性；须配行为同质或阵列结构（同额/成对节拍/同批钱包复现/同 tx 打包）才算组织化痕迹；单个大买家吃独食也是此形状（判掌控看「单一钱包持仓集中度」行的当前持有占总供应量）`);
-    }
+    // （D3.38「单块买入集中度」形状行已随 abnormal_behavior_ratio 题退役移除
+    //  （D3.77/CD419——唯一判读消费题）；maxBlock 四键数值锚 snapshot 照算、
+    //  FA 投影/digest 纯观察留档）
     // （D3.51「burst 尖刺集中度」事实行已随 burst_spike_concentration 题退役
     //  移除（D3.76/CD418——sbw=burst 豁免链天然放行，A 主判冗余）；尖刺族
     //  数值锚 snapshot 照算、FA 投影/digest 纯观察留档）

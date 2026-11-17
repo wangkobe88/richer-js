@@ -58,7 +58,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G21', '版本常量 G21（改规则必须 bump+同步台账+跑黄金集；G21=G20−A 主判 burst_spike_concentration（2026-11-17 CD418/D3.76 用户裁定原话「burst_spike_concentration 删除吧，这里有一个逻辑错误，burst 是豁免低活跃度的，也就是 burst 会直接走到下一层，所以没必要在这里再判一次」：sbw=burst 票经 CD397 sbw==1 豁免资格臂天然放行——E 通道 sbw=burst 跳过、cheat∧burst 豁免翻正，尖刺形状判 cheat 与豁免链方向相抵=A 主判冗余；题随 D3.76 整题删除+EXT 清单移除，MAIN_IDS 自动收缩九→八主判；spike+pump 双 strong 封堵降级豁免臂随题退役（pump 唯一 strong∧sbw=burst∧mod<3 照降级 unhealthy）；FA cheatBurstSpikeConcentration 键保留恒 null，尖刺两锚照算纯观察；黄金集 D3.26 存档无该题答案→重放零变化）；G20=−D 通道（CD416 famous 锚删除——CD379 活跃度豁免下实际拦截为零，famous 拦截载体=BP ③桶+卖侧 T133/T136/T161/T137 臂）；G19=−J_holdings_strong 臂（btv140 食蟹猴二案）+D3.72 slow_grind_pump 合力反锚第二通道；G18=−G8 弱 burst 代码臂（CD397）；G17=N 通道（CD374）；G16=D 邻界联立臂（CD323，已随 G20 整体退役）；G15=burst_spike 入 EXT（→G21 出列）；G14=M 通道 ultra')
+  ok(CHEAT_GRADE_RULES_VERSION === 'G22', '版本常量 G22（改规则必须 bump+同步台账+跑黄金集；G22=G21−R 通道（2026-11-17 CD419/D3.77 用户裁定原话「abnormal_behavior_ratio 是针对一些不普世的异常现象，也删除吧，分工问题，如果发现有一些异常现象在 cheat 的其它锚不好控，会增加因子过滤锚，这个比较泛的 cheat 锚就不保留了」：泛异常兜底题与分工不符——不普世异常形状的承接载体=FP 因子门（T143 FP 族纯代码零 Jev）而非泛 cheat 题；题随 D3.77 整题删除（11→10）、R_abnormal_dominant 通道随题退役不再产出（历史行留档）、levels/buckets abnormalBehavior 键移除、FA cheatAbnormalBehaviorRatio 键恒 null；判读原料锚（D3.35 四键/D3.54 脉冲三键/创建者峰值）照算纯观察、state 两喂料行移除；黄金集 D3.26 存档无该题答案→重放零变化）；G21=G20−A 主判 burst_spike_concentration（CD418/D3.76——sbw=burst 豁免链天然放行 A 主判冗余：题整删+EXT 清单移除+MAIN_IDS 九→八主判+spike+pump 双 strong 封堵降级豁免臂随题退役，尖刺两锚照算纯观察）；G20=−D 通道（CD416 famous 锚删除——CD379 活跃度豁免下实际拦截为零，famous 拦截载体=BP ③桶+卖侧 T133/T136/T161/T137 臂）；G19=−J_holdings_strong 臂（btv140 食蟹猴二案）+D3.72 slow_grind_pump 合力反锚第二通道；G18=−G8 弱 burst 代码臂（CD397）；G17=N 通道（CD374）；G16=D 邻界联立臂（CD323，已随 G20 整体退役）；G15=burst_spike 入 EXT（→G21 出列）；G14=M 通道 ultra；G12/G13=R 通道立/改制（→G22 随题退役）')
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance')
     && !MAIN_IDS.includes('burst_spike_concentration') && !MAIN_IDS.includes('strong_backer_pressure'),
@@ -384,7 +384,7 @@ function main() {
       'A+L 同中双留痕（insider strong ∧ 45 取最重 cheat=A 主判既有行为）');
   }
 
-  console.log('R. 异常行为占比通道（G13 改制，D3.39/CD136——abnormal_behavior_ratio=dominant→unhealthy 拒买级。用户裁定「改为『异常行为识别与比例计算』，明确它要做的事情，并且不作有罪推定」：无可见异常即正常（无罪推定开篇），只有异常形状流量占主导才拒买；negligible/noticeable/unclear/null 不触发；独立通道不进 A 主判（A 管单现象铁证拉黑，R 管异常占比整体形状——拒买级留重判域可翻案）');
+  console.log('R.（G22 退役，2026-11-17 CD419/D3.77——abnormal_behavior_ratio 整题删除：泛异常兜底题与分工不符，不普世异常形状承接载体=FP 因子门（T143 FP 族）而非泛 cheat 题；用户裁定原话「abnormal_behavior_ratio 是针对一些不普世的异常现象，也删除吧，分工问题，如果发现有一些异常现象在 cheat 的其它锚不好控，会增加因子过滤锚，这个比较泛的 cheat 锚就不保留了」）');
   {
     const mkP = (bucket) => {
       const o = baseObs();
@@ -392,33 +392,33 @@ function main() {
       return o;
     };
     const rMin = grade(mkP('dominant'), { famousLevel: null });
-    ok(rMin.grade === 'unhealthy' && rMin.reasons.some((x) => x.code === 'R_abnormal_dominant' && x.level === 'unhealthy'),
-      'R：dominant → unhealthy R_abnormal_dominant（拒买级非拉黑级——CD134 缺省门留重判域）');
+    ok(rMin.grade === 'healthy' && rMin.reasons.every((x) => x.code !== 'R_abnormal_dominant'),
+      'R 退役反证：旧档 dominant 观测在场（历史 digest 重放形状）不再触发任何 R 留痕（通道已随题删除——旧档重放零变化防线）');
     ok(grade(mkP('negligible'), { famousLevel: null }).grade === 'healthy'
       && grade(mkP('noticeable'), { famousLevel: null }).grade === 'healthy'
       && grade(mkP('unclear'), { famousLevel: null }).grade === 'healthy',
-      'R：negligible/noticeable/unclear 全不触发（noticeable=异常在场不主导刻意不罚；unclear=证据不足刻意不罚）');
+      'R 退役反证：全桶位旧观测同落 healthy（通道不存在=桶位无语义）');
     ok(grade(mkP(null), { famousLevel: null }).grade === 'healthy',
-      'R：abnormalBehavior null（<D3.39 旧档断代）不触发（黄金集重放零变化防线）');
-    // 旧键断代反证：participation 旧顶层键在场不消费（D3.39 改名=换键非别名）
+      'R 退役反证：abnormalBehavior 缺席照常 healthy（黄金集重放零变化防线）');
+    // 旧键断代反证保持：participation 旧顶层键在场不消费
     const obsOld = baseObs();
     obsOld.participation = { bucket: 'minimal_genuine', prob: 0.9 };
     ok(grade(obsOld, { famousLevel: null }).grade === 'healthy',
-      'R：旧顶层键 participation（D3.38 前 obs 形状）在场不消费（断代——镜像语义不可比，旧档重放零变化防线）');
-    // 与 A cheat 叠加：单现象铁证仍在，取最重 cheat + R 留痕
+      'R 退役反证：旧顶层键 participation（D3.38 前 obs 形状）在场不消费（断代防线随通道退役继续成立）');
+    // 与 A cheat 叠加形状：A 单现象铁证仍独撑 cheat（R 留痕不再产出）
     const obsBoth = mkP('dominant');
     withExt(obsBoth, 'wash_pair', 'strong');
     const rBoth = grade(obsBoth, { famousLevel: null });
-    ok(rBoth.grade === 'cheat' && rBoth.reasons.some((x) => x.code === 'R_abnormal_dominant')
-      && rBoth.reasons.some((x) => x.code === 'A_strong:wash_pair'),
-      'R+A 同中双留痕取最重 cheat（R 不进 A 主判也不被 A 遮蔽留痕）');
-    // anchors 四键参考数值不进门（参考非门槛反证——数值再高无档不罚）
+    ok(rBoth.grade === 'cheat' && rBoth.reasons.some((x) => x.code === 'A_strong:wash_pair')
+      && rBoth.reasons.every((x) => x.code !== 'R_abnormal_dominant'),
+      'R 退役反证：A_strong:wash_pair 独撑 cheat、R 留痕不产出（泛异常形状的拦截载体移交 FP 因子门）');
+    // anchors 四键参考数值不进门（纯观察留档反证——数值再高无档不罚）
     const obsAnchor = mkP(null);
     obsAnchor.anchors.maxBlockBuyCount = 8;
     obsAnchor.anchors.maxBlockBuyPct = 58.8;
     obsAnchor.anchors.sameAmountWalletPct = 66.7;
     ok(grade(obsAnchor, { famousLevel: null }).grade === 'healthy',
-      'R 侧锚反证：协同买入参考四键纯参考——数值在场无档位不触发（无硬标准，判读全交 abnormal_behavior_ratio 档）');
+      'R 侧锚反证：协同买入参考四键纯观察留档——数值在场无档不触发（题已删无判读载体，FP 因子门另立锚）');
   }
 
   console.log('M. 超高活跃度通道（G14 新增，CD138/2026-11-03 v68 成交票扩集第一批——activity_level=ultra→unhealthy M_hyper_activity 拒买级。用户裁定「CD138 活跃度过高我建议给 unhealthy……我给 unhealthy」+sniper 两口径否证（跨盘画像 isSniperProfile 命中 meme 0.1% 买入反而 Mamesuke 42.8%；创建后 ≤10s 首买覆盖 meme 73% vs Mamesuke 91%=打新盘全员早期买入常态）后续「就超高活跃度 unhealthy 吧」「接受 Mamesuke 错杀」：定线 v68 20 票 ultra 六票 ticksPerMin 86.7-436、high 档最高 65.5 断崖清晰——「过度密集/活跃度太过」载体就是活跃度档本身；与 E 通道 act=low 对称（Jev 判档、代码只映射动作）；已知代价=CD141 Mamesuke（86.67/min ultra@0.50 人工 healthy）被错杀——用户明示接受（拒买可重判）');
@@ -550,14 +550,15 @@ function main() {
 
   console.log('优先级与容缺');
   {
-    // 多通道叠加：cheat>unhealthy（A strong + E low + R dominant 三条——D 已随
-    // G20/CD416 退役，凑数通道换 R（abnormal dominant））
+    // 多通道叠加：cheat>unhealthy（A strong + E low + L insider 三条——D 已随
+    // G20/CD416 退役、R 已随 G22/CD419 随题退役，凑数通道换 L（insider 联立臂））
     const obs = baseObs();
     withExt(obs, 'amount_tiering', 'strong');
     obs.anchors.sameBlockHoldPct = 60;
     obs.activityLevel.bucket = 'low';
     obs.anchors.top1HoldCircPct = 10;
-    obs.abnormalBehavior = { bucket: 'dominant' };
+    withExt(obs, 'insider_supply_sell', 'moderate');
+    obs.anchors.noBuySellPct = 30;
     const r = grade(obs, { famousLevel: 'high', anchorSellCount: 1 });
     ok(r.grade === 'cheat' && r.reasons.length >= 3,
       `多通道叠加 reasons 全留痕但 grade 取最重（实际 ${r.grade}/${r.reasons.length} 条）`);
@@ -623,20 +624,23 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
         same_block_buy_wave: 'strong', insider_supply_sell: 'weak', slow_grind_pump: 'none',
         wash_pair: 'strong', burst_spike_concentration: 'moderate' },
       activityLevel: { bucket: 'low' }, bundledDominance: { bucket: 'mid' },
+      abnormalBehavior: { bucket: 'dominant' },
     });
     ok(r.levels.equalAmountSplit === 2 && r.levels.coordinatedSellBack === null
       && r.levels.stallBurstWave === 1
       && r.levels.sameBlockBuyWave === 3 && r.levels.amountTiering === null
       && r.levels.washPair === 3 && r.levels.activityLevel === 0
-      && r.levels.burstSpikeConcentration === undefined,
-      `levelsFromObservation 11 题映射（D3.76/G21 spike 随题退役 12→11 键——fixture 在场旧答案 'moderate' 被忽略键缺席；D3.39 abnormalBehavior；实际 ${JSON.stringify(r.levels)}）`);
+      && r.levels.burstSpikeConcentration === undefined
+      && r.levels.abnormalBehavior === undefined,
+      `levelsFromObservation 10 题映射（D3.77/G22 abr 随题退役 11→10 键——fixture 在场旧观测 'dominant' 被忽略键缺席；spike D3.76 同款；实际 ${JSON.stringify(r.levels)}）`);
     ok(r.buckets.sameBlockBuyWave === 'strong' && r.buckets.stallBurstWave === 'burst'
       && r.buckets.washPair === 'strong' && r.buckets.activityLevel === 'low'
-      && r.buckets.burstSpikeConcentration === undefined,
-      'buckets 字符串原值（metadata 研究留档；spike 键 D3.76 同批缺席）');
+      && r.buckets.burstSpikeConcentration === undefined
+      && r.buckets.abnormalBehavior === undefined,
+      'buckets 字符串原值（metadata 研究留档；spike/abr 键 D3.76/D3.77 同批缺席）');
     const r2 = levelsFromObservation(null);
-    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 11,
-      '空观测 → 11 键全 null（D3.76 spike 随题退役 12→11；cr/sbp/holdings/bd 同批先例；容缺不冒充）');
+    ok(Object.values(r2.levels).every((v) => v === null) && Object.keys(r2.levels).length === 10,
+      '空观测 → 10 键全 null（D3.77 abr 随题退役 11→10；spike/cr/sbp/holdings/bd 同批先例；容缺不冒充）');
     // 数值锚（用户补点「持仓极不均衡」+D3.28 对敲三键+D3.32 持仓分布五键）：
     // obs.anchors 持仓占比四键 + washPair 三键 + holdings 五键（CD122 实值）
     // （extras famous 数值/档位三键已随 G20/CD416 退役）
@@ -669,16 +673,17 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       && r5.anchors.spikeBuyPctInBurst === 99.3 && r5.anchors.spikeHoldPctAll === 96.7
       && r5.anchors.sameBlockHoldPct === null,
       'G8 四新锚+D3.51 尖刺两锚正值精确投影（lib 测试同夹具值：gap65/买1.02/5户/纯卖63.3；尖刺=CD102 实形 99.3/96.7——观察键无门侧消费；未给键照 null）');
-    // D3.39：abnormalBehavior 档位映射 + 协同买入五锚透传（unclear 不在映射表→null）
+    // D3.39→D3.77：abnormalBehavior 档位映射已随题退役（在场旧观测被忽略键缺席）
+    // + 协同买入五锚透传照常（纯观察留档）
     const r6 = levelsFromObservation({ phenomena: {}, extLevels: {},
       abnormalBehavior: { bucket: 'dominant' },
       anchors: { maxBlockBuyCount: 8, maxBlockBuyPct: 58.8, maxBlockPreGapSec: 412,
         sameAmountWalletPct: 66.7, creatorPeakHoldSupplyPct: 35.2 } });
-    ok(r6.levels.abnormalBehavior === 2 && r6.buckets.abnormalBehavior === 'dominant'
+    ok(r6.levels.abnormalBehavior === undefined && r6.buckets.abnormalBehavior === undefined
       && r6.anchors.maxBlockBuyCount === 8 && r6.anchors.maxBlockBuyPct === 58.8
       && r6.anchors.maxBlockPreGapSec === 412 && r6.anchors.sameAmountWalletPct === 66.7
       && r6.anchors.creatorPeakHoldSupplyPct === 35.2,
-      'D3.39 abnormalBehavior 档位（dominant=2）+五锚透传（G13 R 通道/holdings_balance 同源——FA 40 键原料）');
+      'D3.39 abr 档位映射随 D3.77/G22 随题退役（在场旧观测 dominant 被忽略键缺席）+五锚透传照常（纯观察——FA cheatMaxBlock* 等投影原料）');
     // D3.53：精确等额同块簇三键透传（CD160——**无门侧消费**：用户裁定「把这个
     // 现象描述出来给 Jev」，state 事实行+FA 投影同源；无合格簇→null 不冒充）
     const r7 = levelsFromObservation({ phenomena: {}, extLevels: {},
@@ -688,11 +693,11 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
       && levelsFromObservation({ phenomena: {}, extLevels: {} }).anchors.exactEqualBlockBuyPct === null,
       'D3.53 exactEqualBlock 三键透传（0xf5e6 实形 97.1/3 簇/7 钱包——FA cheatExactEqualBlockBuyPct 投影原料；未给键照 null；gradeObservation 全通道零消费=观察键）');
     ok(r6.levels.realParticipation === undefined,
-      'levels 旧键 realParticipation 不得残留（D3.39 改名=换键——14 键域锁 abnormalBehavior）');
-    ok(levelsFromObservation({ phenomena: {}, extLevels: {}, abnormalBehavior: { bucket: 'unclear' } }).levels.abnormalBehavior === null
-      && levelsFromObservation({ phenomena: {}, extLevels: {} }).levels.abnormalBehavior === null
-      && levelsFromObservation({ phenomena: {}, extLevels: {}, participation: { bucket: 'minimal_genuine' } }).levels.abnormalBehavior === null,
-      'abnormalBehavior unclear→null（刻意不在映射表不冒充）+缺题（旧档）null+旧键 participation 在场不消费（D3.39 断代——回测/黄金集重放零变化防线）');
+      'levels 旧键 realParticipation 不得残留（D3.39 改名=换键；D3.77 起 realParticipation/abnormalBehavior 两键均无）');
+    ok(levelsFromObservation({ phenomena: {}, extLevels: {}, abnormalBehavior: { bucket: 'unclear' } }).levels.abnormalBehavior === undefined
+      && levelsFromObservation({ phenomena: {}, extLevels: {} }).levels.abnormalBehavior === undefined
+      && levelsFromObservation({ phenomena: {}, extLevels: {}, participation: { bucket: 'minimal_genuine' } }).levels.abnormalBehavior === undefined,
+      'abnormalBehavior 全形状（unclear/缺题/旧键 participation 在场）→ 键缺席 undefined（D3.77 随题退役——回测/黄金集重放零变化防线）');
     const r4 = levelsFromObservation({}, { famousDominancePct: -3, famousDominanceLevel: 'extreme' });
     ok(r4.anchors.sameBlockHoldPct === null && r4.anchors.top1HoldCircPct === null
       && r4.anchors.famousDominancePct === undefined && r4.anchors.famousDominance === undefined,

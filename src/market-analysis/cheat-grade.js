@@ -9,6 +9,15 @@
  * 模块做的是「档位→交易动作」的策略映射（哪些组合算作弊盘不交易/不健康盘重判/
  * 健康盘放行），属引擎侧策略决策（类似条件串评估），非代码产作弊结论。
  *
+ * 规则（G22=G21−R 通道（2026-11-17 CD419/D3.77 用户裁定原话「abnormal_
+ * behavior_ratio 是针对一些不普世的异常现象，也删除吧，分工问题，如果发现
+ * 有一些异常现象在 cheat 的其它锚不好控，会增加因子过滤锚，这个比较泛的
+ * cheat 锚就不保留了」：泛异常兜底题与分工不符——不普世异常形状的承接
+ * 载体=FP 因子门（T143 FP 族纯代码零 Jev）而非泛 cheat 题；R_abnormal_
+ * dominant 通道随题退役不再产出（历史行留档）、levels/buckets
+ * abnormalBehavior 键移除、FA cheatAbnormalBehaviorRatio 键恒 null 供存量
+ * 条件串兼容；判读原料锚（D3.35 协同买入参考四键/D3.54 同块脉冲三键/创建者
+ * 峰值）照算纯观察；黄金集 D3.26 存档无该题答案→重放零变化）。
  * 规则（G21=G20−A 主判 burst_spike_concentration（2026-11-17 CD418/D3.76 用户
  * 裁定原话「burst_spike_concentration 删除吧，这里有一个逻辑错误，burst 是
  * 豁免低活跃度的，也就是 burst 会直接走到下一层，所以没必要在这里再判一次」：
@@ -75,6 +84,16 @@
  * Mamesuke（86.67/min ultra@0.50 人工 healthy）被错杀——用户明示接受（拒买
  * 可重判）。七通道=A/D/E/J/L/R/M（M 与 E act=low 对称：Jev 判档、代码只映射
  * 交易动作；act 档 null 断代不触发，mid/high 不触发）。
+ * （R 通道已随 abnormal_behavior_ratio 题 D3.77/CD419 随题退役（G22）——
+ * 2026-11-17 用户裁定原话「abnormal_behavior_ratio 是针对一些不普世的异常
+ * 现象，也删除吧，分工问题，如果发现有一些异常现象在 cheat 的其它锚不好
+ * 控，会增加因子过滤锚，这个比较泛的 cheat 锚就不保留了」：泛异常兜底题
+ * 与分工不符，不普世异常形状的承接载体=FP 因子门（T143 FP 族纯代码零
+ * Jev）；R_abnormal_dominant 不再产出（历史行留档），obs.abnormalBehavior
+ * 在场（旧档重放）=无害忽略，levels/buckets abnormalBehavior 键移除、FA
+ * cheatAbnormalBehaviorRatio 键保留恒 null。判读原料锚（D3.35 四键/D3.54
+ * 脉冲三键/创建者峰值）照算纯观察。黄金集 D3.26 存档无该题答案→重放零
+ * 变化。现行六通道=A/E/L/M/N+豁免出口。）
  * 此前 G13=G12 R 通道改制，2026-11-03 用户裁定理念重构+改名——原话「这个
  * 模块的问题在于“需要证明有真实用户参与”，但是这个理念是不对的，我认为
  * 应该改为 “异常行为识别与比例计算”，明确它要做的事情，并且不作有罪推定。
@@ -295,7 +314,7 @@
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 
-const CHEAT_GRADE_RULES_VERSION = 'G21';
+const CHEAT_GRADE_RULES_VERSION = 'G22';
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -310,7 +329,9 @@ const CHEAT_LEVEL_SCORES = {
   sbw: { none: 0, burst: 1 },                          // 停滞突发二桶
   activity: { low: 0, mid: 1, high: 2, ultra: 3 },     // 活跃度档
   dominance: { low: 0, mid: 1, high: 2 },              // 捆绑主导度档
-  abnormal: { negligible: 0, noticeable: 1, dominant: 2 }, // 异常行为占比（D3.39 改名 abnormal_behavior_ratio；unclear 不在表→null 不冒充）
+  // abnormal 档（negligible/noticeable/dominant）已随 abnormal_behavior_ratio
+  // 题 D3.77/CD419 随题退役移除（R 通道同批退役；题集侧 ABNORMAL_BEHAVIOR_
+  // LEVELS 同批移除——旧档 abnormalBehavior 键被 levelsFromObservation 忽略）
 };
 
 /** 档位→数值（未知值/null → null 不冒充） */
@@ -336,7 +357,7 @@ function levelsFromObservation(observation, extras = {}) {
   const fx = extras || {};
   const act = obs.activityLevel && obs.activityLevel.bucket ? obs.activityLevel.bucket : null;
   const dom = obs.bundledDominance && obs.bundledDominance.bucket ? obs.bundledDominance.bucket : null;
-  const pt = obs.abnormalBehavior && obs.abnormalBehavior.bucket ? obs.abnormalBehavior.bucket : null;
+  // （abnormalBehavior 读取已随 abnormal_behavior_ratio 题 D3.77/CD419 退役移除）
   const levels = {
     equalAmountSplit: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.equal_amount_split),
     coordinatedSellBack: scoreLevel(CHEAT_LEVEL_SCORES.level, ph.coordinated_sell_back),
@@ -351,8 +372,9 @@ function levelsFromObservation(observation, extras = {}) {
     // FA cheatHoldingsBalance 键保留恒 null 供存量条件串兼容）
     // burstSpikeConcentration D3.76/G21 随题退役（同款：ex 恒 undefined；FA
     // cheatBurstSpikeConcentration 键保留恒 null 供存量条件串兼容）
+    // abnormalBehavior D3.77/G22 随题退役（同款：obs 键被忽略；FA
+    // cheatAbnormalBehaviorRatio 键保留恒 null 供存量条件串兼容）
     activityLevel: scoreLevel(CHEAT_LEVEL_SCORES.activity, act),
-    abnormalBehavior: scoreLevel(CHEAT_LEVEL_SCORES.abnormal, pt), // D3.39（G13 R 通道 abnormal_behavior_ratio；unclear→null）
   };
   const buckets = {
     equalAmountSplit: ph.equal_amount_split ?? null,
@@ -365,7 +387,6 @@ function levelsFromObservation(observation, extras = {}) {
     slowGrindPump: ex.slow_grind_pump ?? null,
     washPair: ex.wash_pair ?? null,
     activityLevel: act,
-    abnormalBehavior: pt,
   };
   const an = obs.anchors || {};
   const anchors = {
@@ -633,26 +654,15 @@ function gradeObservation(observation, extras = {}) {
     reasons.push({ level: 'unhealthy', code: `L_insider_sell${noBuySell.toFixed(0)}` });
   }
 
-  // R：异常行为占比（D3.35 新增独立通道 G12，G13 改制——用户裁定 2026-11-03
-  // 原话「这个模块的问题在于“需要证明有真实用户参与”，但是这个理念是不对的，
-  // 我认为应该改为 “异常行为识别与比例计算”，明确它要做的事情，并且不作有罪
-  // 推定。就是说，如果交易序列不能明显看出有问题，不需要去证明自己一定是
-  // “真实用户”」：题改名 real_participation→abnormal_behavior_ratio（D3.39，
-  // 判读方向翻转为无罪推定——找出看得见的异常并估其合计流量占比，无可见
-  // 异常即正常），dominant（异常形状合计解释了盘面流量的主要部分——同块同额
-  // 挤入/冷寂期突现密集块/规整阵列/对倒等）→ unhealthy。**拒买级非拉黑级**
-  // （与 J 通道同档语义——「宁可放过」基调：unhealthy 留重判域（CD134 缺省门
-  // cheatGrade==1 仍可再判），不用尽不拉黑）；negligible/noticeable/unclear
-  // 不触发（unclear=证据不足不硬判）；档位 null（<D3.39 旧档断代/题缺席——
-  // 含 D3.35-D3.38 real_participation 期答案，改名=换键语义镜像不可比）不
-  // 触发（EXT 容缺语义同族——黄金集旧档重放零变化）。**独立通道不进 A 主判**
-  // （综合结论与单现象 strong 的证据链不同类——A 管单现象铁证拉黑，R 管整体
-  // 异常占比拒买，取最重时 cheat 仍压过 unhealthy）
-  const pt = obs.abnormalBehavior && typeof obs.abnormalBehavior.bucket === 'string'
-    ? obs.abnormalBehavior.bucket : null;
-  if (pt === 'dominant') {
-    reasons.push({ level: 'unhealthy', code: 'R_abnormal_dominant' });
-  }
+  // R：（G22 退役，2026-11-17 CD419 用户裁定「abnormal_behavior_ratio 是针对
+  //  一些不普世的异常现象，也删除吧，分工问题，如果发现有一些异常现象在
+  //  cheat 的其它锚不好控，会增加因子过滤锚，这个比较泛的 cheat 锚就不保留
+  //  了」——泛异常兜底题与分工不符，不普世异常形状的承接载体=FP 因子门
+  //  （T143 FP 族纯代码零 Jev）；题随 D3.77 整题删除、R 通道（G12 立/G13 改制
+  //  dominant→unhealthy 拒买级）随题退役，R_abnormal_dominant 不再产出
+  //  （历史行留档）；obs.abnormalBehavior 在场（旧档重放）=无害忽略。
+  //  立法史：G12（D3.35 real_participation=minimal_genuine）→G13（D3.39 改名
+  //  abnormal_behavior_ratio+无罪推定改制）→G22（随题退役）。）
 
   // M：超高活跃度（G14，2026-11-03 v68 成交票扩集 CD138 立项——用户裁定原话
   // 「CD138 活跃度过高我建议给 unhealthy，可以分析下。也可以单独的立 sniper 锚，
