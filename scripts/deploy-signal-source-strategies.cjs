@@ -351,12 +351,12 @@ const LEGS = [
 // （f0/wave 达线）但 tokenAgeSec=72>60 单门放行接刀——首两波组织性进场窗还须从首笔
 // 交易起算 45s（用户裁定「可以卡 45 秒什么的也可以卡 60」取 45）；未见首买 null 裸比较
 // 恒 false=宁拦不冒充。
-const CLUSTER_GATE = ' AND ((launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR (tokenAgeSec > 60 AND sinceFirstTradeSec > 45) OR launchMinVsFloorPct < 10)';
+const CLUSTER_GATE = ' AND ((launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR (tokenAgeSec > 60 AND sinceFirstTradeSec > 45) OR launchMinVsFloorPct < 5)';
 // T151 前期买入太多推迟臂（2026-11-16 用户课题「前期买入太多跟前期钱包太多一样推迟一段时间
 // 买入」，N=60「60 秒应该足够它们卖出了」、阈值 1B=扫描最大面且方向比最优 19/−0.515 vs
 // 6/+0.035）：launchBigBuyBnb=出生窗大户（首买≥0.2B）合计买入（FA T151 新键，全量口径
 // 不吃 T150 站立过滤——历史事实载体）；<60s 且 heavy → 挡，60s 后放行（抛压已释放窗口）。
-const DELAY_GATE = ' AND (launchBigBuyBnb < 1 OR sinceFirstTradeSec > 60)';
+const DELAY_GATE = ' AND (launchBigBuyBnb < 1 OR sinceFirstTradeSec > 60 OR launchMinVsFloorPct < 5)';
 for (const l of LEGS) {
     l.condition += CLUSTER_GATE;
     l.condition += DELAY_GATE;
