@@ -288,10 +288,11 @@ function buildBuyPointObservation(answers, anchors = null) {
     const mp = dimensions.market_pattern.bucket;
     if (PATTERN_GATE_POOR_BUCKETS.includes(mp)) {
       patternArms.push(dimensions.market_pattern);
-    } else {
-      // none 走统一位置门（BP59 三桶化后唯一正常桶）
-      if (vsLaunch == null || vsLaunch > NORMAL_ENTRY_LAUNCH_PCT) patternArms.push(dimensions.market_pattern);
     }
+    // T156（2026-11-17 用户裁定「价格完全由信号触发因子表达式控制，不需要再做
+    // 一次判断」）：none 桶统一位置臂删除——ladder 条件已有 curVs ≤ 28.5（FA
+    // 因子表值），BP 位置门用不同数据源重算同指标=冗余+不一致（27s 新票 1 tick
+    // 差 9.5% 案）。BP 门职责=盘型/点位形状/活跃度/筹码，不含价格位置。
   }
   // ②点位性质门（BP58 新题）：crash 庄离场直线砸盘 → poor（rule=entry_gate——
   //   「我希望买入的是，活跃交易中对倒中的低价/正常下跌造成的低价，而不是庄家

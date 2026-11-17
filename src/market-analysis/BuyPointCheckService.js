@@ -311,18 +311,6 @@ class BuyPointCheckService {
         // 采信上游 burst 桶不重复检测；null=无 burst 证据 act 照常判）
         cheatBurst: opts.cheatBurst || null,
       });
-      // T155（2026-11-17 用户裁定「FA 已经算好的不要再算了」）：引擎传入 FA 的
-      // currentVsLaunchPct（信号触发时刻的因子表值——策略条件已用该值过 28.5 检查），
-      // override 快照锚——消灭 FA/BP 两套独立计算同指标的不一致（27s 新票 1 tick
-      // 差 9.5% 案）。null=非引擎调用（独立跑测）不覆盖保持向后兼容。
-      if (Number.isFinite(opts.faCurrentVsLaunchPct)) {
-        if (snapshot.anchors && typeof snapshot.anchors === 'object') {
-          snapshot.anchors.currentVsLaunchPct = opts.faCurrentVsLaunchPct;
-        } else if (snapshot.anchors == null) {
-          snapshot.anchors = { currentVsLaunchPct: opts.faCurrentVsLaunchPct };
-        }
-        this.stats.faCurVsOverrides = (this.stats.faCurVsOverrides || 0) + 1;
-      }
       const { state } = buildBuyPointState(snapshot);
 
       // 7) Jev（超时竞速；迟到结果丢弃防锚重复行）

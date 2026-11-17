@@ -2342,9 +2342,6 @@ class BacktestEngine extends AbstractTradingEngine {
             signalCreatedAt: nowTs,
             // BP67：cheat 门 burst 判定输入 BP（activity_level burst 桶不拦）
             cheatBurst: this._cheatBurstForBp(cheatGate.info),
-            // T155（2026-11-17 用户裁定「全部对齐 FA」）：FA 因子表已有的值不再重算——
-            // BP 位置门消费 FA 的 currentVsLaunchPct（信号触发时已过 28.5 检查的值）
-            faCurrentVsLaunchPct: factorResults.currentVsLaunchPct ?? null,
           });
         const _bpDt = Date.now() - _bpT0;
         const _preFp4 = _fp4T0 - _segT0; // fire 日志→FP4 调用前的同步段
