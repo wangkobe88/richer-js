@@ -150,6 +150,14 @@ function memPullTicksFromIndex(index, tokenAddress, anchorMs) {
     }
   }
   const asOf = rows.slice(0, cut);
+  // T148d：索引行缺 block_time（引擎装载管线只留 timestamp）——cheat/BP 快照
+  // 构建器需要 block_time 做时间分析，缺失导致分析全偏=cheat 门 100% 拒绝。
+  // 从 timestamp 重建（toISOString 格式，语义等价 DB 的 +00:00 格式）。
+  for (const r of asOf) {
+    if (!r.block_time && r.timestamp != null) {
+      r.block_time = new Date(r.timestamp).toISOString();
+    }
+  }
   const PULL_LIMIT = 3000, HEAD_LIMIT = 300;
   if (asOf.length <= PULL_LIMIT) {
     return { rows: asOf, anchorTickCount: asOf.length, capped: false };
