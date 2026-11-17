@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP4';
+const FACTOR_PREBUY_VERSION = 'FP5';
 
 // ── FP3 famous 两法（btv134 复审轮立法，2026-11-16 用户两分法裁定：「第一种，
 //    盘面尚未起来，famous 抢跑，如果持有过多，就很危险，它一般会选择砸盘；
@@ -117,6 +117,27 @@ const BURST_BUNDLE_MIN_WALLETS = 7;
 // ≤0（经历过破发）→ 不拦。btv134 验证：176 token 唯一命中=主案，零误伤。
 const EXTREME_DUMP_MIN_SELLERS = 15;
 const EXTREME_DUMP_MIN_BNB = 1;
+
+// ── FP5 尾声延伸活跃度门（2026-11-17 btv140 复审 BP-T013 1105 `0x3fe6ec12…7777`
+//    案立法，用户裁定原话：「如果买入点位，是属于『代币曾经充分上涨了』（可以
+//    使用代币的上涨幅度/交易总额来标记），那么活跃度要求进行一下延伸，不仅仅
+//    是最近的30秒活跃度要求高，买入点位前2分钟，都要求高活跃度。主要是因为，
+//    代币到了尾声有些小波动，但是已经完全支撑不起上涨了，除非活跃度持续保持」。
+//    案形状：ath +233.7%→距峰 −63.5% 尾声、总成交 47.3 BNB；尾 10s 流量
+//    2.35 BNB/min（30s 活跃度判过）但 win120 买入 0.2475 全部集中在最后 30s
+//    ——前 90 秒零买入、win120 吞吐 0.42 BNB/min（低于 1 BNB/min 死寂线）。
+//    btv140 127 票扫描：命中 3 票（T013/T019/T096，tpm≤0.6）与充分上涨但持续
+//    活跃放行面（tpm≥6.1、延伸段买入 ≥4.9 BNB）分离带极宽，线 1↔2/0.1↔0.2
+//    不翻动命中面；实现位置=用户裁定「在因子过滤（层）搞」） ──
+/** 充分上涨标记线①：锚窗最高较发行价 ≥+100%（曾到 2 倍） */
+const TAIL_ATH_VS_LAUNCH_PCT = 100;
+/** 充分上涨标记线②：锚窗总成交额 ≥20 BNB（与 BP78 dump 豁免「交易了比较久」同线） */
+const TAIL_TOTAL_VOLUME_BNB = 20;
+/** 延伸活跃腿1线：win120 整体吞吐 <1 BNB/min（CD 死寂线同源） */
+const TAIL_WIN120_TPM_BNB = 1;
+/** 延伸活跃腿2线：前 90s 延伸段买入（win120BuyBnb−win30BuyBnb）<0.1（尘埃级
+ *  ——买入只发生在最后 30s=小波动，30s 前无人在买） */
+const TAIL_EXT_BUY_BNB = 0.1;
 
 // ── CD401 sbw 机械化代理线（用户两分法路线 1；预扫描校准点） ──
 /** 波贴近锚：出口波末笔距今 ≤ 此秒（「当下事件」非历史遗迹） */
@@ -234,6 +255,46 @@ function judgeActivityLevel(snapshot) {
   }
 
   return { level: null, branch: burstCtx ? 'burst_ctx' : (tailActive ? 'tail_active' : 'normal'), reason: null, trace: { ...trace, burstCtx, tailActive } };
+}
+
+// ═══════════════ 尾声延伸活跃度门（FP5：充分上涨过的票，活跃度要求延伸到前 2 分钟） ═══════════════
+
+/**
+ * 尾声延伸活跃度判定（FP5，纯机械）。前提=「曾充分上涨」（涨幅 ≥+100% ∧
+ * 总成交 ≥20 BNB 双标记同时成立——明确的大轮次）；此前提下若前 2 分钟活跃度
+ * 不足（任一腿）：腿1 win120 整体吞吐 <1 BNB/min（2 分钟合计死寂）；腿2 前
+ * 90s 延伸段买入 <0.1 BNB（买入只集中在最后 30s=尾声小波动）→ 拒 act_tail_flat。
+ * 未充分上涨的票不适用（普通票活跃度语义归 judgeActivityLevel）；锚缺失
+ * （ath/vol/win 族 null）不拦（拒方向证据缺席，T143 哲学）。
+ * 正在拉升的票天然豁免：win120 持续活跃两腿均不命中（btv140 放行面 tpm≥6.1）。
+ */
+function judgeTailPhaseActivity(snapshot) {
+  const bd = snapshot.buyDerived || {};
+  const w30 = bd.win && bd.win[30] ? bd.win[30] : null;
+  const w120 = bd.win && bd.win[120] ? bd.win[120] : null;
+  const trace = {
+    athVsLaunchPct: typeof bd.athVsLaunchPct === 'number' ? bd.athVsLaunchPct : null,
+    totalVolumeBnb: typeof bd.totalVolumeBnb === 'number' ? bd.totalVolumeBnb : null,
+    tpm120: w120 && typeof w120.buyBnb === 'number' && typeof w120.sellBnb === 'number'
+      ? +(((w120.buyBnb + w120.sellBnb) / 120) * 60).toFixed(2) : null,
+    extBuyBnb: w120 && w30 && typeof w120.buyBnb === 'number' && typeof w30.buyBnb === 'number'
+      ? +(w120.buyBnb - w30.buyBnb).toFixed(4) : null,
+  };
+  if (trace.athVsLaunchPct === null || trace.totalVolumeBnb === null) {
+    return { hit: 0, branch: 'anchors_missing', reason: null, trace };
+  }
+  if (trace.athVsLaunchPct < TAIL_ATH_VS_LAUNCH_PCT || trace.totalVolumeBnb < TAIL_TOTAL_VOLUME_BNB) {
+    return { hit: 0, branch: 'not_fully_risen', reason: null, trace };
+  }
+  if (trace.tpm120 === null && trace.extBuyBnb === null) {
+    return { hit: 0, branch: 'win_missing', reason: null, trace };
+  }
+  const tpmLow = trace.tpm120 !== null && trace.tpm120 < TAIL_WIN120_TPM_BNB;
+  const extLow = trace.extBuyBnb !== null && trace.extBuyBnb < TAIL_EXT_BUY_BNB;
+  if (tpmLow || extLow) {
+    return { hit: 1, branch: tpmLow ? 'tail_tpm_dead' : 'tail_ext_buy_gap', reason: 'act_tail_flat', trace };
+  }
+  return { hit: 0, branch: 'sustained', reason: null, trace };
 }
 
 // ═══════════════ CD 四臂升格（CD408；判据=cheat 侧 _exemptDeniedReason 数值照抄） ═══════════════
@@ -369,6 +430,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
   const enablePvp = opts.enablePvp !== false;
   const enableActivity = opts.enableActivity !== false;
   const enableFamous = opts.enableFamous !== false;
+  const enableTail = opts.enableTail !== false;
   const pvp = enablePvp
     ? judgeRetailPvp(snapshot)
     : { hit: 0, branch: 'disabled', reason: null, trace: {} };
@@ -387,15 +449,20 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     : { level: null, branch: 'disabled', trace: {} };
   if (activity.level === 'low') arms.push('act_low');
   else if (activity.level === 'ultra') arms.push('act_ultra');
+  // FP5 尾声延伸活跃度门：act 族（充分上涨过的票活跃度延伸到前 2 分钟）
+  const tail = enableTail
+    ? judgeTailPhaseActivity(snapshot)
+    : { hit: 0, branch: 'disabled', reason: null, trace: {} };
+  if (tail.hit === 1) arms.push(tail.reason);
   // FP3 famous 两法门（一法持重危险/二法收割砸盘）：act 后评（act 拒因优先）
   const famous = enableFamous
     ? judgeFamousDanger(snapshot)
     : { hit: 0, branch: 'disabled', reason: null, trace: {} };
   if (famous.hit === 1) arms.push(famous.reason);
   const reason = activity.level === 'low' ? 'act_low'
-    : (activity.level === 'ultra' ? 'act_ultra' : (pvp.reason || famous.reason || (arms.length ? arms[0] : null)));
-  return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, famous, arms,
-    trace: { ...pvp.trace, act: activity.branch, fam: famous.branch } };
+    : (activity.level === 'ultra' ? 'act_ultra' : (pvp.reason || tail.reason || famous.reason || (arms.length ? arms[0] : null)));
+  return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, tail, famous, arms,
+    trace: { ...pvp.trace, act: activity.branch, tail: tail.branch, fam: famous.branch } };
 }
 
 module.exports = {
@@ -406,13 +473,14 @@ module.exports = {
   ACT_EARLYWIN_SEC, ACT_EARLYWIN_TICKS, ACT_SPARSE_TPM, ACT_SPARSE_IDLE_PCT, ACT_SPARSE_MAX_GAP_SEC,
   ACT_TAIL5_ACTIVATE_N, ACT_TAIL5_ACTIVATE_BNB, ACT_BURST_WAVE_BUY_BNB,
   ACT_ULTRA_SELL_WALLETS, ACT_ULTRA_BUY_N_MAX, ACT_ULTRA_BUY_BNB_MAX, ACT_ULTRA_TPM, ACT_ULTRA_IDLE_PCT,
+  TAIL_ATH_VS_LAUNCH_PCT, TAIL_TOTAL_VOLUME_BNB, TAIL_WIN120_TPM_BNB, TAIL_EXT_BUY_BNB,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
   EXTREME_DUMP_MIN_SELLERS, EXTREME_DUMP_MIN_BNB,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
   BURST_CONTEXT_PRESEG_MIN_BNB, BURST_CONTEXT_PRESEG_MIN_TICKS, burstContextBackgroundCold,
   FAM_HOLDING_SOLD_RATIO, FAM_THIN_TOTAL_BUY_BNB, FAM_DUMPING_CHG30_PCT,
   FAM_HARVEST_SOLD_RATIO, FAM_HARVEST_BUY_PCT, FAM_HARVEST_SELL_PCT,
-  judgeRetailPvp, judgeActivityLevel, judgeFamousDanger,
+  judgeRetailPvp, judgeActivityLevel, judgeFamousDanger, judgeTailPhaseActivity,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
   armExtremeDumpSellers,
   evaluateFactorPreBuy,

@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP4'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP5'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP4');
+    assert.strictEqual(r.version, 'FP5');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -357,6 +357,67 @@ console.log('I. CD412 极端捆绑砸盘（POORNANCE 案：sellers≥15∧sell�
       cheatDerived: { nearDumpWorstSellers: 20, nearDumpWorstSellBnb: 4.13, nearDumpMinAbsorbBnb: 2.01 },
     });
     assert.ok(r.arms.includes('cd412_extreme_dump_sellers'), JSON.stringify(r.arms));
+  });
+}
+
+console.log('J. FP5 尾声延伸活跃度门（btv140 BP-T013 1105 案：充分上涨过的票活跃度延伸到前 2 分钟）');
+{
+  const WIN = (buyBnb, sellBnb) => ({ buyBnb, sellBnb, buyN: 2, sellN: 2, netBnb: 0, buySharePct: 50, ticksPerMin: 10, buyers: 2, sellers: 2, newBuyers: 0 });
+  const TS = (bd) => ({
+    ticks: [{ dt: 400 }],
+    wallets: [W(0.2994, 0.1, 0.2994, 100)], // PVP 过（像样买方在场）
+    buyDerived: Object.assign({ activity: { nearTail10BuyN: 3 } }, bd),
+    cheatDerived: {},
+  });
+  check('J1 主案复刻（T013 1105：ath233.7/vol47.3/win120 买 0.2475 全在尾 30s/tpm0.42）→ 拦', () => {
+    const r = M.judgeTailPhaseActivity(TS({ athVsLaunchPct: 233.7, totalVolumeBnb: 47.29, win: { 30: WIN(0.2475, 0.4879), 120: WIN(0.2475, 0.5861) } }));
+    assert.strictEqual(r.hit, 1); assert.strictEqual(r.reason, 'act_tail_flat'); assert.strictEqual(r.branch, 'tail_tpm_dead');
+    assert.strictEqual(r.trace.tpm120, 0.42); assert.strictEqual(r.trace.extBuyBnb, 0);
+  });
+  check('J2 买入断层腿（吞吐靠卖压撑 1.6/min 达标但前 90s 买入 0）→ 拦 tail_ext_buy_gap', () => {
+    const r = M.judgeTailPhaseActivity(TS({ athVsLaunchPct: 150, totalVolumeBnb: 25, win: { 30: WIN(0.3, 1.2), 120: WIN(0.3, 2.9) } }));
+    assert.strictEqual(r.hit, 1); assert.strictEqual(r.branch, 'tail_ext_buy_gap');
+  });
+  check('J3 充分上涨但持续活跃（tpm3.85/ext5.0——btv140 放行面形状）→ 放行 sustained', () => {
+    const r = M.judgeTailPhaseActivity(TS({ athVsLaunchPct: 273.5, totalVolumeBnb: 32.9, win: { 30: WIN(0.3, 0.5), 120: WIN(5.3, 2.4) } }));
+    assert.strictEqual(r.hit, 0); assert.strictEqual(r.branch, 'sustained');
+  });
+  check('J4 未充分上涨（ath 80 涨幅不达线）→ 放行 not_fully_risen（普通票归 act 门）', () => {
+    const r = M.judgeTailPhaseActivity(TS({ athVsLaunchPct: 80, totalVolumeBnb: 47, win: { 30: WIN(0.2475, 0.4879), 120: WIN(0.2475, 0.5861) } }));
+    assert.strictEqual(r.hit, 0); assert.strictEqual(r.branch, 'not_fully_risen');
+  });
+  check('J5 总额不达线（vol 19.9<20）→ 放行', () => {
+    const r = M.judgeTailPhaseActivity(TS({ athVsLaunchPct: 233.7, totalVolumeBnb: 19.9, win: { 30: WIN(0.2475, 0.4879), 120: WIN(0.2475, 0.5861) } }));
+    assert.strictEqual(r.hit, 0); assert.strictEqual(r.branch, 'not_fully_risen');
+  });
+  check('J6 充分上涨锚缺失（athVs/vol null）→ 放行 anchors_missing（拒方向证据缺席）', () => {
+    const r = M.judgeTailPhaseActivity(TS({ win: { 30: WIN(0.2, 0.4), 120: WIN(0.2, 0.5) } }));
+    assert.strictEqual(r.hit, 0); assert.strictEqual(r.branch, 'anchors_missing');
+  });
+  check('J7 win 族缺失（ath/vol 达标但无 win120/30）→ 放行 win_missing', () => {
+    const r = M.judgeTailPhaseActivity(TS({ athVsLaunchPct: 200, totalVolumeBnb: 30 }));
+    assert.strictEqual(r.hit, 0); assert.strictEqual(r.branch, 'win_missing');
+  });
+  check('J8 主入口：主案形状 pass=false reason=act_tail_flat、enableTail:false 灰度关恢复放行', () => {
+    const snap = TS({ athVsLaunchPct: 233.7, totalVolumeBnb: 47.29, win: { 30: WIN(0.2475, 0.4879), 120: WIN(0.2475, 0.5861) } });
+    const r = M.evaluateFactorPreBuy(snap);
+    assert.strictEqual(r.pass, false); assert.strictEqual(r.reason, 'act_tail_flat');
+    assert.ok(r.arms.includes('act_tail_flat')); assert.strictEqual(r.tail.branch, 'tail_tpm_dead');
+    const r2 = M.evaluateFactorPreBuy(snap, { enableTail: false });
+    assert.strictEqual(r2.pass, true); assert.strictEqual(r2.tail.branch, 'disabled');
+  });
+  check('J9 reason 优先级：pvp（无像样买方）先于 tail 记因', () => {
+    const r = M.evaluateFactorPreBuy(TS({ athVsLaunchPct: 233.7, totalVolumeBnb: 47.29, win: { 30: WIN(0.2475, 0.4879), 120: WIN(0.2475, 0.5861) } }));
+    // wallets 有 0.2994 单 → pvp 过，reason=tail；再造 pvp 命中形状：
+    const r2 = M.evaluateFactorPreBuy({
+      ticks: [{ dt: 400 }],
+      wallets: [], // 无像样买方 → pvp 命中
+      buyDerived: { athVsLaunchPct: 233.7, totalVolumeBnb: 47.29, win: { 30: WIN(0.2475, 0.4879), 120: WIN(0.2475, 0.5861) } },
+      cheatDerived: {},
+    });
+    assert.strictEqual(r.reason, 'act_tail_flat');
+    assert.strictEqual(r2.reason, 'pvp_no_big_participation');
+    assert.ok(r2.arms.includes('act_tail_flat')); // tail 同中留痕 arms
   });
 }
 
