@@ -451,6 +451,10 @@ console.log('A9. famousTraces 手算（注入名单——收割完/在场/无命
   // BP70：在场净和=presenceNetBnb（净>0 钱包净额合计——W_FA +0.01 入、W_FB −0.01 不入；
   // 与 netSumBnb（含负）刻意分开：尘埃残仓判读锚=28ad 案在场净和 0.0152 vs 59f5 0.7810 定线）
   ok(ft.presenceNetBnb === 0.01, `在场净和 0.01（只计净>0 的 W_FA，实际 ${ft.presenceNetBnb}）`);
+  // T171/FP11：群体首买 dt=wallets 首买最早时刻（FA t+0 vs FB t+8 → 0；早窗快闪臂时间轴判据）
+  ok(ft.groupFirstBuyDt === 0, `群体首买 dt 0（FA t+0/FB t+8 取 min，实际 ${ft.groupFirstBuyDt}）`);
+  // T171 二修：群体首买顺位=全盘 BUY 行序中首个 roster 买笔序号（FA 为盘面首笔买 → 1）
+  ok(ft.groupFirstBuyRank === 1, `群体首买顺位 1（FA=全盘首笔 BUY，实际 ${ft.groupFirstBuyRank}）`);
   // state 渲染三形状
   const stFt = buildBuyPointState(snapFt).state;
   ok(stFt.includes('famous 痕迹: 锚窗内名单钱包 2 个') && stFt.includes('0xfbfb…fbfb') && stFt.includes('0xfafa…fafa'),
@@ -466,6 +470,8 @@ console.log('A9. famousTraces 手算（注入名单——收割完/在场/无命
   ok(ftMiss.wallets.length === 0 && ftMiss.inCustodyCount === 0
     && buildBuyPointState(buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: new Set(['0x' + '99'.repeat(20)]) })).state.includes('famous 痕迹: 锚窗内名单钱包 0 个（无 famous 活动证据'),
     '无命中形状（wallets=[] 计数 0 + state 0 个行）');
+  // T171：无命中/首买全缺 → groupFirstBuyDt null（前提不成立 fail-同向宁漏）
+  ok(ftMiss.groupFirstBuyDt === null, `无命中群体首买 dt null（实际 ${ftMiss.groupFirstBuyDt}）`);
   const snapFtNull = buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: null });
   ok(snapFtNull.buyDerived.famousTraces === null
     && buildBuyPointState(snapFtNull).state.includes('famous 痕迹: ?（名单缺失'),

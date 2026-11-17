@@ -1036,6 +1036,23 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       });
     const groupBuyBnb = +wallets.reduce((s, e) => s + e.buyBnb, 0).toFixed(4);
     const groupSellBnb = +wallets.reduce((s, e) => s + e.sellBnb, 0).toFixed(4);
+    // ── T171/FP11 famous 早窗快闪双支臂原料（bt-v141 거침없이/SI 案）──
+    // 群体首买 dt=wallets 首买最早时刻 + 群体首买顺位=全盘 BUY 行序中首个 roster
+    // 钱包买笔的序号（「极早入场」双轴：前几秒 ∨ 前几个顺位——用户裁定「就是前几
+    // 个顺位，或者前几秒入场」；判据粒度直供=BP61 铁律）；无痕迹钱包/首买全缺 →
+    // dt null（前提不成立不触发，与 famous 族容缺同向）；有 famous 但无 BUY 笔
+    // （理论不可达——痕迹由买笔产生）rank 兜底 null
+    const firstBuyDts = wallets.map((e) => e.firstBuyDt).filter((x) => x !== null && x !== undefined);
+    const groupFirstBuyDt = firstBuyDts.length ? Math.min(...firstBuyDts) : null;
+    let groupFirstBuyRank = null;
+    if (wallets.length > 0) {
+      let rank = 0;
+      for (const t of ticks) {
+        if (t.side !== 'BUY') continue;
+        rank++;
+        if (t.wallet && rosterFt.has(String(t.wallet).toLowerCase())) { groupFirstBuyRank = rank; break; }
+      }
+    }
     // ── T167/FP10 famous 低价全清冷却臂原料（btv140 BP-T055/T056 案）──
     // 群体末笔卖（**可靠价行**：outlier/零价/dt 缺失跳过——退出价证据不冒充）时刻/价格/
     // 较地板发行价 %（launchPriceBnb=T134 地板锚，与 currentVsLaunchPct 同分母——「低价」
@@ -1064,6 +1081,7 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       groupBuyPct: cd.totalBuyBnb > 0 ? +((groupBuyBnb / cd.totalBuyBnb) * 100).toFixed(1) : null,
       groupSellBnb,
       groupSellPct: cd.totalSellBnb > 0 ? +((groupSellBnb / cd.totalSellBnb) * 100).toFixed(1) : null,
+      groupFirstBuyDt, groupFirstBuyRank,
       netSumBnb: +wallets.reduce((s, e) => s + e.netBnb, 0).toFixed(4),
       // BP70：在场净和=净>0 钱包净额合计（尘埃残仓判读锚——burst 重启盘 famous
       // 在场净额是否尘埃量级；与 netSumBnb（含负钱包）刻意分开，判读归题面③桶）

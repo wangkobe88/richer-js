@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP10'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP11'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP10');
+    assert.strictEqual(r.version, 'FP11');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -681,8 +681,86 @@ console.log('O. FP10 famous 低价全清冷却臂（T167：btv140 BP-T055/T056�
     assert.strictEqual(g.hit, true);
     assert.ok(g.value.includes('21.2%') && g.value.includes('17s') && g.value.includes('0.2878') && g.value.includes('0.0236'), g.value);
   });
-  check('O10 版本 FP10', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP10');
+  check('O10 版本号断言随 FP11 上线移交 P13（此处不再锁旧值）', () => {
+    assert.ok(typeof M.FACTOR_PREBUY_VERSION === 'string');
+  });
+}
+
+console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/SI 点名两票——famous 极早快闪=基本无救）');
+{
+  // 案值夹具：거침없이（B 支）=famous 首@4s 群买 0.377 卖 0.419（卖比 1.111）残仓 0
+  //           SI（A 支）=famous 首@7s 群买 0.749 卖 0.564（卖比 0.753）残仓 0.185（残仓比 0.247）
+  const FTB = (over) => Object.assign({
+    wallets: [{ w: 'e1e3', buyBnb: 0.3773, sellBnb: 0.419, netBnb: 0 }],
+    groupFirstBuyDt: 4, groupBuyBnb: 0.3773, groupSellBnb: 0.419, presenceNetBnb: 0,
+  }, over);
+  const FTA = (over) => Object.assign({
+    wallets: [{ w: 'a83b', buyBnb: 0.7493, sellBnb: 0.5639, netBnb: 0.1854 }],
+    groupFirstBuyDt: 7, groupBuyBnb: 0.7493, groupSellBnb: 0.5639, presenceNetBnb: 0.1854,
+  }, over);
+  check('P1 主案复刻 SI（A 支：首@7s 买 0.749 卖比 0.753 残仓比 0.247）→ 拒 fam_early_flip_partial', () => {
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTA() } }), 'fam_early_flip_partial');
+    const r = M.evaluateFactorPreBuy(SNAP({
+      wallets: [W(0.2994, 0.1, 0.2994, 100)],
+      buyDerived: { bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, bigHolderSellBnb60: null, activity: { nearTail10BuyN: 3 }, famousTraces: FTA() },
+    }));
+    assert.strictEqual(r.pass, false); assert.strictEqual(r.reason, 'fam_early_flip_partial');
+  });
+  check('P2 主案复刻 거침없이（B 支：首@4s 买 0.377 卖比 1.111 残仓 0 清仓走人）→ 拒 fam_early_flip_exit', () => {
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB() } }), 'fam_early_flip_exit');
+  });
+  check('P3 Xilo/食蟹猴 A 支形状（买 0.249 卖比 0.812 残仓比 0.188）→ 拒 partial', () => {
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTA({ groupFirstBuyDt: 8, groupBuyBnb: 0.2492, groupSellBnb: 0.2023, presenceNetBnb: 0.0468, wallets: [{ w: 'x', buyBnb: 0.2492, sellBnb: 0.2023, netBnb: 0.0468 }] }) } }), 'fam_early_flip_partial');
+  });
+  check('P4 悲伤蛙放行（卖比 0.928 达 A 支线但残仓比 0.072 <0.15；残仓 0.053>0.01 不中 B）', () => {
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTA({ groupBuyBnb: 0.7379, groupSellBnb: 0.6848, presenceNetBnb: 0.0534 }) } }), null);
+  });
+  check('P5 我画地为牢放行（famous 在场持有 1.07/卖比 0.557=仍在场非快闪）', () => {
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTA({ groupFirstBuyDt: 33, groupBuyBnb: 1.7201, groupSellBnb: 0.9585, presenceNetBnb: 1.0719 }) } }), null);
+  });
+  check('P6 情书放行（残仓 0.015>0.01 不中 B——单票敏感度锚：B 线 0.01 的最近放行点）', () => {
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTA({ groupBuyBnb: 0.495, groupSellBnb: 0.4802, presenceNetBnb: 0.015 }) } }), null);
+  });
+  check('P7 极早前提双轴（秒 ≤10 ∨ 顺位 ≤5）：11s 且顺位 6 出前提放行（SI 同名票 67s/位 54 形状）；单轴在场即评', () => {
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupFirstBuyDt: 11, groupFirstBuyRank: 6 }) } }), null);
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupFirstBuyDt: 10 }) } }), 'fam_early_flip_exit');
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupFirstBuyDt: 67, groupFirstBuyRank: 54 }) } }), null); // 二修放行锚：非极早先不控
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupFirstBuyDt: 25, groupFirstBuyRank: 5 }) } }), 'fam_early_flip_exit'); // 慢速开盘票顺位轴单独中
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupFirstBuyDt: 25, groupFirstBuyRank: 6 }) } }), null);
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupFirstBuyDt: null, groupFirstBuyRank: 2 }) } }), 'fam_early_flip_exit'); // dt 缺失顺位在场照判
+  });
+  check('P8 参与不足放行（0.199<0.2 绝对额门）', () => {
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupBuyBnb: 0.199, groupSellBnb: 0.199 }) } }), null);
+  });
+  check('P9 边界：A 支残仓比恰 0.15 拒 / 0.149 放；B 支残仓恰 0.01 拒 / 0.0101 放', () => {
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTA({ groupBuyBnb: 1, groupSellBnb: 0.7, presenceNetBnb: 0.15 }) } }), 'fam_early_flip_partial');
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTA({ groupBuyBnb: 1, groupSellBnb: 0.7, presenceNetBnb: 0.149 }) } }), null);
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupBuyBnb: 1, groupSellBnb: 1.0, presenceNetBnb: 0.01 }) } }), 'fam_early_flip_exit');
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupBuyBnb: 1, groupSellBnb: 1.0, presenceNetBnb: 0.0101 }) } }), null);
+  });
+  check('P10 B 支卖比线：恰 1.0 拒 / 0.999 放（不对劲 0.964 放行锚）', () => {
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupBuyBnb: 1, groupSellBnb: 1.0 }) } }), 'fam_early_flip_exit');
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupBuyBnb: 1, groupSellBnb: 0.999 }) } }), null);
+  });
+  check('P11 键缺席不触发（dt 与顺位全缺=前提不成立/famousTraces null=roster 缺失/wallets 空/残仓 null）', () => {
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ groupFirstBuyDt: null, groupFirstBuyRank: null }) } }), null);
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: {} }), null);
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: { wallets: [], groupFirstBuyDt: 5, groupBuyBnb: 0.3 } } }), null);
+    assert.strictEqual(M.armFamousEarlyFlip({ buyDerived: { famousTraces: FTB({ presenceNetBnb: null }) } }), null);
+  });
+  check('P12 gates 含 FP11 门（值含首买/买额/卖比/残仓）', () => {
+    const r = M.evaluateFactorPreBuy(SNAP({
+      wallets: [W(0.2994, 0.1, 0.2994, 100)],
+      buyDerived: { bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, bigHolderSellBnb60: null, activity: { nearTail10BuyN: 3 }, famousTraces: FTA() },
+    }));
+    const g = r.gates.find((x) => x.id === 'fam_early_flip');
+    assert.ok(g && g.label.includes('famous早窗快闪'));
+    assert.strictEqual(g.hit, true);
+    assert.ok(g.value.includes('7s') && g.value.includes('0.7493') && g.value.includes('0.75') && g.value.includes('0.25'), g.value);
+    assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
+  });
+  check('P13 版本 FP11', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP11');
   });
 }
 
