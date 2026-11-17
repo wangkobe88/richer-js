@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP9';
+const FACTOR_PREBUY_VERSION = 'FP10';
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -114,6 +114,37 @@ const FAM_HARVEST_MAX_CHG30_PCT = -20;
 const FAM_BURST_MIN_WAVE_BUY_BNB = 0.3;
 /** FP9 famous 系占波买下限（%）：≥80（主案 88.9 vs 次高 60.2，分离带 28.7pp） */
 const FAM_BURST_MIN_SHARE_PCT = 80;
+
+// ── FP10 famous 低价全清冷却臂（2026-11-17 btv140 复审 BP-T055 Muuchan
+//    `0x20574150…7777`/BP-T056 MUCHAN `0x6ac55462…7777` 两信号页案，用户裁定原话
+//    「famous 低价全清之后，立马接盘，不是个好策略。famous 低点位卖出，后续一般来讲
+//    就跟着砸盘。至少冷却一段时间再说」）——案形取证（182 famousTraces 重放）：
+//    T055=famous 0xfb4e…3953 t+93s 买 0.2878B（+39% 入场）→ t+115s 砸 0.2642B
+//    （卖在 +21.2%，hold 22s，残仓 0.024）→ 17s 后我们接盘 → 15min −22.3%；T056=
+//    famous 0xb4e1e5 t+236s 买 0.2815B（+16%）→ t+266s 全清 0.2802B（卖在 +21%，
+//    hold 30s）→ 8s 后接盘 → 5min −16.8%。既有 famous 臂全失明：FP3 二法占卖 ≥20
+//    不达（8%/14.3%）+一法要自卖比 <0.7（已清完）、FP8b 要 ath≥100+chg30≤−20
+//    （ath 62/39、chg30 −10 双出线）、FP9 要 burst 波语境（非静默后波）。判据五腿
+//    （键源 famousTraces 群体退出四键——T167 新直供）：像样参与（群体买 ≥0.2B 绝对额
+//    **刻意不用占比门**——T055 占买仅 6.7% 出线，0.2 级=大户参与族同线）∧ 全清
+//    （自卖比 ≥0.9 FP8b 同线 ∧ 在场残仓 ≤0.05B BP70 尘埃残仓线）∧ 卖在低价域
+//    （末笔卖价较地板发行价 ≤+40%=near_launch 上界，T161 域/位置门 40 同线）∧
+//    冷却未满（末笔 famous 卖距锚 ≤120s=「立马接盘」；窗外=冷却完成照常放行）→
+//    拒 fam_low_exit_cooldown。127 票边际扫描（对照现行 FP 门放行面 27 famous 票）：
+//    拦 4 票净 −0.047——T055 −0.042/T107 漏洞獵人 −0.020 止血 + T029 +0.009/T056
+//    +0.006 两张小正票误伤（T056 fwd15m −16.8%=用户「跟着砸盘」点名票本身）；
+//    gap 分布全 ≤25s、60/120/300 窗等效取 120；Xilo/小微/食蟹猴（自卖比 0.81~0.83
+//    未全清）刻意不拦 ──
+/** FP10 像样参与绝对额下限（BNB）：≥0.2（PVP 0.2 级/FP 大户参与族同线；占比门弃用） */
+const FAM_LOW_EXIT_MIN_BUY_BNB = 0.2;
+/** FP10 全清线①：自卖比 ≥0.9（FP8b FAM_HARVEST_MIN_SOLD_RATIO 同线） */
+const FAM_LOW_EXIT_MIN_SOLD_RATIO = 0.9;
+/** FP10 全清线②：在场残仓 ≤0.05 BNB（BP70 尘埃残仓线——T055 残 0.0236/T056 0.0012） */
+const FAM_LOW_EXIT_MAX_PRESENCE_BNB = 0.05;
+/** FP10 低价域线：末笔卖价较地板发行价 ≤+40%（near_launch 上界，T161 域同线） */
+const FAM_LOW_EXIT_MAX_VS_PCT = 40;
+/** FP10 冷却窗：末笔 famous 卖距锚 ≤120s 内不接盘（「至少冷却一段时间」） */
+const FAM_LOW_EXIT_COOLDOWN_SEC = 120;
 
 // ── FP6 famous 高控+砸落观察臂（2026-11-17 btv140 复审 BP-T007 小树 0x92598590…7777
 //    案用户裁定：「这样吧，这个场景（持有不多还没砸）先不阻挡购买，不过可以在因子
@@ -444,6 +475,23 @@ function armFamousBurstWave(bd) {
   return w.famousFirstInWave === true;
 }
 
+/** FP10 famous 低价全清冷却：famous 群体像样参与（≥0.2B）∧ 全清（自卖比 ≥0.9
+ *  ∧ 残仓 ≤0.05B）∧ 末笔卖在低价域（较地板发行价 ≤+40%）∧ 冷却未满（末笔卖
+ *  距锚 ≤120s）→ 拒 fam_low_exit_cooldown——famous 低点位清仓是后续砸盘的前导
+ *  信号，冷却窗内不接盘（窗外=冷却完成照常评估）。键源 famousTraces 群体退出
+ *  四键（T167 直供）；roster 缺失 famousTraces=null / 无可靠价卖行全族 null
+ *  → 不触发（宁漏不冒充）。 */
+function armFamousLowExit(snapshot) {
+  const ft = snapshot.buyDerived && snapshot.buyDerived.famousTraces;
+  if (!ft || !Array.isArray(ft.wallets) || ft.wallets.length === 0) return false;
+  if (typeof ft.groupBuyBnb !== 'number' || ft.groupBuyBnb < FAM_LOW_EXIT_MIN_BUY_BNB) return false;
+  const groupSell = typeof ft.groupSellBnb === 'number' ? ft.groupSellBnb : 0;
+  if (ft.groupBuyBnb <= 0 || groupSell / ft.groupBuyBnb < FAM_LOW_EXIT_MIN_SOLD_RATIO) return false;
+  if (typeof ft.presenceNetBnb !== 'number' || ft.presenceNetBnb > FAM_LOW_EXIT_MAX_PRESENCE_BNB) return false;
+  if (typeof ft.lastSellVsLaunchPct !== 'number' || ft.lastSellVsLaunchPct > FAM_LOW_EXIT_MAX_VS_PCT) return false;
+  return typeof ft.lastSellToAnchorSec === 'number' && ft.lastSellToAnchorSec <= FAM_LOW_EXIT_COOLDOWN_SEC;
+}
+
 // ═══════════════ famous 高控+砸落观察臂（FP6：标记不拦截，留待找方案） ═══════════════
 
 /**
@@ -621,6 +669,15 @@ function buildFactorGates(parts) {
       line: '静默≥30s ∧ 波买≥0.3B ∧ famous系≥80% ∧ 首进波内', hit: parts.armHits.includes('fam_burst_wave'),
     });
   }
+  // FP10 famous 低价全清冷却
+  {
+    const ft2 = parts.bd && parts.bd.famousTraces;
+    g.push({
+      id: 'fam_low_exit', label: 'FP10·famous低价全清冷却',
+      value: `末卖@+${d(ft2 && ft2.lastSellVsLaunchPct, '%')} 距锚${d(ft2 && ft2.lastSellToAnchorSec, 's')} 买${d(ft2 && ft2.groupBuyBnb, 'B')} 残仓${d(ft2 && ft2.presenceNetBnb, 'B')}`,
+      line: '买≥0.2B ∧ 自卖比≥0.9 ∧ 残仓≤0.05B ∧ 卖价≤+40% ∧ 距锚≤120s', hit: parts.armHits.includes('fam_low_exit_cooldown'),
+    });
+  }
   return g;
 }
 
@@ -775,6 +832,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     else if (armSlowPumpUnload(snapshot)) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）
     else if (armFamousHarvestFinal(snapshot)) arms.push('fam_harvested_final'); // FP8b famous 收割完残局（大涨过+已离场+已砸落）
     else if (armFamousBurstWave(snapshot.buyDerived)) arms.push('fam_burst_wave'); // FP9 famous 系突发波（burst 纯 famous 带起来的）
+    else if (armFamousLowExit(snapshot)) arms.push('fam_low_exit_cooldown'); // FP10 famous 低价全清冷却（立马接盘 → 拒）
   }
   // T144 活跃度门（BP act 题整题迁入）：PVP 后、CD 臂前
   const activity = enableActivity
@@ -817,6 +875,8 @@ module.exports = {
   SLOW_PUMP_MIN_POINTS, SLOW_PUMP_MIN_R2, SLOW_PUMP_MIN_SEC_SINCE_ATH, SLOW_PUMP_MAX_TPM120,
   FAM_HARVEST_MIN_ATH_PCT, FAM_HARVEST_MIN_SOLD_RATIO, FAM_HARVEST_MIN_BUY_PCT, FAM_HARVEST_MAX_CHG30_PCT,
   FAM_BURST_MIN_WAVE_BUY_BNB, FAM_BURST_MIN_SHARE_PCT,
+  FAM_LOW_EXIT_MIN_BUY_BNB, FAM_LOW_EXIT_MIN_SOLD_RATIO, FAM_LOW_EXIT_MAX_PRESENCE_BNB,
+  FAM_LOW_EXIT_MAX_VS_PCT, FAM_LOW_EXIT_COOLDOWN_SEC,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
   EXTREME_DUMP_MIN_SELLERS, EXTREME_DUMP_MIN_BNB,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
@@ -827,5 +887,6 @@ module.exports = {
   judgeFamousDominanceFall, buildFactorGates,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
   armExtremeDumpSellers, armDenseDump, armSlowPumpUnload, armFamousHarvestFinal, armFamousBurstWave,
+  armFamousLowExit,
   evaluateFactorPreBuy,
 };

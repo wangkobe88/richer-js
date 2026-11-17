@@ -490,6 +490,25 @@ console.log('A9. famousTraces 手算（注入名单——收割完/在场/无命
     && buildBuyPointState(snapFt).state.includes('买点在场持有（净 >0.005）1/2 个')
     && buildBuyPointState(snapFt).state.includes('价较该票首价 10% 持有 3s（快进快出·已清仓）'),
     'BP63 state 直供（痕迹行 per-wallet 三键+汇总事实计数——判据与直供同构铁律）');
+  // T167/FP10 群体退出四键手算：末笔 famous 卖=W_FB t+11@1.05e-9（W_FA t+5@1.2e-9 更早）；
+  // launch=首可靠价 1.0e-9（rowsFt 无 platform → 旧口径 launchCovered 首可靠价）→
+  // exitVs=(1.05/1.0−1)×100=+5.0%；tEnd=末行 t+30 → 距锚 30−11=19s
+  ok(ft.lastSellDt === 11 && ft.lastSellPriceBnb === 1.05 * E9 && ft.lastSellVsLaunchPct === 5.0
+    && ft.lastSellToAnchorSec === 19,
+    `FP10 群体退出四键（末卖 t+11@+5.0%/距锚 19s，实际 ${ft.lastSellDt}/${ft.lastSellPriceBnb}/${ft.lastSellVsLaunchPct}/${ft.lastSellToAnchorSec}）`);
+  // outlier 反证：更晚的 famous 卖行 outlier=true 不冒充退出价（仍取 t+11 可靠价行）；
+  // 全 outlier → 四键 null fail-closed
+  const rowsOut = rowsFt.concat([
+    row(15, 'SELL', W_FA, 0.10, 1.5 * E9, 6e7, { outlier: true }),
+  ]);
+  const ftOut = buildBuyPointSnapshot(rowsOut, metaFt, { famousRoster: rosterFt }).buyDerived.famousTraces;
+  ok(ftOut.lastSellDt === 11 && ftOut.lastSellVsLaunchPct === 5.0,
+    `outlier 末卖不冒充（t+15 outlier 行跳过仍 t+11，实际 ${ftOut.lastSellDt}/${ftOut.lastSellVsLaunchPct}）`);
+  const rowsAllOut = rowsFt.map((r) => (r.trade_type === 'sell' ? { ...r, price_outlier: true } : r));
+  const ftAllOut = buildBuyPointSnapshot(rowsAllOut, metaFt, { famousRoster: rosterFt }).buyDerived.famousTraces;
+  ok(ftAllOut.lastSellDt === null && ftAllOut.lastSellPriceBnb === null
+    && ftAllOut.lastSellVsLaunchPct === null && ftAllOut.lastSellToAnchorSec === null,
+    '全 outlier 卖 → 四键 null（退出价证据缺席不冒充——宁漏方向）');
 }
 
 // ═══════════════ A9b. BP63 低价抢进速倒臂三要件反证（小四形状/慢走/地板锚事故反证） ═══════════════

@@ -1036,8 +1036,30 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       });
     const groupBuyBnb = +wallets.reduce((s, e) => s + e.buyBnb, 0).toFixed(4);
     const groupSellBnb = +wallets.reduce((s, e) => s + e.sellBnb, 0).toFixed(4);
+    // ── T167/FP10 famous 低价全清冷却臂原料（btv140 BP-T055/T056 案）──
+    // 群体末笔卖（**可靠价行**：outlier/零价/dt 缺失跳过——退出价证据不冒充）时刻/价格/
+    // 较地板发行价 %（launchPriceBnb=T134 地板锚，与 currentVsLaunchPct 同分母——「低价」
+    // 参照系与位置门 40 同线）/距锚秒（「立马接盘」冷却窗判据）。判据粒度直供（BP61
+    // 铁律），判定归 FP 因子门 armFamousLowExit；无可靠价卖行/锚缺失 → null fail-closed
+    const lastRelSell = (() => {
+      let best = null;
+      for (const t of ticks) {
+        if (t.side !== 'SELL' || !t.wallet) continue;
+        if (!rosterFt.has(String(t.wallet).toLowerCase())) continue;
+        if (t.outlier || !t.priceBnb || t.priceBnb <= 0) continue;
+        if (t.dt === null || t.dt === undefined) continue;
+        if (best === null || t.dt > best.dt) best = t;
+      }
+      return best;
+    })();
+    const tEndFt = ticks.length ? ticks[ticks.length - 1].dt : null;
     return {
       wallets,
+      lastSellDt: lastRelSell ? lastRelSell.dt : null,
+      lastSellPriceBnb: lastRelSell ? lastRelSell.priceBnb : null,
+      lastSellVsLaunchPct: lastRelSell && launchPriceBnb !== null && launchPriceBnb > 0
+        ? +(((lastRelSell.priceBnb / launchPriceBnb) - 1) * 100).toFixed(1) : null,
+      lastSellToAnchorSec: lastRelSell && tEndFt !== null && tEndFt !== undefined ? tEndFt - lastRelSell.dt : null,
       groupBuyBnb,
       groupBuyPct: cd.totalBuyBnb > 0 ? +((groupBuyBnb / cd.totalBuyBnb) * 100).toFixed(1) : null,
       groupSellBnb,

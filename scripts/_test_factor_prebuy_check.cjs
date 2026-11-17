@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP9'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP10'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP9');
+    assert.strictEqual(r.version, 'FP10');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -626,6 +626,63 @@ console.log('N. FP9 famous 系突发波臂（T166：btv140 BP-T048 TYB——burs
     assert.ok(g && g.label.includes('famous系burst波'));
     assert.strictEqual(g.hit, true);
     assert.ok(g.value.includes('88.9%') && g.value.includes('499'), g.value);
+  });
+}
+
+console.log('O. FP10 famous 低价全清冷却臂（T167：btv140 BP-T055/T056——famous 低价全清后立马接盘）');
+{
+  // 主案夹具（T055 Muuchan 实测值）：买 0.2878B/自卖比 0.918/残仓 0.0236/末卖 +21.2%/距锚 17s
+  const FT = (over) => Object.assign({
+    wallets: [{ w: 'w1', buyBnb: 0.2878, sellBnb: 0.2642, netBnb: 0.0236 }],
+    groupBuyBnb: 0.2878, groupSellBnb: 0.2642, presenceNetBnb: 0.0236,
+    lastSellDt: 115, lastSellPriceBnb: 6.5e-9, lastSellVsLaunchPct: 21.2, lastSellToAnchorSec: 17,
+  }, over);
+  const SNAPF = (ft) => SNAP({
+    wallets: [W(0.2994, 0.1, 0.2994, 100)], // 0.3 级买方在场（PVP 过——拒因落 FP10）
+    buyDerived: { bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, bigHolderSellBnb60: null, activity: { nearTail10BuyN: 3 }, famousTraces: ft },
+  });
+  check('O1 主案复刻 T055（买 0.2878/自卖比 0.918/残仓 0.0236/末卖 +21.2%/距锚 17s）→ 拒 fam_low_exit_cooldown', () => {
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: { famousTraces: FT() } }), true);
+    const r = M.evaluateFactorPreBuy(SNAPF(FT()));
+    assert.strictEqual(r.pass, false); assert.strictEqual(r.reason, 'fam_low_exit_cooldown');
+    assert.ok(r.arms.includes('fam_low_exit_cooldown'));
+  });
+  check('O2 T056 形状（自卖比 0.995/残仓 0.0012 全清）→ 拒', () => {
+    assert.strictEqual(M.armFamousLowExit({
+      buyDerived: { famousTraces: FT({ wallets: [{ w: 'w1', netBnb: 0.0012 }], groupSellBnb: 0.2802, presenceNetBnb: 0.0012 }) },
+    }), true);
+  });
+  check('O3 冷却完成（距锚 121s > 120 窗）→ 放行（窗外=冷却完照常评估）', () => {
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: { famousTraces: FT({ lastSellToAnchorSec: 121 }) } }), false);
+  });
+  check('O4 边界：距锚恰 120s → 拒；末卖恰 +40% → 拒（≤ 含边界）', () => {
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: { famousTraces: FT({ lastSellToAnchorSec: 120 }) } }), true);
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: { famousTraces: FT({ lastSellVsLaunchPct: 40 }) } }), true);
+  });
+  check('O5 卖在高位（+40.1）→ 放行（低价域 ≤+40=near_launch 上界）', () => {
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: { famousTraces: FT({ lastSellVsLaunchPct: 40.1 }) } }), false);
+  });
+  check('O6 未全清放行（Xilo 自卖比 0.812/小微 0.832 形状刻意不拦；残仓 0.06>0.05 亦不拦）', () => {
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: { famousTraces: FT({ groupSellBnb: 0.234, presenceNetBnb: 0.0538 }) } }), false); // 0.234/0.2878=0.813
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: { famousTraces: FT({ presenceNetBnb: 0.06 }) } }), false);
+  });
+  check('O7 参与不足（0.199<0.2——왹냥 0.097 形状）→ 放行（绝对额门=0.2 级大户线）', () => {
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: { famousTraces: FT({ groupBuyBnb: 0.199, groupSellBnb: 0.199 }) } }), false);
+  });
+  check('O8 键缺席不触发（末卖 null=无可靠价卖行/famousTraces null=roster 缺失/wallets 空）', () => {
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: { famousTraces: FT({ lastSellVsLaunchPct: null }) } }), false);
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: {} }), false);
+    assert.strictEqual(M.armFamousLowExit({ buyDerived: { famousTraces: { wallets: [], groupBuyBnb: 0.3, groupSellBnb: 0.3, presenceNetBnb: 0, lastSellVsLaunchPct: 10, lastSellToAnchorSec: 5 } } }), false);
+  });
+  check('O9 gates 含 FP10 门（值含末卖/距锚/买额/残仓）', () => {
+    const r = M.evaluateFactorPreBuy(SNAPF(FT()));
+    const g = r.gates.find((x) => x.id === 'fam_low_exit');
+    assert.ok(g && g.label.includes('famous低价全清冷却'));
+    assert.strictEqual(g.hit, true);
+    assert.ok(g.value.includes('21.2%') && g.value.includes('17s') && g.value.includes('0.2878') && g.value.includes('0.0236'), g.value);
+  });
+  check('O10 版本 FP10', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP10');
   });
 }
 
