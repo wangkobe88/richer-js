@@ -16,7 +16,7 @@
     "logIndex": 124,
     "blockTime": "2026-11-05T05:48:36Z",
     "txPrefix": "0xf1fb842748",
-    "priceBnb": 7.330129758309663e-9
+    "priceBnb": 7.330129758309663e-09
    },
    "expect": {
     "bucket": "neutral"
@@ -36,7 +36,7 @@
     "logIndex": 149,
     "blockTime": "2026-11-05T05:48:36Z",
     "txPrefix": "0xeb0b1ab5a4",
-    "priceBnb": 7.579137067115073e-9
+    "priceBnb": 7.579137067115073e-09
    },
    "expect": {
     "bucket": "neutral"
@@ -56,7 +56,7 @@
     "logIndex": 505,
     "blockTime": "2026-11-05T05:48:36Z",
     "txPrefix": "0xb024064a18",
-    "priceBnb": 7.847428908446217e-9
+    "priceBnb": 7.847428908446217e-09
    },
    "expect": {
     "bucket": "neutral"
@@ -76,7 +76,7 @@
     "logIndex": 101,
     "blockTime": "2026-11-05T05:48:36Z",
     "txPrefix": "0x7a39c9bf03",
-    "priceBnb": 8.031293453000675e-9
+    "priceBnb": 8.031293453000675e-09
    },
    "expect": {
     "bucket": "neutral"
@@ -96,7 +96,7 @@
     "logIndex": 185,
     "blockTime": "2026-11-05T05:48:36Z",
     "txPrefix": "0xae4a5c2b68",
-    "priceBnb": 8.321664244640725e-9
+    "priceBnb": 8.321664244640725e-09
    },
    "expect": {
     "bucket": "neutral"
@@ -116,7 +116,7 @@
     "logIndex": 294,
     "blockTime": "2026-11-05T05:48:36Z",
     "txPrefix": "0x3e46957cf7",
-    "priceBnb": 8.569345076296726e-9
+    "priceBnb": 8.569345076296726e-09
    },
    "expect": {
     "bucket": "neutral"
@@ -136,7 +136,7 @@
     "logIndex": 15,
     "blockTime": "2026-11-05T05:49:33Z",
     "txPrefix": "0x2d3e3b0fd5",
-    "priceBnb": 9.370517807575567e-9
+    "priceBnb": 9.370517807575567e-09
    },
    "expect": {
     "bucket": "neutral"
@@ -2056,6 +2056,27 @@
    },
    "ruledAt": "2026-11-07",
    "note": "BP39 立法锚（④开盘拉高出货盘第二点+通则）：拉高砸回 −20.9%+尾段承接弱——BP36 判 strong_backer 放行 −21.5%；用户裁定通则「只要开盘拉的过高，都不行，都可以直接划为 early_sniper_decay」；BP39 对拍 early_sniper_decay 三连 0.72/0.77/0.72→poor pattern_gate 翻案达成；同票 S119/S120 双锚锁同判型"
+  },
+  {
+   "anchorId": "BPA-085",
+   "kind": "tick",
+   "tokenAddress": "0xdc01e828e3ef05cbbf21c934ace1dab571447777",
+   "tokenName": "洛天依",
+   "locator": {
+    "tickId": 5780560,
+    "seqNo": 11,
+    "blockNumber": 127112985,
+    "logIndex": 1839,
+    "blockTime": "2026-10-12T00:10:10Z",
+    "txPrefix": "0x26ff2f32",
+    "priceBnb": 7.08520037e-09
+   },
+   "expect": {
+    "bucket": "neutral",
+    "entryShape": "normal_dip"
+   },
+   "ruledAt": "2026-11-18",
+   "note": "BP86 攒批首案（crash 语义「前期涨幅高度」轴候选题目，题集不动攒 case）：ATH 仅 +42.6%（00:09:55）、00:10:10 同秒双卖 0.385 BNB 砸回 19s 前平台（chg5=chg10=-10.43 同深+尾 5s 零买）命中 BP59 急跌进行时轴→模型 crash(0.39) 综 poor entry_gate 拒；用户裁定原话「这个不是 crash，crash 是崩盘，但是这个并未上涨太多，谈不上崩盘。也不是作弊方直线向下砸盘，就是正常前期用户离场」——砸盘双卖=15s 前追高的两买家离场（0x1360…买 0.297→卖 0.296/-0xa866…买 0.100@ATH→卖 0.089 双钱包散卖，dumpBlock 全 null）；分类裁定=正常前期用户离场回落（normal_dip 域），但拦截盈亏方向用户明示未裁定（「拦的对不对我也不敢说」）；4s 后同窗第二信号模型已判 normal_dip(0.64) 放行成交、81s 后 stallClose 全清 +8%"
   }
  ]
 }
