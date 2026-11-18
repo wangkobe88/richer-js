@@ -14,7 +14,6 @@ const require = createRequire(import.meta.url);
 const { AGGREGATOR_ROUTER_ADDRS } = require('../../src/trading-engine/pre-check/aggregator-routers.js');
 
 const EXPS = [
-  { id: '6e75ed6d-807a-4164-9551-d3b95d1fc37b', name: 'bt-v140' },
   { id: '3916fb15-66a1-45f0-bde1-1c145513817a', name: 'bt-v141' },
   { id: '8a7b6b09-e2bc-4773-8393-a696821ff531', name: 'bt-v142' },
   { id: 'e5941591-df22-4434-ae29-1a93ced0f841', name: 'bt-v143' },
@@ -161,11 +160,35 @@ for (const [token, row] of byToken) {
       adjMax = Math.max(adjMax, countDusted(blockWallets.get(blocks[i])) + countDusted(blockWallets.get(blocks[i + 1])));
     // 名单命中
     const hit = (set) => { let n = 0, b = 0; for (const [w, o] of perWallet) if (set.has(w) && o.buy > 0) { n++; b += o.buy; } return { n, bnb: +b.toFixed(3) }; };
+    // 波内涨幅：出口首可靠价 → 波窗内最高可靠价（burst 本身拉起来的幅度）
+    let exitPrice = null, waveMaxPrice = null;
+    for (const t of pre) {
+      const ts = new Date(t.block_time).getTime();
+      if (ts < exitTs || ts > waveEnd) continue;
+      const reliable = t.price_outlier == null ? true : t.price_outlier === false;
+      if (!reliable || !t.price_bnb) continue;
+      const p = Number(t.price_bnb);
+      if (exitPrice === null) exitPrice = p;
+      waveMaxPrice = waveMaxPrice === null ? p : Math.max(waveMaxPrice, p);
+    }
+    // 波内大户：单钱包波窗买额 ≥0.15（2026-11-18 用户裁定自 0.2 收紧）
+    let whales = 0, whaleBnb = 0;
+    for (const [, o] of perWallet) if (o.buy >= 0.15) { whales++; whaleBnb += o.buy; }
+    // 压箱额：出口前（≤30min 窗内）累计买入
+    let preWaveBuyBnb = 0;
+    for (const t of pre) {
+      if (new Date(t.block_time).getTime() >= exitTs) break;
+      if (String(t.trade_type).toLowerCase() === 'buy') preWaveBuyBnb += Number(t.bnb_amount) || 0;
+    }
     row.wave = {
       exitAt: new Date(exitTs).toISOString(),
       buyBnb: +waveBuy.toFixed(3), sellBnb: +waveSell.toFixed(3),
       wallets: perWallet.size, bundleMax, bundleAdj: adjMax,
       famous: hit(famousSet), copy: hit(copySet), sm: hit(smSet), kol: hit(kolSet),
+      risePct: exitPrice && waveMaxPrice ? +(((waveMaxPrice / exitPrice) - 1) * 100).toFixed(1) : null,
+      avgBuy: perWallet.size ? +(waveBuy / perWallet.size).toFixed(3) : 0,
+      whales, whaleBnb: +whaleBnb.toFixed(3),
+      preWaveBuyBnb: +preWaveBuyBnb.toFixed(3),
     };
   }
   // 前向：锚后 10min 可靠价 max / 锚时最后可靠价

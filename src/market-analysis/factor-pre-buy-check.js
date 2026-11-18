@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP12';
+const FACTOR_PREBUY_VERSION = 'FP13';
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -318,6 +318,22 @@ const DENSE_DUMP_MAX_NET_BNB = -1.5;
 const SBW_PROXY_WAVE_NEAR_SEC = 60;
 /** 波钱包中位尘埃线（sbw 主体判轴=沉积后小散涌入） */
 const SBW_PROXY_MEDIAN_DUST_BNB = 0.05;
+
+// ── FP13 burst 弱波拦截线（T173，2026-11-18 burst 复审立法，用户裁定「落线A」；
+//    burst 三维度分析：大户轴单调（0/1/≥2 → 均 +0.013/+0.012/+0.037）、压箱轴单调
+//    （<1B/1~3B/≥3B → 均 +0.015/+0.021/+0.023）、波涨幅/出口位置中性。线=两轴
+//    **联立**：波内无 ≥0.15 大户 ∧ 出口前压箱 <1B=「既无大户认可又无交易沉淀」
+//    的空波 → 拒 burst_weak_wave。用户追问「或」口径否证：单轴命中组均 +0.030~
+//    +0.034（Cashless 3 户+184%/给币安的一封情书 压箱 4.9B+43%）——或口径拦 40
+//    票误伤全部利润主力，两轴互补证据非独立风险。经济口径（用户裁定净收益 ≤5%
+//    计损——手续费滑点高昂）：联立面 16 票账面 +0.012/净胜仅 3/13 计损，扣磨损
+//    真实价值 ≈−0.15 该拦；误伤 3 张小正票（프론티어+38%/duanju+14.7%/野猪ins
+//    +6.8%）知情接受。键源 buyDerived.burstWaveQuality（T173 直供三键）；无 ≥30s
+//    静默段整体 null=非 burst 语境不拦（宁不拦——拒方向证据缺席） ──
+/** FP13 压箱额线（BNB）：出口前锚窗累计买入 <此=薄盘空波（复审 <1B/≥1B 分档线） */
+const BURST_WEAK_PRE_WAVE_BNB = 1;
+/** FP13 波内大户判定线（BNB）：单钱包波窗买合计 ≥此=大户在场（snapshot 侧
+ * BP_BURST_WHALE_BNB=0.15 计算口径；此处仅文档线，whaleWallets 计数在 snapshot） */
 
 // ═══════════════ retail_pvp 判定（BP84 二修：纯买入侧极简口径） ═══════════════
 
@@ -687,6 +703,11 @@ function buildFactorGates(parts) {
       line: '去尘捆绑≥7户', hit: parts.armHits.includes('cd405_burst_bundled_wave'),
     });
     g.push({
+      id: 'burst_weak', label: 'FP13·burst弱波（无大户+无压箱）',
+      value: `波内大户${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.whaleWallets, '户')} 压箱${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.preWaveBuyBnb, 'B')}`,
+      line: '联立：大户=0 ∧ 压箱<1B（无段不拦）', hit: parts.armHits.includes('burst_weak_wave'),
+    });
+    g.push({
       id: 'cd412', label: 'CD412·极端捆绑砸盘',
       value: `卖方${d(cd.nearDumpWorstSellers)} 块卖${d(cd.nearDumpWorstSellBnb, 'B')}`,
       line: '≥15户 ∧ ≥1B（破发豁免）', hit: parts.armHits.includes('cd412_extreme_dump_sellers'),
@@ -857,6 +878,18 @@ function armBurstBundledWave(cd) {
   return false;
 }
 
+/** FP13 burst 弱波拦截线（T173）：burst 语境（≥30s 静默段出口波在场）∧ 波内
+ *  无 ≥0.15 大户（whaleWallets===0 有证据零值）∧ 出口前压箱 <1B → 拒
+ *  burst_weak_wave——两轴联立才是「既无大户认可又无交易沉淀」的空波（单轴
+ *  命中=有厚底子或有大户带队，均为健康票刻意放行）。键源
+ *  buyDerived.burstWaveQuality；无段 null/键缺失 → 不拦（宁不拦不冒充）。 */
+function armBurstWeakWave(bd) {
+  const w = bd && bd.burstWaveQuality;
+  if (!w || typeof w.whaleWallets !== 'number' || typeof w.preWaveBuyBnb !== 'number') return false;
+  if (w.whaleWallets > 0) return false;
+  return w.preWaveBuyBnb < BURST_WEAK_PRE_WAVE_BNB;
+}
+
 // ═══════════════ famous 两法门（FP3：btv134 复审轮用户两分法立法） ═══════════════
 
 /**
@@ -934,6 +967,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     else if (armDumpLowAbsorption(cd)) arms.push('cd403_dump_low_absorption');
     else if (armBurstExitSellPressure(cd)) arms.push('cd401_burst_exit_sell_pressure');
     else if (armBurstBundledWave(cd)) arms.push('cd405_burst_bundled_wave');
+    else if (armBurstWeakWave(snapshot.buyDerived)) arms.push('burst_weak_wave'); // FP13 burst 弱波（无大户认可+无压箱，T173 联立线）
     else if (armExtremeDumpSellers(cd, snapshot.buyDerived)) arms.push('cd412_extreme_dump_sellers');
     else if (armDenseDump(snapshot.buyDerived) && !domFall.observe) arms.push('cd414_dense_dump'); // FP7 短窗持续密集砸盘（observe 命中票排除——famous 场景归观察）
     else if (armSlowPumpUnload(snapshot)) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）
@@ -994,12 +1028,14 @@ module.exports = {
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
   EXTREME_DUMP_MIN_SELLERS, EXTREME_DUMP_MIN_BNB,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
+  BURST_WEAK_PRE_WAVE_BNB,
   BURST_CONTEXT_PRESEG_MIN_BNB, BURST_CONTEXT_PRESEG_MIN_TICKS, burstContextBackgroundCold,
   FAM_HOLDING_SOLD_RATIO, FAM_THIN_TOTAL_BUY_BNB, FAM_DUMPING_CHG30_PCT,
   FAM_HARVEST_SOLD_RATIO, FAM_HARVEST_BUY_PCT, FAM_HARVEST_SELL_PCT,
   judgeRetailPvp, judgeActivityLevel, judgeFamousDanger, judgeTailPhaseActivity,
   judgeFamousDominanceFall, buildFactorGates,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
+  armBurstWeakWave,
   armExtremeDumpSellers, armDenseDump, armSlowPumpUnload, armFamousHarvestFinal, armFamousBurstWave,
   armFamousLowExit, famousBreachExemptPct, FAM_LOW_EXIT_BREACH_EXEMPT_PCT,
   armFamousEarlyFlip,

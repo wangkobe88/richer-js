@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP12'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP13'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP12');
+    assert.strictEqual(r.version, 'FP13');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -786,7 +786,56 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP12（T167b 破发豁免上线）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP12');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP13'); // FP13/T173 burst 弱波上线
+  });
+}
+
+console.log('Q. FP13 burst 弱波拦截线（T173：无大户认可 ∧ 无压箱=空波，联立线——或口径否证）');
+{
+  const BWQ = (whales, pre) => ({ buyDerived: { burstWaveQuality: { exitDt: 300, waveBuyBnb: 0.5, waveWallets: 5, whaleWallets: whales, preWaveBuyBnb: pre } } });
+  check('Q1 联立命中（大户0 ∧ 压箱<1B）→ 拒 burst_weak_wave', () => {
+    assert.strictEqual(M.armBurstWeakWave(BWQ(0, 0.6).buyDerived), true);
+  });
+  check('Q2 大户在场（≥1）放行——Cashless 3 户 +184% 反证（或口径误伤面）', () => {
+    assert.strictEqual(M.armBurstWeakWave(BWQ(1, 0.1).buyDerived), false);
+    assert.strictEqual(M.armBurstWeakWave(BWQ(3, 0.1).buyDerived), false);
+  });
+  check('Q3 压箱厚（≥1B）放行——给币安的一封情书 4.9B 压箱 +43% 反证', () => {
+    assert.strictEqual(M.armBurstWeakWave(BWQ(0, 1.0).buyDerived), false);
+    assert.strictEqual(M.armBurstWeakWave(BWQ(0, 4.929).buyDerived), false);
+  });
+  check('Q4 无段（burstWaveQuality=null=非 burst 语境）不拦——宁不拦', () => {
+    assert.strictEqual(M.armBurstWeakWave({ burstWaveQuality: null }), false);
+    assert.strictEqual(M.armBurstWeakWave({}), false);
+    assert.strictEqual(M.armBurstWeakWave(null), false);
+  });
+  check('Q5 键缺失（whaleWallets/preWaveBuyBnb 非数值）不拦', () => {
+    assert.strictEqual(M.armBurstWeakWave({ burstWaveQuality: { whaleWallets: 0 } }), false);
+    assert.strictEqual(M.armBurstWeakWave({ burstWaveQuality: { whaleWallets: null, preWaveBuyBnb: 0.5 } }), false);
+  });
+  check('Q6 边界：压箱恰 1B 不拦（< 严格小于）/0.999B 拦', () => {
+    assert.strictEqual(M.armBurstWeakWave(BWQ(0, 0.999).buyDerived), true);
+  });
+  check('Q7 主入口臂链挂载（cd405 后）+ reason=burst_weak_wave', () => {
+    const r = M.evaluateFactorPreBuy(SNAP(Object.assign({}, {
+      wallets: [W(0.3, 0, 0.3, 10)], // PVP 过
+      buyDerived: { bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 3 },
+        burstWaveQuality: { exitDt: 300, waveBuyBnb: 0.5, waveWallets: 5, whaleWallets: 0, preWaveBuyBnb: 0.6 } },
+    })));
+    assert.ok(r.arms.includes('burst_weak_wave'), JSON.stringify(r.arms));
+    assert.strictEqual(r.reason, 'burst_weak_wave');
+  });
+  check('Q8 gates 含 burst_weak 门（值含大户数/压箱额）', () => {
+    const r = M.evaluateFactorPreBuy(SNAP({
+      wallets: [W(0.3, 0, 0.3, 10)],
+      buyDerived: { bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 3 },
+        burstWaveQuality: { exitDt: 300, waveBuyBnb: 0.5, waveWallets: 5, whaleWallets: 0, preWaveBuyBnb: 0.6 } },
+    }));
+    const g = r.gates.find((x) => x.id === 'burst_weak');
+    assert.ok(g && g.label.includes('burst弱波'), g && g.label);
+    assert.strictEqual(g.hit, true);
+    assert.ok(g.value.includes('0户') && g.value.includes('0.6B'), g.value);
+    assert.ok(g.line.includes('压箱<1B'), g.line);
   });
 }
 

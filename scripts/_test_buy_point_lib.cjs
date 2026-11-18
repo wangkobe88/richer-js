@@ -834,6 +834,70 @@ console.log('A12. famBurstWave 手算（T166：burst 纯 famous 带起来的—�
     `A12: 镜像簇尘门 0.001（0.0009 不进簇；share 只计 famous 本人 0.264/0.2649=99.7——实际 ${fbDust.mirrorClusters}/${fbDust.famSysSharePct}）`);
 }
 
+// ═══════════════ A13. T173/FP13 burstWaveQuality 三键手算（burst 弱波线原料） ═══════════════
+console.log('A13. burstWaveQuality 手算（T173：出口定位/波窗 per-wallet 大户/压箱累计）');
+{
+  const FPM = require(path.join(__dirname, '..', 'src', 'market-analysis', 'factor-pre-buy-check.js'));
+  // 手算：压箱=0.3+0.5=0.8（SELL 不计）；静默 25→60=35s；波窗 [60,120]=60/61/61/
+  // 90/97 五行（窗内行间隔全部 <30s=出口不后移）；买=W_D 0.08+W_E 两笔 0.14+
+  // W_H 0.02=0.24、3 户、per-wallet 最高 0.14<0.15 → whaleWallets=0；dt=125 行
+  // >出口+60s 窗外不计；FP13 判定=0 大户 ∧ 0.8<1 → 拦
+  const rowsQ = [
+    row(5, 'BUY', W_B, 0.3, 1.0 * E9, 3e8),
+    row(20, 'SELL', W_C, 0.2, 1.1 * E9, 2e8),
+    row(25, 'BUY', W_C, 0.5, 1.1 * E9, 5e8),
+    row(60, 'BUY', W_D, 0.08, 6.0 * E9, 1.3e7),
+    row(61, 'BUY', W_E, 0.07, 6.2 * E9, 1.1e7, { li: 1 }),
+    row(61, 'BUY', W_E, 0.07, 6.3 * E9, 1.1e7, { li: 2 }),
+    row(90, 'SELL', W_G, 0.05, 6.4 * E9, 8e6),
+    row(97, 'BUY', W_H, 0.02, 6.45 * E9, 3e6),
+    row(125, 'BUY', W_F, 0.2, 6.5 * E9, 3e7),
+  ];
+  const q = buildBuyPointSnapshot(rowsQ, metaA).buyDerived.burstWaveQuality;
+  ok(q && q.exitDt === 60, `A13: 出口定位=最后 ≥30s 静默段后行（dt60，gap 35s——实际 ${q && q.exitDt}）`);
+  ok(near(q.waveBuyBnb, 0.24) && q.waveWallets === 3,
+    `A13: 波窗 [出口,出口+60s]（买 0.24/3 户，dt125 窗外不计、dt90 卖不计买、W_E 两笔并一户——实际 ${q.waveBuyBnb}/${q.waveWallets}）`);
+  ok(q.whaleWallets === 0, `A13: per-wallet ≥0.15 大户线（W_E 合计 0.14 不达线=0 户——实际 ${q.whaleWallets}）`);
+  ok(near(q.preWaveBuyBnb, 0.8), `A13: 压箱=出口前累计买入（0.3+0.5，SELL 不计——实际 ${q.preWaveBuyBnb}）`);
+  ok(FPM.armBurstWeakWave({ burstWaveQuality: q }) === true,
+    'A13: FP13 联立判定（0 大户 ∧ 0.8<1 → 拦——床虱地图形状）');
+  // 大户在场反例：W_D 波内两笔 0.08+0.08=0.16 ≥0.15 → whaleWallets=1 → 放行
+  const rowsQ2 = [
+    row(5, 'BUY', W_B, 0.3, 1.0 * E9, 3e8),
+    row(60, 'BUY', W_D, 0.08, 6.0 * E9, 1.3e7),
+    row(61, 'BUY', W_D, 0.08, 6.2 * E9, 1.3e7, { li: 1 }),
+  ];
+  const q2 = buildBuyPointSnapshot(rowsQ2, metaA).buyDerived.burstWaveQuality;
+  ok(q2.whaleWallets === 1 && FPM.armBurstWeakWave({ burstWaveQuality: q2 }) === false,
+    `A13: 大户跨笔累计 0.16 达线（whaleWallets=1 → 放行——Cashless 形状反证）`);
+  // 恰线：0.15 过 / 0.1499 不过
+  const qEdge = buildBuyPointSnapshot([
+    row(5, 'BUY', W_B, 0.3, 1.0 * E9, 3e8),
+    row(60, 'BUY', W_D, 0.15, 6.0 * E9, 2.5e7),
+  ], metaA).buyDerived.burstWaveQuality;
+  const qEdge2 = buildBuyPointSnapshot([
+    row(5, 'BUY', W_B, 0.3, 1.0 * E9, 3e8),
+    row(60, 'BUY', W_D, 0.1499, 6.0 * E9, 2.5e7),
+  ], metaA).buyDerived.burstWaveQuality;
+  ok(qEdge.whaleWallets === 1 && qEdge2.whaleWallets === 0,
+    `A13: 大户线边界（0.15 恰过/0.1499 不过——实际 ${qEdge.whaleWallets}/${qEdge2.whaleWallets}）`);
+  // 压箱恰 1B 不拦（< 严格小于）
+  const qPre = buildBuyPointSnapshot([
+    row(5, 'BUY', W_B, 1.0, 1.0 * E9, 1e9),
+    row(60, 'BUY', W_D, 0.08, 6.0 * E9, 1.3e7),
+  ], metaA).buyDerived.burstWaveQuality;
+  ok(near(qPre.preWaveBuyBnb, 1.0) && FPM.armBurstWeakWave({ burstWaveQuality: qPre }) === false,
+    `A13: 压箱恰 1B 放行（< 严格小于——给币安的一封情书 4.9B 压箱形状）`);
+  // 无 ≥30s 静默段 → 整体 null（非 burst 语境，FP 臂不拦）
+  const rowsQNoStall = [
+    row(5, 'BUY', W_B, 0.5, 1.0 * E9, 5e8),
+    row(30, 'BUY', W_C, 0.3, 1.1 * E9, 3e8),
+    row(55, 'BUY', W_D, 0.3, 1.2 * E9, 3e8),
+  ];
+  ok(buildBuyPointSnapshot(rowsQNoStall, metaA).buyDerived.burstWaveQuality === null,
+    'A13: 无 ≥30s 静默段 → 整体 null（宁不拦——拒方向证据缺席）');
+}
+
 // ═══════════════ B. 窗语义边界 ═══════════════
 console.log('B. 窗语义边界（半开/伪钱包/双口径）');
 const rowsB = [

@@ -76,6 +76,13 @@ const BP_FAM_BURST_STALL_SEC = 30;
 const BP_FAM_BURST_TAIL_GAP_SEC = 5;
 /** T166/FP9 镜像簇尘门（BNB）：同块同额判定的单笔下限（BP_STUFF_DUST_BNB 同线） */
 const BP_FAM_BURST_MIRROR_DUST_BNB = 0.001;
+/** T173/FP13 burst 弱波三键——波窗宽度（秒）：最后 ≥30s 静默段出口起此窗内
+ * （cheat 侧 BURST_SEG_SEARCH_SEC=60 同线同值——CD405 波窗/D3.67 段定位同源；
+ * 复审口径=tmp-burst-review 同款 [出口,出口+60s]，各常量独立） */
+const BP_BURST_WAVE_WIN_SEC = 60;
+/** T173/FP13 波内大户线（BNB）：波窗单钱包买入合计 ≥此=大户（2026-11-18 用户
+ * 裁定定线 0.15——0.2→0.15 收紧后大户轴单调成立；BP 大户线 0.19/0.2 族独立） */
+const BP_BURST_WHALE_BNB = 0.15;
 
 /** 锚末时刻 tEnd=max dt（ticks 任意序皆稳；无有效 dt → null） */
 function bpTEndOf(ticks) {
@@ -1214,6 +1221,56 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     };
   })();
 
+  // ── T173/FP13 burst 弱波构成三键（2026-11-18 burst 复审立法，用户裁定「落线A」：
+  //     波内无 ≥0.15 大户 ∧ 出口前压箱 <1B 的 burst=既无大户认可又无交易沉淀的
+  //     空波 → FP 门拒 burst_weak_wave。数据（v141/142/143 59 成交票，净收益 ≤5%
+  //     计损基准）：联立命中 16 票账面 +0.012/净胜仅 3、扣 0.2B×5% 手续费滑点磨损
+  //     真实经济价值 ≈−0.15 该拦；两轴互补证据非独立风险——单轴命中组均 +0.030~
+  //     +0.034（Cashless 3 户 +184%/情书厚压箱 +43%），「或」口径拦 40 票把利润
+  //     主力全误伤，刻意联立）。纯事实键不判形状：出口定位=最后 ≥30s 静默段
+  //     （famBurstWave 同款）；波窗=[出口,出口+60s]（CD405 同源）；whaleWallets
+  //     =波窗 per-wallet 买合计 ≥0.15 的钱包数（0=有证据零值）；preWaveBuyBnb
+  //     =出口前锚窗累计买入（压箱额）。无静默段 → 整体 null（非 burst 语境，
+  //     FP 臂不拦——宁不拦不冒充）；wallet null 行计量不计人（FA 口径） ──
+  const burstWaveQuality = (() => {
+    let exitIdx = null;
+    for (let i = 1; i < ticks.length; i++) {
+      const a = ticks[i - 1].dt, b = ticks[i].dt;
+      if (a === null || a === undefined || b === null || b === undefined) continue;
+      if (b - a >= BP_FAM_BURST_STALL_SEC) exitIdx = i;
+    }
+    if (exitIdx === null) return null;
+    const exitDt = ticks[exitIdx].dt;
+    const winEnd = exitDt + BP_BURST_WAVE_WIN_SEC;
+    const perWallet = new Map();
+    let waveBuyBnb = 0;
+    for (const t of ticks) {
+      if (t.dt === null || t.dt === undefined || t.dt < exitDt || t.dt > winEnd) continue;
+      if (t.side !== 'BUY') continue;
+      const amt = t.bnb || 0;
+      waveBuyBnb += amt;
+      if (t.wallet) {
+        const w = String(t.wallet).toLowerCase();
+        perWallet.set(w, (perWallet.get(w) || 0) + amt);
+      }
+    }
+    let whaleWallets = 0;
+    for (const b of perWallet.values()) if (b >= BP_BURST_WHALE_BNB) whaleWallets++;
+    let preWaveBuyBnb = 0;
+    for (const t of ticks) {
+      if (t.dt === null || t.dt === undefined) continue;
+      if (t.dt >= exitDt) break;
+      if (t.side === 'BUY') preWaveBuyBnb += t.bnb || 0;
+    }
+    return {
+      exitDt,
+      waveBuyBnb: +waveBuyBnb.toFixed(4),
+      waveWallets: perWallet.size,
+      whaleWallets,
+      preWaveBuyBnb: +preWaveBuyBnb.toFixed(4),
+    };
+  })();
+
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
@@ -1277,6 +1334,9 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     // famous 痕迹族（BP53 二修/案号 BP61：名单钱包时间线+在场性——③桶收割完臂/
     // 退出臂前提的证据行；roster 缺失整体 null）
     famousTraces,
+    // T173/FP13 burst 弱波构成三键（FP 门 burst_weak_wave 臂原料；无静默段整体
+    // null=非 burst 语境；whaleWallets/preWaveBuyBnb 纯事实，判据线在 FP 侧）
+    burstWaveQuality,
     // famous 系突发波族（T166/FP9：burst 纯 famous 带起来的——波内构成直供，
     // 判定归 FP 因子门；无 ≥30s 静默段/roster 缺失 → 整体 null）
     famBurstWave,
@@ -1326,5 +1386,7 @@ module.exports = {
   BP_TAIL_SEC,
   BP_PHASE_BUY_DUST_BNB,
   BP_PHASE_SELL_DUST_BNB,
+  BP_BURST_WAVE_WIN_SEC,
+  BP_BURST_WHALE_BNB,
   detectSwings,
 };
