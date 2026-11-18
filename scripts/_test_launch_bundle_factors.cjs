@@ -24,6 +24,9 @@
  *      算 2001 不算）/ K 纯 sell 块算活跃且不跳过 / L f0<2 照发真值+首买跨块去重 /
  *      M defer 乱序收敛 / N 出窗冻结+触发行不入 map / O 首块锚缺失→0、null wallet
  *      入 map 不入首买 / P 源码口径反证 / Q v20 门串求值（挡/放全分支+装载）
+ *   Y. T177 同块卖出簇键 + ≥10 捆绑绝对 veto（0x6510…7777 案）
+ *   Z. T178 两波捆绑买入波数两键（launchBuyBundleWaves/DominancePct，raw 含复购波
+ *      ——G3 首买簇键结构性看不见的形状）+ ladder v31 G4 绝对 veto（0xa025…7777 案）
  *
  * 用法：node scripts/_test_launch_bundle_factors.cjs
  */
@@ -1054,6 +1057,163 @@ console.log('Y. T177 同块卖出簇 + ≥10 捆绑绝对 veto（0x6510…7777 �
     const fbSrc = fs.readFileSync(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'), 'utf8');
     assert.ok(/launchSellBundleClusterSize: factorResults\.launchSellBundleClusterSize \?\? null/.test(fbSrc), 'FactorBuilder 透传缺失');
     assert.ok(newFA().getFactorKeys().has('launchSellBundleClusterSize'), '探针未收键');
+  });
+}
+
+// ═══════════════ Z. T178 两波捆绑买入波数两键 + G4 绝对 veto ═══════════════
+// 2026-11-18 0xa025b8d8fb396890c0b469d8f056727e99577777 案（bt-v147 复盘），用户
+// 裁定原话「2 次超过钱包捆绑买入，且占总流动性比例太高，非常明显的作弊了。控不住
+// 就加个因子过滤」：t+3s 7 钱包同块买 0.92B → t+7s 同组 7 钱包相邻两块**复购**
+// 0.98B（第二波非首买，G3 首买簇键结构性看不见，复刻 launchBundleClusterSize=7/
+// launchSellBundleClusterSize=6 双双 <10=控不住实锤）→ t+16-17s 同组 9 户两相邻块
+// 全清砸 2.08B → 双信号放行买入 −6.7%（FP15 全臂贴线未中+AF1 high_skip 跳 cheat+
+// BP 过）。两新键：launchBuyBundleWaves=出生窗「≥5 尘线钱包同块买入」块数（raw
+// 逐块含复购）+ launchBuyBundleDominancePct=波块买入合计÷出生窗总买入×100；同窗
+// 203 成交票对照 waves≥2∧dom≥30 恰 3 命中（本案 33.2%），低占比域 11 票有机热门
+// 盘全放行（dom 才是分离轴）；ladder v31 全 14 腿 G4 绝对 veto（无年龄放行无破发
+// 豁免，T177 同形）。
+console.log('Z. T178 两波捆绑买入波数 + G4 绝对 veto（0xa025…7777 案源形状）');
+{
+  const W7 = Array.from({ length: 7 }, (_, i) => 'wZ' + i);
+  const wave1 = W7.map((w, i) => ({ timestamp: T0 + 1000, block_number: 300, log_index: i,
+    sender_address: w, trader_address: '0xZ' + i, bnb_amount: 0.13 }));           // 0.91B 7 户
+  const wave2 = W7.slice(0, 5).map((w, i) => ({ timestamp: T0 + 2000, block_number: 301, log_index: 10 + i,
+    sender_address: w, trader_address: '0xZ' + i, bnb_amount: 0.10 }));           // 0.50B 同组 5 户复购
+  const retail = Array.from({ length: 8 }, (_, i) => ({ timestamp: T0 + 3000 + i * 1000, block_number: 310 + i,
+    log_index: 30 + i, sender_address: 'rZ' + i, trader_address: '0xR' + i, bnb_amount: 0.10 })); // 0.80B 散户分母
+
+  // Z1 案源形状回放：两波成形 + 精确公式值 + G3 首买簇键看不见第二波（结构性反证）
+  const fa1 = newFA();
+  feed(fa1, wave1); feed(fa1, wave2);
+  const mid = F(fa1, T0 + 5000);
+  check('Z1a 第二波（复购）计入波数：两波成形 waves=2（raw 逐块口径——G3 盲区接住）', () => {
+    assert.strictEqual(mid.launchBuyBundleWaves, 2);
+    assert.strictEqual(mid.launchBuyBundleDominancePct, 100); // 窗内只有波块 → 1.41/1.41
+  });
+  check('Z1b G3 首买簇键看不见第二波：launchBundleClusterSize=7（首买全在块 300——复购不可见=控不住实锤）', () => {
+    assert.strictEqual(mid.launchBundleClusterSize, 7);
+  });
+  feed(fa1, retail);
+  const m1 = F(fa1, T0 + 20000);
+  check('Z1c 散户分母进场：waves=2 ∧ dom=63.8（=(0.91+0.50)/2.21×100 精确值，一位舍入）', () => {
+    assert.strictEqual(m1.launchBuyBundleWaves, 2);
+    assert.strictEqual(m1.launchBuyBundleDominancePct, 63.8);
+  });
+
+  // Z2 有机热门盘：2 波低占比 → 不拦（waves≥2 单轴 11 票多为有机，dom 才是分离轴）
+  const fa2 = newFA();
+  feed(fa2, [
+    ...Array.from({ length: 5 }, (_, i) => ({ timestamp: T0 + 1000, block_number: 400, log_index: i,
+      sender_address: 'oZ' + i, trader_address: '0xO' + i, bnb_amount: 0.02 })),
+    ...Array.from({ length: 5 }, (_, i) => ({ timestamp: T0 + 2000, block_number: 401, log_index: 10 + i,
+      sender_address: 'pZ' + i, trader_address: '0xP' + i, bnb_amount: 0.02 })),
+    ...Array.from({ length: 40 }, (_, i) => ({ timestamp: T0 + 3000 + i * 500, block_number: 410 + i,
+      log_index: 30 + i, sender_address: 'qZ' + i, trader_address: '0xQ' + i, bnb_amount: 0.05 })),
+  ]);
+  const m2 = F(fa2, T0 + 30000);
+  check('Z2 有机形状：waves=2（两块各 5 户过尘线）但 dom=9.1（0.20/2.20）→ G4 放行', () => {
+    assert.strictEqual(m2.launchBuyBundleWaves, 2);
+    assert.strictEqual(m2.launchBuyBundleDominancePct, 9.1);
+    const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
+    assert.strictEqual(new ConditionEvaluator().evaluate(
+      '(launchBuyBundleWaves < 2 OR launchBuyBundleDominancePct < 30)', m2), true);
+  });
+
+  // Z3 尘线：5 户各 0.01（累计 <holderDustBnb 0.015）→ 不算波（0=有证据零值）
+  const fa3 = newFA();
+  feed(fa3, Array.from({ length: 5 }, (_, i) => ({ timestamp: T0 + 1000, block_number: 500, log_index: i,
+    sender_address: 'dZ' + i, trader_address: '0xD' + i, bnb_amount: 0.01 })));
+  check('Z3 尘埃同块 5 户不过尘线 → waves=0 dom=0.0（尘埃买入不构成波）', () => {
+    const m3 = F(fa3, T0 + 5000);
+    assert.strictEqual(m3.launchBuyBundleWaves, 0);
+    assert.strictEqual(m3.launchBuyBundleDominancePct, 0);
+  });
+
+  // Z4 4 户过线+1 户尘下 → n=4<5 不算波（波门=尘线以上钱包 ≥5）
+  const fa4 = newFA();
+  feed(fa4, [
+    ...Array.from({ length: 4 }, (_, i) => ({ timestamp: T0 + 1000, block_number: 600, log_index: i,
+      sender_address: 'eZ' + i, trader_address: '0xE' + i, bnb_amount: 0.1 })),
+    { timestamp: T0 + 1000, block_number: 600, log_index: 9, sender_address: 'eZ9', trader_address: '0xE9', bnb_amount: 0.005 },
+  ]);
+  check('Z4 4 过线+1 尘下 → waves=0（5 户门只数尘线以上）', () => {
+    assert.strictEqual(F(fa4, T0 + 5000).launchBuyBundleWaves, 0);
+  });
+
+  // Z5 出窗冻结：窗外第三波不计 + 冻结后恒返回快照（token 属性窗内定格）
+  const fa5 = newFA();
+  feed(fa5, wave1); feed(fa5, wave2);
+  feed(fa5, [{ timestamp: T0 + 92000, block_number: 900, log_index: 0, sender_address: 'x1', trader_address: '0xX1', bnb_amount: 0.1 }]); // 触发关窗
+  const frozen = F(fa5, T0 + 93000);
+  check('Z5a 关窗行触发冻结：waves=2 保持', () => {
+    assert.strictEqual(frozen.launchBuyBundleWaves, 2);
+  });
+  feed(fa5, Array.from({ length: 5 }, (_, i) => ({ timestamp: T0 + 95000, block_number: 950, log_index: i,
+    sender_address: 'yZ' + i, trader_address: '0xY' + i, bnb_amount: 0.1 })));
+  check('Z5b 窗外 5 户同块第三波不计 → 冻结值不变（窗外归 CD/FP 锚窗臂管）', () => {
+    const late = F(fa5, T0 + 100000);
+    assert.strictEqual(late.launchBuyBundleWaves, frozen.launchBuyBundleWaves);
+    assert.strictEqual(late.launchBuyBundleDominancePct, frozen.launchBuyBundleDominancePct);
+  });
+
+  // Z6 defer 乱序收敛：行乱序到达 → 终态同值（Map 累加交换律）
+  const fa6 = newFA();
+  const all = [...wave1, ...wave2, ...retail];
+  feed(fa6, [all[9], all[0], all[14], all[3], all[7], all[12], all[1], all[8], all[13], all[2],
+    all[6], all[11], all[4], all[10], all[5], ...all.slice(15).reverse()]);
+  const m6 = F(fa6, T0 + 20000);
+  check('Z6 乱序喂入 → waves=2 dom=63.8 同值（加法交换律收敛）', () => {
+    assert.strictEqual(m6.launchBuyBundleWaves, 2);
+    assert.strictEqual(m6.launchBuyBundleDominancePct, 63.8);
+  });
+
+  // Z7 null wallet（sender 缺失回退 ROUTER）归一为 1 不膨胀波计数（Y8 同向少计宁漏）
+  const fa7 = newFA();
+  feed(fa7, [
+    ...Array.from({ length: 4 }, (_, i) => ({ timestamp: T0 + 1000, block_number: 700, log_index: i,
+      sender_address: null, trader_address: ROUTER, bnb_amount: 0.1 })),
+    { timestamp: T0 + 1000, block_number: 700, log_index: 9, sender_address: 'hZ1', trader_address: '0xH1', bnb_amount: 0.1 },
+  ]);
+  check('Z7 4 笔 sender 缺失（归一 ROUTER）+1 真钱包 → 块内 2 钱包 <5 → waves=0', () => {
+    assert.strictEqual(F(fa7, T0 + 5000).launchBuyBundleWaves, 0);
+  });
+
+  // Z8 G4 门串求值：无年龄放行无破发豁免，null 恒 false 宁拦（Y9 同构）
+  {
+    const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
+    const ev = new ConditionEvaluator();
+    const veto = '(launchBuyBundleWaves < 2 OR launchBuyBundleDominancePct < 30)';
+    check('Z8a 本案形状 waves=2 dom=33.2 → 拒', () =>
+      assert.strictEqual(ev.evaluate(veto, { launchBuyBundleWaves: 2, launchBuyBundleDominancePct: 33.2 }), false));
+    check('Z8b 2 波低占比 dom=29.9 → 放（dom 分离轴）', () =>
+      assert.strictEqual(ev.evaluate(veto, { launchBuyBundleWaves: 2, launchBuyBundleDominancePct: 29.9 }), true));
+    check('Z8c 单波高占比 dom=80 → 放（单波归 G3/锚窗臂管——0x645886 dom79.5 waves=1 知情放行）', () =>
+      assert.strictEqual(ev.evaluate(veto, { launchBuyBundleWaves: 1, launchBuyBundleDominancePct: 80 }), true));
+    check('Z8d 10 波 dom=32.9 → 拒（0x51d9e3 同窗对照票）', () =>
+      assert.strictEqual(ev.evaluate(veto, { launchBuyBundleWaves: 10, launchBuyBundleDominancePct: 32.9 }), false));
+    check('Z8e 年龄/破发豁免全部失效（绝对 veto——与 G1 本质差异）', () =>
+      assert.strictEqual(ev.evaluate(veto, { launchBuyBundleWaves: 2, launchBuyBundleDominancePct: 33.2,
+        tokenAgeSec: 600, sinceFirstTradeSec: 600, launchMinVsFloorPct: -38.4 }), false));
+    check('Z8f 键缺失 null 恒 false=宁拦不冒充（双键缺失拒 / waves=2∧dom 缺失拒；waves=1 在场真放行——单波真无两波形状）', () => {
+      assert.strictEqual(ev.evaluate(veto, {}), false);
+      assert.strictEqual(ev.evaluate(veto, { launchBuyBundleWaves: 2 }), false); // dom null<30 false → OR false
+    });
+  }
+
+  // Z9 deploy 脚本 v31 门串逐字一致（防漂移；Y10 同款）
+  check('Z9 deploy 脚本 TWO_WAVE_VETO_GATE 与本段一致', () => {
+    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
+    const m = deploySrc.match(/const TWO_WAVE_VETO_GATE = ' AND \(launchBuyBundleWaves < 2 OR launchBuyBundleDominancePct < 30\)'/);
+    assert.ok(m, 'TWO_WAVE_VETO_GATE 常量缺失或形状漂移');
+  });
+
+  // Z10 FactorBuilder 快照透传 + 探针收键（不落库即丢防线）
+  check('Z10 FactorBuilder 白名单透传两键 + getFactorKeys 探针收键', () => {
+    const fbSrc = fs.readFileSync(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'), 'utf8');
+    assert.ok(/launchBuyBundleWaves: factorResults\.launchBuyBundleWaves \?\? null/.test(fbSrc), 'waves 透传缺失');
+    assert.ok(/launchBuyBundleDominancePct: factorResults\.launchBuyBundleDominancePct \?\? null/.test(fbSrc), 'dom 透传缺失');
+    const keys = newFA().getFactorKeys();
+    assert.ok(keys.has('launchBuyBundleWaves') && keys.has('launchBuyBundleDominancePct'), '探针未收键');
   });
 }
 

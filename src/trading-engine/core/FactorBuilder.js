@@ -252,6 +252,17 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 最大同块卖出簇钱包数——ladder v30 绝对 veto 载体；同族出生窗累计+冻结不可离线
     // 重算，不落库即丢；0=空窗有证据零值，旧 FA 无键 → null 不掩盖
     launchSellBundleClusterSize: factorResults.launchSellBundleClusterSize ?? null,
+    // T178（2026-11-18 0xa025…7777 案两波捆绑买入）：波数（≥5 尘线钱包同块买入的块数，
+    // raw 含复购波）+ 占流动性比（这些块买入合计÷出生窗总买入×100）两键——ladder v31
+    // G4 绝对 veto 载体；同族出生窗累计+冻结不可离线重算，不落库即丢；0=空窗有证据
+    // 零值，旧 FA 无键 → null 不掩盖
+    launchBuyBundleWaves: factorResults.launchBuyBundleWaves ?? null,
+    launchBuyBundleDominancePct: factorResults.launchBuyBundleDominancePct ?? null,
+    // T179（2026-11-18 bt-v147 瞬时V案做市团队黑名单）：名单钱包本 token 累计买入
+    // （ladder v31 G5（同车 T178+T179） 绝对 veto 载体）+命中成员数（观察）——K 组读时扫不可离线重算，
+    // 不落库即丢；0=名单未启用/无命中有证据零值，旧 FA 无键 → null 不掩盖
+    cheatCrewBuyBnb: factorResults.cheatCrewBuyBnb ?? null,
+    cheatCrewWallets: factorResults.cheatCrewWallets ?? null,
     top1HolderCircPct: factorResults.top1HolderCircPct ?? null,
     // T92 top2 持有人门（2026-10-29）：前两大净持仓合计 ÷ 同 circ 分母，与 top1 同快照
     // 语义（0=有证据零值；旧 FA 无键 → null 不掩盖）

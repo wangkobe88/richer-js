@@ -436,6 +436,13 @@ class BacktestEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'BacktestEngine', `sybil 大簇名单加载失败(fail-open, sybilClusterHolderCircPct 恒 0=裸比较放行): ${e.message}`);
     }
+    // 做市/作弊团队黑名单（T179 bt-v147 瞬时V案）：与 WSS 引擎同入口同集合（parity）；
+    // fail-open 同款（加载失败/文件缺失 → 因子恒 0=`cheatCrewBuyBnb == 0` 裸比较放行）
+    try {
+      await FourMemeFactorAggregator.loadCheatCrewWallets();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'BacktestEngine', `做市/作弊团队名单加载失败(fail-open, cheatCrewBuyBnb 恒 0=裸比较放行): ${e.message}`);
+    }
 
     // 4. 策略引擎（buy/sell 扁平化，与实时引擎同构；分腿评估语义）
     const { StrategyEngine } = require('../../strategies/StrategyEngine');

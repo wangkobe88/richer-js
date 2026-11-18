@@ -507,6 +507,14 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // T177 2026-11-18 0x6510…7777 案（≥10 捆绑无论买入砸盘都不买）出生窗最大同块
         // 卖出簇钱包数——ladder v30 绝对 veto 载体（详见 _test_launch_bundle_factors.cjs Y 段）
         'launchSellBundleClusterSize',
+        // T178 2026-11-18 0xa025…7777 案两波捆绑买入（2 次 ≥5 钱包同块买入且占流动性
+        // 过高）波数+占流动性比两键——ladder v31 G4 绝对 veto 载体（详见
+        // _test_launch_bundle_factors.cjs Z 段）
+        'launchBuyBundleWaves', 'launchBuyBundleDominancePct',
+        // T179 2026-11-18 bt-v147 瞬时V案做市/作弊团队黑名单（roster 用户裁定集合）
+        // 累计买入+命中成员数两键——ladder v32 G5 绝对 veto 载体（详见
+        // _test_cheat_crew_roster.cjs）
+        'cheatCrewBuyBnb', 'cheatCrewWallets',
         // 2026-10-18 用户点名集合（famous 门原料）+ C96/C97 叙事键（category 透传 +
         // superIP 注入键）——并行批次追加时未同步本白名单（2026-10-20 补）
         'famousCopyWalletCircPct', 'narrativeCategory',

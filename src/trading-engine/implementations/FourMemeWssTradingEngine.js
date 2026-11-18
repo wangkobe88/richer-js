@@ -618,6 +618,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `sybil 大簇名单加载失败(fail-open, sybilClusterHolderCircPct 恒 0=裸比较放行): ${e.message}`);
     }
+    // 做市/作弊团队黑名单（T179 2026-11-18 bt-v147 瞬时V案用户裁定）：cheatCrewBuyBnb
+    // 原料。fail-open 同 famous/sybil（新门未启用=零影响）：文件缺失 → 空集合；加载
+    // 抛错 → 保持空——两者因子恒 0=`cheatCrewBuyBnb == 0` 裸比较放行
+    try {
+      await FourMemeFactorAggregator.loadCheatCrewWallets();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `做市/作弊团队名单加载失败(fail-open, cheatCrewBuyBnb 恒 0=裸比较放行): ${e.message}`);
+    }
 
     // 3.4 TPA 触发点持仓分析（回迁批 4 shadow 先行）：opt-in——实验 config 整段无
     //     tokenPositionAnalyzer → 不构造（存量实验零影响）；段存在才构造，trigger 缺配/非法

@@ -219,6 +219,10 @@ const _LAUNCH_MAX_WALLETS = 5000;
 // 净 −0.406 止血型，止血 15/+0.407 误伤仅 1 张近零）。块首行时间差口径（同块行
 // block_time 相同 → set 即块首；min 更新乱序收敛）
 const LAUNCH_FIRST_WAVE_MS = 2000;
+// T178（2026-11-18 0xa025b8d8…7777 案）两波捆绑买入波数键：同块「尘线以上钱包」
+// 买入 ≥5 个才算一波（<5 的同块多买=开盘自然拥挤，有机分布 waves≥2 的 11 票低占比
+// 域全放行——分离轴见 dominance 键）。案源波幅 7/5 钱包。
+const LAUNCH_BUNDLE_WAVE_MIN_WALLETS = 5;
 
 // ── 市场截面 regime 观测（market* 5 键，回迁批 2.6；pumpfun 08-30 观察版口径）──
 // 既有因子全部 per-token，市场整体状态=真实盲区；本组把市场状态做成截面因子（同快照同值
@@ -276,6 +280,19 @@ let _famousCopyLoadPromise = null;
 // （有证据零值，簇钱包在场但那票没持仓=0）。
 let _sybilClusterWallets = null;
 let _sybilClusterLoadPromise = null;
+// ── 做市/作弊团队黑名单（T179 2026-11-18 bt-v147 瞬时V案用户裁定「作弊钱包名单
+//    迟早要做……找出它们来，加入到黑名单然后控住」）──
+// 来源=config/rosters/cheat-crew-wallets.json（用户裁定集合，独立文件）。cheatCrewBuyBnb
+// 因子原料：名单钱包在本 token 的累计买入（K 组 _buyerVolume 读时扫——famous/sybil
+// 同款零写点，回放/defer 天然安全）。案源=「砸盘砸到底→无时间间隔→立即拉起」流水线
+// 团队（拉升三件套跨票金额逐笔复现，40 票足迹我们 -0.42 vs 其余 +2.00）；只收 pull
+// 角色（openers/churn/跟单生态刻意不收——openers-only 面净正含大赢家、churn-only 面为正）。
+// 0 语义（famous 去 NULL 同款方向）：文件缺失/空集合/无命中 → 恒 0 → 条件串
+// `cheatCrewBuyBnb == 0` 裸比较放行（未启用=零影响）；非空集合有命中 → >0 拒。
+// 名单随仓库部署，增删由用户裁定（钱包数周轮换，维护=182 pair 缓存定期扩簇，先例
+// roster v10 苏琳镜像址案）。
+let _cheatCrewWallets = null;
+let _cheatCrewLoadPromise = null;
 // ── TPA 持仓因子回填缓存（回迁批 4；母版 :56-70 同款装置）──
 // _holdingFactorOverrides（tokenAddress → { TPAPre_walletHoldingPct, 庄散派生键, ... 17 键 }）：
 //   TokenPositionAnalyzer 触发点 as-of 画像算出持仓因子后 setHoldingFactors 回填，
@@ -784,6 +801,54 @@ class FourMemeFactorAggregator extends EventEmitter {
         } finally {
             _sybilClusterLoadPromise = null;
         }
+    }
+
+    /**
+     * 做市/作弊团队黑名单（cheatCrewBuyBnb 因子原料，T179 2026-11-18）：读
+     * config/rosters/cheat-crew-wallets.json（用户裁定集合，famous 同款独立文件）。
+     * 语义模板=loadFamousCopyWallets：文件缺失 → 空 Set（未启用，因子恒 0=裸比较
+     * `cheatCrewBuyBnb == 0` 放行，部署零影响）；schema 不符（wallets 非数组）才抛错。
+     */
+    static async loadCheatCrewWallets() {
+        if (_cheatCrewWallets) return _cheatCrewWallets;
+        if (_cheatCrewLoadPromise) return _cheatCrewLoadPromise;
+        _cheatCrewLoadPromise = (async () => {
+            const fs = require('fs');
+            const path = require('path');
+            const rosterPath = path.resolve(__dirname, '..', '..', 'config', 'rosters', 'cheat-crew-wallets.json');
+            let parsed = null;
+            try {
+                parsed = JSON.parse(fs.readFileSync(rosterPath, 'utf8'));
+            } catch (e) {
+                if (e.code === 'ENOENT') {
+                    this._logInfo(`做市/作弊团队名单未配置（${rosterPath} 缺失），cheatCrewBuyBnb 恒 0=未启用`);
+                    _cheatCrewWallets = new Set();
+                    return _cheatCrewWallets;
+                }
+                throw e;
+            }
+            if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.wallets)) {
+                throw new Error(`[FourMemeFA] loadCheatCrewWallets: 名单 schema 不符（${rosterPath}）`);
+            }
+            _cheatCrewWallets = new Set(parsed.wallets
+                .filter(w => typeof w === 'string' && w)
+                .map(w => w.toLowerCase()));
+            this._logInfo(`加载做市/作弊团队名单: ${_cheatCrewWallets.size} 个（${rosterPath}，version=${parsed.version ?? '?'}）`);
+            return _cheatCrewWallets;
+        })();
+        try {
+            return await _cheatCrewLoadPromise;
+        } finally {
+            _cheatCrewLoadPromise = null;
+        }
+    }
+
+    /** 测试专用：注入团队名单集合（loader 同口径小写归一）。传 null 还原「未加载」
+     * 态；空 Set=「已加载但未启用」（因子恒 0）。 */
+    static setCheatCrewWalletsForTest(setOrNullOrUndefined) {
+        _cheatCrewWallets = setOrNullOrUndefined === null
+            ? null
+            : new Set([...setOrNullOrUndefined].map(a => String(a).toLowerCase()));
     }
 
     /** 测试专用：注入 sybil 大簇钱包集合（loader 同口径小写归一）。null=「未加载」
@@ -1489,6 +1554,20 @@ class FourMemeFactorAggregator extends EventEmitter {
                 if (!state._launchWindowClosed) {
                     state._launchWalletBuys.set(walletAddr,
                         (state._launchWalletBuys.get(walletAddr) || 0) + bnbAmount);
+                    // T178（2026-11-18 0xa025b8d8…7777 案 bt-v147，用户裁定「2 次超过钱包
+                    // 捆绑买入且占总流动性比例太高→控不住就加因子过滤」）两波捆绑买入波数
+                    // 原料：出生窗每块 per-wallet 买入（raw 逐块**含复购**——案源第二波是
+                    // 同组 7 钱包在相邻块复购，首买簇键结构性看不见；窗推进已先行——触发
+                    // 出窗行不入窗，与 _launchWalletBuys/_launchBuyBnb 对称）。null wallet 行
+                    // 已被外层 if 挡住不入（解析缺失 router 归一少计宁漏）。
+                    if (blockNumber !== null) {
+                        let _lb = state._launchBlockBuys.get(blockNumber);
+                        if (!_lb) {
+                            _lb = new Map();
+                            state._launchBlockBuys.set(blockNumber, _lb);
+                        }
+                        _lb.set(walletAddr, (_lb.get(walletAddr) || 0) + bnbAmount);
+                    }
                 }
                 const _pb = state._walletFirstBuyTs.get(walletAddr);
                 if (_pb === undefined || tick.timestamp < _pb) {
@@ -2012,6 +2091,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             _launchBlockSellWallets: new Map(), // T177 blk → 出生窗内该块卖出钱包 Set（同块捆绑
                                          //   砸盘计数原料；Set.add 幂等 → defer 乱序收敛；null wallet
                                          //   行不入簇=解析缺失 router 归一少计宁漏不误充）
+            _launchBlockBuys: new Map(), // T178 blk → Map(wallet → 出生窗该块买入 BNB)（两波捆绑
+                                         //   买入波数键原料——raw 逐块含复购，第二波同组钱包复购
+                                         //   正是 0xa025 案指纹、首买簇键结构性看不见；窗关停写=
+                                         //   冻结语义；Map 累加交换律 → defer 乱序收敛）
 
             // 持仓（positionKey → pos）
             _positions: new Map(),
@@ -3138,6 +3221,33 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
             if (n > sellClusterSize) sellClusterSize = n;
         }
+        // T178（2026-11-18 0xa025b8d8…7777 案 bt-v147，用户裁定「2 次超过钱包捆绑买入，
+        // 且占总流动性比例太高」→「控不住就加个因子过滤」）：两波捆绑买入波数两键——
+        // 出生窗内「≥LAUNCH_BUNDLE_WAVE_MIN_WALLETS(5) 个尘线钱包同块买入」的块数 +
+        // 这些块的尘线钱包买入合计 ÷ 出生窗总买入 ×100。raw 逐块口径（刻意非首买——
+        // 案源第二波是同组 7 钱包相邻块复购 0.98B，launchBundleClusterSize 首买簇键
+        // 结构性看不见；全案：t+3s 7 钱包同块 0.92B → t+7s 同组相邻两块复购 0.98B →
+        // t+16-17s 同组两相邻块全清砸 2.08B（9 户）→ t+19/25s 双信号放行买入 −6.7%，
+        // FP15 全臂未中〔cd403 卖方 6<8 承接比 0.30 双贴线、cd414 净 +0.51 被承接翻正、
+        // pvp 大买方=操纵者自己〕+ AF1 act=high_skip 跳 cheat + BP 过——门链全放行）。
+        // 尘线=每钱包出生窗累计买入 ≥ holderDustBnb（T177 卖键同线判据，read 时对
+        // _launchWalletBuys 评——live 部分窗值+出窗冻结终值，与卖键同时态）；显式 0=
+        // raw 人头。同窗 203 成交票对照：waves≥2 ∧ dom≥30 恰 3 命中（本案 2 波/33.2%/
+        // −0.0133 + 0x51d9e3 10 波/32.9%/−0.0485 + 0xfacf70 同形状 2 波/30.4%/+0.0195
+        // 唯一正票小额）；waves≥2 低占比域 11 票有机热门盘全放行（dom 分离：≥30% 3 票
+        // vs 下一档 25%）。ladder v31 G4 绝对 veto 载体（无年龄放行无破发豁免——T177
+        // 同形；案源信号 t+19s 两波已成形，live 部分窗值即拦）。空窗 0 有证据零值；
+        // null wallet 行不入（少计宁漏）。
+        const waveDust = this._fp.holderDustBnb || 0;
+        let buyWaves = 0, waveBnb = 0;
+        for (const bm of state._launchBlockBuys.values()) {
+            let n = 0, bnb = 0;
+            for (const [w, v] of bm) {
+                if ((state._launchWalletBuys.get(w) || 0) >= waveDust) { n++; bnb += v; }
+            }
+            if (n >= LAUNCH_BUNDLE_WAVE_MIN_WALLETS) { buyWaves++; waveBnb += bnb; }
+        }
+        const waveDomPct = state._launchBuyBnb > 0 ? waveBnb / state._launchBuyBnb * 100 : 0;
         return {
             launchBundleClusterSize: size,
             launchBundleClusterSharePct: Math.round(sharePct * 10) / 10,
@@ -3147,6 +3257,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             launchFirstWaveWallets: f0 + fNext,
             launchBigBuyBnb: parseFloat(bigBuySum.toFixed(4)),
             launchSellBundleClusterSize: sellClusterSize,
+            launchBuyBundleWaves: buyWaves,
+            launchBuyBundleDominancePct: Math.round(waveDomPct * 10) / 10,
         };
     }
 
@@ -3791,6 +3903,25 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
 
+        // 做市/作弊团队黑名单累计买入（T179 2026-11-18 bt-v147 瞬时V案）：名单钱包在
+        // 本 token 的累计买入 BNB（K 组 _buyerVolume 读时扫——famous/sybil 同款零写点，
+        // defer/回放/乱序天然安全）。ladder v31 G5（同车 T178+T179） 绝对 veto 载体（`cheatCrewBuyBnb == 0`
+        // 裸比较）：名单缺失/空集合/无命中 → 0 放行（famous 去 NULL 同方向——未启用=
+        // 零影响）；名单钱包买入（任意过尘门行，价格可靠性无关——在场即毒标记）→ >0 拒。
+        // 累计不冻结不回退（团队钱包任何时候进场都标记本票）；cheatCrewWallets=命中
+        // 成员数（观察键，signals 页 chip/维护扫描用）。键域小写对齐 famous 命中侧。
+        let cheatCrewBuyBnb = 0;
+        let cheatCrewWallets = 0;
+        if (_cheatCrewWallets && _cheatCrewWallets.size > 0) {
+            for (const [addr, v] of state._buyerVolume) {
+                if (v > 0 && _cheatCrewWallets.has(addr.toLowerCase())) {
+                    cheatCrewBuyBnb += v;
+                    cheatCrewWallets++;
+                }
+            }
+            cheatCrewBuyBnb = Math.round(cheatCrewBuyBnb * 1e4) / 1e4;
+        }
+
         // trend*：10s 桶价格序列（8 点窗，与 TrendDetector 固定窗口口径一致）
         const prices = state._priceSeries.map(p => p.price);
         const factors = {
@@ -4063,6 +4194,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             // T177（2026-11-18 0x6510…7777 案用户立法）出生窗最大同块卖出簇钱包数——
             // ≥10 捆绑砸盘绝对 veto 载体（ladder v30 条件串消费）；口径见 _launchBundleFactors
             launchSellBundleClusterSize: launch.launchSellBundleClusterSize,
+            // T178（2026-11-18 0xa025…7777 案两波捆绑买入）波数+占流动性比两键——
+            // ladder v31 G4 绝对 veto 载体；口径见 _launchBundleFactors
+            launchBuyBundleWaves: launch.launchBuyBundleWaves,
+            launchBuyBundleDominancePct: launch.launchBuyBundleDominancePct,
             // TOP1 持仓集中度（2026-10-16 用户裁定门键；0=无持仓证据零值非 null；
             // 口径=链上交易者集中度，creator 预 mint 不在分子，见上方注释）
             top1HolderCircPct,
@@ -4080,6 +4215,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             // sybil 大簇钱包合计净持仓占比（2026-10-20 乌龟案用户裁定；null=未启用
             // IS NULL 臂放行 / 0 起=有证据零值；口径=合计非单钱包最大，见上方注释）
             sybilClusterHolderCircPct,
+            // 做市/作弊团队名单累计买入两键（T179 bt-v147 瞬时V案；cheatCrewBuyBnb=
+            // ladder v31 G5（同车 T178+T179） 绝对 veto 载体，0=名单未启用/无命中放行；cheatCrewWallets=
+            // 命中成员数观察键；见上方注释块）
+            cheatCrewBuyBnb,
+            cheatCrewWallets,
 
             trendDataPoints: prices.length,
 
