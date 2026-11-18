@@ -152,7 +152,7 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 
 **单测**：`_test_buy_point_lib.cjs` A14 段六断言 561→**567** 全绿：主案数值反证（夹具 9101=blk581 复刻 4 卖方 1.3427/-20.13%；贴锚 9s → ratio null 保持；followBuy 旧 0.4634→新 **0.1443**，10.7%<30% vs 34.5% 过线）；dump2 相邻对窗语义不变（endDt 9 → 0.1246）；state 渲染含剔除说明；无序匹配（9202 先卖后买同剔）+跨块回补照计（砸块卖方 9203 买回计入）+ratio 分子同源锁。`_test_buy_point_check_service.cjs` 41、`_test_factor_prebuy_check.cjs` 174 回归全绿。
 
-**182 对拍**：（待补——commit+pull 后跑 tmp-bp87-6957-parity 三连，期望 entry_shape 翻 malicious_dump 综 poor·entry_gate 拒）
+**182 对拍（tmp-bp87-6957-parity 三连，2026-11-18）**：**3/3 翻案达成**——entry_shape=**malicious_dump(0.47/0.47/0.45)** 综 **poor·entry_gate 拒买**（旧口径=normal_dip(0.54) 综 neutral·gates_passed 放行）；快照锚 followBuyBnb=**0.1343**（=0.0197+0.0099+0.0066+0.0982，闪进闪出 0.3191 已剔；对砸卖 1.3427=**10.0%<30%** 参考线 → 贴锚臂判「无人接」第四腿立）secToAnchor=9 贴锚形状保持；Jev 稳定零方差（tokens=36511 三连同额）。⚠坑留档：对拍脚本锚串必须带 `Z`——182 时区 UTC-8，裸 ISO 串被当本地时间→截窗早 8h=0 行 insufficient_ticks 假象。
 
 **余留**：候选 B（T142 破发豁免被恶意砸利用）/候选 C（CD400 绝对线被单笔 0.098 scalper 清掉）留档攒批；案源票 `price_usd` 列脏数据观察（隐含 BNB=$0.75 vs 同窗正常行 750.38=quote 汇率源错配——信号价/虚拟成交价=price_bnb×隐含汇率故显示价 ×0.75 于 tick 域；门链锚全走 price_bnb 域不受影响、PnL% 两腿同源无失真；trades 页 review quote 盘票时留意）。
 
