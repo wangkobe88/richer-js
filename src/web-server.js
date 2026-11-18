@@ -2759,6 +2759,58 @@ class RicherJsWebServer {
       }
     });
 
+    // 🧠 聪明钱钱包名单（data/kol-study/smartmoney-accum.json——GMGN /v1/user/smartmoney
+    // 流快照 union 累积，scripts/gmgn-kol/tmp-smartmoney-accumulate.cjs 182 持续采集，
+    // 文件下载到本地即生效）：signals 页价格图聪明钱操作标记的数据源（famous 同款机制）。
+    // sources.kol 为对照流计数进 meta 不进名单（KOL 载体=famous roster，防止双语义）；
+    // 文件缺席=空名单 200（data 研究工件非必配，前端零标记 fail-open）；mtime 缓存
+    // （累积器重跑/换文件重启不必）。
+    this.app.get('/api/rosters/smart-money-wallets', (req, res) => {
+      try {
+        const dataPath = path.resolve(__dirname, '..', 'data', 'kol-study', 'smartmoney-accum.json');
+        if (!fs.existsSync(dataPath)) {
+          return res.json({ success: true, data: { wallets: [], profiles: {}, meta: { reason: 'file_missing' } } });
+        }
+        const stat = fs.statSync(dataPath);
+        if (!this._smartMoneyCache || this._smartMoneyCache.cacheKey !== stat.mtimeMs) {
+          const parsed = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+          const sources = (parsed && parsed.sources && typeof parsed.sources === 'object') ? parsed.sources : {};
+          const smartSrc = (sources.smartmoney && typeof sources.smartmoney === 'object') ? sources.smartmoney : {};
+          const kolSrc = (sources.kol && typeof sources.kol === 'object') ? sources.kol : {};
+          const wallets = [];
+          const profiles = {};
+          for (const [addr, info] of Object.entries(smartSrc)) {
+            const w = String(addr).toLowerCase();
+            wallets.push(w);
+            profiles[w] = {
+              twitterUsername: (info && info.twitter) || null,
+              name: (info && info.name) || null,
+              tags: (info && Array.isArray(info.tags)) ? info.tags : [],
+              hits: Number(info && info.hits) || 0,
+              usd: Number(info && info.usd) || 0,
+              lastSeen: (info && info.lastSeen) || null,
+            };
+          }
+          this._smartMoneyCache = {
+            cacheKey: stat.mtimeMs,
+            wallets,
+            profiles,
+            meta: {
+              snapshots: Number(parsed && parsed.snapshots) || 0,
+              startedAt: (parsed && parsed.startedAt) || null,
+              smartmoney: Object.keys(smartSrc).length,
+              kol: Object.keys(kolSrc).length, // 对照流计数（不进名单）
+            },
+          };
+        }
+        const { cacheKey: _smk, ...smartPayload } = this._smartMoneyCache;
+        res.json({ success: true, data: smartPayload });
+      } catch (error) {
+        this.logger.error('WebServer', '读取聪明钱名单失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // Holder 走势图数据（2026-10-15 ticks 化重建）：单 token 全量 ticks 重放 holderCount
     // 时序，口径与 FA _applyWalletAggregation bit 一致（五要素见 holder-series.js 头注）。
     // 全局口径不挂实验（holderCount 是 token 全局属性，虚拟/回测实验同图同值）；
