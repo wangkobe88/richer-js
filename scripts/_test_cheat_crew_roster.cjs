@@ -216,11 +216,11 @@ async function main() {
             assert.ok(read(f).includes('loadCheatCrewWallets'), `${f} 缺 loader 接线`);
         }
     });
-    check('ladder v31 G5（同车 T178+T179） 门串在位（deploy 脚本）', () => {
+    check('ladder G5 门串在位（deploy 脚本；版本锁随 T180 v32 bump 同步——G5 在 v31 引入沿用至 v32+）', () => {
         const src = read('scripts/deploy-signal-source-strategies.cjs');
         assert.ok(src.includes("CREW_VETO_GATE = ' AND cheatCrewBuyBnb == 0'"), 'G5 门串缺失');
         assert.ok(src.includes('l.condition += CREW_VETO_GATE'), 'G5 未拼进腿');
-        assert.ok(src.includes('信号源阶梯 v31'), '版本号未 bump v31（同车）');
+        assert.ok(src.includes('信号源阶梯 v32'), '版本号未至 v32（T180）');
     });
 
     FourMemeFactorAggregator.setCheatCrewWalletsForTest(null);
