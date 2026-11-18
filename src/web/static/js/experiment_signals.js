@@ -3564,6 +3564,13 @@ class ExperimentSignals {
           const actBadge = actBucket
             ? `<span class="text-xs px-2 py-1 rounded-full border ${gateBucketClass(actBucket)}">活跃度 ${this._escapeHtml(String(actBucket))}</span>`
             : '';
+          // 盘面 burst 徽章（2026-11-18 用户要求一眼可见）：BP68/T144 act 题退役后
+          // burst 档不再由 BP 产出，sbw=burst 是盘面 burst 的唯一载体——原来只在
+          // 16 题明细折叠里可见；与活跃度徽章并排展示（不拦买入，形状标注）
+          const sbwBucket = (cheatCheckInfo.buckets && cheatCheckInfo.buckets.stallBurstWave) || null;
+          const burstBadge = sbwBucket === 'burst'
+            ? `<span class="text-xs px-2 py-1 rounded-full border border-indigo-400 bg-indigo-200 text-indigo-900 font-bold" title="cheat 门停滞突发波判定 sbw=burst：沉积后一波操盘形状（不拦买入；CD397 豁免资格臂输入）">⚡ 盘面 burst</span>`
+            : '';
           const EXEMPT_LABELS = {
             activity_high: '活跃度豁免（high 档）',
             activity_ultra: '活跃度豁免（ultra 档）',
@@ -3618,7 +3625,7 @@ class ExperimentSignals {
           <div class="mt-2 pt-2 border-t border-gray-600">
             <div class="flex items-center justify-between mb-1">
               <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测（买信号门 CD158）</div>
-              <div class="flex items-center gap-1 flex-wrap justify-end">${gBadge}${actBadge}</div>
+              <div class="flex items-center gap-1 flex-wrap justify-end">${gBadge}${actBadge}${burstBadge}</div>
             </div>
             <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
               ${g === 'unhealthy' && cheatCheckInfo.unhealthyGrades != null ? `<div><span class="text-amber-200">unhealthy 判定次数:</span> ${cheatCheckInfo.unhealthyGrades}（下个买信号自动重判）</div>` : ''}
