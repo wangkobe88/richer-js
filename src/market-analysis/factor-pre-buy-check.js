@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP18'; // FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
+const FACTOR_PREBUY_VERSION = 'FP18'; // FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会；并行 T180 二修已把版本断言预同步 FP18 给本臂让位）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -706,6 +706,15 @@ function buildFactorGates(parts) {
       line: 'wave≥8 ∧ dom≥30（首2s尘线钱包挤入 ∧ 捆绑块占窗买）', hit: parts.armHits.includes('launch_squad_dominance'),
     });
   }
+  // FP18 尾部接刀（T182）
+  {
+    const bdk = parts.bd || {};
+    g.push({
+      id: 'tail_dip_knife', label: 'T182·尾部接刀',
+      value: `ath${d(bdk.athVsLaunchPct, '%')} curVs${d(bdk.currentVsLaunchPct, '%')} chg5${d(bdk.chg5Pct, '%')} chg30${d(bdk.chg30Pct, '%')}`,
+      line: '域(ath≥40∧curVs≤28.5) ∧ chg5<-5 ∧ chg30<-5（崩塌进行时非插针）', hit: parts.armHits.includes('tail_dip_knife'),
+    });
+  }
   // act 族（trace 同源 judgeActivityLevel）
   {
     const t = parts.activity.trace || {};
@@ -945,6 +954,18 @@ function armLaunchSquad(bd) {
   return ls.waveWallets >= LAUNCH_SQUAD_MIN_WALLETS && ls.domPct >= LAUNCH_SQUAD_MIN_DOM_PCT;
 }
 
+/** FP18 尾部接刀：域（拉高过 ∧ 回到触发线内低位）∧ 5s 急跌 ∧ 30s 同向 → 拒
+ *  tail_dip_knife（T182）。双腿刀缺一不拦：chg30 企稳（≥-5）的瞬间深针=V 型
+ *  反弹入场点（dae106 chg30=-1.7/chg5=-13.1 → ep+88 正票）刻意保护。 */
+function armTailDipKnife(bd) {
+  if (!bd) return false;
+  if (typeof bd.athVsLaunchPct !== 'number' || bd.athVsLaunchPct < TAIL_KNIFE_MIN_ATH_VS_PCT) return false;
+  if (typeof bd.currentVsLaunchPct !== 'number' || bd.currentVsLaunchPct > TAIL_KNIFE_MAX_CUR_VS_PCT) return false;
+  if (typeof bd.chg5Pct !== 'number' || bd.chg5Pct >= TAIL_KNIFE_MAX_CHG5_PCT) return false;
+  if (typeof bd.chg30Pct !== 'number' || bd.chg30Pct >= TAIL_KNIFE_MAX_CHG30_PCT) return false;
+  return true;
+}
+
 /** CD412 极端捆绑砸盘：同块独立卖方 ≥15 ∧ 块卖 ≥1 BNB → 拦（不看承接比）；破发豁免 */
 function armExtremeDumpSellers(cd, bd) {
   if (typeof cd.nearDumpWorstSellers !== 'number' || cd.nearDumpWorstSellers < EXTREME_DUMP_MIN_SELLERS) return false;
@@ -1082,6 +1103,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     else if (armBurstBundledWave(cd)) arms.push('cd405_burst_bundled_wave');
     else if (armBurstWeakWave(snapshot.buyDerived)) arms.push('burst_weak_wave'); // FP13 burst 弱波（无大户认可+无压箱，T174 联立线）
     else if (armLifecycleBurstResidual(snapshot.buyDerived, cd)) arms.push('lifecycle_burst_residual'); // FP16 大周期 burst 残局（走过一轮+burst 不买，2026-11-18）
+    else if (armTailDipKnife(snapshot.buyDerived)) arms.push('tail_dip_knife'); // FP18 尾部接刀（T182：域内崩塌进行时不接刀——域腿不可去掉，对照组接刀是肥尾机会）
     else if (armExtremeDumpSellers(cd, snapshot.buyDerived)) arms.push('cd412_extreme_dump_sellers');
     else if (armDenseDump(snapshot.buyDerived) && !domFall.observe) arms.push('cd414_dense_dump'); // FP7 短窗持续密集砸盘（observe 命中票排除——famous 场景归观察）
     else if (armSlowPumpUnload(snapshot)) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）

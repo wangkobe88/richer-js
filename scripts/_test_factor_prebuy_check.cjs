@@ -1016,5 +1016,63 @@ console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入�
   });
 }
 
+// ═════ U. FP19/T182 尾部接刀臂（bt-v147 0x51d9e360…7777「选择」案研究立法） ═════
+// 用户直觉「活跃很久+深跌+性价比位买入应配不同卖出」→ 卖侧六模拟否证（多卡+
+// stallClose 已近最优）→ 归因买侧：起涨/死盘 3/3 跨窗分离（买时 5s 动量）→ 本臂。
+// 域腿（ath≥40∧curVs≤28.5）是灵魂：对照组（早期/薄量）接刀全量 epΣ=+295.7 肥尾
+// 在场（dae106 +88）——去域腿=砍早期肥尾。chg30 腿排插针：dae106 chg30=-1.7 企稳
+// 深针 → ep+88 刻意放行。全量重放 43 票 epΣ=-276pp 全负。断言值全部取 182 真实回放。
+console.log('U. FP19 尾部接刀臂（T182）');
+{
+  const TK = (athVs, curVs, chg5, chg30) => SNAP({
+    wallets: [W(0.3, 0, 0.3), W(0.25, 0, 0.25)], // pvp big_buyers_present 不抢拒码
+    buyDerived: { athVsLaunchPct: athVs, currentVsLaunchPct: curVs, chg5Pct: chg5, chg30Pct: chg30,
+      bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 3 } },
+  });
+  check('U1 案源 0x4e2d2891（bt-v147 真实回放 ath=50/curVs=19.7/chg5=-5.6/chg30=-12.7 → ep=-28.4）→ 拒 tail_dip_knife', () => {
+    const r = M.evaluateFactorPreBuy(TK(50, 19.7, -5.6, -12.7));
+    assert.strictEqual(r.pass, false);
+    assert.strictEqual(r.reason, 'tail_dip_knife');
+    assert.ok(r.arms.includes('tail_dip_knife'));
+  });
+  check('U2 域外·无拉升历史 ath=30 → 放（对照组接刀是肥尾机会——域腿保护）', () => {
+    assert.strictEqual(M.evaluateFactorPreBuy(TK(30, 19.7, -13.0, -25)).pass, true);
+  });
+  check('U3 域外·未回到低位 curVs=35 → 放', () => {
+    assert.strictEqual(M.evaluateFactorPreBuy(TK(120, 35, -13.0, -25)).pass, true);
+  });
+  check('U4 刀缺一·chg30 企稳插针（dae106 真实回放 chg5=-13.1/chg30=-1.7 → mx+204/ep+88）→ 放', () => {
+    assert.strictEqual(M.evaluateFactorPreBuy(TK(74, 23.7, -13.1, -1.7)).pass, true);
+  });
+  check('U5 刀缺一·chg5 未达急跌线 -4.9 → 放', () => {
+    assert.strictEqual(M.evaluateFactorPreBuy(TK(120, 20, -4.9, -25)).pass, true);
+  });
+  check('U6 边界：chg5=-5.0 恰在线上不拦（严格 <）', () => {
+    assert.strictEqual(M.evaluateFactorPreBuy(TK(120, 20, -5.0, -25)).pass, true);
+  });
+  check('U7 深崩案 0x6dcc6893（chg5=-54.8/chg30=-54.5/ath=355 → ep=-3.8 假起涨）→ 拒', () => {
+    const r = M.evaluateFactorPreBuy(TK(355, 14.7, -54.8, -54.5));
+    assert.strictEqual(r.reason, 'tail_dip_knife');
+  });
+  check('U8 null 容缺（athVs/chg5 null=锚缺失）→ 不拦（T143 拒方向证据缺席）', () => {
+    assert.strictEqual(M.evaluateFactorPreBuy(TK(null, 20, -13, -25)).pass, true);
+    assert.strictEqual(M.evaluateFactorPreBuy(TK(120, 20, null, -25)).pass, true);
+    assert.strictEqual(M.evaluateFactorPreBuy(TK(120, null, -13, -25)).pass, true);
+    assert.strictEqual(M.evaluateFactorPreBuy(TK(120, 20, -13, null)).pass, true);
+  });
+  check('U9 gates 门行在位（信号页②因子检查卡展示 ath/curVs/chg5/chg30 值）', () => {
+    const r = M.evaluateFactorPreBuy(TK(50, 19.7, -5.6, -12.7));
+    const g = r.gates.find((x) => x.id === 'tail_dip_knife');
+    assert.ok(g, 'tail_dip_knife 门行缺失');
+    assert.strictEqual(g.hit, true);
+    assert.ok(g.value.includes('50') && g.value.includes('-5.6') && g.value.includes('-12.7'));
+    const g2 = M.evaluateFactorPreBuy(TK(74, 23.7, -13.1, -1.7)).gates.find((x) => x.id === 'tail_dip_knife');
+    assert.strictEqual(g2.hit, false);
+  });
+  check('U10 版本 FP18（T182 尾部接刀；并行 T180 二修版本断言预同步让位）', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP18');
+  });
+}
+
 console.log(`\n结果: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
