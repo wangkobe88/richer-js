@@ -1255,7 +1255,60 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       }
     }
     let whaleWallets = 0;
-    for (const b of perWallet.values()) if (b >= BP_BURST_WHALE_BNB) whaleWallets++;
+    let whaleMergedGroups = 0;
+    // T174b/FP14 合并口径（2026-11-18 bt-v144 M4GA 0xba5ed45b…e444 案用户裁定：
+    // 「burst 中钱包购买是捆绑或者同额，视为一个钱包。这样这个可以豁免无大户」）
+    // ——波内**同块捆绑 ∨ 同额**的钱包=同一实体（T172 launchBigBuyBnb 合并同族：
+    // 组织性堆单背后是一个买家），并查集聚合后实体金额 ≥0.15 计一个大户；组内
+    // 钱包不再单独计（防重复）。M4GA 案=CD420 豁免票（锚后 +730%）被 FP13 首版
+    // 「大户 0 户」误拦——frenzy 波由 0.02~0.04 级杂单同块/相邻 slot 堆起，逐户
+    // 计数无一大户、合并后单实体 0.3B+。同额组=per-wallet 波窗买合计四位归一
+    // （toFixed(4)，T172/FA evenCluster 同款浮点安全口径）全等；合并为放行方向
+    // （豁免拒线）——巧合同额散户并组=漏拦非误拦，方向安全。
+    {
+      // 同块组：波窗 buy 行按 block 聚钱包
+      const byBlock = new Map();
+      for (const t of ticks) {
+        if (t.dt === null || t.dt === undefined || t.dt < exitDt || t.dt > winEnd) continue;
+        if (t.side !== 'BUY' || t.block === null || t.block === undefined || !t.wallet) continue;
+        const w = String(t.wallet).toLowerCase();
+        if (!byBlock.has(t.block)) byBlock.set(t.block, new Set());
+        byBlock.get(t.block).add(w);
+      }
+      // 并查集（波内钱包为节点）
+      const parent = new Map();
+      for (const w of perWallet.keys()) parent.set(w, w);
+      const find = (x) => { let r = x; while (parent.get(r) !== r) r = parent.get(r); let c = x; while (parent.get(c) !== c) { const n = parent.get(c); parent.set(c, r); c = n; } return r; };
+      const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb); };
+      for (const s of byBlock.values()) {
+        const arr = [...s];
+        for (let i = 1; i < arr.length; i++) union(arr[0], arr[i]);
+      }
+      // 同额组：per-wallet 合计四位归一全等（≥2 户）
+      const byAmt = new Map();
+      for (const [w, b] of perWallet) {
+        const k = b.toFixed(4);
+        if (!byAmt.has(k)) byAmt.set(k, []);
+        byAmt.get(k).push(w);
+      }
+      for (const arr of byAmt.values()) {
+        for (let i = 1; i < arr.length; i++) union(arr[0], arr[i]);
+      }
+      // 实体聚合：金额=Σ成员 perWallet；whale=实体 ≥0.15；mergedGroups=过线实体中成员 ≥2 的组数
+      const entityBnb = new Map(), entityMembers = new Map();
+      for (const [w, b] of perWallet) {
+        const r = find(w);
+        entityBnb.set(r, (entityBnb.get(r) || 0) + b);
+        if (!entityMembers.has(r)) entityMembers.set(r, []);
+        entityMembers.get(r).push(w);
+      }
+      for (const [root, b] of entityBnb) {
+        if (b >= BP_BURST_WHALE_BNB) {
+          whaleWallets++;
+          if (entityMembers.get(root).length >= 2) whaleMergedGroups++;
+        }
+      }
+    }
     let preWaveBuyBnb = 0;
     for (const t of ticks) {
       if (t.dt === null || t.dt === undefined) continue;
@@ -1267,6 +1320,7 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       waveBuyBnb: +waveBuyBnb.toFixed(4),
       waveWallets: perWallet.size,
       whaleWallets,
+      whaleMergedGroups,
       preWaveBuyBnb: +preWaveBuyBnb.toFixed(4),
     };
   })();

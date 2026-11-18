@@ -896,6 +896,37 @@ console.log('A13. burstWaveQuality 手算（T174：出口定位/波窗 per-walle
   ];
   ok(buildBuyPointSnapshot(rowsQNoStall, metaA).buyDerived.burstWaveQuality === null,
     'A13: 无 ≥30s 静默段 → 整体 null（宁不拦——拒方向证据缺席）');
+  // ── T174b/FP15 合并口径（M4GA 0xba5ed45b…e444 案：同块捆绑 ∨ 同额视为一个钱包）──
+  // 同块组：3 户 ×0.05 同块 → 合并实体 0.15 恰过线=1 个大户（合并组 1）→ FP 放行
+  const rowsMBlk = [
+    row(5, 'BUY', W_B, 0.3, 1.0 * E9, 3e8),
+    row(60, 'BUY', W_D, 0.05, 6.0 * E9, 8e6, { block: 2000 }),
+    row(60, 'BUY', W_E, 0.05, 6.1 * E9, 8e6, { block: 2000 }),
+    row(60, 'BUY', W_F, 0.05, 6.2 * E9, 8e6, { block: 2000 }),
+  ];
+  const qM = buildBuyPointSnapshot(rowsMBlk, metaA).buyDerived.burstWaveQuality;
+  ok(qM.whaleWallets === 1 && qM.whaleMergedGroups === 1 && FPM.armBurstWeakWave({ burstWaveQuality: qM }) === false,
+    `A13b: 同块捆绑合并（3×0.05 → 实体 0.15 过线=大户 1 组 1 → 放行；M4GA frenzy 杂单堆形状——实际 ${qM.whaleWallets}/${qM.whaleMergedGroups}）`);
+  // 同额组跨块：W_G/W_H 各 0.08（不同块）→ 四位归一同额 → 实体 0.16 过线
+  const rowsMAmt = [
+    row(5, 'BUY', W_B, 0.3, 1.0 * E9, 3e8),
+    row(60, 'BUY', W_G, 0.08, 6.0 * E9, 1.3e7),
+    row(61, 'BUY', W_H, 0.08, 6.2 * E9, 1.3e7),
+  ];
+  const qA2 = buildBuyPointSnapshot(rowsMAmt, metaA).buyDerived.burstWaveQuality;
+  ok(qA2.whaleWallets === 1 && qA2.whaleMergedGroups === 1 && FPM.armBurstWeakWave({ burstWaveQuality: qA2 }) === false,
+    `A13b: 同额跨块合并（0.08+0.08 → 实体 0.16 过线——实际 ${qA2.whaleWallets}/${qA2.whaleMergedGroups}）`);
+  // 合并不足线：2 户 ×0.05 同块=0.10 <0.15 → 仍无大户 → 拦
+  const rowsMSub = [
+    row(5, 'BUY', W_B, 0.3, 1.0 * E9, 3e8),
+    row(60, 'BUY', W_D, 0.05, 6.0 * E9, 8e6, { block: 2001 }),
+    row(60, 'BUY', W_E, 0.05, 6.1 * E9, 8e6, { block: 2001 }),
+  ];
+  const qS = buildBuyPointSnapshot(rowsMSub, metaA).buyDerived.burstWaveQuality;
+  ok(qS.whaleWallets === 0 && FPM.armBurstWeakWave({ burstWaveQuality: qS }) === true,
+    `A13b: 合并后仍不足线（0.10<0.15 无大户 → 照拦——实际 ${qS.whaleWallets}）`);
+  // 原 A13 主夹具回归：不同块不同额的独立钱包不受合并影响（0 户保持）
+  ok(q.whaleWallets === 0, 'A13b: 独立钱包（不同块不同额）不合并不受影响（rowsQ 回归 0 户）');
 }
 
 // ═══════════════ B. 窗语义边界 ═══════════════

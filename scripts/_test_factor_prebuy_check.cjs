@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null version=FP1', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP14'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP15'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP14');
+    assert.strictEqual(r.version, 'FP15');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -786,7 +786,7 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP12（T167b 破发豁免上线）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP14'); // FP14=T175/AF1 前置门配套 N 升格臂（FP13 burst 弱波→FP14）
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP15'); // FP15=T174b burst 弱波大户合并口径（FP14=T175/AF1 配套）
   });
 }
 
@@ -834,7 +834,7 @@ console.log('Q. FP13 burst 弱波拦截线（T174：无大户认可 ∧ 无压�
     const g = r.gates.find((x) => x.id === 'burst_weak');
     assert.ok(g && g.label.includes('burst弱波'), g && g.label);
     assert.strictEqual(g.hit, true);
-    assert.ok(g.value.includes('0户') && g.value.includes('0.6B'), g.value);
+    assert.ok(g.value.includes('0实体') && g.value.includes('0.6B'), g.value);
     assert.ok(g.line.includes('压箱<1B'), g.line);
   });
 }

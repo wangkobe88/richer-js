@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP14'; // FP14=T175/AF1 前置门配套（N 通道升格臂 n_no_retail_entry）
+const FACTOR_PREBUY_VERSION = 'FP15'; // FP14=T175/AF1 前置门配套（N 通道升格臂 n_no_retail_entry）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -320,6 +320,12 @@ const SBW_PROXY_WAVE_NEAR_SEC = 60;
 const SBW_PROXY_MEDIAN_DUST_BNB = 0.05;
 
 // ── FP13 burst 弱波拦截线（T174，2026-11-18 burst 复审立法，用户裁定「落线A」；
+//    **FP15/T174b 二修（2026-11-18 bt-v144 M4GA 0xba5ed45b…e444 案）**：波内大户
+//    计数改**合并口径**——「同块捆绑 ∨ 同额」的钱包视为一个钱包（T172 同族，
+//    用户裁定原话「burst 中钱包购买是捆绑或者同额，视为一个钱包。这样这个可以
+//    豁免无大户」）；M4GA=CD420 豁免票（锚后 +730%）被首版逐户计数误拦（frenzy
+//    波 0.02~0.04 级杂单堆起、逐户无一大户、合并后单实体 0.3B+）。口径在
+//    snapshot 侧 burstWaveQuality（whaleWallets/whaleMergedGroups，并查集聚合）。
 //    burst 三维度分析：大户轴单调（0/1/≥2 → 均 +0.013/+0.012/+0.037）、压箱轴单调
 //    （<1B/1~3B/≥3B → 均 +0.015/+0.021/+0.023）、波涨幅/出口位置中性。线=两轴
 //    **联立**：波内无 ≥0.15 大户 ∧ 出口前压箱 <1B=「既无大户认可又无交易沉淀」
@@ -703,9 +709,9 @@ function buildFactorGates(parts) {
       line: '去尘捆绑≥7户', hit: parts.armHits.includes('cd405_burst_bundled_wave'),
     });
     g.push({
-      id: 'burst_weak', label: 'FP13·burst弱波（无大户+无压箱）',
-      value: `波内大户${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.whaleWallets, '户')} 压箱${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.preWaveBuyBnb, 'B')}`,
-      line: '联立：大户=0 ∧ 压箱<1B（无段不拦）', hit: parts.armHits.includes('burst_weak_wave'),
+      id: 'burst_weak', label: 'FP15·burst弱波（无大户+无压箱）',
+      value: `波内大户${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.whaleWallets, '实体')}(合并${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.whaleMergedGroups, '组')}) 压箱${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.preWaveBuyBnb, 'B')}`,
+      line: '联立：大户=0 ∧ 压箱<1B（同块∨同额并为一个钱包；无段不拦）', hit: parts.armHits.includes('burst_weak_wave'),
     });
     g.push({
       id: 'cd412', label: 'CD412·极端捆绑砸盘',
@@ -881,8 +887,9 @@ function armBurstBundledWave(cd) {
   return false;
 }
 
-/** FP13 burst 弱波拦截线（T174）：burst 语境（≥30s 静默段出口波在场）∧ 波内
- *  无 ≥0.15 大户（whaleWallets===0 有证据零值）∧ 出口前压箱 <1B → 拒
+/** FP13/FP15 burst 弱波拦截线（T174/T174b）：burst 语境（≥30s 静默段出口波
+ *  在场）∧ 波内无 ≥0.15 大户（**FP14 合并口径**：同块捆绑 ∨ 同额的钱包并为
+ *  一个实体再过线——M4GA 案；whaleWallets===0 有证据零值）∧ 出口前压箱 <1B → 拒
  *  burst_weak_wave——两轴联立才是「既无大户认可又无交易沉淀」的空波（单轴
  *  命中=有厚底子或有大户带队，均为健康票刻意放行）。键源
  *  buyDerived.burstWaveQuality；无段 null/键缺失 → 不拦（宁不拦不冒充）。 */
