@@ -38,6 +38,14 @@ const BP_BURST_SEC = 5;
 const BP_PRICE_BUCKETS = 20;
 /** 发行价覆盖判据容差（秒）：数组最早 dt ≤ 此值 = ticks 含出生段（BP5 发行价锚） */
 const BP_LAUNCH_COVER_TOL = 90;
+/** T180 首两波大部队×高占比锚（2026-11-18 0x17b09420…7777 案，用户裁定迁移
+ * 因子过滤模块）：四参数全与 FA launch 键同线（launchBundleWinMs=90s /
+ * holderDustBnb=0.015 / LAUNCH_FIRST_WAVE_MS=2s / LAUNCH_BUNDLE_WAVE_MIN_WALLETS=5
+ * ——snapshot 镜像口径，判定线在 factor-pre-buy-check launch_squad 臂） */
+const BP_LAUNCH_SQUAD_WIN_SEC = 90;
+const BP_LAUNCH_SQUAD_DUST_BNB = 0.015;
+const BP_LAUNCH_SQUAD_WAVE_SEC = 2;
+const BP_LAUNCH_SQUAD_BLOCK_WALLETS = 5;
 /** 摆动确认阈值（%）：zigzag 反向运动超此值确认峰/谷摆点（BP8 圣诞树原料；初版待校准） */
 const BP_SWING_THRESHOLD_PCT = 20;
 /** 开盘段宽度（秒）：dt < 此值=开盘段（BP18 盘面分类锚——首段购买力结构度量） */
@@ -738,6 +746,15 @@ function computeBuyPointDerived(snapshot, famousRoster) {
   // BP 侧 rel 自算零 CD 改动；破发为负）──
   let launchPriceBnb = null, currentVsLaunchPct = null, launchCovered = null, athVsLaunchPct = null;
   let minVsLaunchPct = null, curVsMinGapPct = null;
+  // T145「经历过破发」历史事实锚·**锚窗版**（FP16 深破豁免/CD412 破发豁免腿消费，
+  // 2026-11-18）：FA 同名键（G1 消费）是全史滚动口径，而 FP 门 snapshot 不合并
+  // FA 因子——此前 buyDerived 恒无此键=CD412 豁免腿自立法读恒 undefined 静默失效
+  // （方向=更拦安全但违背立法意图，CD405 案「投影链五点教训」同族）。分子=锚窗
+  // 全量最低可靠价（截窗长票窗内 min ≥ 全史 min=只偏高不冒充，T134 同约定）；
+  // 分母=min(平台常量, 首笔买入可靠价)——刻意不含滚动最低（分子已是最低，分母
+  // 再含则 ≤0 恒真废门，T142 同款）；截窗长票首买不在窗内 → 分母退化为常量；
+  // 无常量平台/无可靠价 → null（豁免证据缺席不豁免）
+  let launchMinVsFloorPct = null;
   // BP63（KOL 研究 2026-11-12）：famous 入场价锚=**未做 T134 滚动地板**的
   // 票自身首可靠价（研究口径 GMGN launch=首 tick 价）——二修（2026-11-12 对拍实证）：
   // 首版常量优先被 182 探针反证——六票首 tick 全部高开 +12~41%（常量 4.496e-9 上的
@@ -780,6 +797,15 @@ function computeBuyPointDerived(snapshot, famousRoster) {
         if (t.priceBnb > 0 && (minRel === 0 || t.priceBnb < minRel)) minRel = t.priceBnb;
       }
       launchAnchor = floorLaunchPriceBnb(constLaunch, minRel); // 常量平台锚恒有效（不看 launchCovered）
+      // T145 锚窗版：首笔 BUY 可靠价缺席（截窗长票）→ floor 退化为常量（floorLaunchPriceBnb 0 参透传）
+      let firstBuyRel = 0;
+      for (const t of ticks) {
+        if (t.side === 'BUY' && !t.outlier && t.priceBnb > 0) { firstBuyRel = t.priceBnb; break; }
+      }
+      const floorAnchor = floorLaunchPriceBnb(constLaunch, firstBuyRel);
+      if (floorAnchor > 0 && minRel > 0) {
+        launchMinVsFloorPct = +((100 * (minRel / floorAnchor - 1)).toFixed(2));
+      }
     } else if (launchCovered && rel[0].priceBnb > 0) {
       launchAnchor = +rel[0].priceBnb.toFixed(10); // 旧口径：覆盖出生段时的首可靠价
     }
@@ -1325,6 +1351,67 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     };
   })();
 
+  // ── T180 首两波大部队×高占比锚（2026-11-18 0x17b09420…7777 案，用户裁定「放到
+  //    因子过滤模块」——FA launch 键的 snapshot 镜像，FP 因子门 launch_squad 臂原料）：
+  //    waveWallets=首块+首块后 ≤2s 全部块的尘线**首买**钱包数（T150 launchFirstWave
+  //    Wallets 镜像）；domPct=「≥5 尘线钱包同块买入」块（raw 逐块**含复购**）的尘线
+  //    钱包买入合计 ÷ 出生窗总买入 ×100（T178 launchBuyBundleDominancePct 镜像）。
+  //    尘线=窗内每钱包累计买入 ≥0.015（FA holderDustBnb 同线）；wallet=行 sender||
+  //    trader（router 归一为 1 不剔除——FA 同口径）；块号缺失行不入块聚（FA null
+  //    block 写口同向）。窗=dt ≤90（dt=距创建秒，缺失退化 first_tick 与 FA
+  //    firstTickAt 锚同构）；**截窗未覆盖出生段（firstDt>90）→ 整段 null 不评**
+  //    （分母截断会虚高 domPct 误拒——宁不拦）；窗内零买 → null；有买无尘线钱包
+  //    → waveWallets=0/domPct=0 有证据零值。──
+  let launchSquad = null;
+  {
+    const winRows = ticks.filter((t) => t.dt !== null && t.dt !== undefined && t.dt <= BP_LAUNCH_SQUAD_WIN_SEC);
+    const firstDt = winRows.length ? winRows[0].dt : null;
+    if (firstDt !== null && firstDt <= BP_LAUNCH_COVER_TOL) {
+      const wBuy = new Map();
+      const firstBuyBlk = new Map();
+      const blkFirstDt = new Map();
+      const blkBuys = new Map();
+      let winBuyBnb = 0;
+      for (const t of winRows) {
+        const blk = t.block ?? null;
+        if (blk !== null && !blkFirstDt.has(blk)) blkFirstDt.set(blk, t.dt);
+        if (t.side !== 'BUY') continue;
+        winBuyBnb += t.bnb || 0;
+        if (!t.wallet || blk === null) continue;
+        wBuy.set(t.wallet, (wBuy.get(t.wallet) || 0) + (t.bnb || 0));
+        if (!firstBuyBlk.has(t.wallet)) firstBuyBlk.set(t.wallet, blk);
+        let m = blkBuys.get(blk);
+        if (!m) { m = new Map(); blkBuys.set(blk, m); }
+        m.set(t.wallet, (m.get(t.wallet) || 0) + (t.bnb || 0));
+      }
+      if (winBuyBnb > 0) {
+        const dust = (w) => (wBuy.get(w) || 0) >= BP_LAUNCH_SQUAD_DUST_BNB;
+        const fbBlk = winRows[0].block ?? null;
+        const fbTs = fbBlk !== null ? blkFirstDt.get(fbBlk) : undefined;
+        const waveBlocks = new Set(fbBlk !== null ? [fbBlk] : []);
+        if (fbTs !== undefined) {
+          for (const [blk, ts] of blkFirstDt) {
+            if (blk !== fbBlk && ts - fbTs <= BP_LAUNCH_SQUAD_WAVE_SEC) waveBlocks.add(blk);
+          }
+        }
+        let waveWallets = 0;
+        for (const [w, blk] of firstBuyBlk) {
+          if (dust(w) && waveBlocks.has(blk)) waveWallets++;
+        }
+        let squadBlockBnb = 0;
+        for (const m of blkBuys.values()) {
+          let n = 0, bnb = 0;
+          for (const [w, v] of m) if (dust(w)) { n++; bnb += v; }
+          if (n >= BP_LAUNCH_SQUAD_BLOCK_WALLETS) squadBlockBnb += bnb;
+        }
+        launchSquad = {
+          waveWallets,
+          domPct: +(100 * squadBlockBnb / winBuyBnb).toFixed(1),
+        };
+      }
+    }
+  }
+
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
@@ -1351,6 +1438,10 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     // minVsLaunchPct=锚窗涨起后最低可靠价较发行价 %，BP43 restart 重启盘轨迹锚——
     // BP44 修正为「首个突破 almost 上界之后」定义（创新高不遮蔽回落）；2026-11-09 上界 20→10））
     launchPriceBnb, currentVsLaunchPct, athVsLaunchPct, minVsLaunchPct, curVsMinGapPct, launchCovered,
+    launchMinVsFloorPct,
+    // T180 首两波大部队×高占比（{waveWallets,domPct}；截窗不覆盖出生段/窗内零买
+    // → null 不评——FP launch_squad 臂原料，见上方注释）
+    launchSquad,
     // 市值位置族（BP2：supply 缺失全族 null）
     mcapBnb, mcapPeakBnb, mcapFromPeakPct,
     // holder 流向族（BP2：tok 缺失全族 null）

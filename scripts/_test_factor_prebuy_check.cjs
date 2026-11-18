@@ -142,10 +142,10 @@ console.log('D. CD 四臂升格门（CD408）');
 
 console.log('E. 主入口组合');
 {
-  check('E1 全过 → pass=true reason=null version=FP1', () => {
+  check('E1 全过 → pass=true reason=null', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP15'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP17'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP15');
+    assert.strictEqual(r.version, 'FP17');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -785,8 +785,8 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.value.includes('7s') && g.value.includes('0.7493') && g.value.includes('0.75') && g.value.includes('0.25'), g.value);
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
-  check('P13 版本 FP12（T167b 破发豁免上线）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP15'); // FP15=T174b burst 弱波大户合并口径（FP14=T175/AF1 配套）
+  check('P13 版本 FP17（T180 首两波大部队迁入；FP16=大周期 burst 残局）', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP17'); // FP17=T180 launch_squad（FP16=大周期 burst 残局，FP15=T174b burst 弱波合并口径）
   });
 }
 
@@ -836,6 +836,125 @@ console.log('Q. FP13 burst 弱波拦截线（T174：无大户认可 ∧ 无压�
     assert.strictEqual(g.hit, true);
     assert.ok(g.value.includes('0实体') && g.value.includes('0.6B'), g.value);
     assert.ok(g.line.includes('压箱<1B'), g.line);
+  });
+}
+
+
+
+console.log('R. FP16 大周期 burst 残局（2026-11-18 bt-v147 瓦尔哈 0x5fb747c6…7777 案：走过一轮+burst 不买）');
+{
+  // 本案形状夹具：ath 138.2 / 总额 17.6282 / 静默段 343s / 波贴近锚 4s / 波买 0.70B / 浅破 −5.6
+  const BD = (o) => Object.assign({ athVsLaunchPct: 138.2, totalVolumeBnb: 17.6282, launchMinVsFloorPct: -5.6 }, o);
+  const CD = (o) => Object.assign({ burstLastGapSec: 343, burstSecSinceWaveEnd: 4, burstWaveSegBuyBnb: 0.70 }, o);
+  check('R1 本案形状 → 拦 lifecycle_burst_residual', () => {
+    assert.strictEqual(M.armLifecycleBurstResidual(BD(), CD()), true);
+  });
+  check('R2 深破豁免：−10.01 放行（G1 五连收线同线，ASTER −38 类）/ −10 恰线不豁免（严格 <）', () => {
+    assert.strictEqual(M.armLifecycleBurstResidual(BD({ launchMinVsFloorPct: -10.01 }), CD()), false);
+    assert.strictEqual(M.armLifecycleBurstResidual(BD({ launchMinVsFloorPct: -38.4 }), CD()), false);
+    assert.strictEqual(M.armLifecycleBurstResidual(BD({ launchMinVsFloorPct: -10 }), CD()), true);
+  });
+  check('R3 豁免证据缺席（launchMinVsFloorPct null/undefined）→ 照拦（不豁免）', () => {
+    assert.strictEqual(M.armLifecycleBurstResidual(BD({ launchMinVsFloorPct: null }), CD()), true);
+    assert.strictEqual(M.armLifecycleBurstResidual(BD({ launchMinVsFloorPct: undefined }), CD()), true);
+  });
+  check('R4 生命周期腿：ath 99.9 不拦 / 总额 14.99 不拦（本案 17.63 锚定线 15）', () => {
+    assert.strictEqual(M.armLifecycleBurstResidual(BD({ athVsLaunchPct: 99.9 }), CD()), false);
+    assert.strictEqual(M.armLifecycleBurstResidual(BD({ totalVolumeBnb: 14.99 }), CD()), false);
+  });
+  check('R5 burst 结构腿：静默 29s 不拦 / 波远锚 61s 不拦 / 波买 0.29B 不拦 / 任一 null 不拦', () => {
+    assert.strictEqual(M.armLifecycleBurstResidual(BD(), CD({ burstLastGapSec: 29 })), false);
+    assert.strictEqual(M.armLifecycleBurstResidual(BD(), CD({ burstSecSinceWaveEnd: 61 })), false);
+    assert.strictEqual(M.armLifecycleBurstResidual(BD(), CD({ burstWaveSegBuyBnb: 0.29 })), false);
+    assert.strictEqual(M.armLifecycleBurstResidual(BD(), CD({ burstLastGapSec: null })), false);
+    assert.strictEqual(M.armLifecycleBurstResidual(BD(), CD({ burstSecSinceWaveEnd: null })), false);
+  });
+  check('R6 主入口链挂载（burst_weak 后）+ reason=lifecycle_burst_residual（本案 act=high 形状不落 act 臂）', () => {
+    const r = M.evaluateFactorPreBuy(SNAP(Object.assign({}, {
+      wallets: [W(0.3, 0, 0.3, 10)], // PVP 过（0.3 级在场——本案实测 0.3级×7）
+      buyDerived: BD({ bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 5 } }),
+      cheatDerived: CD({}),
+    })));
+    assert.ok(r.arms.includes('lifecycle_burst_residual'), JSON.stringify(r.arms));
+    assert.strictEqual(r.reason, 'lifecycle_burst_residual');
+  });
+  check('R7 gates 含 lifecycle_burst 门（值含 ath/总额/静默/波买，线含深破豁免）', () => {
+    const r = M.evaluateFactorPreBuy(SNAP({
+      wallets: [W(0.3, 0, 0.3, 10)],
+      buyDerived: BD({ bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 5 } }),
+      cheatDerived: CD({}),
+    }));
+    const g = r.gates.find((x) => x.id === 'lifecycle_burst');
+    assert.ok(g && g.label.includes('大周期burst'), g && g.label);
+    assert.strictEqual(g.hit, true);
+    assert.ok(g.value.includes('138.2%') && g.value.includes('17.6') && g.value.includes('343s'), g.value);
+    assert.ok(g.line.includes('深破<−10'), g.line);
+  });
+  check('R8 CD412 破发豁免腿修复（launchMinVsFloorPct 键此前恒 undefined 静默失效）：≤0 豁免不拦', () => {
+    const cd412 = { nearDumpWorstSellers: 15, nearDumpWorstSellBnb: 1.2 };
+    assert.strictEqual(M.armExtremeDumpSellers(cd412, BD({ launchMinVsFloorPct: 0 })), false); // 恰 0（T142 严格 ≤0 豁免线）豁免
+    assert.strictEqual(M.armExtremeDumpSellers(cd412, BD({ launchMinVsFloorPct: -0.5 })), false); // 浅破豁免
+    assert.strictEqual(M.armExtremeDumpSellers(cd412, BD({ launchMinVsFloorPct: 5 })), true); // 未破发照拦
+    assert.strictEqual(M.armExtremeDumpSellers(cd412, BD({ launchMinVsFloorPct: null })), true); // 豁免证据缺席不豁免
+  });
+}
+
+console.log('S. launchMinVsFloorPct 锚窗版（buy-point-snapshot 产键——FP16/CD412 消费；夹具=DB 原始行形状）');
+{
+  const BPS = require(path.join(__dirname, '..', 'src', 'market-analysis', 'buy-point-snapshot.js'));
+  const T0 = '2026-11-01T00:00:00+00:00';
+  const mkRows = (rows) => rows.map((r, i) => ({
+    block_time: new Date(Date.parse(T0) + r.sec * 1000).toISOString(),
+    block_number: 100 + i, log_index: 0, tx_hash: 't' + i,
+    trade_type: r.side, bnb_amount: r.bnb || 0.1, token_amount: 1000,
+    price_bnb: r.p, price_outlier: false,
+    trader_address: '0x' + String(i + 1).padStart(40, '0'), sender_address: null, quote_token: null,
+  }));
+  const meta = (platform) => ({ platform, totalSupply: 1e9, createdAt: T0, creatorAddress: null });
+  const run = (rows, platform) => BPS.buildBuyPointSnapshot(mkRows(rows), meta(platform || 'fourmeme'),
+    { capped: false, anchorTickCount: rows.length, signalInfo: null });
+  // four.meme 常量 4.496e-9；首买 5.0e-9 高于常量 → floor=常量
+  const base = [
+    { sec: 0, side: 'buy', p: 5.0e-9 },
+    { sec: 90, side: 'buy', p: 9.0e-9 },   // ath +100.2%
+    { sec: 400, side: 'sell', p: 6.4e-9 },
+    { sec: 800, side: 'buy', p: 4.45e-9 }, // 窗内最低（4.45<常量 4.496 → 浅破 −1%）
+  ];
+  check('S1 浅破形状（窗内最低 4.45e-9 vs floor=常量 4.496e-9）→ −1.x% 不豁免域（本案瓦尔哈 −1.22 同域）', () => {
+    const v = run(base).buyDerived.launchMinVsFloorPct;
+    assert.ok(typeof v === 'number' && v < 0 && v > -10, `v=${v}`);
+  });
+  check('S2 深破形状（最低 4.0e-9）→ ≤−10 豁免域（ASTER/快速重启票）', () => {
+    const v = run(base.concat([{ sec: 900, side: 'sell', p: 4.0e-9 }])).buyDerived.launchMinVsFloorPct;
+    assert.ok(v <= -10, `v=${v}`);
+  });
+  check('S3 无常量平台（gang）→ null（豁免证据缺席不豁免）', () => {
+    assert.strictEqual(run(base, 'gang').buyDerived.launchMinVsFloorPct, null);
+  });
+  check('S4 低开票 floor=首买价（T142 分母语义 min(常量,首买)；minRel≤首买恒成立 → v≤0）', () => {
+    // 首买 4.0<常量 → floor=4.0；首买即全窗最低 → v=0（首笔即最低从未破位不豁免，严格 <0）
+    const v0 = run([
+      { sec: 0, side: 'buy', p: 4.0e-9 },
+      { sec: 90, side: 'buy', p: 8.0e-9 },
+      { sec: 500, side: 'sell', p: 4.2e-9 },
+    ]).buyDerived.launchMinVsFloorPct;
+    assert.strictEqual(v0, 0);
+    // 首买 4.0 后砸出 3.8（低于首买价=首批买入者被套）→ v=−5%（相对首买价破位）
+    const vn = run([
+      { sec: 0, side: 'buy', p: 4.0e-9 },
+      { sec: 90, side: 'buy', p: 8.0e-9 },
+      { sec: 500, side: 'sell', p: 3.8e-9 },
+    ]).buyDerived.launchMinVsFloorPct;
+    assert.ok(vn < -4.9 && vn > -5.1, `vn=${vn}`);
+  });
+  check('S5 端到端锚定：本案瓦尔哈形状（flap/浅破 −1.22/ath 138.2/总 17.63/静默 343/波买 0.69）→ FP16 拒（2026-11-18 真实回放对拍）', () => {
+    assert.strictEqual(M.armLifecycleBurstResidual(
+      { athVsLaunchPct: 138.2, totalVolumeBnb: 17.6282, launchMinVsFloorPct: -1.22 },
+      { burstLastGapSec: 343, burstSecSinceWaveEnd: 0, burstWaveSegBuyBnb: 0.6905 }), true);
+    // 28ad 慢重启（07:15:58 真实回放对拍）：ath 58.2/总 4.54 → 放行（锚窗滑出保护）
+    assert.strictEqual(M.armLifecycleBurstResidual(
+      { athVsLaunchPct: 58.2, totalVolumeBnb: 4.5434, launchMinVsFloorPct: 0.87 },
+      { burstLastGapSec: null, burstSecSinceWaveEnd: null, burstWaveSegBuyBnb: null }), false);
   });
 }
 

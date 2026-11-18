@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP15'; // FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
+const FACTOR_PREBUY_VERSION = 'FP17'; // FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -340,6 +340,30 @@ const SBW_PROXY_MEDIAN_DUST_BNB = 0.05;
 const BURST_WEAK_PRE_WAVE_BNB = 1;
 /** FP13 波内大户判定线（BNB）：单钱包波窗买合计 ≥此=大户在场（snapshot 侧
  * BP_BURST_WHALE_BNB=0.15 计算口径；此处仅文档线，whaleWallets 计数在 snapshot） */
+
+// ── FP16 大周期 burst 残局（2026-11-18 用户裁定「已经走过一轮比较大生命周期的
+//    代币，不买 burst」，bt-v147 瓦尔哈 0x5fb747c6…7777 案）：票 18.6min 走完主
+//    周期（ATH +138% 地板口径/总量 17.63B/57 买入钱包）→ 静默 343s → 14s burst
+//    波（12 笔买 0.70B/5 笔卖 0.55B，仅 5 钱包）→ RL15 臂触发（T139 滚动地板
+//    溶解价格门：一路阴跌票滚动最低≡现价 → launch 地板随现价下移 → curVs 恒 0）
+//    → AF1 act=high∧sbw=burst high_skip 跳 cheat → BP 全过（act 题第五档 burst
+//    不拦 BP54）→ 买入后 95s 断流 stallClose 逃生。现行体系无任何一层以「生命
+//    周期已完成」为输入——FP5 尾声门四证据中三全中唯总额 17.63<20B 差 2.37B
+//    漏网、CD401 卖压 44.6% 过线但 sbw 代理中位尘埃腿（波内 0.1 级）不成立。
+//    三腿联立：ATH 相对发行价 ≥+100%（用户原话「上涨超过一倍」）∧ 锚窗总额
+//    ≥15B（「交易量也够」，本案 17.63 锚定；FP5 线 20 拦不住本案）∧ burst 结构
+//    在场（最后静默段 ≥30s ∧ 波贴近锚 ≤60s ∧ 波买 ≥0.3B——CD401 结构前提去
+//    中位尘埃腿：大周期票的 burst 波可以有非尘埃钱包，正是本案被 CD401 放过的
+//    原因）；深破豁免 launchMinVsFloorPct < -10（G1 五连收线同线，保 ASTER
+//    −38%/28ad 类真重启票——本案浅破 -5.6 照拦）──
+/** 生命周期门：ATH 相对发行价 ≥+100%「涨超一倍」 */
+const LIFECYCLE_MIN_ATH_PCT = 100;
+/** 生命周期门：锚窗总成交额（BNB）——本案 17.63 锚定（FP5 尾声门 20 线差 2.37B 漏网） */
+const LIFECYCLE_MIN_TOTAL_VOLUME_BNB = 15;
+/** burst 结构前提：最后静默段时长（CD406 BURST_STALL_GAP_SEC 同线） */
+const LIFECYCLE_BURST_STALL_GAP_SEC = 30;
+/** 深破豁免线：launchMinVsFloorPct < 此值放行（G1 五连收线同线；豁免证据缺席不豁免） */
+const LIFECYCLE_BURST_EXEMPT_FLOOR_PCT = -10;
 
 // ═══════════════ retail_pvp 判定（BP84 二修：纯买入侧极简口径） ═══════════════
 
@@ -650,6 +674,15 @@ function buildFactorGates(parts) {
       line: '钱包≥2 ∨ 0.3级≥1 ∨ 捆绑>0.3B', hit: !!parts.pvp.reason,
     });
   }
+  // T180 首两波大部队×高占比（FP17——ladder v32 迁入）
+  {
+    const ls = (parts.bd && parts.bd.launchSquad) || null;
+    g.push({
+      id: 'launch_squad', label: 'T180·首两波大部队×高占比',
+      value: ls ? `wave${d(ls.waveWallets)} dom${d(ls.domPct, '%')}` : '-',
+      line: 'wave≥8 ∧ dom≥30（首2s尘线钱包挤入 ∧ 捆绑块占窗买）', hit: parts.armHits.includes('launch_squad_dominance'),
+    });
+  }
   // act 族（trace 同源 judgeActivityLevel）
   {
     const t = parts.activity.trace || {};
@@ -712,6 +745,11 @@ function buildFactorGates(parts) {
       id: 'burst_weak', label: 'FP15·burst弱波（无大户+无压箱）',
       value: `波内大户${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.whaleWallets, '实体')}(合并${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.whaleMergedGroups, '组')}) 压箱${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.preWaveBuyBnb, 'B')}`,
       line: '联立：大户=0 ∧ 压箱<1B（同块∨同额并为一个钱包；无段不拦）', hit: parts.armHits.includes('burst_weak_wave'),
+    });
+    g.push({
+      id: 'lifecycle_burst', label: 'FP16·大周期burst残局',
+      value: `ath${d(parts.bd && parts.bd.athVsLaunchPct, '%')} 总额${d(parts.bd && parts.bd.totalVolumeBnb, 'B')} 静默${d(cd.burstLastGapSec, 's')} 波买${d(cd.burstWaveSegBuyBnb, 'B')}`,
+      line: 'ath≥100% ∧ 总额≥15B ∧ burst结构（静默≥30s∧波近锚∧波买≥0.3B）；深破<−10豁免', hit: parts.armHits.includes('lifecycle_burst_residual'),
     });
     g.push({
       id: 'cd412', label: 'CD412·极端捆绑砸盘',
@@ -865,6 +903,25 @@ function burstContextBackgroundCold(cd) {
   return cd.burstPreSegBnbPerMin < BURST_CONTEXT_PRESEG_MIN_BNB && cd.burstPreSegTicksPerMin < BURST_CONTEXT_PRESEG_MIN_TICKS;
 }
 
+/** T180 首两波大部队×高占比（2026-11-18 0x17b09420…7777 案，用户裁定「这个阻挡
+ * 没问题，放到因子过滤模块吧，不要放到信号触发模块了」——自 ladder v32 条件串
+ * 迁入）：出生窗（首 90s）首块+首块后 ≤2s 内 **8+ 尘线钱包挤入** ∧ 捆绑块（≥5 户
+ * 同块）占出生窗买入 **≥30%** → 拒。两轴联立才是「组织性大部队拿走流动性」——
+ * wave≥8 单轴三窗全负收益切赢家（有机热门盘 8~21 钱包 2s 挤入常见：bt-v147 17 命中
+ * 净 +0.416 含 da405bd0 wave13 +0.2538/bt-v141 +0.051/bt-v134 +0.065），占比轴才分离
+ * （三窗 436 票命中=案源 −0.0218 救回+0x384fef57 wave21 dom37.8 +0.0034 近零知情
+ * +G3/G4 已拦冗余票+bt-v141 零命中）。键源 buyDerived.launchSquad（buy-point-snapshot
+ * FA launch 键镜像：waveWallets=T150 launchFirstWaveWallets 口径/domPct=T178
+ * launchBuyBundleDominancePct 口径，尘线 0.015/router 归一/raw 含复购波）；锚缺失
+ * （截窗不覆盖出生段/零买）null=不评宁不拦（FP 模块「拒方向证据缺席不拒」惯例）。 */
+const LAUNCH_SQUAD_MIN_WALLETS = 8;
+const LAUNCH_SQUAD_MIN_DOM_PCT = 30;
+function armLaunchSquad(bd) {
+  const ls = bd && bd.launchSquad;
+  if (!ls || typeof ls.waveWallets !== 'number' || typeof ls.domPct !== 'number') return false;
+  return ls.waveWallets >= LAUNCH_SQUAD_MIN_WALLETS && ls.domPct >= LAUNCH_SQUAD_MIN_DOM_PCT;
+}
+
 /** CD412 极端捆绑砸盘：同块独立卖方 ≥15 ∧ 块卖 ≥1 BNB → 拦（不看承接比）；破发豁免 */
 function armExtremeDumpSellers(cd, bd) {
   if (typeof cd.nearDumpWorstSellers !== 'number' || cd.nearDumpWorstSellers < EXTREME_DUMP_MIN_SELLERS) return false;
@@ -895,6 +952,24 @@ function armBurstWeakWave(bd) {
   if (!w || typeof w.whaleWallets !== 'number' || typeof w.preWaveBuyBnb !== 'number') return false;
   if (w.whaleWallets > 0) return false;
   return w.preWaveBuyBnb < BURST_WEAK_PRE_WAVE_BNB;
+}
+
+/**
+ * FP16 大周期 burst 残局：走过一轮大生命周期（ATH ≥+100% ∧ 总额 ≥15B）的票，
+ * burst 结构在场（静默 ≥30s → 出口波贴近锚 ≤60s ∧ 波买 ≥0.3B）→ 拒——「不买
+ * burst」。深破豁免 launchMinVsFloorPct < -10（真重启票放行，G1 五连收线同线）。
+ * null 语义：拒方向证据缺席不拒（ath/总额/静默段/波锚任一 null → 不拦）；
+ * 豁免证据缺席不豁免（launchMinVsFloorPct null → 照拦）。
+ */
+function armLifecycleBurstResidual(bd, cd) {
+  if (!bd || !cd) return false;
+  if (typeof bd.athVsLaunchPct !== 'number' || bd.athVsLaunchPct < LIFECYCLE_MIN_ATH_PCT) return false;
+  if (typeof bd.totalVolumeBnb !== 'number' || bd.totalVolumeBnb < LIFECYCLE_MIN_TOTAL_VOLUME_BNB) return false;
+  if (typeof cd.burstLastGapSec !== 'number' || cd.burstLastGapSec < LIFECYCLE_BURST_STALL_GAP_SEC) return false;
+  if (typeof cd.burstSecSinceWaveEnd !== 'number' || cd.burstSecSinceWaveEnd > SBW_PROXY_WAVE_NEAR_SEC) return false;
+  if (typeof cd.burstWaveSegBuyBnb !== 'number' || cd.burstWaveSegBuyBnb < ACT_BURST_WAVE_BUY_BNB) return false;
+  if (typeof bd.launchMinVsFloorPct === 'number' && bd.launchMinVsFloorPct < LIFECYCLE_BURST_EXEMPT_FLOOR_PCT) return false;
+  return true;
 }
 
 // ═══════════════ famous 两法门（FP3：btv134 复审轮用户两分法立法） ═══════════════
@@ -977,11 +1052,13 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     // 拦截面在豁免链有 A 主判优先语义，无条件臂超范围；AF1 跳过路径接受的
     // 丢失面=「act 恒 high∧纯 N」票，三窗 0 成交实证。版本不 bump：N 臂从未
     // 在任何窗口生效过（commit 与撤回同日，FP15 并行改动叠上））
+    if (armLaunchSquad(snapshot.buyDerived)) arms.push('launch_squad_dominance'); // T180 首两波大部队×高占比（ladder v32 迁入 FP17——用户裁定归因子过滤模块；结构指纹臂置链首）
     if (armDumpNoAbsorption(cd)) arms.push('cd400_dump_no_absorption');
     else if (armDumpLowAbsorption(cd)) arms.push('cd403_dump_low_absorption');
     else if (armBurstExitSellPressure(cd)) arms.push('cd401_burst_exit_sell_pressure');
     else if (armBurstBundledWave(cd)) arms.push('cd405_burst_bundled_wave');
     else if (armBurstWeakWave(snapshot.buyDerived)) arms.push('burst_weak_wave'); // FP13 burst 弱波（无大户认可+无压箱，T174 联立线）
+    else if (armLifecycleBurstResidual(snapshot.buyDerived, cd)) arms.push('lifecycle_burst_residual'); // FP16 大周期 burst 残局（走过一轮+burst 不买，2026-11-18）
     else if (armExtremeDumpSellers(cd, snapshot.buyDerived)) arms.push('cd412_extreme_dump_sellers');
     else if (armDenseDump(snapshot.buyDerived) && !domFall.observe) arms.push('cd414_dense_dump'); // FP7 短窗持续密集砸盘（observe 命中票排除——famous 场景归观察）
     else if (armSlowPumpUnload(snapshot)) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）
@@ -1037,6 +1114,8 @@ module.exports = {
   SLOW_PUMP_MIN_POINTS, SLOW_PUMP_MIN_R2, SLOW_PUMP_MIN_SEC_SINCE_ATH, SLOW_PUMP_MAX_TPM120,
   FAM_HARVEST_MIN_ATH_PCT, FAM_HARVEST_MIN_SOLD_RATIO, FAM_HARVEST_MIN_BUY_PCT, FAM_HARVEST_MAX_CHG30_PCT,
   FAM_BURST_MIN_WAVE_BUY_BNB, FAM_BURST_MIN_SHARE_PCT,
+  LIFECYCLE_MIN_ATH_PCT, LIFECYCLE_MIN_TOTAL_VOLUME_BNB, LIFECYCLE_BURST_STALL_GAP_SEC,
+  LIFECYCLE_BURST_EXEMPT_FLOOR_PCT, armLifecycleBurstResidual,
   FAM_LOW_EXIT_MIN_BUY_BNB, FAM_LOW_EXIT_MIN_SOLD_RATIO, FAM_LOW_EXIT_MAX_PRESENCE_BNB,
   FAM_LOW_EXIT_MAX_VS_PCT, FAM_LOW_EXIT_COOLDOWN_SEC,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
