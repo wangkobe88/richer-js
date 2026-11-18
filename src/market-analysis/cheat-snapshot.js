@@ -57,6 +57,23 @@ const ACTIVITY_UNEVEN_CV = 1.0;
 // 语义，极短窗另有 act ④极早窗豁免臂管）。
 const NEAR_SEG_SEC = 30;
 /**
+ * CD421（2026-11-18 0x9c69…7777 长窗死票孤立脉冲案）段前背景段两常量——
+ * nearPre10Wallets 口径修正（用户裁定 A）：
+ * - NEAR_PRE_BG_SEC=背景段窗长：尾 10s 脉冲紧前的 120 秒（与 D3.73 时间衰减
+ *   加权同窗——「脉冲之前的盘面」的时间范围）。旧口径数「尾 10s 前整个锚窗」
+ *   钱包在长窗死票上结构性失效（案形 1002s 窗：15 分钟前开盘的 10 个一次性
+ *   钱包全被计入「段前」，≤2 参考线稀释到永不满足——65s 纯静默+背景段仅
+ *   3×0.0139 尘埃卖+单秒 3 笔脉冲判 act=high 放行，买后 40s 断流 stallClose）。
+ * - NEAR_PRE_WALLET_DUST_BNB=背景段钱包尘埃线：段内单钱包 buy+sell 合计
+ *   ≥此值才算「真实参与钱包」。定线=常见交易档 0.05（act 题③）的四成、
+ *   tick 尘门 0.001 的 20 倍；0xba67 对倒钱包（段内合计 1.09）保留、本案
+ *   3 个 0.0139 尘埃卖家滤除——「对倒大额托起金额轴不托参与者轴」的原始
+ *   保护方向不变，只补「尘埃卖家不算背景参与」。段内无任何非尘埃钱包=0
+ *   有证据零值（长静默本身就是无人参与的证据，反锚 gap≥15s ∧ 0 两腿成立）。
+ */
+const NEAR_PRE_BG_SEC = 120;
+const NEAR_PRE_WALLET_DUST_BNB = 0.02;
+/**
  * D3.62 聚合路由入口占比最小样本（笔）：锚窗买入 <此值 → routerEntryBuyPct
  * null 不评（G17 N 通道 fail-open 同数）。样本薄时占比噪声大（12 笔里 1 笔
  * 路由=8.3% 已在门内抖动）。363 票分布里 <15 笔买入的低占比票仅 CD161(11)/
@@ -952,9 +969,12 @@ function computeDerived(snapshot, famousRoster) {
   let nearTail10SellWallets = null;
   // D3.75 段前背景两键（0xba67f3e1…7777 案，act 题⑦密集臂段前背景反锚原料）：
   // nearPre10GapSec=尾 10s 窗首行距其上一行的秒数（尾段脉冲紧前的纯静默长度）；
-  // nearPre10Wallets=尾 10s 窗之前的锚窗独立钱包数（sender||trader）。段前无行
-  // （整窗都在尾 10s 内=极早价格发现窗）两键 null fail-open（act 题④极早窗
-  // 反锚另有管辖）；dt 缺失行不计（与尾窗键同口径）。
+  // nearPre10Wallets=尾 10s 窗紧前 NEAR_PRE_BG_SEC(120)s 背景段内非尘埃独立
+  // 钱包数（sender||trader，段内 buy+sell 合计 ≥NEAR_PRE_WALLET_DUST_BNB——
+  // CD421 口径修正：早于背景段的历史钱包与段内尘埃卖家都不算背景参与；段内
+  // 无非尘埃钱包=0 有证据零值）。段前无行（整窗都在尾 10s 内=极早价格发现窗）
+  // 两键 null fail-open（act 题④极早窗反锚另有管辖）；dt 缺失行不计（与尾窗
+  // 键同口径）。
   let nearPre10GapSec = null, nearPre10Wallets = null;
   // D3.73 时间衰减加权活跃度（btv140 复审 BP-T010 1105 一号案用户裁定：「活跃度
   // 窗口主要看 30 秒，但是也要参考 30 秒之前的一段时间，如果窗口前活跃度极低，
@@ -1067,22 +1087,29 @@ function computeDerived(snapshot, famousRoster) {
     // 5 新钱包涌入 0.34；脉冲前 24s 纯静默、段前独立钱包=1。D3.73 时间衰减加权
     // 分被对倒大额托起（1.39 vs 尾 10s 4.14，比值 0.65 不达「远低于」）——金额
     // 轴的时间结构对「有量但无人」的自转对倒失明，须补参与者轴。gap=尾 10s 窗
-    // 首行 dt − 段前行最大 dt（段前无行=null）；wallets=段前行 wallet Set size
-    // （段前无行=0 有证据零值，与 gap null 联动反锚不触发）。──
+    // 首行 dt − 段前行最大 dt（段前无行=null）。wallets（CD421 口径）=背景段
+    // （尾 10s 窗紧前 NEAR_PRE_BG_SEC 秒）内 per-wallet buy+sell 合计达
+    // NEAR_PRE_WALLET_DUST_BNB 的钱包数——旧全窗口径在长窗死票上被历史钱包
+    // 稀释（0x9c69 案 1002s 窗 10 个一次性钱包→旧值 13 永不 ≤2），段内无非
+    // 尘埃钱包=0 有证据零值（与 gap null 联动反锚不触发）。──
     let _preMaxDt = null, _tailMinDt = null;
-    const _pre10W = new Set();
+    const _preBgBnb = new Map();
     for (const t of ticks) {
       if (t.dt === null || t.dt === undefined) continue;
       if (t.dt > _lastDt - 10) {
         if (_tailMinDt === null || t.dt < _tailMinDt) _tailMinDt = t.dt;
       } else {
         if (_preMaxDt === null || t.dt > _preMaxDt) _preMaxDt = t.dt;
-        if (t.wallet) _pre10W.add(t.wallet);
+        if (t.dt > _lastDt - 10 - NEAR_PRE_BG_SEC && t.wallet) {
+          _preBgBnb.set(t.wallet, (_preBgBnb.get(t.wallet) || 0) + (t.bnb || 0));
+        }
       }
     }
     if (_preMaxDt !== null && _tailMinDt !== null) {
       nearPre10GapSec = _tailMinDt - _preMaxDt;
-      nearPre10Wallets = _pre10W.size;
+      let _bgWallets = 0;
+      for (const v of _preBgBnb.values()) if (v >= NEAR_PRE_WALLET_DUST_BNB) _bgWallets++;
+      nearPre10Wallets = _bgWallets;
     }
   }
 
