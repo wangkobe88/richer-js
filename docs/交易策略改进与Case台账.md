@@ -1470,3 +1470,17 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **验证**：428 买点 buildBuyPointSnapshot 重放（复刻 _pullTicksDb 单列 block_time 形状——双列 ORDER BY block_number 在 182 弃索引超时）：双腿命中 43 票（尾部 8 Σ-136/E 组 35 Σ-140）epΣ=**-276pp 全负**、正票仅 7 张 +159.8pp 知情代价（最大 935d1464 +57.6 chg5=-21/chg30=-34.5 深崩中真反弹）；**端到端对拍零差异**（真 evaluateFactorPreBuy 43=研究谓词 43，仅谓词=仅真函数=0）。阈值面稳健（chg5<0∧rise≥0 全变体 epΣ -130~-186 全负）。
 
 **落地**：factor-pre-buy-check.js FP18（并行 T180 二修已把版本断言预同步 FP18 让位；臂序 armLifecycleBurstResidual 后）+gates 门行「T182·尾部接刀」（信号页②因子检查卡）+单测 U 段 10 断言（案源 0x4e2d2891 真实回放值/d域外两放/插针放/边界 -5.0 恰线上不拦/深崩 6dcc/四键 null 容缺/gates 门行/版本锁）174/0+check_service 41+buy_point_lib 561 全绿；灰度随 `fourmemeWs.buyPointCheck.factorCheck.enabled`（生产未开，与 T180/T181 同状态待统一放行）。与 BP59「急跌进行时」轴同语义不同载体——BP 判型方差/BP74 买力豁免放行的面由本纯代码臂兜住。研究脚本 182 `scripts/tmp-tail-entry-sell-study*.cjs`+`tmp-tail-fp*.cjs`（1~10 段+复验+校准+终验）。
+
+**T184 聪明钱涌入状态机+smart-inflow-relay v1 独立回测（2026-11-18，用户两假设连环立法：①famous 分类提案（同日否证留档）②「famous/聪明钱连续涌入互相接盘=好信号」——本文）**
+
+**引子（bt-v150 两误伤案）**：`0xa38b2d94…7777`（FP3 两拒，拒后 +461%）/`0xe7b177aa…7777`（BP 门+FP3 dumping 拒，拒后 +621%）——收割型 famous 快闪砸出全被外部流量接力接住。FP 族拦截面同窗 61 票 58 负中位 -19.4%（整体方向正确），两案=3/61 右侧尾部但肉量（+2.03B）盖过 58 张总止损（-2.61B）。
+
+**famous 分类提案否证（用户提案「短持砸盘型照拦、不砸盘长持型豁免持仓」）**：182 全行为画像（实体=首笔 ≥0.05B、快闪=全清∧首买→末卖 ≤120s）——roster v10 35 址=**19 harvester+4 mixed+10 insufficient+0 holder**，头部中位持有 9~46s（0xa83b 87 票 rate 0.97 medHold 9s；两案触发者 0x3472 6 清仓全快闪）；roster 收录标准（GMGN kol 前排∪点名）天然全是高频 KOL，**名单不存在长持型=分类零作用面**。留档 memory `famous-classify-proposal-rejected`。
+
+**涌入信号研究（用户假设验证）**：实体=名单钱包首笔 ≥0.05B 买入（同块∧金额差<1% 镜像并簇）；事件=600s 窗内 ≥3 实体 strict 接力（相邻首买价 ≥前者×0.98）∧ 链额 ≤5B（>10B 机器对倒桶正率 0% 排除）；每票首事件、事件秒入场。bt-v150 36h 窗三宇宙：famous-only 50 票六参数组全正 +1.2~1.7B / SM-only（smartmoney-accum 158 址）51 票 +1.57B / **UNION 191 址 140 票 60s∧SL20% +3.06B（胜率 39%）——mixed 互接链 106 票 +2.16B=主体贡献**（跨类接力链使事件数远超两名单之和，用户「互相接盘」直觉核心形状）。形状=快进吃脉冲：peak 中位 +43~58%、峰时 p50 仅 29~34s、last 中位 -45%（须快出不能持有）；事件价 vs 首价 p50 +189% 天然中高位与 ladder ≤28.5 域不相交（用户「不适合低价区」实证，atVs<100% 桶 3 票全负）。⚠smartmoney 名单 11-17 起累积用于 10 月窗有前视风险。
+
+**FA 落地（T184 三键）**：参数六枚（inflowMinFirstBnb 0.05/inflowWindowMs 600000/inflowPriceTol 0.02/inflowMaxChainBnb 5/inflowReadyHoldMs 60000/inflowMirrorAmtTol 0.01，factorParams 可覆盖）；状态机 `_noteSmartInflow`/`_evalInflowEvent`——实体表 per token（wallet→{ts,blk,price,amt,members}），镜像并入首见实体（链额相加）、事件 write-once 锁存+chainSize/chainBnb 快照；写点双段（价格段挂 **chainLate 域外**——实体发现用行价不依赖价格可靠链，迟到行照建实体，T133/T137/T183 在价格可靠块内被迟到跳过=刻意不同位；补跑段 smartBotEligible defer 防双计）；发射 `smartInflowReady`（事件后 60s 保持窗，now=buildFactorMap 入参）/`smartInflowChainSize`/`smartInflowChainBnb`（null=无事件）。单测 `_test_smart_inflow_factors` 26 断言+fourmeme_fa_factors 键集白名单 157→160。
+
+**bt-v151 独立回测（f7f21986，用户指令「单独回测不与当前策略混淆」）**：bt-v150 同窗同 maxTickRows、策略整体替换——买腿 `smartInflowReady == 1`（cards:1、buyPhase:first）+卖腿 `realHoldDuration >= 60` 全清 bypass+止损 -20%/扫描 10s、perCardBNB 0.2、门链全删（cheat/BP/factorCheck/stallClose）=研究模拟口径纯净复现。**结果：151 票成交 +2.1607 BNB（胜率 39.07%，59 胜 91 负）**——与模拟 +3.06B 差额=入场时刻偏移（debounce 200ms+节流 3s 冷却的次 tick 价追高）+止损滑点+多 11 票；胜率与研究 39% 完全一致；top 票=研究大肉精确兑现（0x390b 巨鲸 +0.47B/0x9ea1 狮子 +0.39B/0xf6c0 +0.34B）。同窗对照：现行 ladder 体系 bt-v150 +2.21B（203 票）——备选策略单窗战绩与整个 ladder 相当。
+
+**余留**：跨窗验证（换 2~3 窗+smartmoney 名单 as-of 截断）是入法前置；live 执行滑点未计；事件票与 FP 族门冲突（立腿需独立门链或豁免）。memory `fam-inflow-relay-signal-study`。
