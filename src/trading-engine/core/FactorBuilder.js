@@ -69,6 +69,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T122 接近发行价臂（2026-11-07）：现价较首可靠价涨幅 %（BP near_launch 同口径
     // ≤+50% 含破发）——新腿条件串主键，信号复盘需落库；旧 FA/无可靠价 → null 不掩盖
     currentVsLaunchPct: factorResults.currentVsLaunchPct ?? null,
+    // T185 价格动量短窗三键（2026-11-18 recoveryHold「正在回涨」判据载体）：可靠价
+    // 链 5/10/30s 窗动量（序列不可重建）；卖出拦截/触发复盘需 fire 时刻值；
+    // chg5Pct=recoveryHold 主判据、chg10/30 观察；旧 FA/无可靠价 → null 不掩盖
+    chg5Pct: factorResults.chg5Pct ?? null,
+    chg10Pct: factorResults.chg10Pct ?? null,
+    chg30Pct: factorResults.chg30Pct ?? null,
     // T142 破发豁免锚（2026-11-15）：现价 vs 平台常量发行价（纯常量不吃地板）——
     // T145 起退出 ladder 门串改纯观察（语义修正：「经历过破发」移交
     // launchMinVsFloorPct），信号复盘仍落库；旧 FA/无常量平台 → null 不掩盖

@@ -98,6 +98,32 @@ const HOLDER_SERIES_MAX_POINTS = 8;
 // slot（=前 4 个有 tick 的不同 block）视为狙击手段不进趋势——是否真有流动性涌入看后面；
 // ExSniper 序列=第 5 个不同 block 起的 _holderSeries 子集（≤8 点滑动），slope 门槛 ≥4 点
 const HOLDER_TREND_SKIP_SLOTS = 4;
+// T185 可靠价短窗动量原料窗（chg5Pct/chg10Pct/chg30Pct，2026-11-18 recoveryHold
+// 「正在回涨」判据载体）：65s=最长动量窗 30s 的 2× 余量，_pruneRelPriceTrend 摊销
+// 裁剪同窗（2×65s 头段出局）；与 BP snapshot chgOf 口径逐字同源（现价 vs W 秒前
+// 最近可靠价，窗内无更早价自序列首价起算）
+const CHG_TREND_WINDOW_MS = 65 * 1000;
+
+/**
+ * T185 短窗价格动量（纯函数）：arr=[{ts,price}] 链序可靠价时序，返回末价相对
+ * W 秒前最近可靠价的涨跌 %。cutoff 基准=**序列末 ts**（非调用方 now——断流票
+ * 动量冻结在末 tick 时刻=无新证据不冒充「正在回涨」，recoveryHold fail-open
+ * 方向安全）；窗内无更早价 → 自序列首价起算（BP snapshot chgOf「可得最早价
+ * 以来动量」同语义）；空序列/非正价 → null（裸比较恒 false 不拦）。
+ */
+function _chgOfWindow(arr, winSec) {
+    if (!arr || arr.length === 0) return null;
+    const last = arr[arr.length - 1];
+    if (!(last.price > 0)) return null;
+    const cutoff = last.ts - winSec * 1000;
+    let prev = null;
+    for (const p of arr) {
+        if (p.ts <= cutoff) prev = p.price; // 链序遍历取最后一个 ≤cutoff 的=最近价
+    }
+    if (prev === null) prev = arr[0].price;
+    if (!(prev > 0)) return null;
+    return parseFloat(((last.price / prev - 1) * 100).toFixed(2));
+}
 // T147 锚后等额捆绑买入簇检测（Echo 二案 2026-11-16 用户裁定「买入后又出现异常现象
 // （大量捆绑买入），需要立即卖出」）：卖臂 bundle-wave-exit 原料——同 block 内等额
 // （toFixed(4)，T74 evenCluster 同款）买入钱包数 ≥8（BP77 塞单门同线同值：同一形状
@@ -1235,6 +1261,15 @@ class FourMemeFactorAggregator extends EventEmitter {
                 state._minRelPriceBnb = priceBnb;
             }
 
+            // ── T185 可靠价短窗动量原料（2026-11-18 用户立法 recoveryHold「正在
+            //    回涨」判据载体：debounce 确认后低位+回涨=买点不卖）：可靠价链时序
+            //    push（chainLate/outlier/尘已在 priceReliable 滤除=链序到达；defer
+            //    只迟 wallet 段，价格段 WSS 到达即喂不受影响）。读点发射
+            //    chg5Pct/chg10Pct/chg30Pct；_pruneRelPriceTrend 摊销裁剪（65s 窗
+            //    三键共用原料，2× 窗余量）──
+            state._relPriceTrend.push({ ts, price: priceBnb });
+            this._pruneRelPriceTrend(state, ts);
+
             // ── 名单因子（回迁批 3.3）：smart_bot 名单内地址的可靠买额累计
             //   （参与=累计 buyBnb ≥ smartBotMinBuyBnb，对齐挖掘 qualify 口径；母版 _smartBotBuySol→BNB。
             //    只累不减：卖出不清——"参与过"留痕；名单 null（未加载/失败）整段跳过=因子恒 0 fail-open）
@@ -2146,6 +2181,7 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             _recentPrices: [],   // 最近 5 笔已接受价（离群中位基准）
             _priceSeries: [],    // 10s 桶价格序列（trend* 因子，8 点）
+            _relPriceTrend: [],  // 可靠价时序 {ts,price}（T185 chg5/10/30 短窗动量原料；链序 push+摊销裁剪，见 _pruneRelPriceTrend）
             _holderSeries: [],   // blockNumber 桶持有者序列（holderTrend* 因子，8 块 ≈4s，2026-10-14 slot 化）
             _holderExSniperStartBlock: null, // 剔狙击段边界（write-once）：第 5 个有 tick 的不同 block（ExSniper 序列起点）
             _holderDistinctBlocks: 0,        // 非 defer 路径已见不同 block 计数（仅边界定型前有意义）
@@ -2640,6 +2676,21 @@ class FourMemeFactorAggregator extends EventEmitter {
                 if (agg.t < cutoff) state._blockBuyAgg.delete(blk);
             }
         }
+    }
+
+    /**
+     * _relPriceTrend 摊销裁剪（T185，_pruneBundleEvents 同款）：长度>64 且头部 ts
+     * 已滑出 2×CHG_TREND_WINDOW_MS(65s) 才批量 splice（从头连续判，遇首个未出局
+     * 即停）。chg5/chg10/chg30 三窗共用原料，65s=最长窗 30s 的 2× 余量；被裁掉的
+     * 头段对三键读点均不可见（cutoff 基准=序列末 ts，裁后仍保末 65s 完整）。
+     */
+    _pruneRelPriceTrend(state, now) {
+        const arr = state._relPriceTrend;
+        if (arr.length <= 64) return;
+        const cutoff = now - 2 * CHG_TREND_WINDOW_MS;
+        let i = 0;
+        while (i < arr.length && arr[i].ts < cutoff) i++;
+        if (i > 0) arr.splice(0, i);
     }
 
     /**
@@ -4309,6 +4360,16 @@ class FourMemeFactorAggregator extends EventEmitter {
                 return (launch > 0)
                     ? parseFloat((100 * (state._relPriceBnb / launch - 1)).toFixed(2)) : null;
             })(),
+            // T185 价格动量短窗三键（2026-11-18 recoveryHold「正在回涨」判据载体，
+            // 案源 bt-v153 0x89aa…7777 闪砸 V 反被 bypass 卖在半山腰）：口径与 BP
+            // snapshot chgOf 逐字同源（末可靠价 vs W 秒前最近可靠价，窗内无更早价
+            // 自序列首价起算）；原料=可靠价链时序 _relPriceTrend（chainLate/outlier/
+            // 尘不进）；cutoff 基准=序列末 ts（断流票动量冻结=无回涨证据不冒充）。
+            // chg5Pct=recoveryHold 主判据；chg10Pct/chg30Pct 纯观察（阈值待分布
+            // 裁定）；序列空=未见可靠价 null fail-closed（裸比较恒 false 不拦）
+            chg5Pct: _chgOfWindow(state._relPriceTrend, 5),
+            chg10Pct: _chgOfWindow(state._relPriceTrend, 10),
+            chg30Pct: _chgOfWindow(state._relPriceTrend, 30),
             // T142 破发豁免锚（2026-11-15 ASTER 0x31e2…7777 案，用户裁定「价格已经
             // 完全破发，这种情况理应豁免」）：现价 vs 平台常量发行价——**纯常量、
             // 刻意不吃 T130/T134 地板**（地板锚被砸穿后反弹会掩盖「已破发」事实：

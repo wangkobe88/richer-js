@@ -327,4 +327,109 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     ok(PUMP_ARM_SIGNATURE_FACTOR === 'sinceEntryNetBuyRatio', 'K9 pump 签名键常量');
 }
 
+// ── L. T185 recoveryHold 低位回涨臂（2026-11-18 bt-v153 0x89aa…7777 案）──
+// 案形：峰 +118% 后 4s 闪砸 -44%，bypass 卖在 +20%（pp<100 不在 T157c 管辖），
+// 18.5s 后 V 反 +211%。用户裁定：debounce 确认后「暴跌后价格低（买入区间或略高）
+// 且正在回涨=买入策略要买的点位」→ 拒绝卖出。三腿=peak≥80 ∧ curVs≤40 ∧ chg5>0，
+// 独立管辖（深回撤卖出 pp 常 <100，挂 pp 管辖永远不生效）。
+{
+    // 立法案帧形状：高浮盈武装 + 价格已回买区 + 5s 动量转正 + pp=20.25（pp 管辖外）
+    const caseF = { profitPercent: 20.25, peakProfitPct: 97, currentVsLaunchPct: 23.5, chg5Pct: 6.2,
+        sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0 };
+    const LEG = { id: 'sell_17_', name: 'P1·高浮盈保护全清', condition: 'peakProfitPct >= 80 AND drawdownFromHighestSinceLastBuy <= -35' };
+    const r = judgeFactorSellFilter(CFG, caseF, LEG);
+    ok(r.blocked === true && r.rule === 'recovery_hold', 'L1 立法案帧：pp<100 独立管辖仍拦（recovery_hold）');
+    ok(r.info.peakProfitPct === 97 && r.info.currentVsLaunchPct === 23.5 && r.info.chg5Pct === 6.2, 'L2 info 判据三值快照');
+    ok(r.info.recoveryMinPeakProfitPct === 80 && r.info.recoveryMaxLaunchPct === 40 && r.info.recoveryMinChg5Pct === 0, 'L3 info 阈值快照（默认 80/40/0）');
+    ok(judgeFactorSellFilter(CFG, caseF).blocked === true, 'L4 无腿两参调用同拦（独立管辖不依赖腿）');
+    // 三腿逐一拆：缺一不拦
+    ok(judgeFactorSellFilter(CFG, { ...caseF, peakProfitPct: 79 }).blocked === false, 'L5 peak=79 未达武装门放行');
+    ok(judgeFactorSellFilter(CFG, { ...caseF, currentVsLaunchPct: 40.1 }).blocked === false, 'L6 curVs=40.1 高于略高线上界放行（41+ 非买点域）');
+    ok(judgeFactorSellFilter(CFG, { ...caseF, currentVsLaunchPct: 40 }).blocked === true, 'L7 curVs=40 恰达线拦（≤40 含）');
+    ok(judgeFactorSellFilter(CFG, { ...caseF, chg5Pct: 0 }).blocked === false, 'L8 chg5=0 未回涨放行（严格 >）');
+    ok(judgeFactorSellFilter(CFG, { ...caseF, chg5Pct: -0.5 }).blocked === false, 'L9 chg5 负=还在跌放行（本案 fire 时刻形状）');
+    // null fail-open 三形状（证据缺席不冒充买点，宁卖）
+    ok(judgeFactorSellFilter(CFG, { ...caseF, peakProfitPct: null }).blocked === false, 'L10 peak null 放行');
+    ok(judgeFactorSellFilter(CFG, { ...caseF, currentVsLaunchPct: null }).blocked === false, 'L11 curVs null（未见可靠价）放行');
+    ok(judgeFactorSellFilter(CFG, { ...caseF, chg5Pct: null }).blocked === false, 'L12 chg5 null 放行');
+    ok(judgeFactorSellFilter(CFG, { peakProfitPct: 97, currentVsLaunchPct: 23.5, chg5Pct: 6.2 }).blocked === true, 'L13 pp 缺席不构成放行（独立管辖不看 pp）');
+    // 与 pp 管辖并存：pp≥100 域 famous 在场优先留痕（T157 先例序 famous>smart>recovery）
+    ok(judgeFactorSellFilter(CFG, { ...caseF, profitPercent: 150, sinceLastFamousBigBuySec: 5 }).rule === 'famous_hold', 'L14 双中 famous 优先留痕');
+    ok(judgeFactorSellFilter(CFG, { ...caseF, profitPercent: 150, sinceLastSmartBigBuySec: 5 }).rule === 'smart_hold', 'L15 双中 smart 次先留痕');
+    // enabled:false 一键回滚 T183 形态
+    const cOff = normalizeFactorSellFilterConfig({ enabled: true, recoveryHold: { enabled: false } }).normalized;
+    ok(cOff.recoveryHold.enabled === false, 'L16 recoveryHold.enabled=false 归一化');
+    ok(judgeFactorSellFilter(cOff, caseF, LEG).blocked === false, 'L17 关臂=立法案帧放行（回滚 T183 形态）');
+    // 阈值覆盖（负 minChg5Pct=跌幅收窄也算回涨的宽松档）
+    const cOv = normalizeFactorSellFilterConfig({ enabled: true, recoveryHold: { maxLaunchPct: 28.5, minChg5Pct: -3 } }).normalized;
+    ok(judgeFactorSellFilter(cOv, { ...caseF, currentVsLaunchPct: 30, chg5Pct: -1 }).blocked === false, 'L18 覆盖 28.5 门：curVs=30 放行');
+    ok(judgeFactorSellFilter(cOv, { ...caseF, chg5Pct: -1 }).blocked === true, 'L19 覆盖 minChg5Pct=-3：跌幅收窄到 -1 也拦');
+    ok(normalizeFactorSellFilterConfig({ enabled: true, recoveryHold: { minChg5Pct: -5 } }).normalized.recoveryHold.minChg5Pct === -5, 'L20 minChg5Pct 允许负值（唯一可负键）');
+    // 归一化防线
+    ok(normalizeFactorSellFilterConfig({ enabled: true }).normalized.recoveryHold.enabled === true, 'L21 recoveryHold 整体省略=全默认开');
+    ok(normalizeFactorSellFilterConfig({ enabled: true, recoveryHold: { nope: 1 } }).error, 'L22 recoveryHold 未知键 → error');
+    ok(normalizeFactorSellFilterConfig({ enabled: true, recoveryHold: { minPeakProfitPct: -1 } }).error, 'L23 minPeakProfitPct 负值 → error');
+    ok(normalizeFactorSellFilterConfig({ enabled: true, recoveryHold: { enabled: 'no' } }).error, 'L24 enabled 非 bool → error');
+    ok(normalizeFactorSellFilterConfig({ enabled: true, recoveryHold: 42 }).error, 'L25 非对象 → error');
+    ok(/recoveryHold/.test(normalizeFactorSellFilterConfig({ enabled: true, nope: 1 }).error || ''), 'L26 顶层未知键报错文案含 recoveryHold 提示');
+    // famousHold 省略早退分支也归一化 recoveryHold（K7 早退漏检反证同款防线）
+    const dFH = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
+    ok(dFH.recoveryHold && dFH.recoveryHold.minPeakProfitPct === 80, 'L27 famousHold 省略分支 recoveryHold 同默认');
+    const { RECOVERY_HOLD_DEFAULTS } = require('../src/trading-engine/core/factor-sell-filter');
+    ok(RECOVERY_HOLD_DEFAULTS.minPeakProfitPct === 80 && RECOVERY_HOLD_DEFAULTS.maxLaunchPct === 40 && RECOVERY_HOLD_DEFAULTS.minChg5Pct === 0, 'L28 RECOVERY_HOLD_DEFAULTS 常量');
+    // 引擎包装层：拦截日志带 T185 判据段（J12 同款 fake）
+    {
+        const { AbstractTradingEngine } = require('../src/trading-engine/core/AbstractTradingEngine');
+        const logs = [];
+        const persisted = [];
+        const fake = {
+            _experimentId: 'test',
+            logger: { info: (...a) => logs.push(a.join(' ')), warn: () => {} },
+            _persistFactorSellFilterSignal: async (token, strategy, factors, res, nowTs) => {
+                persisted.push({ rule: res.rule });
+            },
+        };
+        const res = AbstractTradingEngine.prototype._factorSellFilterEvaluate.call(
+            { ...fake, _factorSellFilterCfg: CFG },
+            { token: '0x89aa', symbol: 'CASE' }, LEG, caseF, 999);
+        ok(res.blocked === true && persisted.length === 1 && persisted[0].rule === 'recovery_hold', 'L29 引擎包装 recovery_hold 拦截落行');
+        ok(logs[0].includes('T185 低位回涨'), 'L30 拦截日志带 T185 判据段');
+    }
+}
+
+// ── M. T183a AST 腿签名管辖（2026-11-18 d345 熊二/狸花猫漏拦案）──────────
+// 事故：StrategyEngine loadStrategies 构建腿对象 condition=parseCondition 的
+// **AST 对象**（非字符串）→ 首版 `typeof leg.condition === 'string'` 恒 false
+// → pump 臂签名管辖在引擎实跑中从未生效（d345 六笔 P5 全漏：熊二 pp=57.5
+// smart 2s 前大买/狸花猫 pp=86 famous 29s 前大买均应拦；pp≥100 走 pp 管辖
+// 不受影响=同进程 Tiltpad 拦截成功的反证）。T183 离线重放用手构字符串腿
+// =测试盲区。修复=loadStrategies 腿对象保留原始条件串 conditionText +
+// legConditionText 双形状兼容。
+{
+    // 事故现场反证：AST 腿无 conditionText → 签名管辖 false（修复前引擎腿恒此形状=漏拦根源）
+    const AST_LEG_BROKEN = { id: 'p5', name: 'P5', condition: { type: 'AND', left: {}, right: {} } };
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 2, recentSmartSellBnb: 0 }, AST_LEG_BROKEN).info.pumpArmJurisdiction === false,
+        'M1 事故反证：AST 腿无 conditionText=签名管辖 false（修复前引擎形状恒漏拦）');
+
+    // 修复形状：AST condition + conditionText 原文 → 签名管辖命中
+    const ENGINE_LEG = { id: 'p5', name: 'P5', condition: { type: 'AND' }, conditionText: 'realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90 AND sinceEntryBuyBnb >= 1' };
+    const rM = judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 2, recentSmartSellBnb: 0 }, ENGINE_LEG);
+    ok(rM.info.pumpArmJurisdiction === true, 'M2 AST 腿带 conditionText=签名管辖 true');
+    ok(rM.blocked === true && rM.rule === 'smart_hold', 'M3 d345 熊二帧（pp=57.5+smart 2s）AST 腿拦截');
+    const rM2 = judgeFactorSellFilter(CFG, { profitPercent: 86.0, sinceLastFamousBigBuySec: 29, recentFamousSellBnb: 0 }, ENGINE_LEG);
+    ok(rM2.blocked === true && rM2.rule === 'famous_hold', 'M4 d345 狸花猫帧（pp=86+famous 29s）AST 腿拦截');
+
+    // 端到端：真实 StrategyEngine loadStrategies 装载的腿形状锁定（防再漂移）
+    const { StrategyEngine } = require('../src/strategies/StrategyEngine');
+    const se = new StrategyEngine();
+    se.loadStrategies([{ id: 'p5', name: '卖出策略 P5', action: 'sell', priority: 5, condition: 'realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90 AND sinceEntryBuyBnb >= 1' }]);
+    const leg0 = se._strategies[0];
+    ok(leg0.condition != null && typeof leg0.condition === 'object', 'M5 装载腿 condition=AST 对象（事故根源形状锁定）');
+    ok(typeof leg0.conditionText === 'string' && leg0.conditionText.includes('sinceEntryNetBuyRatio'), 'M6 装载腿 conditionText=原始条件串（T183a）');
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 2, recentSmartSellBnb: 0 }, leg0).blocked === true, 'M7 真实装载腿端到端拦截（d345 熊二案兑现）');
+    // evaluate 返回的腿对象（引擎实跑消费点）同拦截
+    const trig = se.evaluate({ realHoldDuration: 34, sinceEntryNetBuyRatio: 100, sinceEntryBuyBnb: 1.5, profitPercent: 57.5 }, '0x2f17', 0, { completedPairs: [] }, 'sell');
+    ok(!!trig && judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 2, recentSmartSellBnb: 0 }, trig).blocked === true, 'M8 evaluate 返回腿端到端拦截（引擎实跑链路）');
+}
+
 console.log(`✅ _test_factor_sell_filter 全部 ${passed} 断言通过`);

@@ -1954,9 +1954,11 @@ class AbstractTradingEngine extends ITradingEngine {
     if (r.error) throw new Error(`factorSellFilter 配置非法：${r.error}，拒绝启动`);
     this._factorSellFilterCfg = r.normalized;
     const sh = r.normalized.smartHold;
+    const rh = r.normalized.recoveryHold;
     this.logger.info(this._experimentId, 'SellEval',
       `因子卖出过滤门启用 | famousHold 全臂管辖（pp≥${r.normalized.famousHold.minProfitPct} 的卖信号统一过门：famous ${r.normalized.famousHold.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${r.normalized.famousHold.sellReleaseBnb} → 拦截）` +
-      ` | smartHold${sh && sh.enabled ? `（聪明钱 ${sh.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${sh.sellReleaseBnb} → 拦截，T183）` : ' 关'} | pump 臂签名管辖（condition 引用 sinceEntryNetBuyRatio 无论 pp，T183）`);
+      ` | smartHold${sh && sh.enabled ? `（聪明钱 ${sh.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${sh.sellReleaseBnb} → 拦截，T183）` : ' 关'} | pump 臂签名管辖（condition 引用 sinceEntryNetBuyRatio 无论 pp，T183）` +
+      ` | recoveryHold${rh && rh.enabled ? `（独立管辖 peak≥${rh.minPeakProfitPct} ∧ curVs≤${rh.maxLaunchPct} ∧ chg5>${rh.minChg5Pct}=暴跌后低位回涨=买点不卖，T185）` : ' 关'}`);
   }
 
   /**
@@ -1993,12 +1995,15 @@ class AbstractTradingEngine extends ITradingEngine {
     if (this._factorSellFilterLogSeen.get(key) === res.rule) return res; // 持续拦截静默（日志+落行同 key 去重）
     this._factorSellFilterLogSeen.set(key, res.rule);
     const i = res.info || {};
+    const recoveryLine = res.rule === 'recovery_hold'
+      ? `（T185 低位回涨=买点不卖：peak=${i.peakProfitPct}≥${i.recoveryMinPeakProfitPct} ∧ curVs=${i.currentVsLaunchPct}≤${i.recoveryMaxLaunchPct} ∧ chg5=${i.chg5Pct}>${i.recoveryMinChg5Pct}——放行=证据缺席/非低位/未回涨）`
+      : `${i.recoveryHoldEnabled ? ` [recoveryHold peak=${i.peakProfitPct} curVs=${i.currentVsLaunchPct} chg5=${i.chg5Pct} 未中]` : ''}` +
+        `（HOLD=famous ${i.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${i.sellReleaseBnb} ∧ pp≥${i.minProfitPct}${i.smartHoldEnabled ? ` ∨ 聪明钱 ${i.smartMaxSinceBuySec}s 内大买 ∧ 卖出 <${i.smartSellReleaseBnb}` : ''}——放行=出窗/撤退达线/跌破保护域）`;
     this.logger.info(this._experimentId, 'SellEval',
       `🛡 因子卖出过滤拦截（${res.rule}）| ${token?.symbol || String(token?.token || '').slice(0, 10)} 腿=${strategy?.name}` +
       ` | pp=${i.profitPercent} sinceLastFamousBigBuySec=${i.sinceLastFamousBigBuySec} recentFamousSellBnb=${i.recentFamousSellBnb}` +
       ` sinceLastSmartBigBuySec=${i.sinceLastSmartBigBuySec} recentSmartSellBnb=${i.recentSmartSellBnb}` +
-      `${i.pumpArmJurisdiction ? ' [pump臂管辖]' : ''}` +
-      `（HOLD=famous ${i.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${i.sellReleaseBnb} ∧ pp≥${i.minProfitPct}${i.smartHoldEnabled ? ` ∨ 聪明钱 ${i.smartMaxSinceBuySec}s 内大买 ∧ 卖出 <${i.smartSellReleaseBnb}` : ''}——放行=出窗/撤退达线/跌破保护域）`);
+      `${i.pumpArmJurisdiction ? ' [pump臂管辖]' : ''} ${recoveryLine}`);
     // 拦截留痕：落 SELL blocked 行（fire-and-forget——失败 warn 不阻塞卖评估路径）
     try {
       this._persistFactorSellFilterSignal(token, strategy, factors, res, nowTs)

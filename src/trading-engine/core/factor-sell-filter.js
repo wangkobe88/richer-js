@@ -1,6 +1,7 @@
 /**
  * T157 因子卖出过滤门（famous HOLD 迁移案，2026-11-17；T157b 全腿化→T157c 管辖
- * 门简化同日三修；T183 聪明钱臂+pump 臂管辖扩展 2026-11-18）
+ * 门简化同日三修；T183 聪明钱臂+pump 臂管辖扩展 2026-11-18；T185 低位回涨臂
+ * recoveryHold 同日）
  *
  * 定位：卖出环节的「基于因子的卖出信号过滤模块」——对标买侧 T143 因子购买前
  * 检查门（FP1）的纯代码因子过滤形态：零 Jev / 零 DB / 零网络，输入=fire 时刻
@@ -49,6 +50,22 @@
  *   （不锁死卖出）。双臂同中 famous 优先留痕（rule='famous_hold'，info 带两臂
  *   判据；释放线/窗独立可调）。smartHold.enabled=false 一键回滚 T157 单臂形态。
  *
+ * 规则三 recoveryHold（T185 2026-11-18 用户立法，案源 bt-v153 0x89aa…7777：
+ * 峰 +118% 后 4s 闪砸 -44%，bypass 卖在半山腰 +20%，18.5s 后 V 反 +211%——
+ * 用户裁定「debounce 确认后，如果是暴跌后价格低（买入价格区间，或者略高）且
+ * 正在回涨（也就是说这是我们的买入策略要买的点位），就拒绝卖出」）：
+ *   拦截（拒绝卖出）= **独立管辖**：peakProfitPct ≥ minPeakProfitPct(80)
+ *                     （高浮盈武装在场=「暴跌后」操作化，peak-protect-exit 同线）
+ *                     AND currentVsLaunchPct ≤ maxLaunchPct(40)
+ *                     （买入区间 28.5 或略高=near_launch 上界，含破发）
+ *                     AND chg5Pct > minChg5Pct(0)（FA T185 短窗动量「正在回涨」）
+ *   独立于 pp/pump 管辖的原因：深回撤卖出的 pp 常 <100（立法案 +20）——挂 T157c
+ *   pp 管辖下本臂永远不生效；peak 武装门本身即「曾高浮盈现深跌」的场景圈定。
+ *   null 语义 fail-open 放行（照卖）：peak/curVs/chg5 任一缺席不拦（低位回涨
+ *   证据不全宁卖不冒充「买点」，与 T157 不锁死卖出同向）。
+ *   recoveryHold.enabled=false 一键回滚 T183 形态；chg10Pct/chg30Pct 纯观察
+ *   落 metadata（阈值待触发分布裁定）。
+ *
  * 与 bypass 卖臂的关系（T157c 全臂管辖知情面）：peak-protect 深回撤/famous-
  * entry-exit 等 bypass 腿同样受管（HOLD 证据在场 → 拦截顺延）——「famous/聪明钱
  * 还在入场就不急着卖」的 HOLD 语义一致适用于保命腿；famous-entry-exit 触发域=
@@ -81,29 +98,64 @@ const SMART_HOLD_DEFAULTS = Object.freeze({
     sellReleaseBnb: 0.4,   // 聪明钱卖出释放线（BNB，60s 窗——FA smartSellWinMs）
 });
 
+/** recoveryHold 默认阈值（T185 2026-11-18，案源 bt-v153 0x89aa…7777：4s 闪砸 -44%
+ * 后 V 反 +211% 被 bypass 卖在半山腰——用户裁定「debounce 确认后，如果是暴跌后
+ * 价格低（买入价格区间，或者略高）且正在回涨（=我们的买入策略要买的点位），就
+ * 拒绝卖出」）。三腿联立才拦：高浮盈武装在场 ∧ 现价已回低位 ∧ 5s 动量回涨。 */
+const RECOVERY_HOLD_DEFAULTS = Object.freeze({
+    // 高浮盈武装门（管辖线）：持仓期峰值浮盈 ≥80% 才受本臂管（与 peak-protect-exit
+    // 武装门同线——「暴跌后」的操作化=曾高浮盈现回落；<80 的常态回撤卖出不受管）
+    minPeakProfitPct: 80,
+    // 低位门：现价较发行锚 ≤+40%（买入价格区间=28.5 门 +「略高」=near_launch 上界
+    // 40 同线；含破发）——「这是我们的买入策略要买的点位」的位置腿
+    maxLaunchPct: 40,
+    // 回涨门：chg5Pct > 此值（FA T185 短窗动量，可靠价链 5s 窗）——「正在回涨」
+    // 的动量腿；0=任何正动量（阈值待触发分布裁定，观察键 chg10Pct/chg30Pct 落档）
+    minChg5Pct: 0,
+});
+
 /** T183 pump 臂管辖签名键：condition 引用该因子=泵失衡全清家族（T113）腿 */
 const PUMP_ARM_SIGNATURE_FACTOR = 'sinceEntryNetBuyRatio';
 
 /**
+ * T183a 腿条件原文读取（2026-11-18 d345 熊二/狸花猫漏拦案）：引擎 StrategyEngine
+ * loadStrategies 构建的腿对象 condition 字段是 parseCondition() 的 **AST 对象**
+ * （非字符串）——T183 首版 `typeof leg.condition === 'string'` 在引擎实跑中恒
+ * false → pump 臂签名管辖（pp<100 域）从未生效（d345 六笔 P5 全漏；pp≥100 域
+ * 走 pp 管辖不受影响）。修复=loadStrategies 腿对象保留原始条件串 conditionText，
+ * 本函数双形状兼容：字符串腿（手构/重放）读 condition，AST 腿读 conditionText。
+ */
+function legConditionText(leg) {
+    if (leg == null) return null;
+    if (typeof leg.condition === 'string') return leg.condition;
+    if (typeof leg.conditionText === 'string') return leg.conditionText;
+    return null;
+}
+
+/**
  * 归一化实验级配置 fourmemeWs.factorSellFilter 段（T157c：famousHold 三键收进
- * 模块，arms 清单整链退役——携带即报错防旧配置静默失效；T183：smartHold 姊妹臂）。
+ * 模块，arms 清单整链退役——携带即报错防旧配置静默失效；T183：smartHold 姊妹臂；
+ * T185：recoveryHold 低位回涨臂）。
  *   形状：{ enabled: true, famousHold?: {
  *            minProfitPct?, maxSinceBuySec?, sellReleaseBnb? },
- *          smartHold?: { enabled?, maxSinceBuySec?, sellReleaseBnb? } }
+ *          smartHold?: { enabled?, maxSinceBuySec?, sellReleaseBnb? },
+ *          recoveryHold?: { enabled?, minPeakProfitPct?, maxLaunchPct?, minChg5Pct? } }
  *   缺段/undefined → { normalized: null }（机制关，零行为）；
- *   { enabled: false } 同 null；famousHold/smartHold 可整体省略=全默认
- *   （smartHold.enabled=false=单关聪明钱臂，回滚 T157 形态）。
+ *   { enabled: false } 同 null；famousHold/smartHold/recoveryHold 可整体省略=
+ *   全默认（smartHold.enabled=false=单关聪明钱臂，回滚 T157 形态；
+ *   recoveryHold.enabled=false=单关低位回涨臂，回滚 T183 形态）。
  *   @returns {{normalized: Object|null, error: string|null}}
- *     normalized={ enabled:true, famousHold:{...三键}, smartHold:{enabled, ...两键} }
+ *     normalized={ enabled:true, famousHold:{...三键},
+ *                  smartHold:{enabled, ...两键}, recoveryHold:{enabled, ...三键} }
  */
 function normalizeFactorSellFilterConfig(raw) {
     if (raw == null) return { normalized: null };
     if (typeof raw !== 'object' || Array.isArray(raw)) {
-        return { error: `factorSellFilter 必须是对象（键：enabled/famousHold/smartHold），实际 ${JSON.stringify(raw)}` };
+        return { error: `factorSellFilter 必须是对象（键：enabled/famousHold/smartHold/recoveryHold），实际 ${JSON.stringify(raw)}` };
     }
     for (const k of Object.keys(raw)) {
-        if (k !== 'enabled' && k !== 'famousHold' && k !== 'smartHold') {
-            return { error: `factorSellFilter 未知键 "${k}"（仅支持 enabled/famousHold/smartHold）` };
+        if (k !== 'enabled' && k !== 'famousHold' && k !== 'smartHold' && k !== 'recoveryHold') {
+            return { error: `factorSellFilter 未知键 "${k}"（仅支持 enabled/famousHold/smartHold/recoveryHold）` };
         }
     }
     if (raw.enabled === undefined || raw.enabled === null) {
@@ -118,11 +170,14 @@ function normalizeFactorSellFilterConfig(raw) {
         // famousHold 整体省略=全默认（管辖门 pp≥100 本身就是 famousHold 的 minProfitPct）
         const sh0 = _normalizeSmartHold(raw.smartHold);
         if (sh0.error) return { error: sh0.error };
+        const rh0 = _normalizeRecoveryHold(raw.recoveryHold);
+        if (rh0.error) return { error: rh0.error };
         return {
             normalized: {
                 enabled: true,
                 famousHold: { ...FACTOR_SELL_FILTER_DEFAULTS },
                 smartHold: sh0.normalized,
+                recoveryHold: rh0.normalized,
             },
         };
     }
@@ -144,7 +199,9 @@ function normalizeFactorSellFilterConfig(raw) {
     }
     const sh = _normalizeSmartHold(raw.smartHold);
     if (sh.error) return { error: sh.error };
-    return { normalized: { enabled: true, famousHold: out, smartHold: sh.normalized } };
+    const rh = _normalizeRecoveryHold(raw.recoveryHold);
+    if (rh.error) return { error: rh.error };
+    return { normalized: { enabled: true, famousHold: out, smartHold: sh.normalized, recoveryHold: rh.normalized } };
 }
 
 /** smartHold 段归一化（T183）：省略/null=全默认开；{enabled:false}=单关（回滚
@@ -170,6 +227,39 @@ function _normalizeSmartHold(raw) {
         }
         if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
             return { error: `factorSellFilter.smartHold.${k} 非法值 ${JSON.stringify(v)}（须有限数 ≥0）` };
+        }
+        out[k] = v;
+    }
+    return { normalized: out };
+}
+
+/** recoveryHold 段归一化（T185）：省略/null=全默认开；{enabled:false}=单关（回滚
+ *  T183 形态）；键校验同 smartHold（enabled 除外，minChg5Pct 允许负值——回涨门
+ *  阈值可调负=「跌幅收窄也算回涨」的宽松档留给分布裁定后调参）。 */
+function _normalizeRecoveryHold(raw) {
+    if (raw == null) {
+        return { normalized: { enabled: true, ...RECOVERY_HOLD_DEFAULTS } };
+    }
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+        return { error: `factorSellFilter.recoveryHold 必须是对象（enabled/${Object.keys(RECOVERY_HOLD_DEFAULTS).join('/')}），实际 ${JSON.stringify(raw)}` };
+    }
+    const out = { enabled: true, ...RECOVERY_HOLD_DEFAULTS };
+    for (const [k, v] of Object.entries(raw)) {
+        if (k === 'enabled') {
+            if (typeof v !== 'boolean') {
+                return { error: `factorSellFilter.recoveryHold.enabled 非法值 ${JSON.stringify(v)}（须 bool）` };
+            }
+            out.enabled = v;
+            continue;
+        }
+        if (!(k in RECOVERY_HOLD_DEFAULTS)) {
+            return { error: `factorSellFilter.recoveryHold 未知键 "${k}"（仅支持 enabled/${Object.keys(RECOVERY_HOLD_DEFAULTS).join('/')}）` };
+        }
+        if (typeof v !== 'number' || !Number.isFinite(v)) {
+            return { error: `factorSellFilter.recoveryHold.${k} 非法值 ${JSON.stringify(v)}（须有限数）` };
+        }
+        if (k !== 'minChg5Pct' && v < 0) {
+            return { error: `factorSellFilter.recoveryHold.${k} 非法值 ${JSON.stringify(v)}（须 ≥0）` };
         }
         out[k] = v;
     }
@@ -203,12 +293,16 @@ function _released(recentSell, releaseBnb) {
 function judgeFactorSellFilter(config, factors, leg) {
     const fh = config && config.famousHold;
     const sh = config && config.smartHold;
+    const rh = config && config.recoveryHold;
     if (!fh) return { blocked: false, rule: null, info: null };
     const pp = factors ? factors.profitPercent : undefined;
     const sinceLast = factors ? factors.sinceLastFamousBigBuySec : undefined;
     const recentSell = factors ? factors.recentFamousSellBnb : undefined;
     const smartSinceLast = factors ? factors.sinceLastSmartBigBuySec : undefined;
     const smartRecentSell = factors ? factors.recentSmartSellBnb : undefined;
+    const peakPct = factors ? factors.peakProfitPct : undefined;
+    const curVsLaunch = factors ? factors.currentVsLaunchPct : undefined;
+    const chg5 = factors ? factors.chg5Pct : undefined;
     const info = {
         profitPercent: pp ?? null,
         sinceLastFamousBigBuySec: sinceLast ?? null,
@@ -221,9 +315,34 @@ function judgeFactorSellFilter(config, factors, leg) {
         smartHoldEnabled: !!(sh && sh.enabled),
         smartMaxSinceBuySec: sh ? sh.maxSinceBuySec : null,
         smartSellReleaseBnb: sh ? sh.sellReleaseBnb : null,
-        pumpArmJurisdiction: !!(leg && typeof leg.condition === 'string'
-            && leg.condition.includes(PUMP_ARM_SIGNATURE_FACTOR)),
+        pumpArmJurisdiction: (() => {
+            // T183a：引擎腿 condition=AST（非字符串），签名匹配读 conditionText 双形状兼容
+            const condText = legConditionText(leg);
+            return !!(condText && condText.includes(PUMP_ARM_SIGNATURE_FACTOR));
+        })(),
+        // T185 recoveryHold 判据段（独立管辖：peak≥80 武装在场——不依赖 pp/pump
+        // 管辖，深回撤卖出的 pp 常 <100〔立法案 +20〕，挂 pp 管辖下永远不生效）
+        recoveryHoldEnabled: !!(rh && rh.enabled),
+        peakProfitPct: peakPct ?? null,
+        currentVsLaunchPct: curVsLaunch ?? null,
+        chg5Pct: chg5 ?? null,
+        recoveryMinPeakProfitPct: rh ? rh.minPeakProfitPct : null,
+        recoveryMaxLaunchPct: rh ? rh.maxLaunchPct : null,
+        recoveryMinChg5Pct: rh ? rh.minChg5Pct : null,
     };
+    // T185 recoveryHold 命中（**独立管辖**：peakProfitPct ≥ minPeakProfitPct 本身
+    // 即管辖——与 T157c「管辖判定=pp 本身」同构但换锚到峰值武装门）：
+    // 深跌后价格已回低位（curVs ≤ maxLaunchPct=买入区间或略高）∧ 5s 动量回涨
+    // （chg5 > minChg5Pct）=「这是我们的买入策略要买的点位」→ 拒绝卖出。
+    // null 语义（fail-open 放行=照卖，与 T157 同向不锁死卖出）：peak null（无仓
+    // /无峰）、curVs null（未见可靠价/锚缺失）、chg5 null（未见可靠价）任一
+    // 缺席不拦——低位回涨证据不全宁卖不冒充「买点」
+    let recoveryHit = false;
+    if (rh && rh.enabled) {
+        recoveryHit = typeof peakPct === 'number' && Number.isFinite(peakPct) && peakPct >= rh.minPeakProfitPct
+            && typeof curVsLaunch === 'number' && Number.isFinite(curVsLaunch) && curVsLaunch <= rh.maxLaunchPct
+            && typeof chg5 === 'number' && Number.isFinite(chg5) && chg5 > rh.minChg5Pct;
+    }
     // 管辖判定（T157c + T183 扩展）：
     // ① pp ≥ minProfitPct（一般管辖——pp<100 的卖信号〔止损/低盈亏减仓〕恒放行；
     //    pp 缺失 fail-open 放行防锁死卖出）
@@ -232,6 +351,7 @@ function judgeFactorSellFilter(config, factors, leg) {
     //    pp=57.5 被 T157c 缝隙放走的形状；腿自身触发已是明确卖出意志）
     const ppGoverned = typeof pp === 'number' && Number.isFinite(pp) && pp >= fh.minProfitPct;
     if (!ppGoverned && !info.pumpArmJurisdiction) {
+        if (recoveryHit) return { blocked: true, rule: 'recovery_hold', info };
         return { blocked: false, rule: null, info };
     }
     // famousHold 命中（原三键去掉 pp 门——管辖已上方判定，逐位同 T157c）：
@@ -246,6 +366,7 @@ function judgeFactorSellFilter(config, factors, leg) {
     }
     if (famousHit) return { blocked: true, rule: 'famous_hold', info };
     if (smartHit) return { blocked: true, rule: 'smart_hold', info };
+    if (recoveryHit) return { blocked: true, rule: 'recovery_hold', info };
     // 放行：出窗/撤退达线/两臂均无在场证据（sinceLast null=从未有大买 fail-open）
     return { blocked: false, rule: null, info };
 }
@@ -253,6 +374,7 @@ function judgeFactorSellFilter(config, factors, leg) {
 module.exports = {
     FACTOR_SELL_FILTER_DEFAULTS,
     SMART_HOLD_DEFAULTS,
+    RECOVERY_HOLD_DEFAULTS,
     PUMP_ARM_SIGNATURE_FACTOR,
     normalizeFactorSellFilterConfig,
     judgeFactorSellFilter,

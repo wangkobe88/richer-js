@@ -402,6 +402,66 @@ function scenarioListFactors(FA) {
     const t0 = 1758800000000;
     const PX = 10; // 价格恒定无离群；block 手写递增
 
+    // ── T185 chg5/chg10/chg30 短窗动量三键（recoveryHold「正在回涨」判据载体）──
+    // 口径=BP chgOf 同源：现价 vs W 秒前最近可靠价；窗内无更早价自序列首价起算；
+    // cutoff 基准=序列末 ts（断流动量冻结）；尘 tick（<0.002）不进可靠价链不推键
+    {
+        const fa = new FA({});
+        fa.registerToken('T_CHG', { createdAtMs: t0, totalSupply: 1e9 });
+        const B = 2000, T = 0.001; // B=bnbAmount 过尘门, T=尘（<minPriceUpdateBnb 0.002）
+        // 时间线（秒）: 0 价100 / 4 价110 / 9 价121 / 12 价109 / 16 价120 / 21 价132
+        fa.processTick(mkTick('T_CHG', t0 + 0, true, 100, B, '0xA', 1000, 1000), { emitFactors: false });
+        fa.processTick(mkTick('T_CHG', t0 + 4000, true, 110, B, '0xA', 1001, 1000), { emitFactors: false });
+        fa.processTick(mkTick('T_CHG', t0 + 9000, true, 121, B, '0xA', 1002, 1000), { emitFactors: false });
+        fa.processTick(mkTick('T_CHG', t0 + 12000, true, 109, B, '0xA', 1003, 1000), { emitFactors: false });
+        fa.processTick(mkTick('T_CHG', t0 + 16000, true, 120, B, '0xA', 1004, 1000), { emitFactors: false });
+        fa.processTick(mkTick('T_CHG', t0 + 21000, true, 132, B, '0xA', 1005, 1000), { emitFactors: false });
+        const f = fa.buildFactorMap('T_CHG', t0 + 21000);
+        // chg5：末 ts=21s，cutoff=16s → 16s 价 120 → (132/120-1)*100 = 10
+        ok(f.chg5Pct === 10, `T185 chg5=现价 vs 5s 前最近可靠价（132/120 → 10）`, f.chg5Pct);
+        // chg10：cutoff=11s → 9s 价 121 → (132/121-1)*100 ≈ 9.09
+        ok(f.chg10Pct === 9.09, `T185 chg10=cutoff 11s 最近价=9s 的 121（→9.09）`, f.chg10Pct);
+        // chg30：cutoff=-9s → 窗内无更早价 → 序列首价 100（→32）
+        ok(f.chg30Pct === 32, 'T185 chg30=窗内无更早价自首价起算（132/100 → 32）', f.chg30Pct);
+        // 尘 tick 不进链：序列末追加尘 tick（17s 价 90）——若进链末价=90、chg5=(90/109-1)
+        // ≈-17.43；不进链则序列末仍 21s 的 132 → chg5=(132/120-1)*100=10
+        fa.processTick(mkTick('T_CHG', t0 + 17000, true, 90, T, '0xD', 1006, 100), { emitFactors: false });
+        const f2 = fa.buildFactorMap('T_CHG', t0 + 17000);
+        ok(f2.chg5Pct === 10, 'T185 尘 tick 不进 _relPriceTrend（末价仍 132 vs 16s 的 120 → 10；若尘进链则 -17.43）', f2.chg5Pct);
+    }
+    {
+        // 断流动量冻结：末 tick 后 60s 读数不变（cutoff 基准=序列末 ts 非 now）
+        const fa = new FA({});
+        fa.registerToken('T_CHG2', { createdAtMs: t0, totalSupply: 1e9 });
+        fa.processTick(mkTick('T_CHG2', t0 + 0, true, 100, 1, '0xA', 1000, 1000), { emitFactors: false });
+        fa.processTick(mkTick('T_CHG2', t0 + 2000, true, 105, 1, '0xA', 1001, 1000), { emitFactors: false });
+        const fNow = fa.buildFactorMap('T_CHG2', t0 + 62000);
+        // 序列末 ts=2s：cutoff=-3s 无更早价 → 首价 100 → 5（若误用 now=62s，cutoff=57s
+        // 序列全空 → 仍回落首价——两形状在本夹具等价，换断言：值不随 now 漂移）
+        ok(fNow.chg5Pct === 5 && fNow.chg10Pct === 5, 'T185 断流冻结：读数不随 now 漂移（末 ts 基准）', fNow.chg5Pct);
+    }
+    {
+        // 空 token（未见任何可靠价）→ null fail-closed（裸比较恒 false 不拦）
+        const fa = new FA({});
+        fa.registerToken('T_CHG3', { createdAtMs: t0, totalSupply: 1e9 });
+        const f = fa.buildFactorMap('T_CHG3', t0 + 1000);
+        ok(f.chg5Pct === null && f.chg10Pct === null && f.chg30Pct === null, 'T185 无可靠价 → 三键 null', f.chg5Pct);
+    }
+    {
+        // 摊销裁剪不伤三键：>64 点长序列推 300 tick 后 chg30 仍取真实 30s 前价
+        const fa = new FA({});
+        fa.registerToken('T_CHG4', { createdAtMs: t0, totalSupply: 1e9 });
+        // 0~99s 每 0.5s 一笔 100~150 随机走 + 130s 处价 200（=末价；cutoff 100s → 99.5s 价）
+        for (let i = 0; i < 200; i++) {
+            const px = 100 + (i % 7) * 3 + (i % 3); // 100~118 波动
+            fa.processTick(mkTick('T_CHG4', t0 + i * 500, true, px, 1, '0xA', 1000 + i, 1000), { emitFactors: false });
+        }
+        fa.processTick(mkTick('T_CHG4', t0 + 130000, true, 200, 1, '0xA', 1300, 1000), { emitFactors: false });
+        const f = fa.buildFactorMap('T_CHG4', t0 + 130000);
+        // 199 tick（i=199, ts=99.5s）价 = 100+(199%7)*3+(199%3)=100+9+1=110；chg30=(200/110-1)*100≈81.82
+        ok(f.chg30Pct === 81.82, `T185 摊销裁剪后 chg30 仍真值（200 vs 99.5s 的 110）`, f.chg30Pct);
+    }
+
     // ── smartBotCount：名单内累计可靠买额 ≥ smartBotMinBuyBnb(0.02) 的地址数 ──
     {
         const fa = new FA({});
@@ -643,6 +703,10 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 详见 _test_since_entry_factors.cjs L 段）
         'sinceEntryFamousLaunchZoneBuyBnb', 'sinceEntryFamousLaunchZoneSellBnb',
         'sinceEntryFamousLaunchZoneNetBnb',
+        // 2026-11-18 T185 价格动量短窗三键（recoveryHold「正在回涨」判据载体：
+        // 可靠价链 _relPriceTrend 时序，现价 vs W 秒前最近可靠价；chg5 主判据、
+        // chg10/30 观察——详见文件尾 T185 段）
+        'chg5Pct', 'chg10Pct', 'chg30Pct',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删
