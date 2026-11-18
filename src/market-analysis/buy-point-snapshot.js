@@ -532,11 +532,28 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     // bit 不变）；secToAnchor/followBuyBnb 恒直供——贴锚砸盘（砸完立刻到买点）
     // 的形状 ratio 恒 null≠无承接证据：已见买入绝对额+距锚秒数让 Jev 可判「贴锚
     // 砸盘无人接」（BP82 贴锚臂判读原料，题面四腿④承接腿）
+    // BP85 同块闪进闪出剔除（案源「幕后」0x6957ace8…7777，bt-v147-af1-36h-win1012）：
+    // followObs 原纯时间窗 (endDt, endDt+60] 会把「同钱包同块先买后卖」的套利/对倒单
+    // 计入承接——案值 0x5e08f9e3 砸后同块 6.198e-9 买 0.3191 → 同块 5.554e-9 卖回
+    // 0.3096（净吸筹 ≈0.01），占 followBuy 0.4633 的 69%，把贴锚已见承接 34.5% 恰好
+    // 抬过 30% 参考线 → Jev 判「承接形成」不落 malicious_dump，买入后 79s 断流止损。
+    // 与 CD400 块序口径同向对齐（同块买≠承接；CD400 靠「block 严格更大」天然剔同块、
+    // 且多块取承接最小者躲开闪进闪出块）：同钱包同块内存在卖出行的买入不计承接
+    // （块内往返不是吸筹，无序匹配——先卖后买同剔；方向=少算承接更严，宁拦不冒充）。
+    // 同块不同钱包互不影响；钱包在别的块卖出、后续块买入（回补）照计──
+    const blockWalletSold = new Set();
+    for (const t of ticks) {
+      if (t.side !== 'SELL' || t.block === null || t.block === undefined) continue;
+      if (t.wallet === null || t.wallet === undefined) continue;
+      blockWalletSold.add(`${t.block}\u0000${t.wallet}`);
+    }
     const followObs = (endDt, sellBnb) => {
       if (tEnd === null || endDt === null || endDt === undefined) return { buyBnb: null, ratio: null, sec: null };
       let buy = 0;
       for (const t of ticks) {
         if (t.side !== 'BUY' || t.dt === null || t.dt === undefined) continue;
+        if (t.block != null && t.wallet != null
+          && blockWalletSold.has(`${t.block}\u0000${t.wallet}`)) continue;  // BP85 同块闪进闪出
         if (t.dt > endDt && t.dt <= endDt + BP_DUMP_FOLLOW_SEC) buy += t.bnb || 0;
       }
       const ratio = tEnd - endDt >= BP_DUMP_FOLLOW_MIN_OBS_SEC && sellBnb > 0

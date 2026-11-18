@@ -929,6 +929,64 @@ console.log('A13. burstWaveQuality 手算（T174：出口定位/波窗 per-walle
   ok(q.whaleWallets === 0, 'A13b: 独立钱包（不同块不同额）不合并不受影响（rowsQ 回归 0 户）');
 }
 
+// ═══════════════ A14. BP85 followBuy 剔同块闪进闪出（案源「幕后」0x6957ace8…7777，bt-v147-af1-36h-win1012） ═══════════════
+console.log('A14. BP85 承接剔同块闪进闪出（同钱包同块买→卖回的往返单不是吸筹——与 CD400「同块买≠承接」同向）');
+{
+  const W_FX = '0x' + '9e'.repeat(20);  // 闪进闪出钱包（案源 0x5e08f9e3…：同块 6.198e-9 买 0.3191 → 5.554e-9 卖回 0.3096）
+  const W_AB = '0x' + 'e6'.repeat(20);  // 真承接钱包（案源 0xe6edfc88：0.0982 买，19s 后才卖）
+  const W_CD = '0x' + 'e2'.repeat(20);  // 尾段尘埃买（案源 0xe217034f：0.0099）
+
+  // 主案数值反证：砸块 9101（=案源 blk581，4 卖方 1.3427/-20.13%）距锚 9s 贴锚 →
+  // 旧口径 followBuy=0.4634（含闪进闪出 0.3191，占 69%）→ 0.4634/1.3427=34.5% 恰过
+  // 30% 参考线判「承接形成」放行买入；新口径剔往返单 → 0.1443 → 10.7% <30% 判「无人接」
+  const rowsCase = [
+    row(0, 'BUY', CREATOR, 0.9988, 6.57 * E9, 1.52e8, { block: 9100 }),
+    row(8, 'BUY', W_B, 0.1101, 9.39 * E9, 1.17e7, { block: 9101, li: 0 }),
+    row(8, 'SELL', W_C, 0.3459, 8.50 * E9, 4.07e7, { block: 9101, li: 1 }),
+    row(8, 'SELL', W_D, 0.3179, 8.40 * E9, 3.78e7, { block: 9101, li: 2 }),
+    row(8, 'SELL', W_E, 0.2936, 8.00 * E9, 3.67e7, { block: 9101, li: 3 }),
+    row(8, 'SELL', W_F, 0.3853, 7.50 * E9, 5.14e7, { block: 9101, li: 4 }),
+    row(9, 'BUY', W_G, 0.0197, 8.17 * E9, 2.4e6, { block: 9102 }),
+    row(10, 'BUY', W_H, 0.0099, 8.19 * E9, 1.2e6, { block: 9103 }),
+    row(11, 'BUY', W_B, 0.0066, 8.20 * E9, 8e5, { block: 9104 }),
+    row(12, 'BUY', W_FX, 0.3191, 6.198 * E9, 5.15e7, { block: 9105, li: 0 }),
+    row(12, 'SELL', W_FX, 0.3096, 5.554 * E9, 5.57e7, { block: 9105, li: 1 }),
+    row(16, 'BUY', W_AB, 0.0982, 5.29 * E9, 1.86e7, { block: 9106 }),
+    row(17, 'BUY', W_CD, 0.0099, 5.31 * E9, 1.9e6, { block: 9107 }),
+  ];
+  const dC = buildBuyPointSnapshot(rowsCase, metaA).buyDerived;
+  const dbC = dC.dumpBlock;
+  ok(dbC && dbC.block === 9101 && near(dbC.sellBnb, 1.3427) && dbC.sellers === 4 && dbC.dropPct === -20.13,
+    `A14: 主案砸块反证（9101 单块 4 卖方 1.3427/-20.13%——实际 ${dbC && JSON.stringify({ b: dbC.block, s: dbC.sellBnb, n: dbC.sellers, d: dbC.dropPct })}）`);
+  ok(dbC && dbC.secToAnchor === 9 && dbC.followBuyRatio === null,
+    'A14: 贴锚形状保持（距锚 17−8=9s<10s → ratio 恒 null 不冒充——剔除只动分子不动窗语义）');
+  ok(dbC && near(dbC.followBuyBnb, 0.1443) && dbC.followBuyBnb / dbC.sellBnb < 0.3,
+    `A14: 事故现场反证（旧口径 0.4634 含闪进闪出 0.3191→34.5% 过 30% 线放行买入后 79s 断流止损；新口径剔往返单 0.0197+0.0099+0.0066+0.0982+0.0099=0.1443→10.7%<30% 判无人接——实际 ${dbC && dbC.followBuyBnb}）`);
+  ok(dC.dump2Block && dC.dump2Block.block === 9101 && dC.dump2Block.block2 === 9102
+    && near(dC.dump2Block.followBuyBnb, 0.1246),
+    `A14: 相邻对承接窗语义不变（dump2=9101+9102 endDt=9 → (9,69] 剔闪进闪出 0.0099+0.0066+0.0982+0.0099=0.1246——实际 ${dC.dump2Block && dC.dump2Block.followBuyBnb}）`);
+  const stC = buildBuyPointState(buildBuyPointSnapshot(rowsCase, metaA)).state;
+  ok(stC.includes('闪进闪出'),
+    'A14: state 渲染同步剔除说明（判据与直供同构——已见买入口径注明剔同块往返单）');
+
+  // 无序匹配 + 跨块回补照计：同块先卖后买同剔；砸块卖方在后续块买入（回补）照计
+  const rowsFlip2 = [
+    row(5, 'BUY', W_B, 0.3, 1.0 * E9, 3e8, { block: 9200 }),
+    row(10, 'BUY', W_C, 0.1, 1.02 * E9, 9.8e7, { block: 9201, li: 0 }),
+    row(10, 'SELL', W_D, 0.5, 0.88 * E9, 5.7e8, { block: 9201, li: 1 }),
+    row(12, 'SELL', W_E, 0.02, 0.86 * E9, 2.3e6, { block: 9202, li: 0 }),
+    row(12, 'BUY', W_E, 0.15, 0.86 * E9, 1.7e7, { block: 9202, li: 1 }),
+    row(14, 'BUY', W_D, 0.1, 0.85 * E9, 1.2e7, { block: 9203 }),
+    row(30, 'BUY', W_F, 0.2, 0.86 * E9, 2.3e7, { block: 9204 }),
+  ];
+  const dF2 = buildBuyPointSnapshot(rowsFlip2, metaA).buyDerived;
+  const dbF2 = dF2.dumpBlock;
+  ok(dbF2 && dbF2.block === 9201 && dbF2.secToAnchor === 20
+    && near(dbF2.followBuyBnb, 0.3) && near(dbF2.followBuyRatio, 0.6)
+    && near(dbF2.followBuyBnb, dbF2.followBuyRatio * dbF2.sellBnb),
+    `A14: 无序匹配+跨块回补（9202 内 W_E 先卖 0.02 后买 0.15=同块往返同剔；W_D 砸块 9201 卖 0.5、后续块 9203 买回 0.1=跨块回补照计；followBuy=0.1+0.2=0.3、ratio 0.6、同源锁保持——实际 ${dbF2 && JSON.stringify({ b: dbF2.followBuyBnb, r: dbF2.followBuyRatio })}）`);
+}
+
 // ═══════════════ B. 窗语义边界 ═══════════════
 console.log('B. 窗语义边界（半开/伪钱包/双口径）');
 const rowsB = [

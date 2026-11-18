@@ -140,6 +140,22 @@ scripts/_test_buy_point_lib.cjs  单测（零 DB 零网络，A-L 组）
 **读数**：三桶末值中位在全部三个 horizon **严格单调**（good > neutral > poor），引擎实际成交 ep.pnl 同向——BP1 首版判定方向有效。校准观察点：①good 偏保守（n=9）=追高反锚（「急拉窜升 near_high 不给高评价」）的刻意代价，poor 桶峰高中位仍 +9.4%@1min/+23.8%@15min——即「差点位」也常见尖峰只是回落深（末值深负），提示卖腿时机另议（非本模块口径）；②insufficient=0：本 set 无薄窗票（thin=0），该桶未受检验；③JAGENT（BP-S001）判 poor(0.55) 实际 +15min 峰 +107.85/末 +67.72——追高反锚误伤真启动票的实形，攒案后供题面校准。
 
 ## Case 档案
+### BP87（snapshot 口径修正·题集不 bump）followBuyBnb/followBuyRatio 剔同钱包同块闪进闪出——贴锚砸盘臂承接分子剔往返单（2026-11-18，bt-v147「幕后」`0x6957ace830287a43996bc218fec5c025b17f7777` 归因立法；用户裁定 A）
+
+**案由**：bt-v147-af1-36h-win1012（`9b31baf4`）「幕后」`0x6957ace8…7777`（flap quote 盘 quote=0x1ba42e51…）2026-10-12 09:33:43 BUY 0.2 BNB（buy_0_1/t0 腿 triggerNo 1）→ 79s 后 40s 断流 stallClose 全清 **-4.9%**（0.2→0.1902 BNB）。17 秒全案：creator `0xa6784185` 首买 0.9988 → 8s 拉至 **+131%**（athVsLaunchPct=131.3，chipFamousGroupBuyPct=81.6=famous 集团主导拉升）→ 09:33:34 blk127187581 四钱包砸 **1.3427 BNB**（-20.3%）+ 09:33:38 blk127187590/591 六钱包再砸 ~1.20 BNB（-24%）砸穿发行价（launchMinVsFloorPct=-7.98）→ 价格较峰 -55%、vs 发行价 +3.8%；触发 tick 本身=0.0099 尘埃买（`0xe217034f`，T132 per-tick 直评）。门链逐层：开盘簇门（clu=4/wave=9 本应拦）被 **T142 破发豁免臂**放行（恶意砸出的破发被当「筹码换手完毕重启位」——ASTER 案豁免被反向利用，候选 B 留档未立）；AF1 act=high → cheat 全链跳过；FP 因子门 **CD400「最恶承接 0.1081 ≥0.05 绝对线」放行**——0.1081=锚前 1s `0xe6edfc88` 的 0.0982 抢反弹单+0.0099 尘埃，该「承接者」19s 后（09:34:01）自己以 -4.4% 全额砸回=真实承接为 0（候选 C 留档）；CD403 卖方 6<8 差两档未触发（承接比 0.09 本可命中）。
+
+**BP 门放行根因（本案立法点）**：entry_shape=**normal_dip(0.54)**——BP82 贴锚砸盘臂（砸块距锚 9s<10s → 承接比恒 null）走「砸后已见买入 vs 砸卖额」判据：followBuyBnb=**0.4633** ÷ 砸卖 1.3427=**34.5% 恰过 30% 参考线** → Jev 判「承接形成」不落 malicious_dump。但 0.4633 的 **69% 是 `0x5e08f9e3` 的同块闪进闪出**：blk590 内 6.198e-9 买 0.3191 → 同块 5.554e-9 卖回 0.3096（净吸筹≈0.01，砸盘 wick 上的套利单）。剔往返单真实承接 0.1443=**10.7%<30%** → 本应判「无人接」→ malicious_dump → entry_gate 拒。**口径缝隙**：CD400 代码口径正确剔同块买（承接=block 严格更大）且多块取承接最小者结构性躲开闪进闪出块；BP82 followObs 是纯时间窗 `(endDt, endDt+60]`，同块往返单计入分子——两门承接口径不一致，本案正好卡缝。
+
+**用户裁定（2026-11-18）**：归因报告三候选 A/B/C 中选 **A**——「BP82 followBuyBnb 剔同块闪进闪出（与 CD400 块序口径对齐）」。B（T142 破发豁免臂加「破发由砸块造成」排除）与 C（CD400 0.05 绝对线归 CD403 卖方线接棒）留档未立。
+
+**落地**：`buy-point-snapshot.js` followObs 前置 `blockWalletSold` 索引（`块\0钱包` → 同块内有 SELL）——follow 窗内 BUY 行若同钱包同块存在卖出则**不计承接**：**无序匹配**（先卖后买同块往返同剔；「同块先买后卖瞬时往返单不是盘面活跃」CD401 密集臂反锚同族语义）；跨块回补照计（砸块卖方后续块买回仍是买流）；同块不同钱包互不影响；方向=少算承接更严、宁拦不冒充。`followBuyRatio` 同分子一并修正（完整窗承接比同剔）。`buy-point-state-builder.js` 单块行说明同步「买入已剔同钱包同块闪进闪出（买完同块卖回）的往返单」（BP61 铁律：判据与直供同构）。**题集 BP69 不 bump**——题面 30% 参考线语义不变，锚口径对齐现实=snapshot-only（mapper-only 先例同族）。
+
+**单测**：`_test_buy_point_lib.cjs` A14 段六断言 561→**567** 全绿：主案数值反证（夹具 9101=blk581 复刻 4 卖方 1.3427/-20.13%；贴锚 9s → ratio null 保持；followBuy 旧 0.4634→新 **0.1443**，10.7%<30% vs 34.5% 过线）；dump2 相邻对窗语义不变（endDt 9 → 0.1246）；state 渲染含剔除说明；无序匹配（9202 先卖后买同剔）+跨块回补照计（砸块卖方 9203 买回计入）+ratio 分子同源锁。`_test_buy_point_check_service.cjs` 41、`_test_factor_prebuy_check.cjs` 174 回归全绿。
+
+**182 对拍**：（待补——commit+pull 后跑 tmp-bp87-6957-parity 三连，期望 entry_shape 翻 malicious_dump 综 poor·entry_gate 拒）
+
+**余留**：候选 B（T142 破发豁免被恶意砸利用）/候选 C（CD400 绝对线被单笔 0.098 scalper 清掉）留档攒批；案源票 `price_usd` 列脏数据观察（隐含 BNB=$0.75 vs 同窗正常行 750.38=quote 汇率源错配——信号价/虚拟成交价=price_bnb×隐含汇率故显示价 ×0.75 于 tick 域；门链锚全走 price_bnb 域不受影响、PnL% 两腿同源无失真；trades 页 review quote 盘票时留意）。
+
 ### BP86（攒批留档·题集不动）crash 语义「前期涨幅高度」轴候选——低高度浅急跌回落≠崩盘（2026-11-18，bt-v147 洛天依 signals 页复盘）
 
 **案由**：bt-v147（`9b31baf4`，AF1 36h 窗）洛天依 `0xdc01e828e3ef05cbbf21c934ace1dab571447777` 首信号（2026-10-12 00:10:11，tokenAge 96s，buy_0_1 腿 triggerNo 1）BP 门 entry_shape=**crash(0.39)** 综 poor·entry_gate 拒；4s 后第二信号（00:10:15）同锚窗 entry_shape=**normal_dip(0.64)** 综 neutral·gates_passed 放行成交，81s 后断流 stallClose 全清 +8%（0.2→0.21598 BNB；两信号价格同位，翻转证据差仅=recentDip5SecAgo 0→3+尾 5s 出现一笔 0.0002 尘买——贴线方差两可形状）。
