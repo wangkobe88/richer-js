@@ -504,6 +504,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // T141 2026-11-15 首两波两键（首块首买数/首块+≤2s 首个活跃块首买数；
         // 详见 _test_launch_bundle_factors.cjs I-Q 段）
         'launchFirstBlockWallets', 'launchFirstWaveWallets',
+        // T177 2026-11-18 0x6510…7777 案（≥10 捆绑无论买入砸盘都不买）出生窗最大同块
+        // 卖出簇钱包数——ladder v30 绝对 veto 载体（详见 _test_launch_bundle_factors.cjs Y 段）
+        'launchSellBundleClusterSize',
         // 2026-10-18 用户点名集合（famous 门原料）+ C96/C97 叙事键（category 透传 +
         // superIP 注入键）——并行批次追加时未同步本白名单（2026-10-20 补）
         'famousCopyWalletCircPct', 'narrativeCategory',
@@ -587,7 +590,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'cheatPulseMaxGapBlocks',
         'cheatPostStallSpanSec', 'cheatPostStallBuyBnb', 'cheatPostStallBuyerCount',
         'cheatPostStallFreshBuyerPct', 'cheatPostStallEqualClusterPct', 'cheatPostStallMaxBlockBuyPct',
-        'cheatFamousDominancePct', 'cheatFamousDominance', 'cheatAbnormalBehaviorRatio',
+        // CD416（2026-11-17 cheat 门 famous 整链退役）cheatFamousDominance 两键已随批
+        // 从 FA 发射面删除（历史行留档）——白名单同步移除（本件漏更的补登）
+        'cheatAbnormalBehaviorRatio',
         'cheatMaxBlockBuyCount', 'cheatMaxBlockBuyPct', 'cheatMaxBlockPreGapSec',
         'cheatSameAmountWalletPct', 'cheatCreatorPeakHoldSupplyPct', 'cheatRouterEntryBuyPct',
         // 2026-11-07 T122 接近发行价臂（现价较首可靠价涨幅，BP near_launch 同口径；

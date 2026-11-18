@@ -910,5 +910,152 @@ console.log('X. T172 同块等额首买=单用户（launchBigBuyBnb 合并口径
     assert.strictEqual(F(fa8, T0 + 21000).launchBigBuyBnb, 1.1177));
 }
 
+// ═══════════════ Y. T177 出生窗同块卖出簇 + ≥10 捆绑绝对 veto ═══════════════
+// 2026-11-18 0x65104a556200d2ac4fc0462c14b240e3ca307777 案（bt-v147 AF1 复盘），
+// 用户裁定原话「在代币早期交易中，出现 10 个或以上的捆绑，无论买入还是砸盘，都不要
+// 买了」：10 钱包 t+1s 同块买 0.99B → 拉 +69.7% → 同 10 钱包 t+24s 同块砸 0.87B 块内
+// −24.5% → 砸后 12s 反弹洗白全门链买入 → 93s 流动性止损 −62.4%。买侧键已有
+// （launchBundleClusterSize 首买簇），卖侧新键 launchSellBundleClusterSize 独立接住
+// 「分批建仓后同块合砸」形状；ladder v30 全 14 腿绝对 veto（无年龄放行无破发豁免）。
+console.log('Y. T177 同块卖出簇 + ≥10 捆绑绝对 veto（0x6510…7777 案源形状）');
+{
+  const W10 = Array.from({ length: 10 }, (_, i) => 'wS' + i);
+  const buys = W10.map((w, i) => ({ timestamp: T0 + 1000, block_number: 689, log_index: i,
+    sender_address: w, trader_address: '0xeS' + i, bnb_amount: 0.09 + i * 0.003 }));
+  const dumps = W10.map((w, i) => ({ timestamp: T0 + 24000, block_number: 741, log_index: i,
+    trade_type: 'sell', sender_address: w, trader_address: '0xeS' + i, bnb_amount: 0.07 + i * 0.003 }));
+
+  // Y1 案源形状回放：双键 10/10
+  const fa1 = newFA();
+  feed(fa1, buys); feed(fa1, dumps);
+  const m1 = F(fa1, T0 + 30000);
+  check('Y1a 案源双键=10/10（同 10 钱包先同块买后同块砸；每钱包累计卖出 ≥0.015 尘线全过）', () => {
+    assert.strictEqual(m1.launchBundleClusterSize, 10);
+    assert.strictEqual(m1.launchSellBundleClusterSize, 10);
+  });
+
+  // Y2 买侧键独盲、卖侧键独立接住：分批建仓（跨 3 块 4+3+3）后同块合砸 10 户
+  const fa2 = newFA();
+  const spread = [
+    ...W10.slice(0, 4).map((w, i) => ({ timestamp: T0 + 1000, block_number: 300, log_index: i, sender_address: w, trader_address: '0xT' + i, bnb_amount: 0.1 })),
+    ...W10.slice(4, 7).map((w, i) => ({ timestamp: T0 + 3000, block_number: 320, log_index: i, sender_address: w, trader_address: '0xT' + (i + 4), bnb_amount: 0.1 })),
+    ...W10.slice(7).map((w, i) => ({ timestamp: T0 + 5000, block_number: 340, log_index: i, sender_address: w, trader_address: '0xT' + (i + 7), bnb_amount: 0.1 })),
+    ...W10.map((w, i) => ({ timestamp: T0 + 30000, block_number: 741, log_index: i, trade_type: 'sell', sender_address: w, trader_address: '0xT' + i, bnb_amount: 0.09 })),
+  ];
+  feed(fa2, spread);
+  const m2 = F(fa2, T0 + 35000);
+  check('Y2 分批建仓（首买簇恒 4）+ 同块合砸 10 户 → 卖出键=10 独立接住（买侧键结构性漏的形状）', () => {
+    assert.strictEqual(m2.launchBundleClusterSize, 4);
+    assert.strictEqual(m2.launchSellBundleClusterSize, 10);
+  });
+
+  // Y3 尘线：尘埃卖出不构成捆绑砸盘证据（T162 买入尘线同线）
+  const fa3 = newFA();
+  feed(fa3, [
+    ...W10.map((w, i) => ({ timestamp: T0 + 1000, block_number: 689, log_index: i, sender_address: w, trader_address: '0xD' + i, bnb_amount: 0.1 })),
+    ...W10.map((w, i) => ({ timestamp: T0 + 10000, block_number: 700, log_index: i, trade_type: 'sell', sender_address: w, trader_address: '0xD' + i, bnb_amount: 0.001 })),
+  ]);
+  check('Y3 10 钱包各卖 0.001（<holderDustBnb 0.015）→ 卖出键=0（有证据零值非 null）', () => {
+    assert.strictEqual(F(fa3, T0 + 15000).launchSellBundleClusterSize, 0);
+  });
+
+  // Y4 分单不漏：两块各 0.01 累计 0.02 过线（累计口径判据，非单笔）
+  const fa4 = newFA();
+  const w3 = ['wP1', 'wP2', 'wP3'];
+  feed(fa4, [
+    ...w3.map((w, i) => ({ timestamp: T0 + 1000, block_number: 100, log_index: i, sender_address: w, trader_address: '0xP' + i, bnb_amount: 0.1 })),
+    ...w3.map((w, i) => ({ timestamp: T0 + 5000, block_number: 110, log_index: i, trade_type: 'sell', sender_address: w, trader_address: '0xP' + i, bnb_amount: 0.01 })),
+    ...w3.map((w, i) => ({ timestamp: T0 + 8000, block_number: 120, log_index: i, trade_type: 'sell', sender_address: w, trader_address: '0xP' + i, bnb_amount: 0.01 })),
+  ]);
+  check('Y4 每钱包两块各 0.01 累计 0.02 ≥ 尘线 → 两块簇各计 3（累计口径分单不漏）', () => {
+    assert.strictEqual(F(fa4, T0 + 12000).launchSellBundleClusterSize, 3);
+  });
+
+  // Y5 多块 max：块 A 5 户/块 B 8 户 → 取最大块
+  const fa5 = newFA();
+  const mk = (blk, arr) => arr.map((w, i) => ({ timestamp: T0 + 1000 + blk, block_number: blk, log_index: i,
+    sender_address: w, trader_address: '0xM' + blk + i, bnb_amount: 0.1 }));
+  feed(fa5, mk(500, ['a1', 'a2', 'a3', 'a4', 'a5']));
+  feed(fa5, mk(510, ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8']).map(t => ({ ...t, trade_type: 'sell' })));
+  check('Y5 多块取最大：5 户买块 + 8 户卖块 → 卖出键=8（买块不计入卖出键）', () => {
+    assert.strictEqual(F(fa5, T0 + 5000).launchSellBundleClusterSize, 8);
+  });
+
+  // Y6 出窗冻结：90s 出生窗外砸块不计；冻结后恒返回快照（token 属性窗内定格）
+  const fa6 = newFA();
+  feed(fa6, buys);
+  feed(fa6, dumps);
+  feed(fa6, [{ timestamp: T0 + 92000, block_number: 800, log_index: 0, sender_address: 'wClose', trader_address: '0xC', bnb_amount: 0.05 }]); // 触发关窗（本行不入窗）
+  const frozen = F(fa6, T0 + 93000);
+  check('Y6a 关窗行触发冻结：双键保持 10/10', () => {
+    assert.strictEqual(frozen.launchBundleClusterSize, 10);
+    assert.strictEqual(frozen.launchSellBundleClusterSize, 10);
+  });
+  feed(fa6, Array.from({ length: 12 }, (_, i) => ({ timestamp: T0 + 95000, block_number: 900, log_index: i,
+    trade_type: 'sell', sender_address: 'wLate' + i, trader_address: '0xL' + i, bnb_amount: 0.1 })));
+  const pickLaunch = (m) => ({
+    size: m.launchBundleClusterSize, share: m.launchBundleClusterSharePct,
+    eqW: m.launchEqualClusterWallets, eqBnb: m.launchEqualClusterBnb,
+    f0: m.launchFirstBlockWallets, wave: m.launchFirstWaveWallets,
+    bigBuy: m.launchBigBuyBnb, sellClu: m.launchSellBundleClusterSize,
+  });
+  check('Y6b 窗外 12 户同块砸不计 → launch 族冻结值不变（早期窗定格，窗外归 CD/FP 锚窗臂管）', () => {
+    assert.deepStrictEqual(pickLaunch(F(fa6, T0 + 100000)), pickLaunch(frozen));
+  });
+
+  // Y7 defer 乱序收敛：卖出行乱序到达（processTick 同步路径即乱序）→ 终态同值
+  const fa7 = newFA();
+  feed(fa7, buys);
+  feed(fa7, [dumps[5], dumps[0], dumps[9], dumps[2], dumps[7], dumps[1], dumps[8], dumps[3], dumps[6], dumps[4]]);
+  check('Y7 卖出行乱序喂入 → 卖出键=10 同值（Set.add/加法幂等收敛）', () => {
+    assert.strictEqual(F(fa7, T0 + 30000).launchSellBundleClusterSize, 10);
+  });
+
+  // Y8 null wallet 行不入簇（解析缺失回退 trader=路由归一 → 少计宁漏不误充）
+  const fa8 = newFA();
+  feed(fa8, buys);
+  feed(fa8, [
+    ...Array.from({ length: 10 }, (_, i) => ({ timestamp: T0 + 24000, block_number: 741, log_index: 50 + i,
+      trade_type: 'sell', sender_address: null, trader_address: ROUTER, bnb_amount: 0.1 })),
+    { timestamp: T0 + 24000, block_number: 741, log_index: 99, trade_type: 'sell',
+      sender_address: 'wOnly1', trader_address: '0xO1', bnb_amount: 0.1 },
+  ]);
+  check('Y8 10 笔 sender 缺失卖出（全回退 ROUTER）+1 真钱包 → 卖出键=2（路由伪钱包归一为 1 不膨胀簇计数——少计宁漏）', () => {
+    assert.strictEqual(F(fa8, T0 + 30000).launchSellBundleClusterSize, 2);
+  });
+
+  // Y9 v30 绝对 veto 门串求值：无年龄放行无破发豁免，null 恒 false 宁拦
+  {
+    const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
+    const ev = new ConditionEvaluator();
+    const veto = 'launchBundleClusterSize < 10 AND launchSellBundleClusterSize < 10';
+    check('Y9a 双 9 放行（3~9 簇归 G1 豁免域——ASTER 换手豁免边界不变）', () =>
+      assert.strictEqual(ev.evaluate(veto, { launchBundleClusterSize: 9, launchSellBundleClusterSize: 9 }), true));
+    check('Y9b 买簇 10 恒拒——年龄/破发豁免全部失效（与 G1 的本质差异：绝对 veto）', () =>
+      assert.strictEqual(ev.evaluate(veto, {
+        launchBundleClusterSize: 10, launchSellBundleClusterSize: 0,
+        tokenAgeSec: 600, sinceFirstTradeSec: 600, launchMinVsFloorPct: -38.4 }), false));
+    check('Y9c 卖簇 10 恒拒（本案：双 10）', () =>
+      assert.strictEqual(ev.evaluate(veto, {
+        launchBundleClusterSize: 10, launchSellBundleClusterSize: 10 }), false));
+    check('Y9d 键缺失 null 恒 false=宁拦不冒充（旧 FA/快照断代语境 fail-closed）', () =>
+      assert.strictEqual(ev.evaluate(veto, { launchSellBundleClusterSize: 9 }), false));
+  }
+
+  // Y10 deploy 脚本 v30 门串逐字一致（防漂移；U7 同款）
+  check('Y10 deploy 脚本 BUNDLE_VETO_GATE 与本段一致', () => {
+    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
+    const m = deploySrc.match(/const BUNDLE_VETO_GATE = ' AND (launchBundleClusterSize < 10 AND launchSellBundleClusterSize < 10)'/);
+    assert.ok(m, 'BUNDLE_VETO_GATE 常量缺失或形状漂移');
+  });
+
+  // Y11 FactorBuilder 快照透传 + 探针收键（不落库即丢防线）
+  check('Y11 FactorBuilder 白名单透传 + getFactorKeys 探针收键', () => {
+    const fbSrc = fs.readFileSync(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'), 'utf8');
+    assert.ok(/launchSellBundleClusterSize: factorResults\.launchSellBundleClusterSize \?\? null/.test(fbSrc), 'FactorBuilder 透传缺失');
+    assert.ok(newFA().getFactorKeys().has('launchSellBundleClusterSize'), '探针未收键');
+  });
+}
+
 console.log(`\n结果: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

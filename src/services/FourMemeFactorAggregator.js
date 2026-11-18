@@ -1525,6 +1525,24 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    同到达面；对齐现行 bundleClusterSharePct 分母语义）。窗推进在 early advance
         //    旁已调（early 同构：触发冻结的出窗行不进窗=分子分母对称）──
         if (!state._launchWindowClosed && isBuy) state._launchBuyBnb += bnbAmount;
+        // ── launch 出生窗同块卖出簇原料（T177 2026-11-18 0x65104a55…7777 案用户立法
+        //    「在代币早期交易中，出现 10 个或以上的捆绑，无论买入还是砸盘，都不要买了」）：
+        //    wallet → 出生窗累计卖出 BNB（尘线判据）+ blk → 卖出钱包 Set（同块簇计数）。
+        //    窗推进已在 _launchWindowAdvance 先行——触发出窗行不入窗（与 _launchBuyBnb/
+        //    首买 map 对称）；null wallet 行无法按钱包聚簇不入（本方法两段喂食均以
+        //    resolver 终态行到达——sender 缺失回退 trader=路由归一 → 少计宁漏）。──
+        if (!state._launchWindowClosed && !isBuy && walletAddr) {
+            state._launchWalletSells.set(walletAddr,
+                (state._launchWalletSells.get(walletAddr) || 0) + bnbAmount);
+            if (blockNumber !== null) {
+                let _sw = state._launchBlockSellWallets.get(blockNumber);
+                if (!_sw) {
+                    _sw = new Set();
+                    state._launchBlockSellWallets.set(blockNumber, _sw);
+                }
+                _sw.add(walletAddr);
+            }
+        }
         // ── launch 首两波活跃块原料（T141 2026-11-15）：出生窗内每个块记首行 ts
         //    （尘门后任意 trade 行——buy/sell 都算「有交易」；写点在窗推进后 →
         //    触发出窗行不入窗，与 _launchBuyBnb/首买 map 对称）。min 更新幂等 →
@@ -1989,6 +2007,11 @@ class FourMemeFactorAggregator extends EventEmitter {
                                          //   都算「有交易」；min 更新 → defer 乱序序无关收敛；窗关闭后
                                          //   停止累计。launchFirstBlockWallets/launchFirstWaveWallets
                                          //   两键活跃块判定原料，2026-11-15 T141）
+            _launchWalletSells: new Map(), // T177 wallet → 出生窗累计卖出 BNB（同块卖出簇尘线判据
+                                         //   原料；窗关停写=冻结语义；加法交换律 → defer 乱序收敛）
+            _launchBlockSellWallets: new Map(), // T177 blk → 出生窗内该块卖出钱包 Set（同块捆绑
+                                         //   砸盘计数原料；Set.add 幂等 → defer 乱序收敛；null wallet
+                                         //   行不入簇=解析缺失 router 归一少计宁漏不误充）
 
             // 持仓（positionKey → pos）
             _positions: new Map(),
@@ -2959,6 +2982,12 @@ class FourMemeFactorAggregator extends EventEmitter {
      *                                  ——「狙击小队先头在首块+同波续单在后续块」合并计数；
      *                                  首买语义跨块天然去重。两键均纯事实计数（不内建 f0≥2
      *                                  提纯——门串组合表达），空窗/锚缺失全 0 有证据零值。
+     *   launchSellBundleClusterSize —— 出生窗内最大「同块卖出簇」钱包数（T177 2026-11-18
+     *                                  0x6510…7777 案用户立法：≥10 捆绑无论买入砸盘都不买）
+     *                                  ——砸盘侧捆绑指纹，买入侧首买簇键漏「分批建仓后同块
+     *                                  合砸」形状由本键独立接住；尘线=每钱包出生窗累计卖出
+     *                                  ≥ holderDustBnb（T162 买入尘线同线，显式 0=raw 人头）；
+     *                                  null wallet 行不入簇（解析缺失 router 归一少计宁漏）。
      *                                  T150（2026-11-16 用户立法「抛压理念」）：①f0/wave/
      *                                  clu 三键计数剔小额参与钱包（★T162 2026-11-17 用户
      *                                  修正措辞与方向：本意「前期的小额**买入**不要计在
@@ -3090,6 +3119,25 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 出窗后随 _launchFrozen 冻结。ladder v25 推迟臂
         // (launchBigBuyBnb < 3 OR sinceFirstTradeSec > 60) 的判据——「60 秒应该
         // 足够它们卖出了」（用户裁定，t* 中位 +15~90s）。
+        // T177（2026-11-18 0x65104a556200d2ac4fc0462c14b240e3ca307777 案，bt-v147 AF1
+        // 复盘，用户裁定「在代币早期交易中，出现 10 个或以上的捆绑，无论买入还是砸盘，
+        // 都不要买了」）：出生窗最大同块**卖出**钱包数——砸盘侧捆绑指纹。买入侧
+        // launchBundleClusterSize 只覆盖首买簇（分批建仓后同块合砸的形状买入键漏），
+        // 卖出键独立计。案源现场：10 钱包 t+1s 同块买 0.99B（launchBundleClusterSize=10）
+        // → 拉到 +69.7% → 同 10 钱包 t+24s 同块砸 0.87B 块内 −24.5% → 砸后 12s 反弹
+        // 洗白全门链买入 → 93s 流动性止损 −62.4%。尘线=每钱包出生窗累计卖出
+        // ≥ holderDustBnb 才计（T162 买入尘线同线——尘埃卖出不构成捆绑砸盘证据；
+        // 显式 0=raw 人头计数）。空窗 0 有证据零值；出窗随 _launchFrozen 冻结
+        // （token 属性永久可见——锚窗滑动洗不掉，与砸后反弹竞速结构性无关）。
+        const sellDust = this._fp.holderDustBnb || 0;
+        let sellClusterSize = 0;
+        for (const ws of state._launchBlockSellWallets.values()) {
+            let n = 0;
+            for (const w of ws) {
+                if ((state._launchWalletSells.get(w) || 0) >= sellDust) n++;
+            }
+            if (n > sellClusterSize) sellClusterSize = n;
+        }
         return {
             launchBundleClusterSize: size,
             launchBundleClusterSharePct: Math.round(sharePct * 10) / 10,
@@ -3098,6 +3146,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             launchFirstBlockWallets: f0,
             launchFirstWaveWallets: f0 + fNext,
             launchBigBuyBnb: parseFloat(bigBuySum.toFixed(4)),
+            launchSellBundleClusterSize: sellClusterSize,
         };
     }
 
@@ -4011,6 +4060,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             launchBigBuyBnb: launch.launchBigBuyBnb,
             launchFirstBlockWallets: launch.launchFirstBlockWallets,
             launchFirstWaveWallets: launch.launchFirstWaveWallets,
+            // T177（2026-11-18 0x6510…7777 案用户立法）出生窗最大同块卖出簇钱包数——
+            // ≥10 捆绑砸盘绝对 veto 载体（ladder v30 条件串消费）；口径见 _launchBundleFactors
+            launchSellBundleClusterSize: launch.launchSellBundleClusterSize,
             // TOP1 持仓集中度（2026-10-16 用户裁定门键；0=无持仓证据零值非 null；
             // 口径=链上交易者集中度，creator 预 mint 不在分子，见上方注释）
             top1HolderCircPct,

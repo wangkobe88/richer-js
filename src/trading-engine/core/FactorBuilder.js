@@ -248,6 +248,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     launchEqualClusterBnb: factorResults.launchEqualClusterBnb ?? null,
     launchFirstBlockWallets: factorResults.launchFirstBlockWallets ?? null,
     launchFirstWaveWallets: factorResults.launchFirstWaveWallets ?? null,
+    // T177（2026-11-18 0x6510…7777 案用户立法「≥10 捆绑无论买入砸盘都不买」）：出生窗
+    // 最大同块卖出簇钱包数——ladder v30 绝对 veto 载体；同族出生窗累计+冻结不可离线
+    // 重算，不落库即丢；0=空窗有证据零值，旧 FA 无键 → null 不掩盖
+    launchSellBundleClusterSize: factorResults.launchSellBundleClusterSize ?? null,
     top1HolderCircPct: factorResults.top1HolderCircPct ?? null,
     // T92 top2 持有人门（2026-10-29）：前两大净持仓合计 ÷ 同 circ 分母，与 top1 同快照
     // 语义（0=有证据零值；旧 FA 无键 → null 不掩盖）
