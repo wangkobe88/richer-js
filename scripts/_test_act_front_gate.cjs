@@ -315,20 +315,20 @@ async function main() {
       'timeout_fail_open → skipCheat=false（fail-open 进 cheat 全链）');
   }
 
-  // ═══════════════ E. FP14 N 升格臂 ═══════════════
-  console.log('E. FP N 通道升格臂');
+  // ═══════════════ E. FP N 升格臂证伪撤回（对拍 2026-11-18 同日）═══════════════
+  console.log('E. FP N 通道升格臂撤回（对拍证伪）');
   ok(FACTOR_PREBUY_VERSION === 'FP15', `FP 版本=FP15（T174b 合并口径）（实际 ${FACTOR_PREBUY_VERSION}）`);
   {
-    // 最小 snapshot 直调（cheatDerived=BP snapshot 的 base.derived 整包引用形状）
+    // 最小 snapshot 直调：N 臂无条件拦会误伤 A_strong∧high 豁免票（萨摩耶 N=6.3
+    // −0.014/我画地为牢 N=0.0 +0.0875/PAYAI N=9.5 +0.0762，净 −0.15 > FFFF
+    // 0x6af6cd7f 单 token 0 成交损失）——N 免疫语义活在 cheat 豁免链 A 主判
+    // 优先域，无条件臂超范围
     const mkSnap = (routerEntryBuyPct) => ({ cheatDerived: { routerEntryBuyPct, buyN: 20, sellN: 5, totalBuyBnb: 2, totalSellBnb: 0.5 }, buyDerived: { activity: {} } });
-    ok(fpJudge(mkSnap(9.9)).pass === false && fpJudge(mkSnap(9.9)).arms.includes('n_no_retail_entry'),
-      'routerEntryBuyPct=9.9 → n_no_retail_entry 拒');
-    ok(fpJudge(mkSnap(10.0)).arms.includes('n_no_retail_entry') === false, '恰 10.0 不触发（G17 严格小于同线）');
-    ok(fpJudge(mkSnap(55)).arms.includes('n_no_retail_entry') === false, '55% 散户入口在场放行');
-    ok(fpJudge(mkSnap(null)).arms.includes('n_no_retail_entry') === false, 'null（<15 笔样本薄 fail-open）不触发');
+    ok(fpJudge(mkSnap(0.0)).arms.includes('n_no_retail_entry') === false,
+      'N=0.0 也不在 FP 拦（AF1 跳过路径接受丢失面=「act 恒 high∧纯 N」票，三窗 0 成交实证）');
     const FP_SRC = fs.readFileSync(path.join(__dirname, '../src/market-analysis/factor-pre-buy-check.js'), 'utf8');
-    ok(FP_SRC.includes('NO_RETAIL_ENTRY_PCT = 10') && FP_SRC.includes('G17 N_no_retail_entry 同线同值'),
-      'N 线值=10 与 G17 同线注释在场');
+    ok(!FP_SRC.includes('NO_RETAIL_ENTRY_PCT') && FP_SRC.includes('对拍证伪撤回'),
+      'FP 源码：N 臂常量绝迹+证伪撤回注释在场');
   }
 
   console.log(`\n✅ _test_act_front_gate 全部通过（${passed} 断言）`);

@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP15'; // FP14=T175/AF1 前置门配套（N 通道升格臂 n_no_retail_entry）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）
+const FACTOR_PREBUY_VERSION = 'FP15'; // FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -858,9 +858,6 @@ function armBurstExitSellPressure(cd) {
  */
 const BURST_CONTEXT_PRESEG_MIN_BNB = 0.5;
 const BURST_CONTEXT_PRESEG_MIN_TICKS = 6;
-// T175/AF1 N 通道升格线（%）：与 cheat-grade G17 N_no_retail_entry 同线同值
-// （严格小于——恰 10.0 不触发；改线两处同改）
-const NO_RETAIL_ENTRY_PCT = 10;
 /** 背景腿（CD401/CD405 两臂共用，用户裁定两臂同加）：true=低/中背景（burst
  * 语境成立）；false=高活跃背景或缺锚（不触发——宁不拦） */
 function burstContextBackgroundCold(cd) {
@@ -973,15 +970,13 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
   // FP6 observe（famous 高控+砸落）前置判定——CD414 臂排除消费（上轮裁定先观察）
   const domFall = judgeFamousDominanceFall(snapshot);
   if (enableCheatArms) {
-    // T175/AF1 N 通道升格臂（G17 同线同值：锚窗买入**笔数**走聚合路由 9 址占比
-    // <10% 严格小于=无散户入口拒买；cd.routerEntryBuyPct 在 snapshot 层已带
-    // <15 笔样本薄 null 保护+恰 10.0 不触发——升格动机=前置门 high 档跳过 cheat
-    // 后 N 拦截保留（三窗 high∧cheat 拒唯一 1 票即 N 通道：FFFF 0x6af6cd7f
-    // 入口 0%、未成交、前向 10min max=0%——拒对）；对 low/mid 票=拒因从 cheat
-    // 域提前到 FP 域，方向不变；cheat 侧 N 通道照留（mid 全链票同判双留痕）
-    if (typeof cd.routerEntryBuyPct === 'number' && cd.routerEntryBuyPct < NO_RETAIL_ENTRY_PCT) {
-      arms.push('n_no_retail_entry');
-    }
+    // （T175 N 通道升格臂 n_no_retail_entry 2026-11-18 同日对拍证伪撤回：全量
+    // 升格会拦 3 张 A_strong∧high 豁免放行票——萨摩耶 N=6.3 −0.014/我画地为牢
+    // N=0.0 +0.0875/PAYAI N=9.5 +0.0762，净 −0.15 大于 FFFF 单 token 损失
+    // （0x6af6cd7f 0 成交、5 行信号 4 行 act=low/mid 提案下仍拒）——N 免疫
+    // 拦截面在豁免链有 A 主判优先语义，无条件臂超范围；AF1 跳过路径接受的
+    // 丢失面=「act 恒 high∧纯 N」票，三窗 0 成交实证。版本不 bump：N 臂从未
+    // 在任何窗口生效过（commit 与撤回同日，FP15 并行改动叠上））
     if (armDumpNoAbsorption(cd)) arms.push('cd400_dump_no_absorption');
     else if (armDumpLowAbsorption(cd)) arms.push('cd403_dump_low_absorption');
     else if (armBurstExitSellPressure(cd)) arms.push('cd401_burst_exit_sell_pressure');
