@@ -2994,9 +2994,40 @@ class FourMemeFactorAggregator extends EventEmitter {
         // T151 大户合计买入（累计口径：出生窗每钱包累计 ≥0.19B 者合计其全部累计买入——
         // 与预扫验证口径一致；首买 only 口径漏分单小队（天仔 0.75→1.34 过线案））。
         // T169（2026-11-17 用户裁定 0.2→0.19）：0.19~0.2 视同 0.2 级——BP19 大户参与
-        // 同惯例（贴线单 0.1973 案 0x6fc2…7777：0.2 线下漏计致合计 0.86<1 推迟门放行）
+        // 同惯例（贴线单 0.1973 案 0x6fc2…7777：0.2 线下漏计致合计 0.86<1 推迟门放行）。
+        // T172（2026-11-18 用户提案 bt-v143 案 0x683165bf…7777）：同块等额首买=同一
+        // 实体分仓 → 视为单用户买入——首买同 block ∧ 金额四位归一全等
+        // （Math.round(b*1e4)/1e4，_evenBuyBuckets 同款浮点安全口径；案源
+        // 0.13582946/0.13580056 相对差 2e-4 不满足旧 eq 簇 1e-5 链式判据但四位全等）
+        // ∧ ≥ earlyUniformDustBnb 的 ≥2 钱包组，组内 _launchWalletBuys 累计合并为
+        // 一个「用户」过 0.19 线计入（组内钱包不再单独计，防重复；组指纹=首买行、
+        // 金额=全量累计，T151 分单不漏语义保留）。案源现场：三笔大户 0.8460 +
+        // 等额对合并 0.2716 = 1.1177 ≥1 推迟门由放行翻推迟（原口径 2×0.1358 均
+        // 在 0.19 线下漏计 → 0.846<1 放行 21s 买入 40s 断流止损）。
+        const eqGroups = new Map(); // `${blk}|${四位金额}` -> [w,…]（首买指纹分组）
+        const grouped = new Set();
+        const dust = this._fp.earlyUniformDustBnb; // （原等额簇段声明上移——T172 段先用）
+        for (const e of rows) {
+            if (e.blk === null || e.bnb < dust) continue;
+            const k = e.blk + '|' + (Math.round(e.bnb * 1e4) / 1e4);
+            let arr = eqGroups.get(k);
+            if (!arr) { arr = []; eqGroups.set(k, arr); }
+            arr.push(e.w);
+        }
+        for (const arr of eqGroups.values()) {
+            if (arr.length >= 2) for (const w of arr) grouped.add(w);
+        }
         let bigBuySum = 0;
-        for (const v of state._launchWalletBuys.values()) if (v >= 0.19) bigBuySum += v;
+        for (const [w, v] of state._launchWalletBuys) {
+            if (grouped.has(w)) continue;
+            if (v >= 0.19) bigBuySum += v;
+        }
+        for (const arr of eqGroups.values()) {
+            if (arr.length < 2) continue;
+            let merged = 0;
+            for (const w of arr) merged += state._launchWalletBuys.get(w) || 0;
+            if (merged >= 0.19) bigBuySum += merged;
+        }
         // 同块簇（T150 选优改钱包数优先：BNB 选优被鲸单劫持——0x6e3a 案 0.594 鲸买
         // 单钱包簇压住 6 钱包簇/0.1155 三连买簇致 clu=1 退化，簇键语义=同块钱包数）
         const byBlock = new Map();
@@ -3019,7 +3050,6 @@ class FourMemeFactorAggregator extends EventEmitter {
         const size = best ? best.c.n : 0;
         const sharePct = best && state._launchBuyBnb > 0 ? best.c.bnb / state._launchBuyBnb * 100 : 0;
         // 等额簇（跨块短窗臂）：尘埃门以上首买金额排序，相邻相对差<1e-5 链式归簇
-        const dust = this._fp.earlyUniformDustBnb;
         const eq = rows.filter(r => r.bnb >= dust).sort((a, b) => a.bnb - b.bnb);
         let eqN = 0, eqBnb = 0;
         let i = 0;

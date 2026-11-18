@@ -803,5 +803,89 @@ console.log('W. T151 launchBigBuyBnb（前期买入太多载体）+ 推迟门');
   });
 }
 
+// ═══════════════ X. T172 同块等额首买=单用户（2026-11-18 bt-v143 案 0x683165bf…7777：
+//     blk 两钱包 0.13582946/0.13580056 四位归一同为 0.1358，单钱包均在 0.19 线下漏计
+//     → bigBuy 0.846<1 推迟门放行 21s 买入 40s 断流止损；合并 0.2716 过线 → 1.1177≥1）═══
+console.log('X. T172 同块等额首买=单用户（launchBigBuyBnb 合并口径）');
+{
+  // X1 案源现场形状（事故现场反证）：三笔大户 0.8460 + 等额对（同块第五块）
+  const fa = newFA();
+  feed(fa, [
+    { timestamp: T0 + 1000,  block_number: 211, log_index: 1, sender_address: 'wF1', trader_address: '0xeF1', bnb_amount: 0.40082013 },
+    { timestamp: T0 + 1000,  block_number: 211, log_index: 2, sender_address: 'wF2', trader_address: '0xeF2', bnb_amount: 0.24697901 },
+    { timestamp: T0 + 12000, block_number: 227, log_index: 1, sender_address: 'wF3', trader_address: '0xeF3', bnb_amount: 0.00991243 }, // 尘
+    { timestamp: T0 + 15000, block_number: 236, log_index: 1, sender_address: 'wF4', trader_address: '0xeF4', bnb_amount: 0.19822347 },
+    { timestamp: T0 + 18000, block_number: 251, log_index: 1, sender_address: 'wF5', trader_address: '0xeF5', bnb_amount: 0.13582946 },
+    { timestamp: T0 + 18000, block_number: 251, log_index: 2, sender_address: 'wF6', trader_address: '0xeF6', bnb_amount: 0.13580056 },
+  ]);
+  check('X1 案源形状：等额对合并 0.2716 过 0.19 线 → bigBuy=0.846+0.2716=1.1177（旧口径 0.846 漏计）', () =>
+    assert.strictEqual(F(fa, T0 + 21000).launchBigBuyBnb, 1.1177));
+  // X2 非同块等额不合并：同额不同块=两独立散户巧合
+  const fa2 = newFA();
+  feed(fa2, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wG1', trader_address: '0xeG1', bnb_amount: 0.13582946 },
+    { timestamp: T0 + 9000, block_number: 150, log_index: 1, sender_address: 'wG2', trader_address: '0xeG2', bnb_amount: 0.13580056 },
+    { timestamp: T0 + 9000, block_number: 150, log_index: 2, sender_address: 'wG3', trader_address: '0xeG3', bnb_amount: 0.4 },
+  ]);
+  check('X2 非同块等额不合并：0.1358×2 各自线下不计 → bigBuy=0.4', () =>
+    assert.strictEqual(F(fa2, T0 + 12000).launchBigBuyBnb, 0.4));
+  // X3 同块不等额不合并（案源首块形状 0.4008/0.2470）：各自 ≥0.19 各计各的
+  const fa3 = newFA();
+  feed(fa3, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wH1', trader_address: '0xeH1', bnb_amount: 0.40082013 },
+    { timestamp: T0 + 1000, block_number: 100, log_index: 2, sender_address: 'wH2', trader_address: '0xeH2', bnb_amount: 0.24697901 },
+  ]);
+  check('X3 同块不等额不合并：0.4008+0.2470=0.6478（与旧口径一致）', () =>
+    assert.strictEqual(F(fa3, T0 + 5000).launchBigBuyBnb, 0.6478));
+  // X4 组内单钱包本身 ≥0.19：合并计一次不重复（0.25+0.25 同块等额 → 0.5 非 1.0）
+  const fa4 = newFA();
+  feed(fa4, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wI1', trader_address: '0xeI1', bnb_amount: 0.25 },
+    { timestamp: T0 + 1000, block_number: 100, log_index: 2, sender_address: 'wI2', trader_address: '0xeI2', bnb_amount: 0.25 },
+  ]);
+  check('X4 组钱包不重复计：合并 0.5 恰一次（单独计 0.25+0.25 同值、防四倍形状）', () =>
+    assert.strictEqual(F(fa4, T0 + 5000).launchBigBuyBnb, 0.5));
+  // X5 等额尘门（earlyUniformDustBnb=0.001）：尘埃等额对不构成分仓指纹
+  const fa5 = newFA();
+  feed(fa5, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wJ1', trader_address: '0xeJ1', bnb_amount: 0.0005 },
+    { timestamp: T0 + 1000, block_number: 100, log_index: 2, sender_address: 'wJ2', trader_address: '0xeJ2', bnb_amount: 0.0005 },
+    { timestamp: T0 + 2000, block_number: 101, log_index: 1, sender_address: 'wJ3', trader_address: '0xeJ3', bnb_amount: 0.3 },
+  ]);
+  check('X5 尘门下等额不参与：0.0005×2 不合并 → bigBuy=0.3', () =>
+    assert.strictEqual(F(fa5, T0 + 5000).launchBigBuyBnb, 0.3));
+  // X6 组合并不足 0.19：合并后仍在线下不计
+  const fa6 = newFA();
+  feed(fa6, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wK1', trader_address: '0xeK1', bnb_amount: 0.01 },
+    { timestamp: T0 + 1000, block_number: 100, log_index: 2, sender_address: 'wK2', trader_address: '0xeK2', bnb_amount: 0.01 },
+    { timestamp: T0 + 2000, block_number: 101, log_index: 1, sender_address: 'wK3', trader_address: '0xeK3', bnb_amount: 0.2 },
+  ]);
+  check('X6 合并 0.02 仍 <0.19 不计 → bigBuy=0.2', () =>
+    assert.strictEqual(F(fa6, T0 + 5000).launchBigBuyBnb, 0.2));
+  // X7 组指纹=首买行、金额=累计（T151 分单不漏保留）：等额对首买后同钱包续单累计入组
+  const fa7 = newFA();
+  feed(fa7, [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wL1', trader_address: '0xeL1', bnb_amount: 0.1 },
+    { timestamp: T0 + 1000, block_number: 100, log_index: 2, sender_address: 'wL2', trader_address: '0xeL2', bnb_amount: 0.1 },
+    { timestamp: T0 + 5000, block_number: 105, log_index: 1, sender_address: 'wL2', trader_address: '0xeL2', bnb_amount: 0.1 }, // wL2 续单
+  ]);
+  check('X7 组金额=累计口径：0.1+0.1 首买等额成组、合并累计 0.1+0.2=0.3 过线计入', () =>
+    assert.strictEqual(F(fa7, T0 + 8000).launchBigBuyBnb, 0.3));
+  // X8 defer 乱序收敛（两段喂食：价格段先行+wallet 段乱序回推 → 组构成与累计终态确定）
+  const fa8 = newFA();
+  const legs = [
+    { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wM1', trader_address: '0xeM1', bnb_amount: 0.40082013 },
+    { timestamp: T0 + 18000, block_number: 251, log_index: 1, sender_address: 'wM5', trader_address: '0xeM5', bnb_amount: 0.13582946 },
+    { timestamp: T0 + 18000, block_number: 251, log_index: 2, sender_address: 'wM6', trader_address: '0xeM6', bnb_amount: 0.13580056 },
+    { timestamp: T0 + 15000, block_number: 236, log_index: 1, sender_address: 'wM4', trader_address: '0xeM4', bnb_amount: 0.19822347 },
+    { timestamp: T0 + 1000, block_number: 211 - 211 + 100, log_index: 2, sender_address: 'wM2', trader_address: '0xeM2', bnb_amount: 0.24697901 },
+  ];
+  // 直接乱序喂（processTick 同步路径即乱序到达）：组构成基于首买 map 覆盖式收敛
+  feed(fa8, legs);
+  check('X8 乱序到达同值：bigBuy=1.1177（首买 map min 覆盖 + 累计求和序无关）', () =>
+    assert.strictEqual(F(fa8, T0 + 21000).launchBigBuyBnb, 1.1177));
+}
+
 console.log(`\n结果: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
