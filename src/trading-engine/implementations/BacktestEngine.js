@@ -2886,6 +2886,8 @@ class BacktestEngine extends AbstractTradingEngine {
         `${this._stallCloseMinTickBnb != null ? `,≥${this._stallCloseMinTickBnb}BNB` : ''})`,
       action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
       priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
+      // T170b 断流上下文（signals 页展示「断流: Ns·档位」；stalledSec=距末足额成交）
+      stallCloseInfo: { stalledSec: Math.round(stalledMs / 1000), tier: extTier ? extTier.tier : null, effectiveSec: effSec },
     };
     this.logger.info(this._experimentId, 'StallClose',
       `${token.symbol || token.token.slice(0, 10)} 触发${strategy.name}(回放) | 已无成交 ${Math.round(stalledMs / 1000)}s | profitPercent=${factors.profitPercent?.toFixed(1)}%`);
@@ -3117,6 +3119,8 @@ class BacktestEngine extends AbstractTradingEngine {
             profitPercent: signal.profitPercent,
             holdDuration: signal.holdDuration,
             ...signal.factors,
+            // T170b stallClose 断流上下文（显式白名单透传——signals 页「断流: Ns·档位」）
+            ...(strategy.stallCloseInfo ? { stallClose: strategy.stallCloseInfo } : {}),
           },
           createdAt: signal.timestamp,
         });

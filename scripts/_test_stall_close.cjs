@@ -452,6 +452,25 @@ console.log('E1. 实时引擎延长臂（stallMs=10s，almost 90s / 破发 180s�
     } finally { Date.now = origNow; }
     check('★fd57 反证：延长窗内足额买盘到达 → 全程零卖出（旧 40s 口径此票已清仓）', calls, []);
   }
+
+  // T170b 信号名+断流上下文（真实 _emitStallCloseSell 方法体，桩 _emitSellSignal 捕获
+  // strategy）：延长臂卖出显示实际生效阈值+档标注（0x88ed 案被「40s」冒充误导的修正）
+  {
+    const capture = {};
+    const eng = makeWssEngine({
+      _stallCloseMs: 40000, _stallCloseMinTickBnb: 0.01,
+      _emitSellSignal: async (token, strategy) => { capture.strategy = strategy; },
+    });
+    await eng._emitStallCloseSell({ token: '0xt', symbol: 'T' }, { profitPercent: -3.2 }, 61000, { ms: 90000, tier: 'almost' });
+    check('★almost 档信号名=实际生效阈值 90s+档标注（非基础 40s）', capture.strategy.name, '流动性止损-无成交超时(90s·almost_launch域延长,≥0.01BNB)');
+    check('断流上下文 stallCloseInfo（stalledSec/tier/effectiveSec）', capture.strategy.stallCloseInfo, { stalledSec: 61, tier: 'almost', effectiveSec: 90 });
+    await eng._emitStallCloseSell({ token: '0xt', symbol: 'T' }, { profitPercent: 107.5 }, 185000, { ms: 180000, tier: 'breakdown' });
+    check('破发档信号名=180s·破发域延长', capture.strategy.name, '流动性止损-无成交超时(180s·破发域延长,≥0.01BNB)');
+    check('破发档断流上下文', capture.strategy.stallCloseInfo, { stalledSec: 185, tier: 'breakdown', effectiveSec: 180 });
+    await eng._emitStallCloseSell({ token: '0xt', symbol: 'T' }, { profitPercent: 2.1 }, 41000, null);
+    check('域外信号名=基础阈值原形状（无档标注）', capture.strategy.name, '流动性止损-无成交超时(40s,≥0.01BNB)');
+    check('域外断流上下文 tier=null', capture.strategy.stallCloseInfo, { stalledSec: 41, tier: null, effectiveSec: 40 });
+  }
 }
 
 console.log('E2. 回测引擎延长臂（虚拟时钟 + 检测时点 asOf parity + 破发档重锚）');

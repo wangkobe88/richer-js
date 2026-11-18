@@ -1059,6 +1059,8 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **生效语义**：引擎级机制零库改动，存量实验 config 不变自动吃新缺省（显式 `almostLaunchStallMs`/`breakdownStallMs` 可分别覆盖/关闭）；生产/回测下轮重启生效。**余留**：破发域 180s 延迟离场代价面（阴跌票 3 分钟才走）待窗口实验观察。
 
+**同日追裁定两件（0x86a6d63d…7777 复审引出——该票 10:34:26 断流 40s 全清时 profitPercent=+107.5%、curVs=+142.77%，断流边界砍在高浮盈位）**：①**基础 stallMs 模板默认 40000→50000**（用户裁定原话「默认断流卖出时间，也改为 50 秒吧，再救一点 case 回来」——文档/克隆模板层改动同 2026-11-17 30s→40s 先例，引擎不加缺省：stallClose 段在但 stallMs 未配仍=机制关，存量实验显式配置不变）；②**断流卖出信息 signals 页展示**（用户裁定原话「页面上断流卖出信息，也请展示对哈」）：两引擎 `_emitStallCloseSell` 挂 `stallCloseInfo={stalledSec,tier,effectiveSec}` → 卖信号 metadata `stallClose` 段（回测侧 TradeSignal metadata 显式白名单透传）→ signals 页 SELL 行 extraInfo「断流: Ns·almost_launch域延长(90s)/破发域延长(180s)/无标注=域外基础阈值」（模板 ?v=4.63，五层冒烟 34/0）。
+
 ### T183 因子卖出过滤门双扩：smartHold 聪明钱臂 + pump 失衡臂签名管辖（2026-11-18；案源 bt-v150 `8ebaccce-62c6-4209-a2a0-40f361c49bf9` token `0x2f17249e8d291ecb422fc5c0fc0eb313b7a57777`；用户裁定原话「卖出信号过滤中，除了基于 famous，也把聪明钱的买入行为放进去，如果聪明钱也在买入，那么挡住卖出」+「卖出臂 realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90 AND sinceEntryBuyBnb >= 1 也要过这个过滤」）
 
 - **案源取证**：BUY 18:23:15 @6.54e-9 → **P5（pump-imbalance-exit v3 泵失衡臂）18:23:49 全清 @1.02e-8，pp=57.54**——T157c 管辖门 `profitPercent>=100` 恰好放走（泵失衡臂常在 pp<100 触发=结构性缝隙）；卖后 5min 最高价 **+479%**（1.02e-8→峰值 ~5.9e-8）。卖前窗盘面：famous roster 35 址零命中；**聪明钱 `0xb959d86f…0ad7` 卖前 2s 买 0.0494 BNB**（唯一窗内命中；60s 窗聪明钱零卖出）——famous 0.1 大买线漏拦该笔 → smart 线独立定线 0.02。

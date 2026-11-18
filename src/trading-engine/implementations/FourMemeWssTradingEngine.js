@@ -2922,6 +2922,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         `${this._stallCloseMinTickBnb != null ? `,≥${this._stallCloseMinTickBnb}BNB` : ''})`,
       action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
       priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
+      // T170b 断流上下文（signals 页展示「断流: Ns·档位」；与 trendFactors 的
+      // curVs/floorPct 判档依据互补——stalledSec=距末足额成交、tier/effectiveSec=生效档）
+      stallCloseInfo: { stalledSec: Math.round(stalledMs / 1000), tier: extTier ? extTier.tier : null, effectiveSec: effSec },
     };
     this.logger.info(this._experimentId, 'StallClose',
       `${token.symbol || token.token.slice(0, 10)} 触发${strategy.name} | 已无成交 ${Math.round(stalledMs / 1000)}s | profitPercent=${factors.profitPercent?.toFixed(1)}%`);
@@ -3615,6 +3618,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         sellPercentage: sellPct, // E5：本腿卖出比例（执行时点余仓；卡牌模式=卡数比例）
         cardTrade,
         factors: { trendFactors: buildFactorValuesForTimeSeries(factors) },
+        // T170b stallClose 断流上下文透传（processSignal 展开 signal.metadata 落 DB）
+        metadata: strategy.stallCloseInfo ? { stallClose: strategy.stallCloseInfo } : {},
         timestamp: new Date(),
       };
 

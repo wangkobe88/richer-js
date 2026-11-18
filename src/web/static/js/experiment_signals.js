@@ -3240,6 +3240,14 @@ class ExperimentSignals {
       const holdMinutes = (holdSeconds / 60).toFixed(1);
       extraInfo.push(`持仓: ${holdMinutes}分钟`);
     }
+    // T170b stallClose 断流上下文（2026-11-18）：距末足额成交秒数 + 生效档
+    // （almost_launch域延长 90s/破发域延长 180s/无标注=域外基础阈值照卖）
+    const scInfo = metadata.stallClose;
+    if (scInfo && Number.isFinite(scInfo.stalledSec)) {
+      const tierTxt = scInfo.tier === 'breakdown' ? `·破发域延长(${scInfo.effectiveSec}s)`
+        : (scInfo.tier === 'almost' ? `·almost_launch域延长(${scInfo.effectiveSec}s)` : '');
+      extraInfo.push(`断流: ${scInfo.stalledSec}s${tierTxt}`);
+    }
     if (metadata.sellCalculatedRatio !== undefined && metadata.sellCalculatedRatio !== null && !isNaN(metadata.sellCalculatedRatio)) {
       const ratioPercent = (metadata.sellCalculatedRatio * 100).toFixed(0);
       extraInfo.push(`卖出比例: ${ratioPercent}%`);
