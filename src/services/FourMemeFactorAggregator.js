@@ -917,9 +917,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.wallets)) {
                 throw new Error(`[FourMemeFA] loadCheatCrewWallets: 名单 schema 不符（${rosterPath}）`);
             }
-            _cheatCrewWallets = new Set(parsed.wallets
-                .filter(w => typeof w === 'string' && w)
-                .map(w => w.toLowerCase()));
+            // v3 起元素支持两形状：string | {address, role}（role=作弊方式备注，用户裁定
+            // 2026-11-18「作弊方式备注在钱包列表中」）。非法元素 throw fail-loud——静默滤空
+            // 会让 G5 veto 静默失效（危险方向），宁拒启不冒充。
+            const addrOf = w => {
+                if (typeof w === 'string') return w;
+                if (w && typeof w === 'object' && typeof w.address === 'string') return w.address;
+                throw new Error(`[FourMemeFA] loadCheatCrewWallets: 名单元素形状非法（${JSON.stringify(w).slice(0, 80)}，须 string 或 {address, role}）`);
+            };
+            _cheatCrewWallets = new Set(parsed.wallets.map(addrOf).map(w => w.toLowerCase()));
             this._logInfo(`加载做市/作弊团队名单: ${_cheatCrewWallets.size} 个（${rosterPath}，version=${parsed.version ?? '?'}）`);
             return _cheatCrewWallets;
         })();
