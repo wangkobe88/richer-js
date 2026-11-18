@@ -1483,4 +1483,4 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **bt-v151 独立回测（f7f21986，用户指令「单独回测不与当前策略混淆」）**：bt-v150 同窗同 maxTickRows、策略整体替换——买腿 `smartInflowReady == 1`（cards:1、buyPhase:first）+卖腿 `realHoldDuration >= 60` 全清 bypass+止损 -20%/扫描 10s、perCardBNB 0.2、门链全删（cheat/BP/factorCheck/stallClose）=研究模拟口径纯净复现。**结果：151 票成交 +2.1607 BNB（胜率 39.07%，59 胜 91 负）**——与模拟 +3.06B 差额=入场时刻偏移（debounce 200ms+节流 3s 冷却的次 tick 价追高）+止损滑点+多 11 票；胜率与研究 39% 完全一致；top 票=研究大肉精确兑现（0x390b 巨鲸 +0.47B/0x9ea1 狮子 +0.39B/0xf6c0 +0.34B）。同窗对照：现行 ladder 体系 bt-v150 +2.21B（203 票）——备选策略单窗战绩与整个 ladder 相当。
 
-**余留**：跨窗验证（换 2~3 窗+smartmoney 名单 as-of 截断）是入法前置；live 执行滑点未计；事件票与 FP 族门冲突（立腿需独立门链或豁免）。memory `fam-inflow-relay-signal-study`。
+**余留**：跨窗验证（换 2~3 窗+smartmoney 名单 as-of 截断）是入法前置；live 执行滑点未计；事件票与 FP 族门冲突（立腿需独立门链或豁免）。memory `fam-inflow-relay-signal-study`。**专题全档=`docs/聪明钱涌入信号专题台账.md`（SI-1~SI-4 编号，含研究判据全文/三宇宙证据/实现档案/回测对照——本条为压缩版）**。

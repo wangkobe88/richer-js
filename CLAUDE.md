@@ -8,6 +8,7 @@ Richer-js：BSC four.meme + flap + gang meme 币自动交易引擎（BSC-only）
 - 作弊盘检测案档案：`docs/作弊盘检测与Case台账.md`（CD 编号；cheatCheck 机制、题集版本演进表、回归集收录；详档 auto-memory）；**每个作弊盘 case/题集改动须同步追加台账**
 - 买入点位分析案档案：`docs/买入点位分析与Case台账.md`（BP 编号；Jev 入场时机判定模块、题集版本演进、测试集 set；详档 auto-memory）；**每个买点 case/题集改动须同步追加台账**
 - **当前最优买卖策略快照**：`docs/当前最优买卖策略.md`（现行最优买腿 ladder v21 十四腿+卖腿 16 条 condition 全文+机制配置+证据链；**每次策略演进同步维护**）
+- **聪明钱涌入信号专题台账**：`docs/聪明钱涌入信号专题台账.md`（SI 编号；famous/聪明钱连续涌入互相接盘备选策略专题——假设验证/FA T184 三键/smart-inflow-relay 独立回测/跨窗验证余留；**与现行 ladder 体系刻意隔离，专题内新 case 同步追加**）
 - 历史实现：git 历史
 
 ## 常用命令
