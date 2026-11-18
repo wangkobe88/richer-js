@@ -723,9 +723,12 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
   ok('signalGateReal 门链挂点（signal 落库后先记账→作弊门→BP 门）',
     BT.includes('strategy.signalGate && this._signalGateReal') &&
     BT.includes('this._sgRecordTrigger(tokenAddress, strategy.id);\n\n        const _meta'));
-  ok('signalGateReal 两门 anchorMs=nowTs 虚拟时刻透传（service lte 截窗防前视）',
-    BT.includes('strategy.signalGate,\n          { anchorMs: nowTs, factorResults })') &&
+  ok('signalGateReal 两门 anchorMs=nowTs 虚拟时刻透传（service lte 截窗防前视；T175/AF1 后 cheat 调用在 else 分支缩进+2）',
+    BT.includes('strategy.signalGate,\n            { anchorMs: nowTs, factorResults })') &&
     BT.includes('anchorMs: nowTs,'));
+  ok('signalGateReal AF1 前置门挂点（FP 后 cheat 前+skipCheat 分支）',
+    BT.includes('await this._actFrontGateEvaluate(') &&
+    BT.includes('if (actFront.skipCheat)'));
   ok('signalGateReal 服务构造 persist:false 隔离注入',
     BT.includes('persist: false, settleDelayMs: 0'));
   ok('signal 落库 metadata signalGate 段（triggerNo 预读 +1 留痕）',

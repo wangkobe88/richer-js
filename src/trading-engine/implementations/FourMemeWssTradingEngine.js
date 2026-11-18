@@ -373,6 +373,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       });
     this._cheatGateAwaitMs = Number.isFinite(_cheatCfg.gate && _cheatCfg.gate.awaitMs)
       && _cheatCfg.gate.awaitMs > 0 ? _cheatCfg.gate.awaitMs : 15000;
+    // T175/AF1 前置活跃度门灰度（cheatCheck.actFrontGate.enabled 缺省 false=
+    // 零行为：不开=现行 FP→cheat→BP 全链 bit 不变；开=FP 后按 act 档分流）
+    this._actFrontGateEnabled = _cheatCfg.actFrontGate && _cheatCfg.actFrontGate.enabled === true;
     this._cheatBlockedTokens = new Set();   // 拉黑（仅 cheat；与 service._gateBlocked 双保险，引擎短路更早省整条链）
     this._cheatProjectedTokens = new Set(); // FA cheat 投影过的 token（stop 逐 token 清）
     // 门条件评估上下文的 cheat 键集（_cheatGateEvaluate 惰性派生：FA getFactorKeys
@@ -2356,15 +2359,44 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           });
         if (!factorGate.pass) return { success: false, reason: factorGate.reason };
 
-        const cheatGate = await this._cheatGateEvaluateBinary(
-          tokenAddress, token, faState, signalId, strategy.signalGate, { factorResults });
-        if (!cheatGate.pass) return { success: false, reason: cheatGate.reason };
-        if (cheatGate.info && signalId) {
-          try {
-            await this._updateSignalMetadata(signalId, { cheatCheck: cheatGate.info });
-          } catch (updateError) {
-            this.logger.warn(this._experimentId, 'SignalGate',
-              `更新信号元数据失败 | ${token.symbol} ${updateError.message}`);
+        // T175/AF1 前置活跃度门（FP 之后 cheat 之前分流：low/ultra∧非burst 拒、
+        // burst 豁免/high 跳过 cheat 直进 BP、mid/检测层故障照走 cheat 全链）
+        const actFront = await this._actFrontGateEvaluate(
+          tokenAddress, token, faState, signalId, { factorResults });
+        if (!actFront.pass) return { success: false, reason: actFront.reason };
+
+        let cheatGate;
+        if (actFront.skipCheat) {
+          // 跳过 cheat：info 留痕（BP67 cheatBurst 透传链用 levels.stallBurstWave；
+          // 波族数值锚缺席=burst 票 BP state 行锚 ? 值，BP69 act 题退役后无门桶消费者）
+          cheatGate = {
+            pass: true,
+            info: {
+              status: 'skipped_by_act_front', path: actFront.info?.path ?? null,
+              act: actFront.info?.act ?? null, sbw: actFront.info?.sbw ?? null, wash: actFront.info?.wash ?? null,
+              version: actFront.info?.version ?? null,
+              levels: { stallBurstWave: actFront.info?.sbw === 'burst' ? 1 : null },
+            },
+          };
+          if (signalId) {
+            try {
+              await this._updateSignalMetadata(signalId, { cheatCheck: cheatGate.info });
+            } catch (updateError) {
+              this.logger.warn(this._experimentId, 'SignalGate',
+                `更新信号元数据失败 | ${token.symbol} ${updateError.message}`);
+            }
+          }
+        } else {
+          cheatGate = await this._cheatGateEvaluateBinary(
+            tokenAddress, token, faState, signalId, strategy.signalGate, { factorResults });
+          if (!cheatGate.pass) return { success: false, reason: cheatGate.reason };
+          if (cheatGate.info && signalId) {
+            try {
+              await this._updateSignalMetadata(signalId, { cheatCheck: cheatGate.info });
+            } catch (updateError) {
+              this.logger.warn(this._experimentId, 'SignalGate',
+                `更新信号元数据失败 | ${token.symbol} ${updateError.message}`);
+            }
           }
         }
 

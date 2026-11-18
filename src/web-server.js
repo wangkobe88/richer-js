@@ -901,6 +901,17 @@ class RicherJsWebServer {
                 return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate.alwaysRecheck 须为布尔（CD389 每信号重判）` });
               }
             }
+            // T175/AF1 前置活跃度门灰度布尔（cheatCheck.actFrontGate.enabled 缺省
+            // false=现行 FP→cheat→BP 全链 bit 不变；开=FP 后按 act 档分流——
+            // low/ultra∧非burst 拒、burst 豁免/high 跳过 cheat、mid 照走全链）
+            if (cd.actFrontGate !== undefined && cd.actFrontGate !== null) {
+              if (typeof cd.actFrontGate !== 'object' || Array.isArray(cd.actFrontGate)) {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.actFrontGate 段形状非法（须为对象）` });
+              }
+              if (cd.actFrontGate.enabled !== undefined && typeof cd.actFrontGate.enabled !== 'boolean') {
+                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.actFrontGate.enabled 须为布尔（AF1 前置门灰度）` });
+              }
+            }
             // 买信号发射节流（T110 2026-11-03「全局买信号机制」，回测同步生效）：
             // 冷却双门（毫秒 [0,3600000] AND ticks [0,10000]，0=各关各的）/
             // 每 token 发射帽 [0,100]（0=不限）

@@ -279,3 +279,31 @@ export function buildCheatQuestions() {
     // 16.（已退役，D3.74 同批——观察期 13 天（2026-11-04 CD159 立项→11-17）豁免规则从未立法、MAIN_IDS 显式排除不进 A、无任何通道/FP/BP 门消费、条件串零引用；档位与买卖比 FA 投影键保留恒 null 供存量兼容，anchorBuySellRatio 数值锚照算纯观察、SB1 强庄池研究函数不受影响。git 历史留题面全文。）
   };
 }
+
+/**
+ * T175/AF1 活跃度前置门题集（3 题）——`buildActFrontQuestions()` 产物。
+ *
+ * 模块定位：signalGate 门链 FP 因子门之后、cheat 门之前的**前置分流门**
+ * （ActFrontGate，CheatCheckService.evaluateActFront 消费）。按 activity_level
+ * 档位分流：low/ultra∧sbw≠burst 拒、low/ultra∧sbw=burst 豁免跳过 cheat、
+ * high∧wash≠strong 跳过 cheat 直进 BP、mid 走全链（cheat 10 题+BP 3 题）。
+ *
+ * 题面**引用而非复制**：三题对象直接取自 buildCheatQuestions() 同一构建产物
+ * （单一真相源——cheat 题集演进时前置门自动同步，天然「逐字照抄零漂移」）。
+ * mid 票照走 cheat 门全 10 题（含这 3 题重复判一次）：换来 cheat 判定链
+ * （gateBuyPoint/G 通道/豁免链/粘滞/回归集）零改动。
+ *
+ * 版本规约：本版本独立于 CHEAT_QUESTIONS_VERSION——仅当 buildActFrontQuestions
+ * 的**组成**（取哪些题）变化时 bump；题面本体变化走 CHEAT_QUESTIONS_VERSION
+ * bump（引用结构自动携带）。版本落 signal metadata actFrontGate.version。
+ */
+export const ACT_FRONT_QUESTIONS_VERSION = 'AF1';
+
+export function buildActFrontQuestions() {
+  const q = buildCheatQuestions();
+  return {
+    activity_level: q.activity_level,
+    wash_pair: q.wash_pair,
+    stall_burst_wave: q.stall_burst_wave,
+  };
+}

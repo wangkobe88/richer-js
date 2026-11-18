@@ -1868,6 +1868,77 @@ class AbstractTradingEngine extends ITradingEngine {
   }
 
   /**
+   * T175/AF1 信号源门链·前置活跃度门（FP 因子门之后、cheat 门之前的分流门；
+   * 2026-11-18 用户提案「活跃度检测（含对倒）放到 cheat/BP 前面——高→跳过
+   * cheat 直接购买前检查、低/过高直接拒、中→再进 cheat+BP」）。
+   *
+   * 分流（service actFrontRoute 单一真相源；数据验证三窗 554 首判 low 54%/
+   * mid 19%/high 25%/ultra 2%，Jev 题数省 ~52%）：
+   * - reject_low/reject_ultra（低/过高 ∧ sbw≠burst）→ 拒（act_front_*）
+   * - reject_wash（high ∧ 对倒 strong——CD380 denied 臂语义搬家）→ 拒
+   * - burst_exempt（低/过高 ∧ sbw=burst——ba5e 立法保持）→ skipCheat 直进 BP
+   * - high_skip（high ∧ wash≠strong——CD379 豁免显性化省 10 题）→ skipCheat
+   * - mid_full → 照走 cheat 门全 10 题；fail_open（检测层故障/答案缺席）→
+   *   fail-open 放行进 cheat 全链（GMGN「数据不可用不得拦买点」同向）
+   *
+   * 拉黑票漂移面闭合：cheat 拉黑短路在信号链前段（本门之前）——low∧cheat
+   * 拉黑票后续信号漂 high 也被短路硬拒，跳过 cheat 不放行拉黑票。
+   * 灰度：cheatCheck.actFrontGate.enabled 缺省 false=零行为（现行全链 bit 不变）。
+   * 跳过路径 FA cheat 键族不投影（无 cheat 判定值不冒充；研究轨迹在 signal
+   * metadata actFrontGate/cheatCheck.status=skipped_by_act_front 两段）。
+   * ctx.anchorMs=回测 as-of 锚（T121 同款防前视）。
+   */
+  async _actFrontGateEvaluate(tokenAddress, token, faState, signalId, ctx = {}) {
+    if (this._actFrontGateEnabled !== true || !this._cheatCheckService || !this._cheatCheckService.enabled) {
+      return { pass: true, skipCheat: false, info: null };
+    }
+    const meta = {
+      address: token.token,
+      symbol: token.symbol || null,
+      name: token.name || null,
+      platform: token.platform || faState?.platform || null,
+      createdAtMs: token.createdAt ? token.createdAt * 1000 : null,
+      creatorAddress: token.creatorAddress || null,
+      totalSupply: faState?.totalSupply ?? null,
+    };
+    let res;
+    try {
+      res = await this._cheatCheckService.evaluateActFront(tokenAddress, meta,
+        { experimentId: this._experimentId, signalId },
+        {
+          awaitMs: this._cheatGateAwaitMs,
+          ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
+        });
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'SignalGate',
+        `前置活跃度门异常（fail-open 放行进 cheat） | ${token.symbol || tokenAddress.slice(0, 10)} ${e?.message || e}`);
+      return { pass: true, skipCheat: false, info: { status: 'error', reason: e?.message || String(e) } };
+    }
+
+    if (signalId && res) {
+      try {
+        await this._updateSignalMetadata(signalId, { actFrontGate: res });
+      } catch (updateError) {
+        this.logger.warn(this._experimentId, 'SignalGate',
+          `更新信号元数据失败 | ${token.symbol || tokenAddress.slice(0, 10)} ${updateError.message}`);
+      }
+    }
+
+    if (res && res.status === 'assessed' && res.path
+        && (res.path === 'reject_low' || res.path === 'reject_ultra' || res.path === 'reject_wash')) {
+      const reason = `act_front_${res.path.replace('reject_', '')}`;
+      this.logger.info(this._experimentId, 'SignalGate',
+        `前置活跃度门拒买 | ${token.symbol || tokenAddress.slice(0, 10)} act=${res.act} sbw=${res.sbw ?? '-'} wash=${res.wash ?? '-'} path=${res.path}`);
+      await this._updateSignalStatus(signalId, 'failed',
+        { message: `活跃度前置门拒买: ${res.path}（act=${res.act}）`, reason });
+      return { pass: false, reason: `活跃度前置门拒买（${reason}）`, info: res };
+    }
+    const skipCheat = !!(res && res.status === 'assessed'
+      && (res.path === 'burst_exempt' || res.path === 'high_skip'));
+    return { pass: true, skipCheat, info: res };
+  }
+
+  /**
    * T157/T157b 因子卖出过滤门初始化（实验级 fourmemeWs.factorSellFilter 段，
    * flap/gang 经各自 ws 段同键）：归一化（core/factor-sell-filter 单点）+ arms
    * 管辖臂清单语法/因子域校验（ConditionEvaluator+FA 因子集——arms 写错因子名

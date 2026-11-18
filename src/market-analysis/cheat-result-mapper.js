@@ -356,4 +356,9 @@ module.exports = {
   BUNDLED_LEVELS,
   STALL_BURST_LEVELS,
   // ABNORMAL_BEHAVIOR_LEVELS 已随 abnormal_behavior_ratio 题 D3.77/CD419 退役移除
+  // T175/AF1 活跃度前置门读档复用（单一真相源：与 buildObservation 同款
+  // argmax+桶域校验/容缺语义；缺题=null、未知桶 throw）
+  readActivityLevel: _activityLevel,
+  readStallBurst: _stallBurst,
+  readPhenomenon: _phenomenon,
 };

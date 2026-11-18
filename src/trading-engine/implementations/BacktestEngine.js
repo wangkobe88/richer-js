@@ -560,8 +560,10 @@ class BacktestEngine extends AbstractTradingEngine {
       const _bpAw = _wsCfg.buyPointCheck?.gate?.awaitMs;
       this._cheatGateAwaitMs = Number.isFinite(_cgAw) && _cgAw > 0 ? _cgAw : 15000;
       this._bpGateAwaitMs = Number.isFinite(_bpAw) && _bpAw > 0 ? _bpAw : 15000;
+      // T175/AF1 前置活跃度门灰度（cheatCheck.actFrontGate.enabled 缺省 false）
+      this._actFrontGateEnabled = _wsCfg.cheatCheck?.actFrontGate?.enabled === true;
       this.logger.info(this._experimentId, 'BacktestEngine',
-        `🚪 signalGateReal 门链真调已启用：cheat awaitMs=${this._cheatGateAwaitMs} / BP awaitMs=${this._bpGateAwaitMs}（persist:false 隔离+anchorMs 截窗）`);
+        `🚪 signalGateReal 门链真调已启用：cheat awaitMs=${this._cheatGateAwaitMs} / BP awaitMs=${this._bpGateAwaitMs}${this._actFrontGateEnabled ? ' / AF1 前置门=开' : ''}（persist:false 隔离+anchorMs 截窗）`);
     }
 
     // 累亏闩锁阈值：取卖腿 cumulativeLossLockPct 最大值（多腿并存最严者先锁，fail-closed 方向）；
@@ -2332,13 +2334,39 @@ class BacktestEngine extends AbstractTradingEngine {
         const _fp4Dt = Date.now() - _fp4T0;
         if (!factorGate.pass) return { success: false, reason: factorGate.reason };
 
+        // T175/AF1 前置活跃度门（FP 之后 cheat 之前分流；anchorMs=回放 as-of 锚）
+        const actFront = await this._actFrontGateEvaluate(
+          tokenAddress, gateToken, faState, signalId, { anchorMs: nowTs, factorResults });
+        if (!actFront.pass) return { success: false, reason: actFront.reason };
+
         const _chT0 = Date.now();
-        const cheatGate = await this._cheatGateEvaluateBinary(
-          tokenAddress, gateToken, faState, signalId, strategy.signalGate,
-          { anchorMs: nowTs, factorResults });
+        let cheatGate;
+        if (actFront.skipCheat) {
+          cheatGate = {
+            pass: true,
+            info: {
+              status: 'skipped_by_act_front', path: actFront.info?.path ?? null,
+              act: actFront.info?.act ?? null, sbw: actFront.info?.sbw ?? null, wash: actFront.info?.wash ?? null,
+              version: actFront.info?.version ?? null,
+              levels: { stallBurstWave: actFront.info?.sbw === 'burst' ? 1 : null },
+            },
+          };
+          if (signalId) {
+            try {
+              await this._updateSignalMetadata(signalId, { cheatCheck: cheatGate.info });
+            } catch (updateError) {
+              this.logger.warn(this._experimentId, 'SignalGate',
+                `更新信号元数据失败 | ${token.symbol} ${updateError.message}`);
+            }
+          }
+        } else {
+          cheatGate = await this._cheatGateEvaluateBinary(
+            tokenAddress, gateToken, faState, signalId, strategy.signalGate,
+            { anchorMs: nowTs, factorResults });
+        }
         const _chDt = Date.now() - _chT0;
         if (!cheatGate.pass) return { success: false, reason: cheatGate.reason };
-        if (cheatGate.info && signalId) {
+        if (cheatGate.info && signalId && cheatGate.info.status !== 'skipped_by_act_front') {
           try {
             await this._updateSignalMetadata(signalId, { cheatCheck: cheatGate.info });
           } catch (updateError) {

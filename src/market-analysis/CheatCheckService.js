@@ -75,7 +75,7 @@
 
 const { buildSnapshotFromRows } = require('./cheat-snapshot');
 const { buildCheatState } = require('./cheat-state-builder');
-const { buildObservation } = require('./cheat-result-mapper');
+const { buildObservation, readActivityLevel, readStallBurst, readPhenomenon } = require('./cheat-result-mapper');
 const { gradeObservation, levelsFromObservation, strongbackerShapeHit, STRONGBACKER_RULE_VERSION } = require('./cheat-grade');
 
 const DEFAULTS = {
@@ -116,6 +116,24 @@ const SELL_DRIVEN_EXIT_SELL_BUY_RATIO = 3;
 // ACTIVITY_LEVELS 同域（ESM 不能静态 require，单测 _test_cheat_gate_engine.cjs
 // dynamic import 锁两边一致防漂移）
 const ACTIVITY_EXEMPT_DOMAIN = ['low', 'mid', 'high', 'ultra'];
+
+/**
+ * T175/AF1 前置门分流纯函数（单测直测；引擎侧按 path 决策）：
+ * - low/ultra ∧ burst → 'burst_exempt'（跳过 cheat 直进 BP——ba5e 立法保持：
+ *   burst 票低活跃是静默后集中涌入的形状，不是拒买证据）
+ * - low/ultra ∧ ¬burst → 'reject_low'/'reject_ultra'（直接拒）
+ * - high ∧ wash=strong → 'reject_wash'（CD380 wash denied 臂语义搬家——同块对敲
+ *   strong 是唯一不豁免的作弊形状）
+ * - high ∧ wash≠strong → 'high_skip'（跳过 cheat 直进 BP——CD379 高档豁免语义
+ *   显性化，省 10 题；三窗 high 档 cheat 现行拦截率 0.7%）
+ * - mid → 'mid_full'（照走 cheat 门全 10 题 + BP——现行全链 bit 不变）
+ */
+function actFrontRoute(act, burst, wash) {
+  if (act === 'low' || act === 'ultra') return burst ? 'burst_exempt' : `reject_${act}`;
+  if (act === 'high') return wash === 'strong' ? 'reject_wash' : 'high_skip';
+  return 'mid_full';
+}
+
 function parseActivityExemptLevels(v) {
   // CD409（2026-11-16 btv134 复审 R4，用户裁定「先把 ultra 豁免去掉吧」）：缺省
   // ['high','ultra']→['high']——ultra 档豁免整体退役。案源=蝴蝶人生2.0一
@@ -189,6 +207,7 @@ class CheatCheckService {
     // 进程内状态（重启即清：DB bootstrap 补偿跨进程连续性）
     this._failUntil = new Map();     // token → 冷却截止 ts
     this._inflight = new Map();      // token → Promise（买点并发 join：一条链盖住相邻买点）
+    this._actFrontInflight = new Map(); // T175/AF1 前置门 token → Promise（与 cheat 链分账：锚同但判定独立）
     this._bootstrapped = new Set();  // token → 已做 DB 历史回读
     this._promptWritten = new Set(); // `${token}\0${version}` → jev_prompt 已落过（首行全文防线）
     this._llm = null;                // { JevClient, buildCheatQuestions, CHEAT_QUESTIONS_VERSION }
@@ -226,6 +245,8 @@ class CheatCheckService {
       activityCheatDenied: 0, // CD390 全档资格收紧命中计数——CD391 收回 ultra 单档后本计数停用恒 0，保留键读数连续性
       marketResets: 0, // CD382 截窗命中计数——CD393（11-09 6a1e4567 案）截窗整链退役后停用恒 0，保留键读数连续性
       resetInsufficientRejects: 0, // CD384 fail-closed 拒计数——CD393 退役后停用恒 0，保留键读数连续性
+      actFrontNoted: 0, actFrontJoined: 0, actFrontTimeouts: 0, // T175/AF1 前置门观测（评估数/并发 join/竞速超时）
+      actFrontRouted: { reject_low: 0, reject_ultra: 0, reject_wash: 0, burst_exempt: 0, high_skip: 0, mid_full: 0, fail_open: 0 }, // 分流路径计数
     };
   }
 
@@ -353,6 +374,198 @@ class CheatCheckService {
     // CD381 翻案统一出口：forceRecheck 重检结果非 cheat ∧ 原拉黑在场 → 解除
     //（非 forceRecheck 路径结果必 cheat 才会拉黑在场，_maybeUnblock 天然 no-op）
     return this._applyActivityExempt(this._maybeUnblock(token, result)); // CD379：chain 结果（含 4b/4c 秒回）统一出口变换
+  }
+
+  /**
+   * T175/AF1 活跃度前置门评估（2026-11-18 用户提案：活跃度检测（含对倒判读）
+   * 放到 cheat/BP 两段 Jev 之前分流——「活跃度高其实不需要 cheat 检测，低/过高
+   * 直接拒，中等再进 cheat+购买前检查」）。门链位置=FP 因子门之后、cheat 门之前；
+   * 引擎侧 _actFrontGateEvaluate 消费。
+   *
+   * 分流规则（数据验证 bt-v141/142/143 三窗 554 首判：low 54%/mid 19%/high
+   * 25%/ultra 2%；high 档 cheat 现行拦截率 0.7%（CD379 豁免后近乎纯白跑）、
+   * low 92% 拒/ultra 100% 拒与直接拒同向）：
+   * - act=low/ultra ∧ sbw≠burst → 拒（act_front_low / act_front_ultra；burst 语境
+   *   豁免臂=ba5e 立法保持——三窗 low∧burst 24 票净额 +0.087）
+   * - act=low/ultra ∧ sbw=burst → 跳过 cheat 直进 BP（burst_exempt）
+   * - act=high ∧ wash≠strong   → 跳过 cheat 直进 BP（high_skip；CD380 wash denied
+   *   臂语义搬家——对倒 strong 照拒）
+   * - act=high ∧ wash=strong   → 拒（act_front_wash；三窗 high 档 wash strong 零命中=防线性质）
+   * - act=mid                  → 照走 cheat 门全 10 题（mid_full；含 3 题重复判——
+   *   换 gateBuyPoint/G 通道/豁免链/回归集零改动）
+   *
+   * 语义要点：
+   * - **不粘滞、每信号真调**（3 题轻；档位时变，粘滞失真）；无拉黑登记（low/ultra
+   *   拒与现行 E/M 通道不拉黑同向；拉黑票漂 high 由门链入口引擎拉黑 Set 短路闭合）
+   * - **检测层故障 fail-open 放行进 cheat 全链**（insufficient_ticks/fail/timeout/
+   *   读档异常/act 答案缺席——GMGN「数据不可用不得拦买点」同向；cheat 门兜底）
+   * - 与 cheat 链共享 _failUntil 冷却（检测层故障同源）；mid 票 cheat 链会再次
+   *   settle（幂等）+重拉数（mem 源命中零成本）
+   * - 不落 cheat_detection 表（非 cheat 判定）；轨迹留 signal metadata actFrontGate 段
+   * - 回测 anchorMs as-of 截窗防前视（T121 同款，_pullTicks .lte(block_time, 锚)）
+   *
+   * @returns {Promise<{status:string, act?:string, sbw?:string, wash?:string,
+   *   path?:string, version?:string, reason?:string, anchorTickCount?:number}>}
+   *   status='assessed'：act/sbw/wash 档位+path 分流结果（引擎侧决策）；
+   *   其余 status=检测层故障（引擎侧 fail-open 放行进 cheat）。
+   */
+  async evaluateActFront(tokenAddress, tokenMeta = {}, context = {}, opts = {}) {
+    if (!this._enabled) return { status: 'disabled' };
+    const token = String(tokenAddress || '').toLowerCase();
+    if (!token) return { status: 'invalid_token' };
+    this.stats.actFrontNoted++;
+
+    let chain = this._actFrontInflight.get(token);
+    if (!chain) {
+      chain = this._actFrontChain(token, tokenMeta, context, opts)
+        .finally(() => this._actFrontInflight.delete(token));
+      chain.catch(() => {}); // 链内全吞错；防 unhandled rejection
+      this._actFrontInflight.set(token, chain);
+    } else {
+      this.stats.actFrontJoined++;
+    }
+
+    const awaitMs = Number.isFinite(opts.awaitMs) && opts.awaitMs > 0
+      ? opts.awaitMs : this._gateAwaitMs;
+    const timedOut = Symbol('act_front_timeout');
+    const result = await Promise.race([
+      chain,
+      new Promise((r) => setTimeout(() => r(timedOut), awaitMs)),
+    ]);
+    if (result === timedOut) {
+      this.stats.actFrontTimeouts++;
+      this.stats.actFrontRouted.fail_open++;
+      return { status: 'timeout_fail_open' };
+    }
+    return result;
+  }
+
+  /** AF1 前置门判定链（拉数/snapshot/state 全复用 cheat 链件；Jev 3 题+读档分流） */
+  async _actFrontChain(token, tokenMeta, context, opts) {
+    try {
+      // 1) settle（同 _chain 1 双模：waitIdle 竞速帽 / 固定 sleep）
+      const waitIdle = this._deps.waitIdle;
+      if (waitIdle && this._settleDelayMs > 0) {
+        await Promise.race([
+          Promise.resolve(waitIdle(token)),
+          new Promise((r) => setTimeout(r, this._settleDelayMs)),
+        ]);
+        if (!this._deps.pullTicks) {
+          await new Promise((r) => setTimeout(r, this._settleFlushMs));
+        }
+      } else if (this._settleDelayMs > 0) {
+        await new Promise((r) => setTimeout(r, this._settleDelayMs));
+      }
+
+      // 2) LLM 模块（含 buildActFrontQuestions；失败=检测层不可用 fail-open）
+      try {
+        await this._ensureLlm();
+      } catch (e) {
+        this.stats.errors++;
+        this._failUntil.set(token, this._now() + this._failCooldownMs);
+        this._log('warn', `AF1 LLM 模块加载失败，本次跳过 | ${token} ${e?.message || e}`);
+        this.stats.actFrontRouted.fail_open++;
+        return { status: 'fail', reason: 'llm_load' };
+      }
+
+      // 3) 失败冷却（与 cheat 链共享 per-token _failUntil：检测层故障同源冷却）
+      const failUntil = this._failUntil.get(token) || 0;
+      if (this._now() < failUntil) {
+        this.stats.cooldownSkipped++;
+        this.stats.actFrontRouted.fail_open++;
+        return { status: 'fail', reason: 'cooldown' };
+      }
+
+      // 4) 拉数（anchorMs=回测 as-of 锚；mem 源命中零 DB）——minTicks 预门不足
+      //    → fail-open 放行进 cheat（cheat 门同款预门会再拦，不双拒）
+      const _anchorMs = Number.isFinite(opts.anchorMs) && opts.anchorMs > 0 ? opts.anchorMs : null;
+      const pull = await this._pullTicks(token, _anchorMs);
+      if (pull.anchorTickCount < this._minTicks) {
+        this.stats.skippedInsufficientTicks++;
+        this.stats.actFrontRouted.fail_open++;
+        return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount };
+      }
+
+      // 5) 快照 + state（全量 buildCheatState——activity/sbw/wash 题面引用的全部
+      //    材料（临近尾窗/停滞突发波事实/同块对敲行）必须在场）
+      const createMeta = await this._loadCreateMeta(token);
+      const meta = this._normalizeMeta(token, tokenMeta, pull, createMeta);
+      const snapshot = buildSnapshotFromRows(pull.rows, meta, { capped: pull.capped, anchorTickCount: pull.anchorTickCount });
+      const { state } = buildCheatState(snapshot);
+
+      // 5b) AF 题集（引用 buildCheatQuestions 三题——单一真相源；deps.loadLlm
+      //     测试桩缺 AF 键=惰性 dynamic import 真题集补齐并回填缓存，cheat 链零影响）
+      let buildAF = this._llm.buildActFrontQuestions;
+      if (!buildAF) {
+        const q = await import('./llm/cheat-questions.mjs');
+        buildAF = q.buildActFrontQuestions;
+        this._llm.buildActFrontQuestions = q.buildActFrontQuestions;
+        this._llm.ACT_FRONT_QUESTIONS_VERSION = q.ACT_FRONT_QUESTIONS_VERSION;
+      }
+
+      // 6) Jev 3 题（同 _runJev 超时竞速；label 区分）
+      const res = await new Promise((resolve) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          resolve({ ok: false, kind: 'timeout' });
+        }, this._timeoutMs);
+        this._llm.JevClient.ask(state, buildAF(), { timeoutMs: this._timeoutMs, label: 'act-front' }).then(
+          (result) => { if (!settled) { settled = true; clearTimeout(timer); resolve({ ok: true, result }); } },
+          (error) => { if (!settled) { settled = true; clearTimeout(timer); resolve({ ok: false, kind: 'error', error }); } },
+        );
+      });
+      if (!res.ok) {
+        this.stats[res.kind === 'timeout' ? 'timeouts' : 'errors']++;
+        this._failUntil.set(token, this._now() + this._failCooldownMs);
+        this._log('warn', `AF1 Jev ${res.kind} | ${token} ${res.error?.message || ''}`);
+        this.stats.actFrontRouted.fail_open++;
+        return { status: 'fail', reason: res.kind === 'timeout' ? 'jev_timeout' : 'jev_error' };
+      }
+
+      // 7) 读档分流（mapper 同款 argmax+桶域校验；未知桶名 throw=评估层异常
+      //    fail-open 放行进 cheat；act 答案缺席（null）=无法分流同 fail-open）
+      const answers = res.result.answers;
+      let actInfo, sbwInfo, washInfo;
+      try {
+        actInfo = readActivityLevel(answers);   // {bucket,prob}|null（容缺）
+        const sb = readStallBurst(answers);     // {bucket,prob}|null（容缺+旧档断代）
+        sbwInfo = sb ? sb.bucket : null;
+        washInfo = (() => {
+          const a = answers && answers.wash_pair;
+          if (!a || !a.probabilities) return null; // EXT 容缺语义（buildObservation 同款）
+          return readPhenomenon(answers, 'wash_pair').bucket;
+        })();
+      } catch (e) {
+        this.stats.errors++;
+        this._failUntil.set(token, this._now() + this._failCooldownMs);
+        this._log('warn', `AF1 读档异常 fail-open | ${token} ${e?.message || e}`);
+        this.stats.actFrontRouted.fail_open++;
+        return { status: 'fail', reason: `read_error: ${e?.message || e}` };
+      }
+      this.stats.analyzed++;
+
+      const version = this._llm.ACT_FRONT_QUESTIONS_VERSION;
+      const act = actInfo ? actInfo.bucket : null;
+      if (!act) {
+        // 档位答案缺席（异常形状）：无法分流——宁跑全链不误拒
+        this.stats.actFrontRouted.fail_open++;
+        return { status: 'assessed', act: null, sbw: sbwInfo, wash: washInfo, path: 'fail_open', version };
+      }
+      const burst = sbwInfo === 'burst';
+
+      // 分流决策（纯函数形状——单测直测）
+      const path = actFrontRoute(act, burst, washInfo);
+      this.stats.actFrontRouted[path] = (this.stats.actFrontRouted[path] || 0) + 1;
+      return { status: 'assessed', act, sbw: sbwInfo, wash: washInfo, path, version };
+    } catch (e) {
+      // 接线级异常：fail-open 放行进 cheat（cheat/BP 门兜底）
+      this.stats.errors++;
+      this._log('warn', `AF1 链异常 | ${token} ${e?.message || e}`);
+      this.stats.actFrontRouted.fail_open++;
+      return { status: 'fail', reason: e?.message || String(e) };
+    }
   }
 
   /**
@@ -1537,4 +1750,4 @@ class CheatCheckService {
   }
 }
 
-module.exports = { CheatCheckService, CHEAT_CHECK_DEFAULTS: DEFAULTS };
+module.exports = { CheatCheckService, actFrontRoute, CHEAT_CHECK_DEFAULTS: DEFAULTS };

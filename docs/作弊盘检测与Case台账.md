@@ -2115,3 +2115,6 @@ CD42/CD45 残留 unhealthy 来自 D/F/G 既有 G2/G4 通道**独立落位**（fa
 - 进门（进买条件串/做因子键）待观察攒批后裁定（T74/T76/T94 同款纪律）
 - flap quote 盘注记与等额簇跨汇率窗碎裂的近似性（首例 quote 盘票出现时验证 state 表现）
 - `is_valid` 失效写入者：首个题集断代时补 invalidate 脚本（照 invalidate-*-window 先例）
+
+
+**T175/AF1 前置活跃度门（2026-11-18，用户提案；案号归交易台账 T175，本段=cheat 域注记）**：CheatCheckService 新增兄弟入口 `evaluateActFront`——门链 FP→AF1→cheat→BP 分流（low/ultra∧非burst 拒、burst 豁免/high 跳过 cheat、mid 照走全链）。**cheat 判定链零改动**：gateBuyPoint/G22 通道/CD379 豁免链/CD381 重检/粘滞/拉黑/bootstrap/回归集全部原样（mid 票走的还是全 10 题）；AF 门复用 settle/pullTicks/snapshot/state 链件+共享 `_failUntil` 冷却，独立 `_actFrontInflight`，**不落 cheat_detection 表、不登记拉黑、不投影 FA cheat 键族**（档位轨迹在 signal metadata actFrontGate 段）。题集三题（activity_level/wash_pair/stall_burst_wave）=buildCheatQuestions 引用抽取零漂移，CHEAT_QUESTIONS_VERSION 不动。**跳过路径（high/burst 票）的 cheat 档位观测从此缺席**（研究数据面收窄为 metadata 留痕，知情取舍）；G17 N 通道同步升格 FP14 独立臂（n_no_retail_entry 同线同值）补 high 跳过的 N 拦截。数据验证与全档=交易台账 T175。
