@@ -609,7 +609,7 @@ console.log('T. launchMinVsFloorPct 键（T145「经历过破发」历史锚：�
 console.log('U. v24 门串求值（T149 二修：年龄放行臂=(tokenAgeSec>60 AND sinceFirstTradeSec>45) 双门 AND——v23 误整臂替换已纠正）');
 {
   const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
-  const gate = '(launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR (tokenAgeSec > 60 AND sinceFirstTradeSec > 45) OR launchMinVsFloorPct < 0';
+  const gate = '(launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR (tokenAgeSec > 60 AND sinceFirstTradeSec > 45) OR launchMinVsFloorPct < -10';
   const ev = new ConditionEvaluator();
   check('U1 事故反证（bt-v135 0x3441cc2a 案）：创建后 50s 才开交易、首两波满员、tokenAgeSec=72>60 过旧门但 sinceFirstTradeSec=22<45 → 双门 AND 拦', () =>
     assert.strictEqual(ev.evaluate(gate, {
@@ -631,10 +631,18 @@ console.log('U. v24 门串求值（T149 二修：年龄放行臂=(tokenAgeSec>60
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 3, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
       tokenAgeSec: 300, sinceFirstTradeSec: null, launchMinVsFloorPct: 40 }), false));
-  check('U6 经历过破发豁免臂对双门同放（minVsFloor<0 → 放行）', () =>
+  check('U6 深破发豁免臂对双门同放（minVsFloor=-38.4 < -10 → 放行；v29 起线 <0→<-10，ASTER 形状保持豁免）', () =>
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 3,
       tokenAgeSec: 72, sinceFirstTradeSec: 22, launchMinVsFloorPct: -38.4 }), true));
+  check('U6b 浅回落不再豁免（Ardot 0x683165bf…7777 案反证：minVsFloor=-0.96 为大额首买抬高锚的噪声非真破发——旧 <0 线误豁免，v29 −10 线起三臂全 false 拦）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 2, launchFirstBlockWallets: 2, launchFirstWaveWallets: 2,
+      tokenAgeSec: 21, sinceFirstTradeSec: 21, launchMinVsFloorPct: -0.96 }), false));
+  check('U6c 驴来案（0x531ddef1…7777 案 3：−8.75 落 −5~−10 带不豁免——G1 clu=3 接住，22s fire 拦；首裁 −5 线被豁免放行引出用户深化 −10）', () =>
+    assert.strictEqual(ev.evaluate(gate, {
+      launchBundleClusterSize: 3, launchFirstBlockWallets: 1, launchFirstWaveWallets: 1,
+      tokenAgeSec: 22, sinceFirstTradeSec: 22, launchMinVsFloorPct: -8.75 }), false));
   check('U7 deploy 脚本门串与本段逐字一致（防漂移）', () => {
     const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
     const m = deploySrc.match(/const CLUSTER_GATE = '((?:[^'\\]|\\.)*)'/);
@@ -785,21 +793,36 @@ console.log('W. T151 launchBigBuyBnb（前期买入太多载体）+ 推迟门');
   ]);
   check('W1c 大户线 0.19：0.1973 计入（视同 0.2 级）、0.1899 门外 → 0.5911+0.1973=0.7884', () =>
     assert.strictEqual(F(fa3, T0 + 5000).launchBigBuyBnb, 0.7884));
-  // 推迟门求值：heavy(<60s 挡/60s 后放) vs light
-  const gate = 'launchBigBuyBnb < 1 OR sinceFirstTradeSec > 60';
+  // 推迟门求值：heavy(<60s 挡/60s 后放) vs mid(0.79 档 45s) vs light
+  const gate = 'launchBigBuyBnb < 0.79 OR (launchBigBuyBnb < 1 AND sinceFirstTradeSec > 45) OR sinceFirstTradeSec > 60 OR launchMinVsFloorPct < -10';
   const ev = new ConditionEvaluator();
   check('W2 heavy@+30s → 挡（1.4≥1 ∧ 30≤60）', () =>
     assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.4, sinceFirstTradeSec: 30 }), false));
   check('W3 heavy@+61s → 放（抛压释放窗）', () =>
     assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.4, sinceFirstTradeSec: 61 }), true));
-  check('W4 light@+20s → 放（0.9<1）', () =>
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.9, sinceFirstTradeSec: 20 }), true));
-  check('W5 deploy DELAY_GATE 逐字一致（防漂移；v27 起推迟门同享破发豁免臂——T162 顺手补齐 v27 漏更）', () => {
+  check('W4 mid@+20s → 挡（v29/T173 0.79 档：0.9∈[0.79,1) ∧ 20≤45——旧门串 0.9<1 放行）', () =>
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.9, sinceFirstTradeSec: 20 }), false));
+  check('W4b mid@+46s → 放（45s 档释放）', () =>
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.9, sinceFirstTradeSec: 46 }), true));
+  check('W4c light@+20s → 放（0.78<0.79 线下无推迟）', () =>
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.78, sinceFirstTradeSec: 20 }), true));
+  check('W4d 驴党案反证（0x f37fe6de…7777：bigBuy=0.7934 贴线视同 0.8 级 T169 惯例 ∧ 36s fire → 拦）', () =>
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.7934, sinceFirstTradeSec: 36 }), false));
+  check('W4e Ardot 案反证（T172 合并后 bigBuy=1.1177 ≥1 ∧ 21s ∧ 浅破发 -0.96 不豁免 → 拦；旧门串豁免臂 <0 放行）', () =>
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.1177, sinceFirstTradeSec: 21, launchMinVsFloorPct: -0.96 }), false));
+  check('W4f 油宝案反证（−6.3 落 −5~−10 带 v29 不豁免——T172 合并 bigBuy 1.1644≥1 ∧ 20s → 拦；首裁 −5 线曾豁免放行引出深化 −10）', () =>
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.1644, sinceFirstTradeSec: 20, launchMinVsFloorPct: -6.3 }), false));
+  check('W4f2 深破发豁免同享两档（−11 < −10 → mid 档照豁免放行；ASTER 类形状）', () =>
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.9, sinceFirstTradeSec: 20, launchMinVsFloorPct: -11 }), true));
+  check('W4g 豁免边界 -10（-9.9 不豁免拦 / -10.1 豁免放）', () => {
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.4, sinceFirstTradeSec: 30, launchMinVsFloorPct: -9.9 }), false);
+    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.4, sinceFirstTradeSec: 30, launchMinVsFloorPct: -10.1 }), true);
+  });
+  check('W5 deploy DELAY_GATE 逐字一致（防漂移；v27 起推迟门同享破发豁免臂，v29 线 <0→<-5+0.79 档 45s）', () => {
     const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
     const mm = deploySrc.match(/const DELAY_GATE = '((?:[^'\\]|\\.)*)'/);
     assert.ok(mm, 'DELAY_GATE 缺失');
-    assert.strictEqual(mm[1].replace(/^ AND \(/, '').replace(/\)$/, ''),
-      'launchBigBuyBnb < 1 OR sinceFirstTradeSec > 60 OR launchMinVsFloorPct < 0');
+    assert.strictEqual(mm[1].replace(/^ AND \(/, '').replace(/\)$/, ''), gate);
   });
 }
 

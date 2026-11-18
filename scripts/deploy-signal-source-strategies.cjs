@@ -351,16 +351,22 @@ const LEGS = [
 // （f0/wave 达线）但 tokenAgeSec=72>60 单门放行接刀——首两波组织性进场窗还须从首笔
 // 交易起算 45s（用户裁定「可以卡 45 秒什么的也可以卡 60」取 45）；未见首买 null 裸比较
 // 恒 false=宁拦不冒充。
-const CLUSTER_GATE = ' AND ((launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR (tokenAgeSec > 60 AND sinceFirstTradeSec > 45) OR launchMinVsFloorPct < 0)';
+const CLUSTER_GATE = ' AND ((launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR (tokenAgeSec > 60 AND sinceFirstTradeSec > 45) OR launchMinVsFloorPct < -10)';
 // T151 前期买入太多推迟臂（2026-11-16 用户课题「前期买入太多跟前期钱包太多一样推迟一段时间
 // 买入」，N=60「60 秒应该足够它们卖出了」、阈值 1B=扫描最大面且方向比最优 19/−0.515 vs
 // 6/+0.035）：launchBigBuyBnb=出生窗大户（首买≥0.2B）合计买入（FA T151 新键，全量口径
 // 不吃 T150 站立过滤——历史事实载体）；<60s 且 heavy → 挡，60s 后放行（抛压已释放窗口）。
-const DELAY_GATE = ' AND (launchBigBuyBnb < 1 OR sinceFirstTradeSec > 60 OR launchMinVsFloorPct < 0)';
+// v29/T173（2026-11-18 bt-v143 驴党 0xf37fe6de…7777 案）加 0.79 档中间窗：bigBuy
+// 0.79~1（0.79~0.8 视同 0.8 级，T169 惯例；案源 0.7934 36s fire −0.0148）推迟到
+// sinceFirstTradeSec>45（用户裁定「也要推迟一下，但可以不需要 60 秒这么多」，45s 与
+// G1 年龄门 T149 同线）；≥1 档维持 60s。破发豁免线同批 <0→<−10（首裁 −5 后用户据
+// 案 3 驴来 0x531ddef1…7777 −8.75 案深化：−5~−10 带窗内票全负——驴来 G1 clu=3 接住
+// −0.0625+油宝 −6.3 双门 −0.0316，≤−10 的 4 张 Σ+0.2832 与 ASTER −38.4 照豁免）。
+const DELAY_GATE = ' AND (launchBigBuyBnb < 0.79 OR (launchBigBuyBnb < 1 AND sinceFirstTradeSec > 45) OR sinceFirstTradeSec > 60 OR launchMinVsFloorPct < -10)';
 for (const l of LEGS) {
     l.condition += CLUSTER_GATE;
     l.condition += DELAY_GATE;
-    l.description += '；v25/T151 前期买入太多推迟门（launchBigBuyBnb<1 OR sinceFirstTradeSec>60——首60s大户合计买≥1B 的票推迟到首笔交易 60s 后入场，t* 中位 +15~90s 抛压释放窗）；v20/T141 首两波扩展门（先头在首块+同波续单在下一块的狙击小队形状簇键抓不到，60s 后放行）；v21/T142+v22/T145 破发豁免臂（launchMinVsFloorPct < 0——历史最低跌破 min(常量,首买价)=经历过破发、首两波收割完成筹码换手完毕的重启位放行，ASTER 案；v22 起 f0/wave 任一达线即挡）；v23/v24/T149 年龄门加 sinceFirstTradeSec > 45（首笔交易起算 45s，与 tokenAgeSec > 60 AND 联立——0x3441cc2a 案创建后静默 50s 首两波满员 72s 单门放行接刀）';
+    l.description += '；v25/T151 前期买入太多推迟门（launchBigBuyBnb<1 OR sinceFirstTradeSec>60——首60s大户合计买≥1B 的票推迟到首笔交易 60s 后入场，t* 中位 +15~90s 抛压释放窗）；v20/T141 首两波扩展门（先头在首块+同波续单在下一块的狙击小队形状簇键抓不到，60s 后放行）；v21/T142+v22/T145 破发豁免臂（launchMinVsFloorPct < 0——历史最低跌破 min(常量,首买价)=经历过破发、首两波收割完成筹码换手完毕的重启位放行，ASTER 案；v22 起 f0/wave 任一达线即挡）；v23/v24/T149 年龄门加 sinceFirstTradeSec > 45（首笔交易起算 45s，与 tokenAgeSec > 60 AND 联立——0x3441cc2a 案创建后静默 50s 首两波满员 72s 单门放行接刀）；v29/T172+T173（2026-11-18 bt-v143 两案）三件：①launchBigBuyBnb 同块等额合并口径（FA 侧——首买同块四位归一全等 ≥2 钱包组累计合并过 0.19 线计入视为单用户，案源 0x683165bf…7777 0.846→1.1177≥1 进 60s 档）②破发豁免线 <0→<−10（浅回落=大额首买抬高锚的噪声非真破发——Ardot −0.96 案首裁 −5、案 3 驴来 0x531ddef1…7777 −8.75 被豁免放行 −0.0625 引出用户深化 −10：−5~−10 带窗内票全负 驴来 G1 clu=3 接住+油宝 −6.3 双门拦，≤−10 的 4 张 Σ+0.2832 与 ASTER −38.4 深破发照豁免）③大户推迟门加 0.79 档中间窗 45s（驴党 0xf37fe6de…7777 bigBuy=0.7934 36s fire 断流止损 −0.0148 案——0.79~0.8 视同 0.8 级 T169 惯例；45s 与 T149 同线，≥1 档维持 60s；豁免臂 −10 同享两档）';
 }
 
 const ENTRIES = [
@@ -384,10 +390,11 @@ const ENTRIES = [
             condition: 'sinceEntryFamousNearLaunchBuyBnb >= 0.5',
             maxExecutions: null,
             cards: 'all',
-            bypassDebounce: true,
-            description: 'famous 进场撤离臂 v2（T136 2026-11-12 bt-v106 来财案金额门）：FA 因子 sinceEntryFamousNearLaunchBuyBnb=本仓入场锚以来 famous roster 钱包在 near_launch 区间（curVs ∈ (+10,+40]）的可靠价买入 BNB 累计（T133 判据同源并行金额累计，T113 差值 latch 同构）——≥0.5 BNB 才算「像样的 famous 进场」（两笔 0.2~0.3 常见交易档或一笔 0.5+ 大单；v1 计数门 ≥1 笔被 roster v2 38 址扩面后 0.276 BNB 单笔触发误清 +0.51 仓位），立即全清 bypass 确认窗；未持仓 null fail-closed 恒不触发；v1 计数键 sinceEntryFamousNearLaunchBuys 降纯观察保留',
+            bypassDebounce: false,
+            sellDebounce: { minTicks: 0, debounceMs: 2000 },
+            description: 'famous 进场撤离臂 v3（T162 2026-11-17 2s 延迟，案 0xa32a8fd1…272477 FOM 跟单潮）：触发后等 2s 再全清——famous 进场引来跟单追买（触发面 2 票数据：+1s +7~12%/+2s +3~23% 皆正/+3s 潮头逝转负/+7s 峰 +35%），bypass:false+腿级 sellDebounce{minTicks:0,debounceMs:2000}（时间锚=0.5 线过线那刻；fire 重评 BuyBnb 单调 latch 恒真必卖；表达式拼 sinceLastFamousBigBuySec 路线被小笔过线案否决——过线笔 0.0736<0.1 大买线不刷新锚=零延迟失效）。金额门与区间 (10,40] 沿袭 v2（T136 来财案 0.5 线），T161 发行价上方域 (10,60] 三键与本腿两域并存',
         }],
-        description: 'T133 famous 进场撤离臂 v2（T136 2026-11-12 金额门 0.5 BNB）：sinceEntryFamousNearLaunchBuyBnb >= 0.5 → 立即全清（bypassDebounce+cards:all）；FA 载体=famous-copy-wallets roster × near_launch 区间 (10,40] 可靠价买入 × BNB 累计 × 入场锚差值（setBuyState 快照/补买轮重锚）；回测同源（回放正序直计）；v1（2026-11-10 计数门 ≥1）被 bt-v106 来财案否证换门',
+        description: 'T133/T136/T162 famous 进场撤离臂 v3：sinceEntryFamousNearLaunchBuyBnb >= 0.5 → 2s 确认窗后全清（T162 砸跟单潮头延迟；区间 (10,40] 地板锚沿袭）',
     },
     // ── low-zone-stall-exit（T133 低位滞涨撤离臂）已随 v115 系卖腿集弃用（2026-11-12
     //    bt-v113 起当前最优 16 卖腿不含本臂）且库中无条目——本脚本不再维护，防 --commit

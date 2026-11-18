@@ -2,7 +2,7 @@
 // + 用户提案预演：同块等额买入视为单用户 → launchBigBuyBnb 合并口径重算
 const { dbManager } = require('../src/services/dbManager.js');
 
-const ADDR = '0x683165bf8c05ced9392b1628c1433bc9799f7777';
+const ADDR = process.argv[2] || '0x683165bf8c05ced9392b1628c1433bc9799f7777';
 const EXP = 'e5941591-df22-4434-ae29-1a93ced0f841';
 const LAUNCH_WIN_MS = 90_000;   // launchBundleWinMs 默认（出生窗）
 const DUST = 0.001;             // earlyUniformDustBnb 默认（等额尘门）
