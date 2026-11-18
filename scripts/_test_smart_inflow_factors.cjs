@@ -227,17 +227,28 @@ console.log('C. 判负分支（全部不触发 ready）');
     check('卖出行不建实体不破坏', () => assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 400100).smartInflowReady, 0));
 }
 
-// ═══════════════ C2. SI-5 在场腿（用户语义：后者明知前者仍持仓接盘） ═══════════════
-console.log('C2. 在场腿（前序实体已清仓=链断；残值 ≥5% 在场）');
+// ═══════════════ C2. SI-5 在场腿（缺省 0=关=共现版【用户裁定最优】；显式 0.05=在场腿口径） ═══════════════
+console.log('C2. 在场腿（缺省 0 共现版照触发；显式 0.05 注入=前序清仓链断）');
 {
+    // 缺省（0）：前序清仓 96% 照样触发=时间共现版（用户裁定「以时间共现版为最优」）
     FourMemeFactorAggregator.setFamousCopyWalletsForTest(FAM3);
     FourMemeFactorAggregator.setSmartMoneyWalletsForTest(SM);
-    // w1 买入后清仓 95% → 离场 → 链断
-    const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    const faDef = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    faDef.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null });
+    faDef.processTick(mkTick({ sender_address: SM[0], block_number: 100, price_bnb: 1.0e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 1000 }));
+    faDef.processTick(mkTick({ sender_address: SM[0], trade_type: 'sell', block_number: 103, price_bnb: 1.0e-9, bnb_amount: 0.096, token_amount: 0.96e8, timestamp: T0 + 5000 }));
+    faDef.processTick(mkTick({ sender_address: FAM3[0], block_number: 101, price_bnb: 1.01e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 200000 }));
+    faDef.processTick(mkTick({ sender_address: FAM3[1], block_number: 102, price_bnb: 1.02e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 400000 }));
+    check('缺省 inflowPresenceMinRatio=0：前序清仓 96% 照样触发（共现版）', () => assert.strictEqual(faDef.buildFactorMap('0xtoken', T0 + 400000).smartInflowReady, 1));
+
+    // 显式 0.05（factorParams 注入）：前序清仓 → 链断
+    const PRESENCE = { fourmemeWs: { factorParams: { inflowPresenceMinRatio: 0.05 } } };
+    // w1 买入后清仓 96% → 离场 → 链断
+    const fa = new FourMemeFactorAggregator(PRESENCE, { info() {}, warn() {}, error() {} });
     fa.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null });
     fa.processTick(mkTick({ sender_address: SM[0], block_number: 100, price_bnb: 1.0e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 1000 }));
     fa.processTick(mkTick({ sender_address: SM[0], trade_type: 'sell', block_number: 103, price_bnb: 1.0e-9, bnb_amount: 0.095, token_amount: 0.95e8, timestamp: T0 + 5000 })); // 卖 95% → 净 5% 残值以下? 0.05e8/1e8=5% 恰线上（>=5% 在场）→ 改 96%
-    const fa2 = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    const fa2 = new FourMemeFactorAggregator(PRESENCE, { info() {}, warn() {}, error() {} });
     fa2.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null });
     fa2.processTick(mkTick({ sender_address: SM[0], block_number: 100, price_bnb: 1.0e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 1000 }));
     fa2.processTick(mkTick({ sender_address: SM[0], trade_type: 'sell', block_number: 103, price_bnb: 1.0e-9, bnb_amount: 0.096, token_amount: 0.96e8, timestamp: T0 + 5000 })); // 残值 4% <5% → 离场
@@ -248,7 +259,7 @@ console.log('C2. 在场腿（前序实体已清仓=链断；残值 ≥5% 在场�
     fa.processTick(mkTick({ sender_address: FAM3[0], block_number: 101, price_bnb: 1.01e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 200000 }));
     fa.processTick(mkTick({ sender_address: FAM3[1], block_number: 102, price_bnb: 1.02e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 400000 }));
     check('前序实体残值恰 5% → 仍在场 → 触发', () => assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 400000).smartInflowReady, 1));
-    // 非实体钱包的卖出行被忽略（不崩不误扣）
+    // 非实体钱包的卖出行被忽略（不崩不误扣）—— 缺省共现版
     const fa3 = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
     fa3.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null });
     fa3.processTick(mkTick({ sender_address: OUTSIDER, trade_type: 'sell', block_number: 99, price_bnb: 1.0e-9, bnb_amount: 0.5, token_amount: 5e8, timestamp: T0 + 500 }));
@@ -328,6 +339,9 @@ console.log('H. 源码口径断言');
     check('镜像合并进首见实体（e.amt += bnbAmount 不建新实体）', () => {
         assert.ok(/e\.amt \+= bnbAmount;/.test(src));
     });
+    check('在场腿缺省关（0=共现版最优，用户裁定）+ ratio<=0 跳过判定', () => {
+        assert.ok(/inflowPresenceMinRatio > 0\) \{/.test(src));
+    });
     check('研究参数默认值（0.05/600000/0.02/5/60000/0.01）', () => {
         assert.ok(/inflowMinFirstBnb: 0\.05/.test(src));
         assert.ok(/inflowWindowMs: 600000/.test(src));
@@ -335,7 +349,7 @@ console.log('H. 源码口径断言');
         assert.ok(/inflowMaxChainBnb: 5,/.test(src));
         assert.ok(/inflowReadyHoldMs: 60000/.test(src));
         assert.ok(/inflowMirrorAmtTol: 0\.01/.test(src));
-        assert.ok(/inflowPresenceMinRatio: 0\.05/.test(src));
+        assert.ok(/inflowPresenceMinRatio: 0,/.test(src));
     });
 }
 

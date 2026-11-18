@@ -182,10 +182,12 @@ const FACTOR_PARAM_DEFAULTS = {
     inflowMaxChainBnb: 5,        // 链额帽（超帽=机器对偶盘排除；研究 >10B 桶正率 0%）
     inflowReadyHoldMs: 60000,    // 事件后 smartInflowReady=1 保持窗（评估链起效窗）
     inflowMirrorAmtTol: 0.01,    // 镜像合并：同块 ∧ 金额相对差 <此值 = 同一实体
-    inflowPresenceMinRatio: 0.05, // SI-5 在场腿残值线：链尾首买时刻前序实体净持仓 ≥
-                                  //   首买 token 量×此值才算「仍在场」（用户语义「后者
-                                  //   明知前者持仓接盘」；已清仓=链断；182 验证胜率
-                                  //   43%→47% 事件 81→59 更纯，Σpnl -0.34B 知情取舍）
+    inflowPresenceMinRatio: 0,   // SI-5 在场腿残值线：链尾首买时刻前序实体净持仓 ≥
+                                  //   首买 token 量×此值才算「仍在场」（已清仓=链断）。
+                                  //   缺省 0=关（用户裁定「以时间共现版为最优」——引擎
+                                  //   对照 bt-v151 共现 151 票 +2.16B/39.07% vs bt-v152
+                                  //   在场腿 113 票 +1.38B/38.05%，被筛「前者已走」面
+                                  //   +0.79B 更肥）；显式 0.05 可恢复在场腿口径
     netBuyWinTrades: 20,        // tradesNetBuyRatioShortWin 净买短窗笔数（T87 2026-10-28
                                  //   0xdf7a 案用户裁定「10 秒窗口换交易数窗口——慢热票 10s 内
                                  //   无行情」：T77 时间窗的 null fail-closed 对慢热票缺证据；
@@ -2908,8 +2910,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             const strict = chain.every((x, i) => i === 0
                 || x.price >= chain[i - 1].price * (1 - this._fp.inflowPriceTol));
             if (!strict) continue;
-            const present = prior.every(x => (x.boughtTok - x.soldTok) >= x.firstTok * this._fp.inflowPresenceMinRatio);
-            if (!present) continue;
+            if (this._fp.inflowPresenceMinRatio > 0) {
+                const present = prior.every(x => (x.boughtTok - x.soldTok) >= x.firstTok * this._fp.inflowPresenceMinRatio);
+                if (!present) continue;
+            }
             const amt = chain.reduce((s, x) => s + x.amt, 0);
             if (amt > this._fp.inflowMaxChainBnb) continue;
             state._inflowEventAt = e.ts;
