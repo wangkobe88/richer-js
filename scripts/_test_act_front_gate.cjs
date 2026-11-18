@@ -317,7 +317,7 @@ async function main() {
 
   // ═══════════════ E. FP14 N 升格臂 ═══════════════
   console.log('E. FP N 通道升格臂');
-  ok(FACTOR_PREBUY_VERSION === 'FP14', `FP 版本=FP14（实际 ${FACTOR_PREBUY_VERSION}）`);
+  ok(FACTOR_PREBUY_VERSION === 'FP15', `FP 版本=FP15（T174b 合并口径）（实际 ${FACTOR_PREBUY_VERSION}）`);
   {
     // 最小 snapshot 直调（cheatDerived=BP snapshot 的 base.derived 整包引用形状）
     const mkSnap = (routerEntryBuyPct) => ({ cheatDerived: { routerEntryBuyPct, buyN: 20, sellN: 5, totalBuyBnb: 2, totalSellBnb: 0.5 }, buyDerived: { activity: {} } });
