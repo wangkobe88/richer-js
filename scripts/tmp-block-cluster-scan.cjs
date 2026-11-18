@@ -1,8 +1,10 @@
-// 多块程序化聚集形状扫描（182 跑）：bt-v143 全部 BUY 成交票出生窗块结构
-// ——「≥N 个 3+ 笔块 ∧ 对倒弱」分布与盈亏方向（用户提案：驴来案 5 个 3+ 笔块非自然）
+// 多块纯买聚集扫描 v2（182 跑，用户三修正口径）：
+// 块=fire（首 BUY 信号）前 ∧ 纯买入（块内卖=0）∧ 剔 dust 单笔（<0.015 holderDustBnb 同线）
+// 块内非 dust 买笔数 ≥3 的块计数 × 盈亏方向
 const { dbManager } = require('../src/services/dbManager.js');
 
 const EXP = 'e5941591-df22-4434-ae29-1a93ced0f841';
+const DUST = 0.015;
 
 (async () => {
   const c = await dbManager.getClient();
@@ -13,7 +15,6 @@ const EXP = 'e5941591-df22-4434-ae29-1a93ced0f841';
   const first = new Map();
   for (const s of (sigs || [])) if (!first.has(s.token_address)) first.set(s.token_address, s);
 
-  // 盈亏
   const tr = []; let from = 0;
   for (;;) {
     const { data } = await c.from('trades')
@@ -28,6 +29,7 @@ const EXP = 'e5941591-df22-4434-ae29-1a93ced0f841';
   const COLS = 'id,block_time,block_number,log_index,trade_type,bnb_amount,sender_address,trader_address';
   const out = [];
   for (const [addr, sig] of first) {
+    const fireTs = new Date(sig.created_at).getTime();
     const rows = []; let cursor = 0;
     for (;;) {
       const { data } = await c.from('wss_price_ticks').select(COLS)
@@ -37,47 +39,44 @@ const EXP = 'e5941591-df22-4434-ae29-1a93ced0f841';
     }
     if (!rows.length) continue;
     rows.sort((a, b) => (a.block_number - b.block_number) || (a.log_index - b.log_index));
-    const firstTs = new Date(rows[0].block_time).getTime();
-    const win = rows.filter(r => new Date(r.block_time).getTime() - firstTs <= 90_000);
-    // 每块统计
+    // fire 前的行
+    const upto = rows.filter(r => new Date(r.block_time).getTime() <= fireTs);
+    // 块统计：纯买块（无卖行）内非 dust 买笔数
     const byBlk = new Map();
-    const bw = new Map(); // blk|w -> {b,s}
-    for (const r of win) {
-      if (!byBlk.has(r.block_number)) byBlk.set(r.block_number, { n: 0, buy: 0, sell: 0 });
-      const e = byBlk.get(r.block_number); e.n++;
-      if (r.trade_type === 'buy') e.buy++; else e.sell++;
-      const w = (r.sender_address || r.trader_address || '');
-      if (w) { const k = r.block_number + '|' + w; if (!bw.has(k)) bw.set(k, { b: 0, s: 0 }); const x = bw.get(k); if (r.trade_type === 'buy') x.b += r.bnb_amount || 0; else x.s += r.bnb_amount || 0; }
+    for (const r of upto) {
+      if (!byBlk.has(r.block_number)) byBlk.set(r.block_number, { buy: 0, sellN: 0, buyBnb: 0, wallets: new Set() });
+      const e = byBlk.get(r.block_number);
+      if (r.trade_type === 'buy') {
+        if ((r.bnb_amount || 0) >= DUST) { e.buy++; e.buyBnb += r.bnb_amount; const w = (r.sender_address || r.trader_address || ''); if (w) e.wallets.add(w); }
+      } else e.sellN++;
     }
-    let both = 0; for (const e of bw.values()) if (e.b > 0 && e.s > 0) both++;
-    let ge3 = 0, gt3 = 0, ge3buy = 0, ge3sell = 0;
-    for (const e of byBlk.values()) {
-      if (e.n >= 3) { ge3++; if (e.buy >= e.sell) ge3buy++; else ge3sell++; }
-      if (e.n > 3) gt3++;
+    let ge3 = 0, ge2 = 0; const hitBlks = [];
+    for (const [blk, e] of byBlk) {
+      if (e.sellN > 0) continue; // 纯买块
+      if (e.buy >= 3) { ge3++; hitBlks.push(blk + '(' + e.buy + '笔/' + e.wallets.size + '户/' + e.buyBnb.toFixed(3) + 'B)'); }
+      if (e.buy >= 2) ge2++;
     }
     const p = pnl.get(addr);
     out.push({
-      addr, sym: p ? p.sym : '?', pnl: p ? p.sell - p.buy : null,
-      ge3, gt3, ge3buy, ge3sell, both, blocks: byBlk.size,
-      tf: (sig.metadata || {}).trendFactors || {},
+      addr, sym: p ? p.sym : '?', pnl: p ? p.sell - p.buy : null, ge3, ge2,
+      hits: hitBlks.join(' '), tf: (sig.metadata || {}).trendFactors || {},
     });
   }
 
-  // 分桶：ge3 块数 × 方向
-  console.log(`票数=${out.length}`);
-  const band = (n) => out.filter(o => o.ge3 >= n && o.both <= 2);
-  for (const n of [3, 4, 5, 6, 7]) {
-    const b = band(n);
+  console.log(`票数=${out.length}（口径：fire 前 ∧ 纯买块 ∧ 单笔≥${DUST} ∧ 块内≥3 笔）`);
+  for (const n of [2, 3]) {
+    const b = out.filter(o => o.ge3 >= n);
     const sum = b.reduce((s, o) => s + (o.pnl || 0), 0);
     const neg = b.filter(o => (o.pnl || 0) < 0).length;
-    console.log(`\n≥${n} 个 3+ 笔块 ∧ 对倒弱(双向≤2): ${b.length} 票，Σpnl=${sum.toFixed(4)}，负票 ${neg}/${b.length}`);
-    for (const o of b.sort((x, y) => (x.pnl || 0) - (y.pnl || 0)).slice(0, 12)) {
-      console.log(`  ${o.pnl != null && o.pnl < 0 ? '［−］' : '［+］'} ${o.sym} ${o.addr.slice(0, 10)} ge3=${o.ge3}(买${o.ge3buy}/卖${o.ge3sell}) gt3=${o.gt3} 对倒=${o.both} 块数=${o.blocks} pnl=${o.pnl != null ? o.pnl.toFixed(4) : '无'} | clu=${o.tf.launchBundleClusterSize} bigBuy=${o.tf.launchBigBuyBnb} minVs=${o.tf.launchMinVsFloorPct} f0=${o.tf.launchFirstBlockWallets}`);
-    }
+    console.log(`\n≥${n} 个纯买聚集块: ${b.length} 票 Σpnl=${sum.toFixed(4)} 负${neg}/${b.length}`);
+    for (const o of b.sort((x, y) => (x.pnl || 0) - (y.pnl || 0)))
+      console.log(`  ${(o.pnl || 0) < 0 ? '［−］' : '［+］'} ${o.sym} ${o.addr.slice(0, 10)} ge3=${o.ge3}(ge2=${o.ge2}) pnl=${o.pnl != null ? o.pnl.toFixed(4) : '无'} | clu=${o.tf.launchBundleClusterSize} bigBuy=${o.tf.launchBigBuyBnb} minVs=${o.tf.launchMinVsFloorPct} age=${o.tf.tokenAgeSec}`);
   }
-  // 对照：ge3>=5 但对倒强（双向>2）
-  const strong = out.filter(o => o.ge3 >= 5 && o.both > 2);
-  console.log(`\n对照（≥5 个 3+ 笔块 但对倒强>2 组）: ${strong.length} 票 Σpnl=${strong.reduce((s, o) => s + (o.pnl || 0), 0).toFixed(4)}`);
-  for (const o of strong) console.log(`  ${o.sym} ${o.addr.slice(0, 10)} ge3=${o.ge3} 对倒=${o.both} pnl=${(o.pnl || 0).toFixed(4)}`);
+  // 驴来专项打印
+  const ll = out.find(o => o.addr.startsWith('0x531ddef1'));
+  if (ll) console.log(`\n驴来专项: ge3=${ll.ge3} ge2=${ll.ge2} 块明细=${ll.hits}`);
+  // ge2 维度对照
+  const b2 = out.filter(o => o.ge2 >= 3 && o.ge3 < 2);
+  console.log(`\n对照（ge2≥3 但 ge3<2，宽口径不达线）: ${b2.length} 票 Σpnl=${b2.reduce((s, o) => s + (o.pnl || 0), 0).toFixed(4)}`);
   process.exit(0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });
