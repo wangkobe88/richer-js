@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP17'; // FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
+const FACTOR_PREBUY_VERSION = 'FP18'; // FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -197,6 +197,29 @@ const FAM_EARLY_FLIP_A_MIN_PRESENCE_RATIO = 0.15;
 const FAM_EARLY_FLIP_B_MAX_PRESENCE_BNB = 0.01;
 /** FP11 B 支自卖比线：≥1.0（卖得比买得多=连利润全带走；放行面最高 0.964） */
 const FAM_EARLY_FLIP_B_MIN_SOLD_RATIO = 1.0;
+
+// ── FP18 尾部接刀臂（T182，2026-11-18 bt-v147 0x51d9e360…7777「选择」案触发的
+//    研究立法。用户直觉「活跃很久+深跌+性价比位买入应配不同卖出策略（见好就收/
+//    不涨快卖）」→ 卖出侧六模拟全否证（现状多卡+stallClose 已近最优：TP/timeout/
+//    极速止损在尾部组全输现状，负票 p50 137s 已快出局——亏损根源在买入侧）→ 起涨/
+//    死盘事前分离研究（5 实验 428 买点）落地本臂。规律=「尾部域接刀死、早期域
+//    接刀活」：买时 5s 动量 3/3 跨窗分离（死盘 p50=0.0% vs 起涨 +2.9%）；域内
+//    （拉高过 athVs≥40 ∧ 已回到触发线内 curVs≤28.5）∧ chg5<-5 ∧ chg30<-5（崩塌
+//    进行时非插针——dae106 chg30=-1.7 企稳插针 → mx+204/ep+88 被双腿正确放行）
+//    → 全量重放命中 43 票 epΣ=-276pp 全负（尾部 8 票 Σ-136/E 组 35 票 Σ-140；
+//    正票仅 7 张 +159.8pp 知情代价，最大 935d1464 +57.6）；跨窗 v141/v142/v147
+//    3/3 方向一致 + v149 同窗复验三重复现。**域腿是臂的灵魂**：对照组（早期/薄
+//    量票）无域接刀全量 epΣ=+295.7 肥尾在场（dae106 +88/40efb3 +86 深针=入场
+//    机会）——去掉域腿做全票通用门=砍早期肥尾（act-heat/volume-threshold 胜率
+//    否证族镜像）。null 容缺不拦（T143 哲学：拒方向证据缺席） ──
+/** FP18 域腿①：锚窗曾拉高 athVsLaunchPct ≥+40%（「活跃过一轮」——对照组早期票 p50=26 出线） */
+const TAIL_KNIFE_MIN_ATH_VS_PCT = 40;
+/** FP18 域腿②：现价已回到触发线内 currentVsLaunchPct ≤+28.5%（ladder v17+ 价格门/T133 统一门同线） */
+const TAIL_KNIFE_MAX_CUR_VS_PCT = 28.5;
+/** FP18 刀腿①：买点 5 秒急跌 chg5Pct <-5%（BP59 急跌进行时轴同语义） */
+const TAIL_KNIFE_MAX_CHG5_PCT = -5;
+/** FP18 刀腿②：30 秒同向 chg30Pct <-5%（崩塌进行时非插针——排除横盘中瞬间深针的 V 型反弹票） */
+const TAIL_KNIFE_MAX_CHG30_PCT = -5;
 
 // ── FP6 famous 高控+砸落观察臂（2026-11-17 btv140 复审 BP-T007 小树 0x92598590…7777
 //    案用户裁定：「这样吧，这个场景（持有不多还没砸）先不阻挡购买，不过可以在因子

@@ -1217,36 +1217,34 @@ console.log('Z. T178 两波捆绑买入波数 + G4 绝对 veto（0xa025…7777 �
   });
 }
 
-// ═══════════════ AA. T180 首两波大部队×高占比 G6 绝对 veto（零新键） ═══════════════
-// 2026-11-18 0x17b09420d03be61401cdfaf57160b3e6f8737777 案（bt-v147 复盘），用户
-// 裁定原话「第二个区块，直接挤进去八个购买，这种也是太明显的作弊异常，看一下，
-// 控住是否合理，怎么控」：t+0s 单鲸 0.50B 首块 → t+1s 第二块（相邻 883+884 同秒）
-// 8 钱包挤入 1.26B（0.1861×2 逐位等额+0.178~0.208 带）→ 捆绑组+鲸占窗买 ~76% →
-// t+41s 鲸全清离场 → fire t+298s（G1 被年龄放行——wave=9 冻结属性只管 60s；G3
-// clu=5/G4 waves=1 均不达线）→ cheat healthy → 买入 −10.9%。G6=现行两键组合
-//（launchFirstWaveWallets T150 / launchBuyBundleDominancePct T178）：wave≥8 ∧
-// dom≥30 永久 veto。三窗验证：wave≥8 单轴全负收益切赢家（有机 8~21 钱包 2s 挤入
-// 常见），占比轴才分离（本案 −0.0218 救回+0x384fef57 wave21 +0.0034 近零知情+
-// bt-v141 零命中）。
-console.log('AA. T180 首两波大部队×高占比 G6 绝对 veto（0x17b0…7777 案源形状，零新键）');
+// ═══════════════ AA. T180 首两波大部队×高占比（0x17b0 案 FA 键事实 + 迁移指针） ═══════════════
+// 2026-11-18 0x17b09420d03be61401cdfaf57160b3e6f8737777 案（bt-v147 复盘）：t+0s
+// 单鲸 0.50B 首块 → t+1s 第二块（相邻 883+884 同秒）8 钱包挤入 1.26B（0.1861×2
+// 逐位等额带）占窗买 ~76% → t+41s 鲸全清 → fire t+298s（G1 被年龄放行/G3 clu=5/
+// G4 waves=1 均不达线）→ 买入 −10.9%。**veto 首落 ladder v32 G6 后同日迁移因子
+// 购买前检查门 FP17 launch_squad_dominance 臂**（用户裁定「这个阻挡没问题，放到
+// 因子过滤模块吧，不要放到信号触发模块了」——判定与边界测试在
+// _test_factor_prebuy_check.cjs T 段，snapshot 锚计算在 _test_buy_point_lib.cjs
+// T 组）；本段保留 FA 键事实断言（ladder 仍消费 launchFirstWaveWallets 于 G1、
+// launchBuyBundleDominancePct 已无 ladder 消费者但 FA/快照键保留）+ 迁出锁。
+console.log('AA. T180 首两波大部队×高占比（0x17b0…7777 案 FA 键事实——veto 已迁 FP17）');
 {
   const W8 = Array.from({ length: 8 }, (_, i) => 'wA' + i);
   const mk17 = (w, i, blk, ts, amt) => ({ timestamp: T0 + ts, block_number: blk, log_index: i,
     sender_address: w, trader_address: '0xA' + i, bnb_amount: amt });
-  // 案源形状：首块鲸 0.5 → 第二秒相邻两块 5+3 户挤入（0.19 带 5 户 / 0.0995×2+0.0498）→ 散户分母
   const whale = [mk17('wWhale', 0, 700, 1000, 0.5)];
-  const wave2a = [ // blk 701：5 户 0.178~0.208 带（0.1861×2 逐位等额）
+  const wave2a = [
     mk17(W8[0], 1, 701, 2000, 0.1861), mk17(W8[1], 2, 701, 2000, 0.1861),
     mk17(W8[2], 3, 701, 2000, 0.1980), mk17(W8[3], 4, 701, 2000, 0.2079),
     mk17(W8[4], 5, 701, 2000, 0.1782),
   ];
-  const wave2b = [ // blk 702：3 户（同秒相邻块——单块 <5 波门不见、wave 2s 窗全见）
+  const wave2b = [
     mk17(W8[5], 6, 702, 2000, 0.0995), mk17(W8[6], 7, 702, 2000, 0.0995),
     mk17(W8[7], 8, 702, 2000, 0.0498),
   ];
   const retail = Array.from({ length: 6 }, (_, i) => mk17('rA' + i, 20 + i, 710 + i, 4000 + i * 500, 0.1));
 
-  // AA1 案源回放：wave=9（f0=1+8）∧ dom≥30（≥5 户块 0.956/窗买 2.60=36.8%）→ G6 拒
+  // AA1 案源回放：FA 键事实（跨层对拍锚——snapshot launchSquad 同值见 buy_point_lib T 组）
   const fa1 = newFA();
   feed(fa1, whale); feed(fa1, wave2a); feed(fa1, wave2b); feed(fa1, retail);
   const m1 = F(fa1, T0 + 20000);
@@ -1254,67 +1252,24 @@ console.log('AA. T180 首两波大部队×高占比 G6 绝对 veto（0x17b0…77
     assert.strictEqual(m1.launchFirstWaveWallets, 9);
     assert.strictEqual(m1.launchFirstBlockWallets, 1);
   });
-  check('AA1b dom=41.5（≥5 户块 0.9563 ÷ 窗买 2.3051 精确值；真实案源 36.9）∧ G3/G4 键不达线（clu=5/waves=1）=现行全链拦不住的实证', () => {
+  check('AA1b dom=41.5（≥5 户块 0.9563 ÷ 窗买 2.3051 精确值）∧ G3/G4 键不达线（clu=5/waves=1）=v32 前 ladder 全链拦不住的实证', () => {
     assert.strictEqual(m1.launchBuyBundleDominancePct, 41.5);
     assert.strictEqual(m1.launchBundleClusterSize, 5);
     assert.strictEqual(m1.launchBuyBundleWaves, 1);
   });
-  check('AA1c G6 门串求值：wave 9 ∧ dom 36.8 → 拒（年龄/破发豁免全失效）', () => {
-    const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
-    const ev = new ConditionEvaluator();
-    const veto = '(launchFirstWaveWallets < 8 OR launchBuyBundleDominancePct < 30)';
-    assert.strictEqual(ev.evaluate(veto, { launchFirstWaveWallets: m1.launchFirstWaveWallets,
-      launchBuyBundleDominancePct: m1.launchBuyBundleDominancePct }), false);
-    assert.strictEqual(ev.evaluate(veto, { launchFirstWaveWallets: 9, launchBuyBundleDominancePct: 36.8,
-      tokenAgeSec: 298, sinceFirstTradeSec: 298, launchMinVsFloorPct: -20 }), false);
-  });
 
-  // AA2 有机热门盘保护：wave≥8 但 dom<30（da405bd0 wave13 dom=0 形状——8 户分块挤入
-  // + 大量散户分母）→ G6 放行（三窗 wave≥8 赢家全在 dom<30 域）
-  const fa2 = newFA();
-  feed(fa2, [
-    ...Array.from({ length: 4 }, (_, i) => mk17('oA' + i, i, 800, 1000, 0.12)),
-    ...Array.from({ length: 4 }, (_, i) => mk17('oB' + i, 10 + i, 801, 2000, 0.12)),
-    ...Array.from({ length: 4 }, (_, i) => mk17('oC' + i, 20 + i, 802, 3000, 0.12)),
-    ...Array.from({ length: 40 }, (_, i) => mk17('oR' + i, 40 + i, 810 + i, 5000 + i * 300, 0.08)),
-  ]);
-  const m2 = F(fa2, T0 + 30000);
-  check('AA2 有机形状：wave=12 ≥8 但 dom<30（每块 4 户<5 波门不聚）→ G6 放行（占比轴保护赢家）', () => {
-    assert.strictEqual(m2.launchFirstWaveWallets, 12);
-    assert.strictEqual(m2.launchBuyBundleDominancePct, 0);
-    const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
-    assert.strictEqual(new ConditionEvaluator().evaluate(
-      '(launchFirstWaveWallets < 8 OR launchBuyBundleDominancePct < 30)', m2), true);
-  });
-
-  // AA3 边界：wave=7（G1 可冷却域 3~7）∧ dom 高 → 放（0x645886 dom79.5 wave=5/+0.037
-  // 知情保护——单簇高占比小部队归 G1 60s 冷却域管）；wave≥8 ∧ dom<30 → 放（ebbe7af1
-  // wave8/dom26.5/+0.0726 实证）；wave 21 ∧ dom 37.8 → 拒（0x384fef57 +0.0034 近零知情）
-  {
-    const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
-    const ev = new ConditionEvaluator();
-    const veto = '(launchFirstWaveWallets < 8 OR launchBuyBundleDominancePct < 30)';
-    check('AA3a wave=7 dom=79 放（G1 可冷却域 3~7——分层边界与 T177 3~9 簇豁免域同构）', () =>
-      assert.strictEqual(ev.evaluate(veto, { launchFirstWaveWallets: 7, launchBuyBundleDominancePct: 79 }), true));
-    check('AA3b wave=8 dom=26.5 放（ebbe7af1 同窗实证 +0.0726）', () =>
-      assert.strictEqual(ev.evaluate(veto, { launchFirstWaveWallets: 8, launchBuyBundleDominancePct: 26.5 }), true));
-    check('AA3c wave=21 dom=37.8 拒（0x384fef57 bt-v134 跨窗命中，+0.0034 近零知情）', () =>
-      assert.strictEqual(ev.evaluate(veto, { launchFirstWaveWallets: 21, launchBuyBundleDominancePct: 37.8 }), false));
-    check('AA3d 键缺失 null 恒 false=宁拦（wave null<8 false ∧ dom null<30 false → OR false）', () =>
-      assert.strictEqual(ev.evaluate(veto, {}), false));
-    check('AA3e wave 在场 dom 缺失 → 放（wave=5<8 真放——单波小部队真无大部队形状）', () =>
-      assert.strictEqual(ev.evaluate(veto, { launchFirstWaveWallets: 5 }), true));
-  }
-
-  // AA4 deploy 脚本 v32 门串逐字锁（Y10/Z9 同款防漂移）
-  check('AA4 deploy 脚本 WAVE_DOM_VETO_GATE 与本段一致', () => {
+  // AA2 迁出锁：ladder deploy 无 G6 门串，判定在 FP17（T180 二修同日迁移）
+  check('AA2 迁出锁：deploy 脚本不含 WAVE_DOM_VETO_GATE（ladder 尾门回 G1~G5）；FP17 臂在位', () => {
     const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
-    const m = deploySrc.match(/const WAVE_DOM_VETO_GATE = ' AND \(launchFirstWaveWallets < 8 OR launchBuyBundleDominancePct < 30\)'/);
-    assert.ok(m, 'WAVE_DOM_VETO_GATE 常量缺失或形状漂移');
+    assert.ok(!deploySrc.includes('WAVE_DOM_VETO_GATE'), 'ladder 仍带 G6 门串——迁移未完成');
+    assert.ok(!deploySrc.includes('l.condition += WAVE_DOM_VETO_GATE'), 'G6 仍在拼腿');
+    const fpSrc = fs.readFileSync(path.join(ROOT, 'src', 'market-analysis', 'factor-pre-buy-check.js'), 'utf8');
+    assert.ok(fpSrc.includes("arms.push('launch_squad_dominance')"), 'FP17 臂不在位');
   });
 
-  // AA5 两键均现行键：探针已收（无新键立法=无 FA/白名单改动，本段纯防回归）
-  check('AA5 两键为现行 FA 键（探针收键——零新键立法的回归锁）', () => {
+  // AA3 两键仍为现行 FA 键（探针收键；launchBuyBundleDominancePct 保留=FP snapshot
+  // 镜像的 FA 侧真源+历史条件串回放兼容）
+  check('AA3 两键为现行 FA 键（探针收键——零新键立法的回归锁）', () => {
     const keys = newFA().getFactorKeys();
     assert.ok(keys.has('launchFirstWaveWallets') && keys.has('launchBuyBundleDominancePct'), '探针未收键');
   });

@@ -958,5 +958,63 @@ console.log('S. launchMinVsFloorPct 锚窗版（buy-point-snapshot 产键——F
   });
 }
 
+// ═════ T. FP17/T180 首两波大部队×高占比（ladder v32 迁入——用户裁定归因子过滤模块） ═════
+// 2026-11-18 0x17b09420…7777 案（bt-v147）：t+0s 单鲸 0.5 首块→t+1s 第二块（相邻
+// 两块同秒）8 钱包挤入 1.26B 占窗买 ~76%→t+41s 鲸全清→fire t+298s 买入 −10.9%。
+// 判定线 wave≥8 ∧ dom≥30（两轴联立——wave 单轴三窗切赢家、占比轴才分离）；
+// 键源 buyDerived.launchSquad{waveWallets,domPct}（buy-point-snapshot FA 镜像，
+// 计算测试在 _test_buy_point_lib.cjs T 组）；锚缺失 null=不评宁不拦。
+console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入）');
+{
+  const LS = (waveWallets, domPct) => SNAP({
+    wallets: [W(0.3, 0, 0.3), W(0.25, 0, 0.25)], // 两个 0.2+ 买方 → pvp big_buyers_present 不抢拒码
+    buyDerived: { launchSquad: waveWallets === null ? null : { waveWallets, domPct }, bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 3 } },
+  });
+  check('T1 案源形状 wave=9 dom=36.9 → 拒 launch_squad_dominance（FP 全链最前臂）', () => {
+    const r = M.evaluateFactorPreBuy(LS(9, 36.9));
+    assert.strictEqual(r.pass, false);
+    assert.strictEqual(r.reason, 'launch_squad_dominance');
+    assert.ok(r.arms.includes('launch_squad_dominance'));
+    assert.strictEqual(r.version, 'FP17');
+  });
+  check('T2 有机热门盘 wave≥8 但 dom<30 → 放（da405bd0 wave13 dom0 实证——占比轴保护赢家）', () => {
+    const r = M.evaluateFactorPreBuy(LS(13, 0));
+    assert.strictEqual(r.pass, true);
+    assert.strictEqual(r.reason, null);
+  });
+  check('T3 边界：wave=7 dom=79 放（G1 可冷却域 3~7——0x645886 +0.037 知情保护）', () => {
+    assert.strictEqual(M.evaluateFactorPreBuy(LS(7, 79)).pass, true);
+  });
+  check('T4 边界：wave=8 dom=29.9 放（ebbe7af1 wave8 dom26.5 +0.0726 同域）', () => {
+    assert.strictEqual(M.evaluateFactorPreBuy(LS(8, 29.9)).pass, true);
+  });
+  check('T5 边界：wave=21 dom=37.8 → 拒（0x384fef57 bt-v134 跨窗唯一命中 +0.0034 近零知情）', () => {
+    const r = M.evaluateFactorPreBuy(LS(21, 37.8));
+    assert.strictEqual(r.reason, 'launch_squad_dominance');
+  });
+  check('T6 锚缺失 null（截窗不覆盖出生段/窗内零买）→ 不评放行（拒方向证据缺席不拒）', () => {
+    const r = M.evaluateFactorPreBuy(LS(null, null));
+    assert.strictEqual(r.pass, true);
+    assert.strictEqual(r.reason, null);
+  });
+  check('T7 gates 门行在位（信号页②因子检查卡展示 wave/dom 值）', () => {
+    const r = M.evaluateFactorPreBuy(LS(9, 36.9));
+    const g = r.gates.find((x) => x.id === 'launch_squad');
+    assert.ok(g, 'launch_squad 门行缺失');
+    assert.strictEqual(g.hit, true);
+    assert.ok(g.value.includes('9') && g.value.includes('36.9'));
+    const g2 = M.evaluateFactorPreBuy(LS(5, 0)).gates.find((x) => x.id === 'launch_squad');
+    assert.strictEqual(g2.hit, false);
+  });
+  check('T8 ladder 迁出锁：deploy 脚本无 WAVE_DOM_VETO_GATE（v33 尾门回 G1~G5），臂在本模块', () => {
+    const fs = require('fs');
+    const deploy = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
+    assert.ok(!deploy.includes('WAVE_DOM_VETO_GATE'), 'ladder 仍带 G6 门串——迁移未完成');
+    assert.ok(!deploy.includes('l.condition += WAVE_DOM_VETO_GATE'), 'G6 仍在拼腿');
+    const self = fs.readFileSync(path.join(__dirname, '..', 'src', 'market-analysis', 'factor-pre-buy-check.js'), 'utf8');
+    assert.ok(self.includes("arms.push('launch_squad_dominance')"), 'FP 臂不在位');
+  });
+}
+
 console.log(`\n结果: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

@@ -2058,6 +2058,56 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   catch (e) { threwParse = true; }
   ok(threwParse, 'L: 条件解析失败 → throw fail-loud');
 
+  // ═══════════════ T. T180 launchSquad 锚（FP17 launch_squad 臂原料——FA launch 键镜像） ═══════════════
+  // 案源 0x17b09420…7777（bt-v147）：单鲸首块→第二块（相邻两块同秒）8 钱包挤入。
+  // 夹具与 _test_launch_bundle_factors AA 段同数字（跨层对拍：FA 键=snapshot 锚）。
+  console.log('\nT. T180 launchSquad 锚（waveWallets/domPct——FA launch 键 snapshot 镜像）');
+  {
+    const mkSquad = (i) => '0x' + (0x1000 + i).toString(16).padStart(40, '0');
+    // 案源形状：dt5 鲸 block 700 → dt6 相邻 701（5 户 0.19 带）+702（3 户）→ 散户分母
+    const rows17 = [
+      row(5, 'BUY', mkSquad(99), 0.5, 1.0 * E9, 5e8, { block: 700, li: 0 }),
+      ...[0.1861, 0.1861, 0.1980, 0.2079, 0.1782].map((amt, i) =>
+        row(6, 'BUY', mkSquad(i), amt, 1.2 * E9, 1e8, { block: 701, li: i })),
+      ...[0.0995, 0.0995, 0.0498].map((amt, i) =>
+        row(6, 'BUY', mkSquad(5 + i), amt, 1.2 * E9, 1e8, { block: 702, li: i })),
+      ...Array.from({ length: 6 }, (_, i) =>
+        row(10 + i, 'BUY', mkSquad(20 + i), 0.1, 1.3 * E9, 8e7, { block: 710 + i, li: 0 })),
+      row(200, 'BUY', mkSquad(30), 0.05, 1.4 * E9, 4e7, { block: 800, li: 0 }), // 窗外分母不进
+    ];
+    const d17 = buildBuyPointSnapshot(rows17, metaA).buyDerived;
+    ok(d17.launchSquad && d17.launchSquad.waveWallets === 9,
+      'T1a 案源 waveWallets=9（f0=1 鲸+同秒 8 户全入 2s 波窗——FA launchFirstWaveWallets 同值跨层对拍）');
+    ok(d17.launchSquad && near(d17.launchSquad.domPct, 41.5),
+      'T1b 案源 domPct=41.5（≥5 户块 0.9563÷窗买 2.3051——FA 键同值跨层对拍；窗行 200s 不进分母）');
+    // 有机热门盘：12 户分三块（4/4/4 均低于 5 户波门）+40 散户 → wave 12 但 dom 0
+    const rowsOrg = [
+      ...Array.from({ length: 4 }, (_, i) => row(2, 'BUY', mkSquad(40 + i), 0.12, 1.1 * E9, 1e8, { block: 900, li: i })),
+      ...Array.from({ length: 4 }, (_, i) => row(3, 'BUY', mkSquad(50 + i), 0.12, 1.1 * E9, 1e8, { block: 901, li: i })),
+      ...Array.from({ length: 4 }, (_, i) => row(4, 'BUY', mkSquad(60 + i), 0.12, 1.1 * E9, 1e8, { block: 902, li: i })),
+      ...Array.from({ length: 40 }, (_, i) => row(8 + i * 0.3, 'BUY', mkSquad(70 + i), 0.08, 1.2 * E9, 7e7, { block: 910 + i, li: 0 })),
+    ];
+    const dOrg = buildBuyPointSnapshot(rowsOrg, metaA).buyDerived;
+    ok(dOrg.launchSquad && dOrg.launchSquad.waveWallets === 12 && dOrg.launchSquad.domPct === 0,
+      'T2 有机：wave=12（三块 4 户全在首块后 2s 波窗）∧ dom=0（无 ≥5 户块）→ FP 臂放行原料');
+    // 截窗不覆盖出生段：首行 dt=120>90 → 整段 null 不评（分母截断防虚高）
+    const rowsLate = Array.from({ length: 5 }, (_, i) =>
+      row(120 + i, 'BUY', mkSquad(80 + i), 0.1, 1.3 * E9, 8e7, { block: 950 + i, li: 0 }));
+    ok(buildBuyPointSnapshot(rowsLate, metaA).buyDerived.launchSquad === null,
+      'T3 截窗未覆盖出生段（firstDt=120>90）→ launchSquad=null 不评（宁不拦）');
+    // 尘线：5 户各 0.01（<0.015）→ waveWallets=0 dom=0 有证据零值
+    const rowsDust = [
+      ...Array.from({ length: 5 }, (_, i) => row(3, 'BUY', mkSquad(85 + i), 0.01, 1.1 * E9, 9e6, { block: 960, li: i })),
+    ];
+    const dDust = buildBuyPointSnapshot(rowsDust, metaA).buyDerived;
+    ok(dDust.launchSquad && dDust.launchSquad.waveWallets === 0 && dDust.launchSquad.domPct === 0,
+      'T4 尘埃 5 户不过尘线 → wave=0 dom=0 有证据零值');
+    // 零买（纯卖窗）→ null
+    const rowsSell = [row(3, 'SELL', mkSquad(90), 0.1, 1.1 * E9, 9e6, { block: 970, li: 0 })];
+    ok(buildBuyPointSnapshot(rowsSell, metaA).buyDerived.launchSquad === null,
+      'T5 窗内零买 → null（FP T6 不评放行的键源）');
+  }
+
   console.log(`\n✅ buy_point_lib 全部通过（${passed} 断言）`);
 })().catch((e) => {
   console.error('\n❌ FAIL:', e && e.message);
