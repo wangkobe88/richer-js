@@ -173,6 +173,15 @@ const FACTOR_PARAM_DEFAULTS = {
                                  //   规模小于 KOL（立法案 0x2f17 唯一窗内命中 0.0494，
                                  //   0.1 线漏拦）；与 smartBotMinBuyBnb 参与线同值 0.02
     smartSellWinMs: 60000,       // recentSmartSellBnb 滑窗（释放臂原料窗，famous 同款 60s）
+    // ── T184 聪明钱涌入状态机六参数（smart-inflow 备选策略腿原料；名单=
+    //    famous-copy-wallets ∪ smartmoney-accum 并集，判据=2026-11-18 涌入研究
+    //    事件定义 bit 复现：≥3 实体 600s 接力 ∧ 链额帽，union 140 票 +3.1B/36h）──
+    inflowMinFirstBnb: 0.05,     // 实体=名单钱包首笔 ≥ 此额买入（研究线 0.05B）
+    inflowWindowMs: 600000,      // 接力链时间窗（先于链尾的实体在此窗内计入链）
+    inflowPriceTol: 0.02,        // strict 接力容差：后实体首买价 ≥ 前实体 ×(1-此值)
+    inflowMaxChainBnb: 5,        // 链额帽（超帽=机器对偶盘排除；研究 >10B 桶正率 0%）
+    inflowReadyHoldMs: 60000,    // 事件后 smartInflowReady=1 保持窗（评估链起效窗）
+    inflowMirrorAmtTol: 0.01,    // 镜像合并：同块 ∧ 金额相对差 <此值 = 同一实体
     netBuyWinTrades: 20,        // tradesNetBuyRatioShortWin 净买短窗笔数（T87 2026-10-28
                                  //   0xdf7a 案用户裁定「10 秒窗口换交易数窗口——慢热票 10s 内
                                  //   无行情」：T77 时间窗的 null fail-closed 对慢热票缺证据；
@@ -1109,6 +1118,18 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
 
+        // ── T184 聪明钱涌入状态机（smart-inflow 备选策略原料，写点①）：famous∪
+        //    smartmoney 名单钱包首笔 ≥inflowMinFirstBnb 买入建实体（同块同额镜像
+        //    并入），实体链达标（≥3 实体 ∧ 窗内 ∧ strict 接力 ∧ 链额帽）锁存事件。
+        //    实体价=行价（研究口径全量行），刻意挂在 chainLate 域外=迟到行照建实体
+        //    （T133/T137/T183 在价格可靠块内会被迟到跳过，本状态机不依赖可靠价链）。
+        //    T183 同款双段：defer 行 walletAddr 假值跳过，wallet 段补跑恰一次 ──
+        if (!deferWallet && isBuy && blockNumber !== null
+            && bnbAmount >= this._fp.inflowMinFirstBnb
+            && walletAddr && this._isInflowWallet(walletAddr)) {
+            this._noteSmartInflow(state, walletAddr, priceBnb, bnbAmount, ts, blockNumber);
+        }
+
         // ── 价格追踪（离群剔除；chainLate 时跳过——_acceptPrice 有副作用（recentPrices 窗
         //    push/shift），迟到旧价喂窗会污染离群基线）──
         // pending fire 峰（2026-10-15 双口径）：与持仓峰同门同价流——任意接受价轨在此块、
@@ -1537,6 +1558,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             && _smartMoneyWallets && _smartMoneyWallets.size > 0
             && walletAddr && _smartMoneyWallets.has(walletAddr)) {
             this._noteSmartFlow(state, isBuy, bnbAmount, tick.timestamp);
+        }
+
+        // ── T184 涌入状态机写点②（defer 专属补跑，T183 同款防双计：smartBotEligible
+        //    仅 defer 路径置位；直推路径价格段已计，本段不跑）。tick.price_bnb=行价
+        //    与研究口径一致；vars.blockNumber 已 Number 化（processTick 入口）──
+        if (vars.smartBotEligible === true && isBuy && vars.blockNumber != null
+            && bnbAmount >= this._fp.inflowMinFirstBnb
+            && walletAddr && this._isInflowWallet(walletAddr)) {
+            this._noteSmartInflow(state, walletAddr, tick.price_bnb || 0, bnbAmount, tick.timestamp, vars.blockNumber);
         }
 
         // ── holderTrend 原料（2026-10-14 slot 化改造）：blockNumber 桶持有者序列——
@@ -2226,6 +2256,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             _famousSellEvents: [],      // T137 famous 卖出事件环 [{ts,bnb}]（recentFamousSellBnb 原料；求和交换律=defer 乱序回推无害；摊销裁剪保 5×窗）
             _smartBigBuyLastAt: null,   // T183 聪明钱大买（≥smartBigBuyBnb）最后时刻 ms（null=从未/名单空 → sinceLastSmartBigBuySec null → smartHold 不命中 fail-open；双段写点同 famous，见 _noteSmartFlow）
             _smartSellEvents: [],       // T183 聪明钱卖出事件环 [{ts,bnb}]（recentSmartSellBnb 原料；求和交换律=乱序无害；摊销裁剪保 5×窗）
+            _inflowEntities: new Map(), // T184 涌入实体表 wallet→{ts,blk,price,amt,members}（首笔 ≥inflowMinFirstBnb 的名单钱包买入；同块同额镜像并入首见实体=镜像簇语义）
+            _inflowEventAt: null,       // T184 首个达标事件时刻 ms（write-once 锁存幂等；null=未达标/名单未加载）
+            _inflowChainSize: 0,        // T184 事件链实体数快照（发射观察键原料）
+            _inflowChainBnb: 0,         // T184 事件链额快照 BNB（发射观察键原料）
             _relHighestPriceBnb: 0,     // 可靠价全时峰（与 highestPriceBnb 双轨）
             _relHighestAt: 0,
 
@@ -2799,6 +2833,64 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (e.ts > cutoff) s += e.bnb;
         }
         return s;
+    }
+
+    /** T184 涌入名单判定：famous ∪ smartmoney 并集（任一名单已加载且含该址） */
+    _isInflowWallet(walletAddr) {
+        if (_famousCopyWallets && _famousCopyWallets.size > 0 && _famousCopyWallets.has(walletAddr)) return true;
+        if (_smartMoneyWallets && _smartMoneyWallets.size > 0 && _smartMoneyWallets.has(walletAddr)) return true;
+        return false;
+    }
+
+    /**
+     * T184 聪明钱涌入状态机喂入（smart-inflow 备选策略原料）：名单钱包首笔
+     * ≥inflowMinFirstBnb 买入建实体；同块 ∧ 金额相对差 <inflowMirrorAmtTol 的
+     * 后来钱包并入首见实体（链额相加、首买价/时刻=首见者——镜像簇语义，
+     * 0x3472+0x95b9 同秒同额对倒形状并为一实体）。实体表每次变化后重评事件
+     * （首事件 write-once 锁存幂等；defer 乱序晚到镜像并入不破坏已锁存事件）。
+     */
+    _noteSmartInflow(state, wallet, priceBnb, bnbAmount, ts, blockNumber) {
+        if (!(priceBnb > 0) || blockNumber === null) return;
+        const ents = state._inflowEntities;
+        if (ents.has(wallet)) return; // 已建实体：首买已记，后续买入不重评
+        for (const e of ents.values()) {
+            if (e.blk === blockNumber
+                && Math.abs(e.amt - bnbAmount) / Math.max(e.amt, bnbAmount) < this._fp.inflowMirrorAmtTol) {
+                e.amt += bnbAmount;
+                e.members += 1;
+                this._evalInflowEvent(state);
+                return;
+            }
+        }
+        ents.set(wallet, { ts, blk: blockNumber, price: priceBnb, amt: bnbAmount, members: 1 });
+        this._evalInflowEvent(state);
+    }
+
+    /**
+     * T184 涌入事件判定（2026-11-18 涌入研究判据 bit 复现）：实体按首买时刻排序，
+     * 对每个链尾 j≥2，prior=j 前全部 inflowWindowMs 窗内实体；chain=prior+链尾需
+     * strict 接力（相邻实体首买价 ≥ 前者 ×(1-inflowPriceTol)）∧ 链额 ≤inflowMaxChainBnb；
+     * 首个达标链锁存（事件时刻=链尾实体首买时刻，chainSize/chainBnb 快照）。
+     * 实体不足/链额超帽/价格断崖=不触发（宁漏不冒充，与研究同向）。
+     */
+    _evalInflowEvent(state) {
+        if (state._inflowEventAt !== null) return;
+        const ents = [...state._inflowEntities.values()].sort((a, b) => a.ts - b.ts);
+        for (let j = 2; j < ents.length; j++) {
+            const e = ents[j];
+            const prior = ents.slice(0, j).filter(x => e.ts - x.ts <= this._fp.inflowWindowMs);
+            if (prior.length < 2) continue;
+            const chain = [...prior, e];
+            const strict = chain.every((x, i) => i === 0
+                || x.price >= chain[i - 1].price * (1 - this._fp.inflowPriceTol));
+            if (!strict) continue;
+            const amt = chain.reduce((s, x) => s + x.amt, 0);
+            if (amt > this._fp.inflowMaxChainBnb) continue;
+            state._inflowEventAt = e.ts;
+            state._inflowChainSize = chain.length;
+            state._inflowChainBnb = amt;
+            return;
+        }
     }
 
     /**
@@ -4422,6 +4514,16 @@ class FourMemeFactorAggregator extends EventEmitter {
             quietSurgeBuyBnb: state._quietSurgeBuyBnb,
             quietSurgeSec: state._quietSurgeStartTs !== null
                 ? Math.max(0, (now - state._quietSurgeStartTs) / 1000) : null,
+            // T184 聪明钱涌入三键（smart-inflow 备选策略原料）：ready=首个达标事件后
+            //   inflowReadyHoldMs 窗内为 1（事件时刻=链尾实体首买秒，now=buildFactorMap
+            //   入参禁 Date.now——回测虚拟时钟同源）；chainSize/chainBnb=事件链快照
+            //   （null=无事件，区别于有事件的 0）。名单双缺失 → 无实体无事件 → ready
+            //   恒 0（宁漏不冒充，与研究同向）
+            smartInflowReady: state._inflowEventAt !== null
+                && (now - state._inflowEventAt) <= this._fp.inflowReadyHoldMs ? 1 : 0,
+            smartInflowChainSize: state._inflowEventAt !== null ? state._inflowChainSize : null,
+            smartInflowChainBnb: state._inflowEventAt !== null
+                ? parseFloat(state._inflowChainBnb.toFixed(4)) : null,
             // 首块脉冲占比（母版首秒脉冲防钓鱼票；窗口冻结后才出值，null=窗口未过/无买入）
             firstBlockBuyShare: (state._firstBuyAt !== null
                 && (now - state._firstBuyAt) >= this._fp.firstBlockWindowMs

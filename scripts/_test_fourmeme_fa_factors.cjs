@@ -567,6 +567,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // mcapFromPeakPct 较峰回撤 / quiet 静默段三键——详见 _test_signal_source_factors.cjs）
         'recentBlockDropPct', 'mcapFromPeakPct',
         'quietSpanMs', 'quietSurgeBuyBnb', 'quietSurgeSec',
+        // 2026-11-18 T184 聪明钱涌入状态机三键（smart-inflow 备选策略：实体接力事件
+        // 锁存 + ready 保持窗——详见 _test_smart_inflow_factors.cjs）
+        'smartInflowReady', 'smartInflowChainSize', 'smartInflowChainBnb',
         // ── 存量补登（2026-11-05 清点：前批加键未同步本白名单，共 73 键零漏登核对）──
         // T107 市值拱形三键（峰市值锚/距峰秒/半程秒）
         'mcapPeakBnb', 'secSinceMcapPeak', 'mcapRiseHalfSec',
