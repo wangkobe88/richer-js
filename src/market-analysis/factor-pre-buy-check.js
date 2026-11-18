@@ -319,7 +319,7 @@ const SBW_PROXY_WAVE_NEAR_SEC = 60;
 /** 波钱包中位尘埃线（sbw 主体判轴=沉积后小散涌入） */
 const SBW_PROXY_MEDIAN_DUST_BNB = 0.05;
 
-// ── FP13 burst 弱波拦截线（T173，2026-11-18 burst 复审立法，用户裁定「落线A」；
+// ── FP13 burst 弱波拦截线（T174，2026-11-18 burst 复审立法，用户裁定「落线A」；
 //    burst 三维度分析：大户轴单调（0/1/≥2 → 均 +0.013/+0.012/+0.037）、压箱轴单调
 //    （<1B/1~3B/≥3B → 均 +0.015/+0.021/+0.023）、波涨幅/出口位置中性。线=两轴
 //    **联立**：波内无 ≥0.15 大户 ∧ 出口前压箱 <1B=「既无大户认可又无交易沉淀」
@@ -328,7 +328,7 @@ const SBW_PROXY_MEDIAN_DUST_BNB = 0.05;
 //    票误伤全部利润主力，两轴互补证据非独立风险。经济口径（用户裁定净收益 ≤5%
 //    计损——手续费滑点高昂）：联立面 16 票账面 +0.012/净胜仅 3/13 计损，扣磨损
 //    真实价值 ≈−0.15 该拦；误伤 3 张小正票（프론티어+38%/duanju+14.7%/野猪ins
-//    +6.8%）知情接受。键源 buyDerived.burstWaveQuality（T173 直供三键）；无 ≥30s
+//    +6.8%）知情接受。键源 buyDerived.burstWaveQuality（T174 直供三键）；无 ≥30s
 //    静默段整体 null=非 burst 语境不拦（宁不拦——拒方向证据缺席） ──
 /** FP13 压箱额线（BNB）：出口前锚窗累计买入 <此=薄盘空波（复审 <1B/≥1B 分档线） */
 const BURST_WEAK_PRE_WAVE_BNB = 1;
@@ -878,7 +878,7 @@ function armBurstBundledWave(cd) {
   return false;
 }
 
-/** FP13 burst 弱波拦截线（T173）：burst 语境（≥30s 静默段出口波在场）∧ 波内
+/** FP13 burst 弱波拦截线（T174）：burst 语境（≥30s 静默段出口波在场）∧ 波内
  *  无 ≥0.15 大户（whaleWallets===0 有证据零值）∧ 出口前压箱 <1B → 拒
  *  burst_weak_wave——两轴联立才是「既无大户认可又无交易沉淀」的空波（单轴
  *  命中=有厚底子或有大户带队，均为健康票刻意放行）。键源
@@ -967,7 +967,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     else if (armDumpLowAbsorption(cd)) arms.push('cd403_dump_low_absorption');
     else if (armBurstExitSellPressure(cd)) arms.push('cd401_burst_exit_sell_pressure');
     else if (armBurstBundledWave(cd)) arms.push('cd405_burst_bundled_wave');
-    else if (armBurstWeakWave(snapshot.buyDerived)) arms.push('burst_weak_wave'); // FP13 burst 弱波（无大户认可+无压箱，T173 联立线）
+    else if (armBurstWeakWave(snapshot.buyDerived)) arms.push('burst_weak_wave'); // FP13 burst 弱波（无大户认可+无压箱，T174 联立线）
     else if (armExtremeDumpSellers(cd, snapshot.buyDerived)) arms.push('cd412_extreme_dump_sellers');
     else if (armDenseDump(snapshot.buyDerived) && !domFall.observe) arms.push('cd414_dense_dump'); // FP7 短窗持续密集砸盘（observe 命中票排除——famous 场景归观察）
     else if (armSlowPumpUnload(snapshot)) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）

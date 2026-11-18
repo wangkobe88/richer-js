@@ -834,8 +834,8 @@ console.log('A12. famBurstWave 手算（T166：burst 纯 famous 带起来的—�
     `A12: 镜像簇尘门 0.001（0.0009 不进簇；share 只计 famous 本人 0.264/0.2649=99.7——实际 ${fbDust.mirrorClusters}/${fbDust.famSysSharePct}）`);
 }
 
-// ═══════════════ A13. T173/FP13 burstWaveQuality 三键手算（burst 弱波线原料） ═══════════════
-console.log('A13. burstWaveQuality 手算（T173：出口定位/波窗 per-wallet 大户/压箱累计）');
+// ═══════════════ A13. T174/FP13 burstWaveQuality 三键手算（burst 弱波线原料） ═══════════════
+console.log('A13. burstWaveQuality 手算（T174：出口定位/波窗 per-wallet 大户/压箱累计）');
 {
   const FPM = require(path.join(__dirname, '..', 'src', 'market-analysis', 'factor-pre-buy-check.js'));
   // 手算：压箱=0.3+0.5=0.8（SELL 不计）；静默 25→60=35s；波窗 [60,120]=60/61/61/

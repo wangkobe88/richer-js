@@ -76,11 +76,11 @@ const BP_FAM_BURST_STALL_SEC = 30;
 const BP_FAM_BURST_TAIL_GAP_SEC = 5;
 /** T166/FP9 镜像簇尘门（BNB）：同块同额判定的单笔下限（BP_STUFF_DUST_BNB 同线） */
 const BP_FAM_BURST_MIRROR_DUST_BNB = 0.001;
-/** T173/FP13 burst 弱波三键——波窗宽度（秒）：最后 ≥30s 静默段出口起此窗内
+/** T174/FP13 burst 弱波三键——波窗宽度（秒）：最后 ≥30s 静默段出口起此窗内
  * （cheat 侧 BURST_SEG_SEARCH_SEC=60 同线同值——CD405 波窗/D3.67 段定位同源；
  * 复审口径=tmp-burst-review 同款 [出口,出口+60s]，各常量独立） */
 const BP_BURST_WAVE_WIN_SEC = 60;
-/** T173/FP13 波内大户线（BNB）：波窗单钱包买入合计 ≥此=大户（2026-11-18 用户
+/** T174/FP13 波内大户线（BNB）：波窗单钱包买入合计 ≥此=大户（2026-11-18 用户
  * 裁定定线 0.15——0.2→0.15 收紧后大户轴单调成立；BP 大户线 0.19/0.2 族独立） */
 const BP_BURST_WHALE_BNB = 0.15;
 
@@ -1221,7 +1221,7 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     };
   })();
 
-  // ── T173/FP13 burst 弱波构成三键（2026-11-18 burst 复审立法，用户裁定「落线A」：
+  // ── T174/FP13 burst 弱波构成三键（2026-11-18 burst 复审立法，用户裁定「落线A」：
   //     波内无 ≥0.15 大户 ∧ 出口前压箱 <1B 的 burst=既无大户认可又无交易沉淀的
   //     空波 → FP 门拒 burst_weak_wave。数据（v141/142/143 59 成交票，净收益 ≤5%
   //     计损基准）：联立命中 16 票账面 +0.012/净胜仅 3、扣 0.2B×5% 手续费滑点磨损
@@ -1334,7 +1334,7 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     // famous 痕迹族（BP53 二修/案号 BP61：名单钱包时间线+在场性——③桶收割完臂/
     // 退出臂前提的证据行；roster 缺失整体 null）
     famousTraces,
-    // T173/FP13 burst 弱波构成三键（FP 门 burst_weak_wave 臂原料；无静默段整体
+    // T174/FP13 burst 弱波构成三键（FP 门 burst_weak_wave 臂原料；无静默段整体
     // null=非 burst 语境；whaleWallets/preWaveBuyBnb 纯事实，判据线在 FP 侧）
     burstWaveQuality,
     // famous 系突发波族（T166/FP9：burst 纯 famous 带起来的——波内构成直供，

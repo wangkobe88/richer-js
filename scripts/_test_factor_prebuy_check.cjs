@@ -786,11 +786,11 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP12（T167b 破发豁免上线）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP13'); // FP13/T173 burst 弱波上线
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP13'); // FP13/T174 burst 弱波上线
   });
 }
 
-console.log('Q. FP13 burst 弱波拦截线（T173：无大户认可 ∧ 无压箱=空波，联立线——或口径否证）');
+console.log('Q. FP13 burst 弱波拦截线（T174：无大户认可 ∧ 无压箱=空波，联立线——或口径否证）');
 {
   const BWQ = (whales, pre) => ({ buyDerived: { burstWaveQuality: { exitDt: 300, waveBuyBnb: 0.5, waveWallets: 5, whaleWallets: whales, preWaveBuyBnb: pre } } });
   check('Q1 联立命中（大户0 ∧ 压箱<1B）→ 拒 burst_weak_wave', () => {
