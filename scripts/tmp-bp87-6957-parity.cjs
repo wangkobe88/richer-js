@@ -9,7 +9,7 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
 const TOKEN = '0x6957ace830287a43996bc218fec5c025b17f7777';
-const ANCHOR = '2026-10-12T09:33:43';
+const ANCHOR = '2026-10-12T09:33:43Z';  // ⚠必须带 Z——182 时区 UTC-8，裸串被当本地时间→截窗早 8h=0 行 insufficient_ticks
 
 async function main() {
   const { BuyPointCheckService } = require('../src/market-analysis/BuyPointCheckService.js');
