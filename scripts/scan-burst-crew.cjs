@@ -216,6 +216,11 @@ async function main() {
   if (argv.includes('--from-events')) {
     const parsed = JSON.parse(zlib.gunzipSync(fs.readFileSync(EVENTS_CACHE)).toString('utf8'));
     events = parsed.events;
+    if (argv.includes('--equal-only')) {
+      const before = events.length;
+      events = events.filter(e => e.equal);
+      console.log(`[equal-only] ${before} → ${events.length} 事件(同块组织性剔除——热票同块抢购为生态常态无区分度)`);
+    }
     console.log(`[events 缓存] ${events.length} 事件(params=${JSON.stringify(parsed.params)})`);
   } else {
     const byToken = await fetchAll();

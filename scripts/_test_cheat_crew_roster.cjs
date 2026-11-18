@@ -185,12 +185,12 @@ async function main() {
         assert.strictEqual(set.size, 2);
         fs.rmSync(dir, { recursive: true, force: true });
     });
-    check('仓库在位 roster 文件 schema 合法（wallets 数组+13 址 v3 对象形状全 role 备注）', () => {
+    check('仓库在位 roster 文件 schema 合法（wallets 数组+6 址 v4 对象形状全 role 备注）', () => {
         const p = path.join(ROOT, 'config', 'rosters', 'cheat-crew-wallets.json');
         const parsed = JSON.parse(fs.readFileSync(p, 'utf8'));
         assert.ok(Array.isArray(parsed.wallets), 'wallets 非数组');
-        assert.strictEqual(parsed.wallets.length, 13);
-        assert.strictEqual(parsed.version, 3, 'version 未至 v3（对象形状）');
+        assert.strictEqual(parsed.wallets.length, 6);
+        assert.strictEqual(parsed.version, 4, 'version 未至 v4（0x37d9 7 址撤回）');
         for (const w of parsed.wallets) {
             assert.ok(w && typeof w === 'object' && typeof w.address === 'string' && /^0x[0-9a-f]{40}$/.test(w.address), `元素非 {address} 形状: ${JSON.stringify(w).slice(0, 60)}`);
             assert.ok(typeof w.role === 'string' && w.role.length >= 8, `role 作弊方式备注缺失: ${w.address}`);
@@ -198,10 +198,14 @@ async function main() {
         const addrs = new Set(parsed.wallets.map(w => w.address));
         assert.ok(addrs.has(PULL_A));
         assert.ok(addrs.has('0x27ac0351e225a15fb13d6b84a8dc31d799d0fe76'));
-        // v2 追加：0x37d9 burst 流水线 7 址（等额三人组+c18/c3 配单）
-        assert.ok(addrs.has('0x9d41e99374e4bceebb4c0bd070e814e72b7e7ace'));
-        assert.ok(addrs.has('0xf7a934528d38e2f2865a7cd30c335c6d115928b8'));
-        assert.ok(addrs.has('0xa44039d10d4883a7353ee729a48fda88fa5d2333'));
+        // v4 撤回：0x37d9 burst 7 址必须不在名单（误伤面净 +1.19，用户裁定撤回）
+        for (const w of ['0x9d41e99374e4bceebb4c0bd070e814e72b7e7ace', '0xd80bf2b4d8158b21da727c3a510284a5f73747c3',
+            '0xf7a934528d38e2f2865a7cd30c335c6d115928b8', '0xf90026d86fb41f02a2be73345a8904d0b003ff6d',
+            '0x9a213971f8749e087c6f8d5f5d1daabef0e14191', '0xc8c2c361142fda8a8ee5a807972fbfa9eb4f5a51',
+            '0xa44039d10d4883a7353ee729a48fda88fa5d2333']) {
+            assert.ok(!addrs.has(w), `撤回地址仍在名单: ${w}`);
+        }
+        assert.ok(parsed.note.includes('撤回'), 'note 缺撤回留档段');
     });
     check('loader 源码锁：v3 两形状归一+非法元素 throw（静默滤空=G5 veto 失效危险方向）', () => {
         const src = read('src/services/FourMemeFactorAggregator.js');
