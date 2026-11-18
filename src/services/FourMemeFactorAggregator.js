@@ -4344,6 +4344,25 @@ class FourMemeFactorAggregator extends EventEmitter {
                 return (floor > 0)
                     ? parseFloat((100 * (state._minRelPriceBnb / floor - 1)).toFixed(2)) : null;
             })(),
+            // T170b 破发档断流延长锚（2026-11-18 用户裁定「如果是已经相对 配置/首买
+            // 价格 -5% 以上，也就是破发，则延长到 3 分钟」）：**现价** vs **T130 地板**
+            // =min(平台常量, 首笔买入可靠价)——分母刻意**不含** T134 滚动最低（用户
+            // 点名口径：「currentVsLaunchPct 是相对于配置价/首买价/已经历的最低价的
+            // 上涨幅度，而这里必须要去掉已经历的最低价，否则如果之前就破发过，这里
+            // 就只能比之前的破发价还要低，这不行」——历史破发回弹票的滚动最低垫低
+            // T139 地板使 curVs 显示高涨幅，真实破发位置被掩盖）。与 launchMinVsFloor
+            // Pct 同分母（T130 地板）不同分子（本键=现价当下状态锚，彼键=滚动最低
+            // 历史事实锚）。null=未见可靠价/未知平台无锚 → 破发臂 fail-closed 不触发
+            // （stallClose almost 档照常吃 currentVsLaunchPct，两臂独立）。
+            currentVsFloorPct: (() => {
+                if (!(state._relPriceBnb > 0)) return null;
+                const floor = _floorLaunchPriceBnb(
+                    _resolveLaunchPriceBnb(state.platform, state.quoteToken),
+                    state._firstBuyPriceBnb,
+                );
+                return (floor > 0)
+                    ? parseFloat((100 * (state._relPriceBnb / floor - 1)).toFixed(2)) : null;
+            })(),
             // 毕业进度（E5 卖侧）：four.meme = 可靠价市值 / 72 锚（实测 11 token 收敛 72.1）；
             // flap/gang = 资金口径 池净入金 / 毕业阈值（flap 2026-10-24 替换价格锚：R 恒比
             // 假设实证不成立，豆皮/水 0.716/0.754 峰值够不着 0.9/0.98 死臂；gang 2026-10-27

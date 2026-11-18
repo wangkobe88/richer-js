@@ -301,6 +301,83 @@ console.log('J. T134 滚动地板（launch=min(常量, 首买, ≤t 滚动最低
 }
 
 
+// ═══════════════ K. T170b currentVsFloorPct（破发档断流延长锚）═══════════════
+// 2026-11-18 用户裁定「如果是已经相对 配置/首买价格 -5% 以上，也就是破发，则延长到
+// 3 分钟（注意这里应该不是 currentVsLaunchPct……必须去掉已经历的最低价）」——
+// 分母=T130 地板 min(常量, 首笔买入可靠价)，**刻意不吃 T134 滚动最低**：历史破发
+// 回弹票的滚动最低垫低 T139 地板使 curVs 显示高涨幅，真实破发位置被掩盖。
+console.log('K. T170b currentVsFloorPct（现价 vs min(常量,首买价)——无滚动最低）');
+{
+    const FM = 4496173469e-18;
+    const newFm = () => {
+        const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+        fa.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null, platform: 'fourmeme' });
+        return fa;
+    };
+
+    // K1 无滚动新低时两键同值：首买 1.5×FM（高开，地板=常量）→ 现价 1.2×FM → +20
+    const faK1 = newFm();
+    faK1.processTick(mkTick({ price_bnb: FM * 1.5, timestamp: T0 + 1000, trade_type: 'buy' }));
+    faK1.processTick(mkTick({ price_bnb: FM * 1.2, timestamp: T0 + 2000 }));
+    check('K1 无新低两键同值（地板=常量 → +20）', () =>
+        assert.strictEqual(faK1.buildFactorMap('0xtoken', T0 + 2000).currentVsFloorPct, 20));
+
+    // ★K2 用户点名口径反证（J1 同形状）：首买 1.0×FM → sell 新低 0.75×FM → 回升
+    // 0.9×FM。curVs 地板=滚动 min 0.75×FM → +20（almost 域外！）；本键地板=
+    // min(FM, 1.0×FM)=FM → 0.9/FM−1=−10（破发域）——历史破发回弹票必须靠本键接住
+    const faK2 = newFm();
+    faK2.processTick(mkTick({ price_bnb: FM * 1.0, timestamp: T0 + 1000, trade_type: 'buy' }));
+    faK2.processTick(mkTick({ price_bnb: FM * 0.75, timestamp: T0 + 2000, trade_type: 'sell' }));
+    faK2.processTick(mkTick({ price_bnb: FM * 0.9, timestamp: T0 + 3000 }));
+    check('★K2 历史破发回弹票两键分叉（curVs=+20 域外 / floorPct=−10 破发域）', () => {
+        const f = faK2.buildFactorMap('0xtoken', T0 + 3000);
+        assert.strictEqual(f.currentVsLaunchPct, 20);
+        assert.strictEqual(f.currentVsFloorPct, -10);
+    });
+
+    // K3 低开票破发：首买 0.8×FM（地板=首买价）→ 现价 0.75×FM → 0.75/0.8−1=−6.25
+    //（破发域；对照 curVs 滚动 min=现价 → 0）
+    const faK3 = newFm();
+    faK3.processTick(mkTick({ price_bnb: FM * 0.8, timestamp: T0 + 1000, trade_type: 'buy' }));
+    faK3.processTick(mkTick({ price_bnb: FM * 0.75, timestamp: T0 + 2000 }));
+    check('K3 低开票破发（地板=首买价 0.8×FM → −6.25）', () =>
+        assert.strictEqual(faK3.buildFactorMap('0xtoken', T0 + 2000).currentVsFloorPct, -6.25));
+
+    // K4 恰界 −5：现价=floor×0.95 → −5（stallClose 破发档 ≤−5 含边界）
+    const faK4 = newFm();
+    faK4.processTick(mkTick({ price_bnb: FM * 1.0, timestamp: T0 + 1000, trade_type: 'buy' }));
+    faK4.processTick(mkTick({ price_bnb: FM * 0.95, timestamp: T0 + 2000 }));
+    check('K4 恰界 −5（含边界=破发域内）', () =>
+        assert.strictEqual(faK4.buildFactorMap('0xtoken', T0 + 2000).currentVsFloorPct, -5));
+
+    // K5 未见可靠价 → null fail-closed（裸比较恒 false=破发臂不触发）
+    const faK5 = newFm();
+    check('K5 零 tick → null', () =>
+        assert.strictEqual(faK5.buildFactorMap('0xtoken', T0 + 1000).currentVsFloorPct, null));
+
+    // K6 快照白名单透传（缺键 → null 不掩盖）
+    check('K6 FactorBuilder 透传 −6.25', () =>
+        assert.strictEqual(FactorBuilder.buildFactorValuesForTimeSeries(
+            { currentVsFloorPct: -6.25 }).currentVsFloorPct, -6.25));
+    check('K6 旧 FA 缺键 → null', () =>
+        assert.strictEqual(FactorBuilder.buildFactorValuesForTimeSeries({}).currentVsFloorPct, null));
+
+    // K7 源码口径锁：本键发射分母=_firstBuyPriceBnb（刻意不吃 _minRelPriceBnb——
+    // 与 launchMinVsFloorPct 同分母形状）；发射体在 currentVsLaunchPct 族相邻位
+    const srcK = read('src/services/FourMemeFactorAggregator.js');
+    ok('K7 源码锁（currentVsFloorPct 发射分母=首买价非滚动最低）',
+        srcK.includes('currentVsFloorPct: (() => {')
+        && srcK.indexOf('currentVsFloorPct: (() => {') > srcK.indexOf('currentVsLaunchPct: (() => {')
+        // 本键 IIFE 内的分母原料：_floorLaunchPriceBnb(..., state._firstBuyPriceBnb)
+        // ——截本键代码段验证不含 _minRelPriceBnb（防将来误换 T139 原料）
+        && !srcK.slice(srcK.indexOf('currentVsFloorPct: (() => {'), srcK.indexOf('currentVsFloorPct: (() => {') + 700)
+            .includes('state._minRelPriceBnb || state._firstBuyPriceBnb'));
+    const fbK = read('src/trading-engine/core/FactorBuilder.js');
+    ok('K7 快照白名单（FactorBuilder 含 currentVsFloorPct ?? null）',
+        fbK.includes('currentVsFloorPct: factorResults.currentVsFloorPct ?? null'));
+}
+
+
 console.log('D. getFactorKeys 探针含键（未知因子三防线自动认得）');
 {
     const fa = newFA();

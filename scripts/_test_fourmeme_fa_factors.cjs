@@ -613,6 +613,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // T142 落地时本白名单漏登，T145 补）+ T145「经历过破发」历史锚（滚动最低
         // vs min(常量,首买价)，ladder v22 豁免臂主键；详见 _test_launch_bundle_factors S/T 段）
         'launchConstVsPct', 'launchMinVsFloorPct',
+        // 2026-11-18 T170b 破发档断流延长锚（现价 vs min(常量,首买价) 无滚动最低
+        // ——stallClose 破发档 180s 主键；详见 _test_stall_close.cjs E 段）
+        'currentVsFloorPct',
         // 2026-11-15 T143 因子购买前检查门两键（FA 独立投影通道 setFactorPreBuyFactors；
         // 落地时本白名单漏登，T145 补）
         'factorPreBuyBlocked', 'factorPreBuyReason',

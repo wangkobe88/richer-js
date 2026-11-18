@@ -27,7 +27,7 @@
 
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
-const { resolveAlmostLaunchStallMs, shouldExtendStallWindow, isAlmostLaunchDomain } = require('../core/stall-close-almost-launch.js');
+const { resolveStallCloseExtension, effectiveStallExtension } = require('../core/stall-close-almost-launch.js');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const { ExperimentStatsService } = require('../../web/services/ExperimentStatsService');
 const Logger = require('../../services/logger');
@@ -745,15 +745,16 @@ class BacktestEngine extends AbstractTradingEngine {
     const _scMin = Number(_sc.minTickBnb);
     this._stallCloseMinTickBnb = Number.isFinite(_scMin) && _scMin > 0 ? _scMin : null;
     if (this._stallCloseMinTickBnb != null) this._factorAggregator.setSubstantialTickBnb(this._stallCloseMinTickBnb);
-    // T170 almost_launch 域断流延长（与实时引擎同配置同判据，回测 parity 红线；
-    // 纯函数/口径详见 core/stall-close-almost-launch.js）
-    this._stallCloseAlmostLaunchMs = resolveAlmostLaunchStallMs(_sc, this._stallCloseMs);
+    // T170+T170b 域断流延长（与实时引擎同配置同判据，回测 parity 红线；两档：
+    // almost_launch 90s 缺省 + 破发档 180s——纯函数/口径详见 core/stall-close-almost-launch.js）
+    this._stallCloseExt = resolveStallCloseExtension(_sc, this._stallCloseMs);
     this._lastStallScanTs = null;
     if (this._stallCloseMs != null) {
       this.logger.info(this._experimentId, 'BacktestEngine',
         `🛡️ 流动性止损已启用(回测) | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓` +
         `${this._stallCloseMinTickBnb != null ? `（足额门≥${this._stallCloseMinTickBnb}BNB）` : ''}（虚拟时钟 1s 节流扫描）` +
-        `${this._stallCloseAlmostLaunchMs != null ? `｜almost_launch 域(≤+10%)延长到${this._stallCloseAlmostLaunchMs / 1000}s` : ''}）`);
+        `${this._stallCloseExt.almostLaunchMs != null ? `｜almost_launch 域(≤+10%)延长到${this._stallCloseExt.almostLaunchMs / 1000}s` : ''}` +
+        `${this._stallCloseExt.breakdownMs != null ? `｜破发域(vs配置/首买价≤-5%)延长到${this._stallCloseExt.breakdownMs / 1000}s` : ''}）`);
     }
 
     // 7. 批量写入缓冲区
@@ -2873,11 +2874,15 @@ class BacktestEngine extends AbstractTradingEngine {
   /**
    * 流动性止损卖出（T104，实时 _emitStallCloseSell 的回放版）：_emitStopLossSell
    * 同构全清链（cards='all'→sellPct=1，bypass 立即路径）；回测签名多 nowTs。
+   * @param {{ms:number,tier:string}|null} extTier T170/T170b 档位（null=域外原阈值；
+   *   信号名显示实际生效阈值——T170b 起延长臂卖出不再冒充基础阈值）
    */
-  async _emitStallCloseSell(token, factors, stalledMs, nowTs) {
+  async _emitStallCloseSell(token, factors, stalledMs, nowTs, extTier = null) {
+    const effSec = Math.round((extTier ? extTier.ms : this._stallCloseMs) / 1000);
+    const tierTag = extTier == null ? '' : (extTier.tier === 'breakdown' ? '·破发域延长' : '·almost_launch域延长');
     const strategy = {
       id: 'stallClose',
-      name: `流动性止损-无成交超时(${Math.round(this._stallCloseMs / 1000)}s` +
+      name: `流动性止损-无成交超时(${effSec}s${tierTag}` +
         `${this._stallCloseMinTickBnb != null ? `,≥${this._stallCloseMinTickBnb}BNB` : ''})`,
       action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
       priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
@@ -2911,20 +2916,19 @@ class BacktestEngine extends AbstractTradingEngine {
       if (nowTs - lastTickAt <= this._stallCloseMs) continue;
       let factors = this._factorAggregator.buildFactorMap(tokenAddress, lastTickAt + this._stallCloseMs);
       if (!factors) continue;
-      // T170 almost_launch 域断流延长（与实时引擎同判据）：延长判定吃基础检测时点因子
-      // （断流期 state 冻结，价格键与延长点无差）；延长窗耗尽真卖时检测点重锚到延长
-      // 阈值点（实时墙钟 fire 时刻 ≈ lastTickAt+延长阈值的回放等价——时间键 parity）。
-      if (shouldExtendStallWindow({
-        almostLaunchStallMs: this._stallCloseAlmostLaunchMs,
-        stalledMs: nowTs - lastTickAt,
-        currentVsLaunchPct: factors.currentVsLaunchPct,
-      })) continue;
-      // 仅域内票耗尽延长窗时重锚（fire 时刻 stalledMs>阈值已被 shouldExtend=false 蕴含）；
+      // T170+T170b 域断流延长（与实时引擎同判据）：档位判定吃基础检测时点因子
+      // （断流期 state 冻结，价格键与延长点无差）——almost_launch（curVs≤+10）→
+      // 90s 档；破发档（floorPct=现价 vs min(常量,首买价) 无滚动最低 ≤−5）→ 180s 档。
+      // 延长窗耗尽真卖时检测点重锚到生效档阈值点（实时墙钟 fire 时刻 ≈
+      // lastTickAt+档阈值的回放等价——时间键 parity）。
+      const extTier = effectiveStallExtension(this._stallCloseExt, factors);
+      if (extTier != null && nowTs - lastTickAt <= extTier.ms) continue;
+      // 仅域内票耗尽延长窗时重锚（fire 时刻 stalledMs>阈值已被上面 continue 蕴含）；
       // 域外/缺证据票保持 T104 基础检测点（asOf=lastTickAt+stallMs parity 红线零变化）
-      if (this._stallCloseAlmostLaunchMs != null && isAlmostLaunchDomain(factors.currentVsLaunchPct)) {
-        factors = this._factorAggregator.buildFactorMap(tokenAddress, lastTickAt + this._stallCloseAlmostLaunchMs) || factors;
+      if (extTier != null) {
+        factors = this._factorAggregator.buildFactorMap(tokenAddress, lastTickAt + extTier.ms) || factors;
       }
-      await this._emitStallCloseSell(token, factors, nowTs - lastTickAt, nowTs);
+      await this._emitStallCloseSell(token, factors, nowTs - lastTickAt, nowTs, extTier);
     }
   }
 

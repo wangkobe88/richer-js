@@ -38,7 +38,7 @@ const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { TxSeenSignal } = require('../core/TxSeenSignal.js');
 const { createIpfsCacheWriter } = require('../core/IpfsCacheWriter.js');
-const { resolveAlmostLaunchStallMs, shouldExtendStallWindow } = require('../core/stall-close-almost-launch.js');
+const { resolveStallCloseExtension, effectiveStallExtension } = require('../core/stall-close-almost-launch.js');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const Logger = require('../../services/logger');
 const Decimal = require('decimal.js');
@@ -929,16 +929,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const _scMin = Number(_sc.minTickBnb);
     this._stallCloseMinTickBnb = Number.isFinite(_scMin) && _scMin > 0 ? _scMin : null;
     if (this._stallCloseMinTickBnb != null) this._factorAggregator.setSubstantialTickBnb(this._stallCloseMinTickBnb);
-    // T170 almost_launch 域断流延长（fd57 案 2026-11-17 用户裁定「如果价格都跌到
-    // almost launch 这个范围，断流时间就延长到 1 分钟吧」）：检测时点现价 ≤+10（含
-    // 破发）→ 断流阈值放宽到 almostLaunchStallMs（缺省 60s，恒 max(stallMs,·) 只延长
-    // 不缩短；显式 0=关）。纯函数/口径详见 core/stall-close-almost-launch.js。
-    this._stallCloseAlmostLaunchMs = resolveAlmostLaunchStallMs(_sc, this._stallCloseMs);
+    // T170+T170b 域断流延长（fd57 案 2026-11-17 落地；2026-11-18 两档化）：①almost
+    // _launch 域（检测时点 currentVsLaunchPct ≤+10 含破发）→ 放宽到 almostLaunch
+    // StallMs（缺省 90s）；②破发档（currentVsFloorPct=现价 vs min(常量,首买价)
+    // 无滚动最低 ≤−5）→ 放宽到 breakdownStallMs（缺省 180s）。恒 max(stallMs,·)
+    // 只延长不缩短；显式 0=对应臂关。纯函数/口径详见 core/stall-close-almost-launch.js。
+    this._stallCloseExt = resolveStallCloseExtension(_sc, this._stallCloseMs);
     if (this._stallCloseMs != null) {
       this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
         `🛡️ 流动性止损已启用 | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓（` +
         `${this._stallCloseMinTickBnb != null ? `足额门≥${this._stallCloseMinTickBnb}BNB，FA lastSubstantialTickAt 判据` : 'FA lastTickAt 判据'}，1s 墙钟扫描）` +
-        `${this._stallCloseAlmostLaunchMs != null ? `｜almost_launch 域(≤+10%)延长到${this._stallCloseAlmostLaunchMs / 1000}s` : ''}）`);
+        `${this._stallCloseExt.almostLaunchMs != null ? `｜almost_launch 域(≤+10%)延长到${this._stallCloseExt.almostLaunchMs / 1000}s` : ''}` +
+        `${this._stallCloseExt.breakdownMs != null ? `｜破发域(vs配置/首买价≤-5%)延长到${this._stallCloseExt.breakdownMs / 1000}s` : ''}）`);
     }
 
     // 7. live 执行层（FourMemeDirectTrader + 钱包），必须在重启恢复之前就绪
@@ -2908,11 +2910,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * _emitSellSignal 全清链（signals/trades/卡账本 cards='all' 全清/累亏记账副作用
    * 全复用，零新执行逻辑）。bypass 立即路径是机制成立的前提（见 ctor 6.5c 注）。
    * @param {number} stalledMs 距上一笔链上成交的毫秒数（审计用）
+   * @param {{ms:number,tier:string}|null} extTier T170/T170b 档位（null=域外原阈值
+   *   照卖；信号名显示实际生效阈值——T170b 起延长臂卖出不再冒充基础阈值 40s）
    */
-  async _emitStallCloseSell(token, factors, stalledMs) {
+  async _emitStallCloseSell(token, factors, stalledMs, extTier = null) {
+    const effSec = Math.round((extTier ? extTier.ms : this._stallCloseMs) / 1000);
+    const tierTag = extTier == null ? '' : (extTier.tier === 'breakdown' ? '·破发域延长' : '·almost_launch域延长');
     const strategy = {
       id: 'stallClose',
-      name: `流动性止损-无成交超时(${Math.round(this._stallCloseMs / 1000)}s` +
+      name: `流动性止损-无成交超时(${effSec}s${tierTag}` +
         `${this._stallCloseMinTickBnb != null ? `,≥${this._stallCloseMinTickBnb}BNB` : ''})`,
       action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
       priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
@@ -3095,15 +3101,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (stalledMs <= this._stallCloseMs) continue;
       const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
       if (!factors) continue;
-      // T170 almost_launch 域断流延长：检测时点现价已 ≤+10%（含破发）→ 延长窗内
-      // 继续持仓（fd57 案：40s 止损后 5s 即来足额买盘、66s 后 +140%）。域外/curVs
-      // 缺失/窗已耗尽 → 照卖（原机制不变）。
-      if (shouldExtendStallWindow({
-        almostLaunchStallMs: this._stallCloseAlmostLaunchMs,
-        stalledMs,
-        currentVsLaunchPct: factors.currentVsLaunchPct,
-      })) continue;
-      await this._emitStallCloseSell(token, factors, stalledMs);
+      // T170+T170b 域断流延长：检测时点档位判定（断流期 state 冻结，两因子与
+      // 延长点无差）——almost_launch 域（curVs≤+10）→ 90s；破发档（floorPct=
+      // 现价 vs min(常量,首买价) ≤−5，刻意不吃滚动最低防历史破发回弹票漏判）→
+      // 180s。域外/因子缺失/窗已耗尽 → 照卖（原机制不变）。
+      const extTier = effectiveStallExtension(this._stallCloseExt, factors);
+      if (extTier != null && stalledMs <= extTier.ms) continue;
+      await this._emitStallCloseSell(token, factors, stalledMs, extTier);
     }
   }
 
