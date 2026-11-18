@@ -1953,8 +1953,10 @@ class AbstractTradingEngine extends ITradingEngine {
     const r = normalizeFactorSellFilterConfig(rawCfg);
     if (r.error) throw new Error(`factorSellFilter 配置非法：${r.error}，拒绝启动`);
     this._factorSellFilterCfg = r.normalized;
+    const sh = r.normalized.smartHold;
     this.logger.info(this._experimentId, 'SellEval',
-      `因子卖出过滤门启用 | famousHold 全臂管辖（pp≥${r.normalized.famousHold.minProfitPct} 的卖信号统一过门：famous ${r.normalized.famousHold.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${r.normalized.famousHold.sellReleaseBnb} → 拦截）`);
+      `因子卖出过滤门启用 | famousHold 全臂管辖（pp≥${r.normalized.famousHold.minProfitPct} 的卖信号统一过门：famous ${r.normalized.famousHold.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${r.normalized.famousHold.sellReleaseBnb} → 拦截）` +
+      ` | smartHold${sh && sh.enabled ? `（聪明钱 ${sh.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${sh.sellReleaseBnb} → 拦截，T183）` : ' 关'} | pump 臂签名管辖（condition 引用 sinceEntryNetBuyRatio 无论 pp，T183）`);
   }
 
   /**
@@ -1964,8 +1966,10 @@ class AbstractTradingEngine extends ITradingEngine {
    * 与 _reconfirmAndSell（去抖 fire 重评）——拦截=视同腿未触发（与原条件串释放
    * 臂假=evaluate 不返回该腿 bit 对齐：首评拦截清 pending、放行后重新首真起算）。
    * T157c 管辖门：**所有卖出臂统一过门**——管辖判定=profitPercent ≥ minProfitPct
-   * (100) 本身（pp<100 的卖信号恒放行），与触发腿条件形状无关；bypass 保命腿
-   * 同样受管（famous 还在入场=HOLD 语义一致适用）。拦截留痕：连续拦截 per (token,腿)
+   * (100) 本身（pp<100 的卖信号恒放行）；T183 扩展：pump-imbalance 家族腿
+   * （condition 引用 sinceEntryNetBuyRatio）无论 pp 过门 + smartHold 聪明钱臂
+   * （famousHold 同构，FA sinceLastSmartBigBuySec/recentSmartSellBnb 载体）。
+   * bypass 保命腿同样受管（famous 还在入场=HOLD 语义一致适用）。拦截留痕：连续拦截 per (token,腿)
    * 只落首行 SELL 信号行（execution_status='blocked'+factorSellFilter 判据段，
    * signals 页展示）；日志同 key 去重。
    * @param {number} nowTs - 信号时刻（实时=Date.now()；回测=虚拟时钟——落行
@@ -1974,8 +1978,10 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   _factorSellFilterEvaluate(token, strategy, factors, nowTs) {
     if (!this._factorSellFilterCfg) return { blocked: false, rule: null, info: null };
-    // T157c 全臂管辖：判定只吃因子表（pp≥100 即管，不看触发腿条件形状）
-    const res = judgeFactorSellFilter(this._factorSellFilterCfg, factors);
+    // T157c 全臂管辖+T183 扩展：判定吃因子表+触发腿（pp≥100 即管；pump 臂签名
+    //〔condition 引用 sinceEntryNetBuyRatio〕无论 pp——strategy 腿对象原样透传，
+    // evaluate 返回携带 condition 字段）
+    const res = judgeFactorSellFilter(this._factorSellFilterCfg, factors, strategy);
     if (!res.blocked) {
       if (this._factorSellFilterLogSeen) {
         this._factorSellFilterLogSeen.delete(`${token?.token}|${strategy?.id}`);
@@ -1990,7 +1996,9 @@ class AbstractTradingEngine extends ITradingEngine {
     this.logger.info(this._experimentId, 'SellEval',
       `🛡 因子卖出过滤拦截（${res.rule}）| ${token?.symbol || String(token?.token || '').slice(0, 10)} 腿=${strategy?.name}` +
       ` | pp=${i.profitPercent} sinceLastFamousBigBuySec=${i.sinceLastFamousBigBuySec} recentFamousSellBnb=${i.recentFamousSellBnb}` +
-      `（HOLD=famous ${i.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${i.sellReleaseBnb} ∧ pp≥${i.minProfitPct}——放行=出窗/撤退达线/跌破保护域）`);
+      ` sinceLastSmartBigBuySec=${i.sinceLastSmartBigBuySec} recentSmartSellBnb=${i.recentSmartSellBnb}` +
+      `${i.pumpArmJurisdiction ? ' [pump臂管辖]' : ''}` +
+      `（HOLD=famous ${i.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${i.sellReleaseBnb} ∧ pp≥${i.minProfitPct}${i.smartHoldEnabled ? ` ∨ 聪明钱 ${i.smartMaxSinceBuySec}s 内大买 ∧ 卖出 <${i.smartSellReleaseBnb}` : ''}——放行=出窗/撤退达线/跌破保护域）`);
     // 拦截留痕：落 SELL blocked 行（fire-and-forget——失败 warn 不阻塞卖评估路径）
     try {
       this._persistFactorSellFilterSignal(token, strategy, factors, res, nowTs)

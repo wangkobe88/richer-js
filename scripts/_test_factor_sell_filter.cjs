@@ -225,4 +225,106 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     ok(fake._factorSellFilterCfg && fake._factorSellFilterCfg.famousHold.minProfitPct === 100, 'H6 最简配置 {enabled:true} 初始化（famousHold 全默认）');
 }
 
+// ── I. T183 smartHold 聪明钱臂判定树（2026-11-18 bt-v150 0x2f17…7777 案）────
+// 立法：famousHold 同构镜像（FA sinceLastSmartBigBuySec/recentSmartSellBnb 载体，
+// 大买线 FA smartBigBuyBnb=0.02）；双臂独立判、双中 famous 优先；null=从未有
+// 聪明钱大买/名单未加载 → 不命中 fail-open 不锁死卖出。
+{
+    // pp≥100 管辖内：smart 命中（famous 不在场）
+    const r = judgeFactorSellFilter(CFG, {
+        profitPercent: 105, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0,
+        sinceLastSmartBigBuySec: 12.3, recentSmartSellBnb: 0.05,
+    });
+    ok(r.blocked === true && r.rule === 'smart_hold', 'I1 smart 命中拦截 rule=smart_hold');
+    ok(r.info.sinceLastSmartBigBuySec === 12.3 && r.info.recentSmartSellBnb === 0.05, 'I2 info smart 判据值');
+    ok(r.info.smartHoldEnabled === true && r.info.smartMaxSinceBuySec === 180 && r.info.smartSellReleaseBnb === 0.4, 'I3 info smart 阈值快照');
+    ok(r.info.pumpArmJurisdiction === false, 'I4 无腿=pump 臂管辖 false');
+    // smart 出窗/达释放线/null → 放行
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: 180.1, recentSmartSellBnb: 0 }).blocked === false, 'I5 smart 出窗放行');
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: 5, recentSmartSellBnb: 0.4 }).blocked === false, 'I6 smart 释放线恰达放行（>=）');
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0 }).blocked === false, 'I7 smart null（名单未加载/从未大买）放行 fail-open');
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: 5, recentSmartSellBnb: null }).blocked === true, 'I8 smart recentSell null 保持拦截（否定形状对齐）');
+    // pp<100 无腿 → smart 也不管（管辖门先行）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 2, recentSmartSellBnb: 0 }).blocked === false, 'I9 pp<100 无腿 smart 放行（管辖门）');
+    // 双中 famous 优先
+    const both = judgeFactorSellFilter(CFG, {
+        profitPercent: 105, sinceLastFamousBigBuySec: 30, recentFamousSellBnb: 0,
+        sinceLastSmartBigBuySec: 5, recentSmartSellBnb: 0,
+    });
+    ok(both.blocked === true && both.rule === 'famous_hold', 'I10 双中 famous 优先留痕');
+    // smartHold.enabled=false 一键回滚 T157 单臂
+    const cOff = normalizeFactorSellFilterConfig({ enabled: true, smartHold: { enabled: false } }).normalized;
+    ok(cOff.smartHold.enabled === false, 'I11 smartHold.enabled=false 归一化');
+    ok(judgeFactorSellFilter(cOff, { profitPercent: 105, sinceLastSmartBigBuySec: 5, recentSmartSellBnb: 0 }).blocked === false, 'I12 smartHold 关=smart 不命中（T157 形态）');
+    ok(judgeFactorSellFilter(cOff, { profitPercent: 105, sinceLastFamousBigBuySec: 5, recentFamousSellBnb: 0 }).blocked === true, 'I13 smartHold 关不影响 famous 臂');
+    // smartHold 阈值覆盖
+    const cOv = normalizeFactorSellFilterConfig({ enabled: true, smartHold: { maxSinceBuySec: 60, sellReleaseBnb: 0.2 } }).normalized;
+    ok(judgeFactorSellFilter(cOv, { profitPercent: 105, sinceLastSmartBigBuySec: 90, recentSmartSellBnb: 0 }).blocked === false, 'I14 覆盖窗 60s：90s 出窗放行');
+    ok(judgeFactorSellFilter(cOv, { profitPercent: 105, sinceLastSmartBigBuySec: 30, recentSmartSellBnb: 0.2 }).blocked === false, 'I15 覆盖释放线 0.2 达线放行');
+}
+
+// ── J. T183 pump 臂签名管辖（pump-imbalance-exit 腿无论 pp 过门）──────────
+// 案源：bt-v150 0x2f17 P5 腿（realHoldDuration>=30 AND sinceEntryNetBuyRatio>=90
+// AND sinceEntryBuyBnb>=1）pp=57.5<100 被 T157c 管辖门放走 → 全清后卖后 +350%。
+// 识别=condition 引用 sinceEntryNetBuyRatio（T113 家族唯一签名键，子串匹配抗
+// 阈值漂移）；非 pump 腿 pp<100 恒放行不变。
+{
+    const PUMP_LEG = { id: 'sell_pump', name: 'P5', condition: 'realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90 AND sinceEntryBuyBnb >= 1' };
+    const OTHER_LEG = { id: 'sell_7', name: 'P7', condition: 'profitPercent > 100 AND peakProfitPct > 50' };
+    // 本案帧：pp=57.5 + smart 2s 前大买 → pump 臂管辖下拦截
+    const caseF = { profitPercent: 57.5, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, sinceLastSmartBigBuySec: 2, recentSmartSellBnb: 0 };
+    const rCase = judgeFactorSellFilter(CFG, caseF, PUMP_LEG);
+    ok(rCase.blocked === true && rCase.rule === 'smart_hold', 'J1 立法案帧：pump 腿 pp=57.5 + smart 2s → 拦截');
+    ok(rCase.info.pumpArmJurisdiction === true, 'J2 info.pumpArmJurisdiction=true');
+    ok(judgeFactorSellFilter(CFG, caseF, OTHER_LEG).blocked === false, 'J3 同帧非 pump 腿 pp<100 放行（存量语义不变）');
+    ok(judgeFactorSellFilter(CFG, caseF).blocked === false, 'J4 同帧无腿（两参调用）放行——向后兼容');
+    // pump 腿 pp 缺失也管（腿自身触发=明确卖出意志，pp 不构成放行）
+    ok(judgeFactorSellFilter(CFG, { sinceLastSmartBigBuySec: 5, recentSmartSellBnb: 0 }, PUMP_LEG).blocked === true, 'J5 pump 腿 pp 缺失仍管');
+    // pump 腿两臂均无在场证据 → 放行（smart null=fail-open 不锁死）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0 }, PUMP_LEG).blocked === false, 'J6 pump 腿无 HOLD 证据放行');
+    // pump 腿 smart 出窗/释放达线 → 放行
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 300, recentSmartSellBnb: 0 }, PUMP_LEG).blocked === false, 'J7 pump 腿 smart 出窗放行');
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 5, recentSmartSellBnb: 0.5 }, PUMP_LEG).blocked === false, 'J8 pump 腿 smart 撤退达线放行');
+    // 签名匹配只认 sinceEntryNetBuyRatio：引用 sinceEntryBuyBnb 单键（观察键）不算
+    ok(judgeFactorSellFilter(CFG, caseF, { id: 'x', name: 'x', condition: 'sinceEntryBuyBnb >= 1' }).blocked === false, 'J9 观察键单引用不触发 pump 管辖');
+    // famous 臂同受 pump 管辖扩展（pump 腿 pp<100 + famous 在场也拦）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastFamousBigBuySec: 10, recentFamousSellBnb: 0 }, PUMP_LEG).blocked === true, 'J10 pump 腿 famous 臂同样管辖');
+    // 阈值漂移抗性：v4 改线（>=95/>=1.5）仍识别
+    ok(judgeFactorSellFilter(CFG, caseF, { id: 'x', name: 'x', condition: 'realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 95 AND sinceEntryBuyBnb >= 1.5' }).info.pumpArmJurisdiction === true, 'J11 签名键匹配抗阈值漂移');
+    // 引擎包装层透传腿：G 段同款 fake 验证
+    {
+        const { AbstractTradingEngine } = require('../src/trading-engine/core/AbstractTradingEngine');
+        const logs = [];
+        const persisted = [];
+        const fake = {
+            _experimentId: 'test',
+            logger: { info: (...a) => logs.push(a.join(' ')), warn: () => {} },
+            _persistFactorSellFilterSignal: async (token, strategy, factors, res, nowTs) => {
+                persisted.push({ rule: res.rule, nowTs });
+            },
+        };
+        const res = AbstractTradingEngine.prototype._factorSellFilterEvaluate.call(
+            { ...fake, _factorSellFilterCfg: CFG },
+            { token: '0x2f17', symbol: 'CASE' }, PUMP_LEG, caseF, 999);
+        ok(res.blocked === true && persisted.length === 1 && persisted[0].rule === 'smart_hold', 'J12 引擎包装透传腿=pump 管辖拦截落行');
+        ok(logs[0].includes('pump臂管辖'), 'J13 拦截日志带 pump 臂管辖标记');
+    }
+}
+
+// ── K. T183 配置归一化扩展（smartHold 段）────────────────────────────
+{
+    const d = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
+    ok(d.smartHold && d.smartHold.enabled === true && d.smartHold.maxSinceBuySec === 180 && d.smartHold.sellReleaseBnb === 0.4, 'K1 smartHold 整体省略=全默认开');
+    ok(/smartHold/.test(normalizeFactorSellFilterConfig({ enabled: true, nope: 1 }).error || ''), 'K2 顶层未知键报错文案含 smartHold 提示');
+    ok(normalizeFactorSellFilterConfig({ enabled: true, smartHold: { nope: 1 } }).error, 'K3 smartHold 未知键 → error');
+    ok(normalizeFactorSellFilterConfig({ enabled: true, smartHold: { maxSinceBuySec: -1 } }).error, 'K4 smartHold 负值 → error');
+    ok(normalizeFactorSellFilterConfig({ enabled: true, smartHold: { enabled: 'no' } }).error, 'K5 smartHold.enabled 非 bool → error');
+    ok(normalizeFactorSellFilterConfig({ enabled: true, smartHold: 42 }).error, 'K6 smartHold 非对象 → error');
+    // famousHold 省略+smartHold 非法：早退分支也须报错（首版早退漏检反证）
+    ok(normalizeFactorSellFilterConfig({ enabled: true, smartHold: { nope: 1 } }).error != null, 'K7 famousHold 省略时 smartHold 非法同报错');
+    const { SMART_HOLD_DEFAULTS, PUMP_ARM_SIGNATURE_FACTOR } = require('../src/trading-engine/core/factor-sell-filter');
+    ok(SMART_HOLD_DEFAULTS.maxSinceBuySec === 180 && SMART_HOLD_DEFAULTS.sellReleaseBnb === 0.4, 'K8 SMART_HOLD_DEFAULTS 常量');
+    ok(PUMP_ARM_SIGNATURE_FACTOR === 'sinceEntryNetBuyRatio', 'K9 pump 签名键常量');
+}
+
 console.log(`✅ _test_factor_sell_filter 全部 ${passed} 断言通过`);

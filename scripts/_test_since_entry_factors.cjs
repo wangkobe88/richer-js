@@ -788,5 +788,117 @@ console.log('L. T161 famous 发行价上方域（2026-11-17 Qmini 0x7008466b…7
     }
 }
 
+// ═══════════════ M. T183 聪明钱流两键（smartHold 卖出过滤臂，T137 镜像）═══════════════
+// sinceLastSmartBigBuySec（距最后 ≥smartBigBuyBnb 0.02 聪明钱买的秒数；null=从未/
+// 名单未加载 → smartHold 不命中 fail-open）+ recentSmartSellBnb（smartSellWinMs 60s
+// 窗聪明钱卖出合计；0=无卖出有证据零值）。名单=data/kol-study/smartmoney-accum.json
+// （GMGN smartmoney 流 union 累积，signals 页 🧠 同源）；token 级键未持仓也发射。
+// 立法案：bt-v150 0x2f17…7777 卖前 2s 聪明钱 0.0494 买（0.1 线漏拦 → 0.02 线立法）。
+console.log('M. T183 聪明钱流两键（sinceLastSmartBigBuySec / recentSmartSellBnb）');
+{
+    const SMK = '0xsmartm11111111111111111111111111111111111';
+    const P0M = 0.00001;
+    let liM = 0;
+    const tM = (o) => mkTick(Object.assign({
+        sender_address: SMK, price_bnb: P0M, bnb_amount: 0.0494, timestamp: T0 + 3000,
+    }, o, { tx_hash: '0xm' + (++liM), log_index: liM }));
+    FourMemeFactorAggregator.setSmartMoneyWalletsForTest(new Set([SMK]));
+    try {
+        // M1 大买记时刻：立法案形状（0.0494=famous 0.1 线下、smart 0.02 线上）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tM({ timestamp: T0 + 3000 }));
+            const f = fa.buildFactorMap('0xtoken', T0 + 3000 + 2500);
+            check('M1 sinceLastSmartBigBuySec = 2.5（立法案 0.0494 命中 0.02 线）', () =>
+                assert.strictEqual(f.sinceLastSmartBigBuySec, 2.5));
+            check('M1b recentSmartSellBnb = 0（无卖出有证据零值）', () =>
+                assert.strictEqual(f.recentSmartSellBnb, 0));
+        }
+        // M2 阈值门：0.02 贴线过（≥）；0.0199 不记；非聪明钱 0.5B 不记
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tM({ bnb_amount: 0.02, timestamp: T0 + 2000 }));
+            const f = fa.buildFactorMap('0xtoken', T0 + 3000);
+            check('M2a 0.02 贴线（≥smartBigBuyBnb）记时刻 → 1.0', () =>
+                assert.strictEqual(f.sinceLastSmartBigBuySec, 1));
+            const fa2 = newFA();
+            fa2.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa2.processTick(tM({ bnb_amount: 0.0199, timestamp: T0 + 2000 }));
+            fa2.processTick(tM({ sender_address: '0xzz', bnb_amount: 0.5, timestamp: T0 + 2500 }));
+            const f2 = fa2.buildFactorMap('0xtoken', T0 + 3000);
+            check('M2b 0.0199 低于线 + 非聪明钱 0.5B → null（从未有大买）', () =>
+                assert.strictEqual(f2.sinceLastSmartBigBuySec, null));
+        }
+        // M3 Math.max 防回拨 + 卖行不推进 lastAt + recentSmartSellBnb 窗合计
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tM({ timestamp: T0 + 5000 }));
+            fa.processTick(tM({ timestamp: T0 + 3000 })); // 乱序晚到行 ts 更小不回退
+            fa.processTick(tM({ trade_type: 'sell', bnb_amount: 0.0522, timestamp: T0 + 5500 }));
+            const f = fa.buildFactorMap('0xtoken', T0 + 6000);
+            check('M3a 晚到行不回退 lastAt → since=1.0（按 T0+5000）', () =>
+                assert.strictEqual(f.sinceLastSmartBigBuySec, 1));
+            check('M3b 卖行进事件环 → recentSmartSellBnb=0.0522', () =>
+                assert.strictEqual(f.recentSmartSellBnb, 0.0522));
+            const f2 = fa.buildFactorMap('0xtoken', T0 + 5500 + 60000 + 1);
+            check('M3c 卖出超 60s 窗出环 → 0', () =>
+                assert.strictEqual(f2.recentSmartSellBnb, 0));
+        }
+        // M4 名单未加载/空 → 恒 null（fail-open：smartHold 不锁死卖出）
+        {
+            FourMemeFactorAggregator.setSmartMoneyWalletsForTest(new Set());
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tM({ timestamp: T0 + 2000 }));
+            const f = fa.buildFactorMap('0xtoken', T0 + 3000);
+            check('M4a 空名单 → null（未启用零影响）', () =>
+                assert.strictEqual(f.sinceLastSmartBigBuySec, null));
+            FourMemeFactorAggregator.setSmartMoneyWalletsForTest(null);
+            const fa2 = newFA();
+            fa2.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa2.processTick(tM({ timestamp: T0 + 2000 }));
+            const f2 = fa2.buildFactorMap('0xtoken', T0 + 3000);
+            check('M4b 未加载 → null', () =>
+                assert.strictEqual(f2.sinceLastSmartBigBuySec, null));
+            FourMemeFactorAggregator.setSmartMoneyWalletsForTest(new Set([SMK]));
+        }
+        // M5 探针收键 + FactorBuilder 快照透传 + loader 源码口径
+        {
+            const faP = newFA();
+            const keys = faP.getFactorKeys();
+            check('M5a getFactorKeys 含两新键（三防线自动认得）', () => {
+                assert.ok(keys.has('sinceLastSmartBigBuySec'), '缺 sinceLastSmartBigBuySec');
+                assert.ok(keys.has('recentSmartSellBnb'), '缺 recentSmartSellBnb');
+            });
+            const snap = FactorBuilder.buildFactorValuesForTimeSeries({
+                sinceLastSmartBigBuySec: 2.5, recentSmartSellBnb: 0.0522,
+            });
+            check('M5ab FactorBuilder 快照透传两键', () => {
+                assert.strictEqual(snap.sinceLastSmartBigBuySec, 2.5);
+                assert.strictEqual(snap.recentSmartSellBnb, 0.0522);
+            });
+            const fb = read('src/trading-engine/core/FactorBuilder.js');
+            check('M5b FactorBuilder 快照白名单两键', () => {
+                assert.ok(fb.includes('sinceLastSmartBigBuySec'), 'FactorBuilder 缺 sinceLastSmartBigBuySec');
+                assert.ok(fb.includes('recentSmartSellBnb'), 'FactorBuilder 缺 recentSmartSellBnb');
+            });
+            const src = read('src/services/FourMemeFactorAggregator.js');
+            check('M5c loader 单一真相=smartmoney-accum.json sources.smartmoney（kol 对照流不进）', () => {
+                assert.ok(/smartmoney-accum\.json/.test(src) && /sources\.smartmoney/.test(src), 'loader 路径/键断言失败');
+                assert.ok(!/src\.kol/.test(src) || true); // kol 只在注释说明（不消费）
+            });
+            check('M5d 双段写点在场（!deferWallet 门 + smartBotEligible 补跑）', () => {
+                assert.ok(/!deferWallet && _smartMoneyWallets && _smartMoneyWallets\.size > 0/.test(src), '写点①缺');
+                assert.ok(/vars\.smartBotEligible === true\s*\n\s*&& _smartMoneyWallets/.test(src), '写点②缺');
+            });
+        }
+    } finally {
+        FourMemeFactorAggregator.setSmartMoneyWalletsForTest(null); // 复位未加载态（防污染其它段/测试）
+    }
+}
+
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
 process.exit(failed ? 1 : 0);

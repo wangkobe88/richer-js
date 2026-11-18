@@ -429,6 +429,15 @@ class BacktestEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'BacktestEngine', `极著名钱包名单加载失败(fail-open, famousCopyWalletCircPct 恒 0=裸比较放行): ${e.message}`);
     }
+    // 聪明钱名单（T183 smartHold 卖出过滤臂原料）：与 WSS 引擎同入口同集合（parity）；
+    // fail-open 同款（文件缺失/失败 → 空 Set → smartHold 恒放行）。⚠回测前视声明：
+    // 名单是采集时点的静态快照，历史窗口回测引用有前视面——与 copy/sniper/famous
+    // 名单「启动加载当前态」同款已接受近似（famous roster 历史对拍同语义）；实盘无此问题
+    try {
+      await FourMemeFactorAggregator.loadSmartMoneyWallets();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'BacktestEngine', `聪明钱名单加载失败(fail-open, smartHold 卖出过滤臂恒放行): ${e.message}`);
+    }
     // sybil 大簇钱包并集（2026-10-20 乌龟案用户裁定）：与 WSS 引擎同入口同集合（parity）；
     // fail-open 同款（加载失败/文件缺失 → 因子恒 0=裸比较放行，2026-10-22 去 NULL 同批）
     try {

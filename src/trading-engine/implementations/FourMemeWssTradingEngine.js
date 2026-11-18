@@ -610,6 +610,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `极著名钱包名单加载失败(fail-open, famousCopyWalletCircPct 恒 0=裸比较放行): ${e.message}`);
     }
+    // 聪明钱名单（T183 2026-11-18 smartHold 卖出过滤臂原料）：data/kol-study/
+    // smartmoney-accum.json（GMGN smartmoney 流 union 累积，signals 页 🧠 标记
+    // 同源）。fail-open（famous 同向）：文件缺失/解析失败 → 空 Set →
+    // sinceLastSmartBigBuySec 恒 null → smartHold 恒放行不锁死卖出。data/ 不进
+    // git——实验机无该文件=臂未启用；累积器更新须重启实验进程（静态快照语义）
+    try {
+      await FourMemeFactorAggregator.loadSmartMoneyWallets();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `聪明钱名单加载失败(fail-open, smartHold 卖出过滤臂恒放行): ${e.message}`);
+    }
     // sybil 大簇钱包并集（2026-10-20 乌龟案用户裁定）：sybilClusterHolderCircPct 原料。
     // fail-open 同 famous（新门未启用=零影响）：文件缺失 → 空集合；加载抛错 → 保持
     // 空——两者因子恒 0=裸比较 <35 放行（2026-10-22 去 NULL 同批）

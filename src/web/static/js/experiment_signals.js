@@ -3127,23 +3127,33 @@ class ExperimentSignals {
       `;
     }
 
-    // T157 因子卖出过滤门拦截明细（famous HOLD 判据展示——蓝紫系区别红色拒绝；
-    // 判据源=metadata.factorSellFilter 段：管辖臂+三因子值+阈值+放行条件）
+    // T157 因子卖出过滤门拦截明细（famous/smart HOLD 判据展示——蓝紫系区别红色
+    // 拒绝；判据源=metadata.factorSellFilter 段：管辖臂+因子值+阈值+放行条件；
+    // T183 起双臂——smart_hold 聪明钱臂+ pump 臂管辖标记）
     let blockedInfoHtml = '';
     if (isBlocked) {
       const fsf = metadata.factorSellFilter || {};
-      if (fsf.rule === 'famous_hold' || fsf.sinceLastFamousBigBuySec != null) {
+      const isSmart = fsf.rule === 'smart_hold'
+        || (fsf.rule !== 'famous_hold' && fsf.sinceLastFamousBigBuySec == null && fsf.sinceLastSmartBigBuySec != null);
+      if (fsf.rule === 'famous_hold' || fsf.rule === 'smart_hold'
+        || fsf.sinceLastFamousBigBuySec != null || fsf.sinceLastSmartBigBuySec != null) {
         const fmt = (v) => (v == null ? '—' : v);
+        const armLabel = isSmart ? '🧠 聪明钱 HOLD 拦截' : '🛡 famous HOLD 拦截';
+        const armDesc = isSmart ? '聪明钱仍在入场，延缓卖出' : 'famous 仍在入场，延缓卖出';
+        const smartLine = fsf.smartHoldEnabled != null
+          ? `<div>距聪明钱大买=${fmt(fsf.sinceLastSmartBigBuySec)}s（窗 ≤${fmt(fsf.smartMaxSinceBuySec)}s）· 60s 内聪明钱卖出=${fmt(fsf.recentSmartSellBnb)} BNB（释放线 ≥${fmt(fsf.smartSellReleaseBnb)}）</div>` : '';
         blockedInfoHtml = `
         <div class="mt-2 p-2 bg-indigo-50 rounded border border-indigo-200">
           <div class="flex items-center space-x-2">
-            <span class="text-indigo-700 font-medium text-sm">🛡 famous HOLD 拦截:</span>
-            <span class="text-indigo-900 text-sm">famous 仍在入场，延缓卖出</span>
+            <span class="text-indigo-700 font-medium text-sm">${armLabel}:</span>
+            <span class="text-indigo-900 text-sm">${armDesc}</span>
+            ${fsf.pumpArmJurisdiction ? '<span class="text-indigo-500 text-xs">〔pump 失衡臂管辖·不论浮盈〕</span>' : ''}
           </div>
           <div class="text-xs text-indigo-900 mt-1 space-y-0.5">
             <div>浮盈=${fmt(fsf.profitPercent)}%（保护域 ≥${fmt(fsf.minProfitPct)}%）· 距 famous 大买=${fmt(fsf.sinceLastFamousBigBuySec)}s（窗 ≤${fmt(fsf.maxSinceBuySec)}s）· 60s 内 famous 卖出=${fmt(fsf.recentFamousSellBnb)} BNB（释放线 ≥${fmt(fsf.sellReleaseBnb)}）</div>
+            ${smartLine}
             ${fsf.arm ? `<div class="text-indigo-700">管辖臂: ${this._escapeHtml(fsf.arm)}</div>` : ''}
-            <div class="text-indigo-600">放行条件：famous 超窗未入场 / 60s 卖出达释放线 / 浮盈跌破保护域</div>
+            <div class="text-indigo-600">放行条件：famous/聪明钱超窗未入场 / 60s 卖出达释放线 / 浮盈跌破保护域（pump 臂不论浮盈）</div>
           </div>
         </div>`;
       } else {

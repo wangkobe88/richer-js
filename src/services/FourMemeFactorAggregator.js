@@ -166,6 +166,13 @@ const FACTOR_PARAM_DEFAULTS = {
                                  //   研究口径 fb 收集同线；factorParams 可覆盖
     famousSellWinMs: 60000,      // recentFamousSellBnb 滑窗（释放臂「60s 内 famous 卖出
                                  //   合计 ≥0.2」的原料窗）
+    // ── T183 聪明钱流两参数（smartHold 卖出过滤臂原料；名单=
+    //    data/kol-study/smartmoney-accum.json，见 loadSmartMoneyWallets）──
+    smartBigBuyBnb: 0.02,        // sinceLastSmartBigBuySec 的聪明钱大买判定线（BNB）。
+                                 //   刻意低于 famous 0.1：GMGN smartmoney 流钱包单笔
+                                 //   规模小于 KOL（立法案 0x2f17 唯一窗内命中 0.0494，
+                                 //   0.1 线漏拦）；与 smartBotMinBuyBnb 参与线同值 0.02
+    smartSellWinMs: 60000,       // recentSmartSellBnb 滑窗（释放臂原料窗，famous 同款 60s）
     netBuyWinTrades: 20,        // tradesNetBuyRatioShortWin 净买短窗笔数（T87 2026-10-28
                                  //   0xdf7a 案用户裁定「10 秒窗口换交易数窗口——慢热票 10s 内
                                  //   无行情」：T77 时间窗的 null fail-closed 对慢热票缺证据；
@@ -268,6 +275,17 @@ let _copyLoadPromise = null;
 // 非空集合 → 0 起（有证据零值，与主名单同款）。
 let _famousCopyWallets = null;
 let _famousCopyLoadPromise = null;
+// ── 聪明钱名单（T183 2026-11-18 bt-v150 0x2f17 案用户立法「卖出过滤除 famous 外
+// 也把聪明钱买入放进去」）──
+// 来源=data/kol-study/smartmoney-accum.json（GMGN /v1/user/smartmoney 流快照 union
+// 累积，scripts/gmgn-kol/tmp-smartmoney-accumulate.cjs 182 持续采集；signals 页
+// 🧠聪明钱标记 /api/rosters/smart-money-wallets 同源单一真相）。sources.smartmoney
+// 键集（sources.kol 是对照流计数刻意不进——KOL 载体=famous roster 防双语义）。
+// ⚠data/ 不进 git：实验进程所在机须有该文件（182 同机天然在；缺席=空 Set fail-open
+// ——smartHold 恒放行不锁死卖出，与 web 端点 file_missing 同款语义）。静态快照
+// 语义（进程启动加载一次，累积器更新须重启实验进程，famous roster 同款）。
+let _smartMoneyWallets = null;
+let _smartMoneyLoadPromise = null;
 // ── sybil 大簇钱包并集（2026-10-20 乌龟案用户裁定；簇合计口径）──
 // 来源=config/rosters/sybil-clusters.json（scripts/build-sybil-clusters.cjs 从
 // copy-trade-pairs 缓存建「强边连通分量 size>=3」，182 --commit 生成；独立文件，
@@ -747,6 +765,60 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
+     * 聪明钱名单（T183 smartHold 卖出过滤臂原料）：读
+     * data/kol-study/smartmoney-accum.json 的 sources.smartmoney 键集（GMGN
+     * smartmoney 流快照 union 累积，182 持续采集）。幂等+在途去重（loadFamousCopyWallets
+     * 模板）。两处刻意语义：①文件缺失 → 不抛错解析为空 Set（data/ 研究工件非必配，
+     * 实验机没有该文件=功能未启用——smartHold 恒放行 fail-open 不锁死卖出）；
+     * ②schema 不符（parsed 非 object / sources.smartmoney 非 object）才抛错（调用方
+     * fail-open warn）。名单为静态快照：进程启动加载一次，累积器更新须重启实验进程。
+     */
+    static async loadSmartMoneyWallets() {
+        if (_smartMoneyWallets) return _smartMoneyWallets;
+        if (_smartMoneyLoadPromise) return _smartMoneyLoadPromise;
+        _smartMoneyLoadPromise = (async () => {
+            const fs = require('fs');
+            const path = require('path');
+            const dataPath = path.resolve(__dirname, '..', '..', 'data', 'kol-study', 'smartmoney-accum.json');
+            let parsed = null;
+            try {
+                parsed = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+            } catch (e) {
+                if (e.code === 'ENOENT') {
+                    this._logInfo(`聪明钱名单未配置（${dataPath} 缺失），smartHold 卖出过滤臂恒放行`);
+                    _smartMoneyWallets = new Set();
+                    return _smartMoneyWallets;
+                }
+                throw e;
+            }
+            const src = parsed && typeof parsed === 'object' && parsed.sources && typeof parsed.sources === 'object'
+                ? parsed.sources : null;
+            const sm = src && src.smartmoney && typeof src.smartmoney === 'object' ? src.smartmoney : null;
+            if (!src) {
+                throw new Error(`[FourMemeFA] loadSmartMoneyWallets: 名单 schema 不符（${dataPath} 无 sources 段）`);
+            }
+            _smartMoneyWallets = new Set(Object.keys(sm || {})
+                .filter(w => typeof w === 'string' && w)
+                .map(w => w.toLowerCase()));
+            this._logInfo(`加载聪明钱名单: ${_smartMoneyWallets.size} 个（${dataPath}，snapshots=${parsed.snapshots ?? '?'}）`);
+            return _smartMoneyWallets;
+        })();
+        try {
+            return await _smartMoneyLoadPromise;
+        } finally {
+            _smartMoneyLoadPromise = null;
+        }
+    }
+
+    /** 测试专用：注入聪明钱集合（loader 同口径小写归一）。传 null 还原「未加载」态；
+     * 空 Set=「已加载但名单为空」（smart 流键恒 null → smartHold 不命中）。 */
+    static setSmartMoneyWalletsForTest(setOrNullOrUndefined) {
+        _smartMoneyWallets = setOrNullOrUndefined === null
+            ? null
+            : new Set([...setOrNullOrUndefined].map(a => String(a).toLowerCase()));
+    }
+
+    /**
      * sybil 大簇钱包并集（sybilClusterHolderCircPct 因子原料）：读
      * config/rosters/sybil-clusters.json（build-sybil-clusters.cjs 产物）。
      * 语义模板=loadFamousCopyWallets：文件缺失 → 空 Set（未启用，因子恒 null，IS NULL
@@ -1163,6 +1235,16 @@ class FourMemeFactorAggregator extends EventEmitter {
                 this._noteFamousLaunchZoneFlow(state, priceBnb, isBuy, bnbAmount);
             }
 
+            // ── T183 聪明钱大买/卖出流（smartHold 卖出过滤臂原料，写点①）：smartmoney
+            //    roster 钱包买入 ≥smartBigBuyBnb（0.02，刻意低于 famous 0.1——GMGN
+            //    smartmoney 流钱包单笔规模小于 KOL）记最后时刻；卖行进事件环。
+            //    T133/T137 同款双段：defer 行 walletAddr 假值跳过，wallet 段补跑恰一次。
+            //    不依赖价格区间（HOLD 关心「还在入场」行为本身，_noteFamousFlow 同款）──
+            if (!deferWallet && _smartMoneyWallets && _smartMoneyWallets.size > 0
+                && walletAddr && _smartMoneyWallets.has(walletAddr)) {
+                this._noteSmartFlow(state, isBuy, bnbAmount, ts);
+            }
+
             // ── 分类器 running 标量（回迁批 3.1：OPB 专用；与 token-classifier computeTickMetrics 同口径）──
             // USD 峰快照：仅在新 BNB 峰 tick 覆写（对齐离线「highestPriceUsd 在 BNB 峰 tick 处快照」；
             // 峰 tick 缺 USD → 0，其后非峰 tick 不回填——保守方向与离线一致）
@@ -1446,6 +1528,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             this._noteFamousFlow(state, isBuy, bnbAmount, tick.timestamp);
             // T161 域流写点②（defer 补跑，防双计同款）：tick.price_bnb=该行可靠价
             this._noteFamousLaunchZoneFlow(state, tick.price_bnb || 0, isBuy, bnbAmount);
+        }
+
+        // ── T183 聪明钱流写点②（defer 专属补跑，T137 同款防双计：smartBotEligible
+        //    仅 defer 路径置位；直推路径价格段已计，本段不跑）。买/卖都补（isBuy
+        //    分支在 _noteSmartFlow 内部）──
+        if (vars.smartBotEligible === true
+            && _smartMoneyWallets && _smartMoneyWallets.size > 0
+            && walletAddr && _smartMoneyWallets.has(walletAddr)) {
+            this._noteSmartFlow(state, isBuy, bnbAmount, tick.timestamp);
         }
 
         // ── holderTrend 原料（2026-10-14 slot 化改造）：blockNumber 桶持有者序列——
@@ -2133,6 +2224,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             _pendingBundleBlock: null,
             _famousBigBuyLastAt: null,  // T137 famous 大买（≥famousBigBuyBnb）最后时刻 ms（null=从未 → sinceLastFamousBigBuySec null → HOLD 不触发 fail-open；写点=价格段/wallet 段补跑双段，见 _noteFamousFlow）
             _famousSellEvents: [],      // T137 famous 卖出事件环 [{ts,bnb}]（recentFamousSellBnb 原料；求和交换律=defer 乱序回推无害；摊销裁剪保 5×窗）
+            _smartBigBuyLastAt: null,   // T183 聪明钱大买（≥smartBigBuyBnb）最后时刻 ms（null=从未/名单空 → sinceLastSmartBigBuySec null → smartHold 不命中 fail-open；双段写点同 famous，见 _noteSmartFlow）
+            _smartSellEvents: [],       // T183 聪明钱卖出事件环 [{ts,bnb}]（recentSmartSellBnb 原料；求和交换律=乱序无害；摊销裁剪保 5×窗）
             _relHighestPriceBnb: 0,     // 可靠价全时峰（与 highestPriceBnb 双轨）
             _relHighestAt: 0,
 
@@ -2658,6 +2751,51 @@ class FourMemeFactorAggregator extends EventEmitter {
         const cutoff = now - this._fp.famousSellWinMs;
         let s = 0;
         for (const e of state._famousSellEvents) {
+            if (e.ts > cutoff) s += e.bnb;
+        }
+        return s;
+    }
+
+    /**
+     * T183 聪明钱大买/卖出流登记（2026-11-18 bt-v150 0x2f17…7777 案用户立法
+     * 「卖出过滤除 famous 外也把聪明钱的买入行为放进去」）：_noteFamousFlow 逐行
+     * 镜像，仅两处刻意不同——①名单=smartmoney roster（data/kol-study/
+     * smartmoney-accum.json，模块级 _smartMoneyWallets）；②大买线=smartBigBuyBnb
+     * 0.02（GMGN smartmoney 流钱包单笔规模小于 KOL，0.1 线漏拦立法案）。
+     *   买腿 bnb ≥ smartBigBuyBnb → 记 _smartBigBuyLastAt（Math.max 防回拨）；
+     *   卖腿 bnb>0 全量进 _smartSellEvents 事件环（小额累计也是撤离证据）。
+     * 双段喂食（价格段 deferWallet 门 + wallet 段 smartBotEligible 补跑——
+     * 每 tick 恰计一次）。不依赖价格区间（「还在入场」行为本身即 HOLD 依据）。
+     */
+    _noteSmartFlow(state, isBuy, bnbAmount, ts) {
+        if (isBuy) {
+            if (!(bnbAmount >= this._fp.smartBigBuyBnb)) return;
+            if (state._smartBigBuyLastAt === null || ts > state._smartBigBuyLastAt) {
+                state._smartBigBuyLastAt = ts;
+            }
+        } else {
+            if (!(bnbAmount > 0)) return;
+            const evs = state._smartSellEvents;
+            evs.push({ ts, bnb: bnbAmount });
+            // 摊销裁剪（_noteFamousFlow 同式）：>64 条才批量裁头部，保 5×窗余量
+            if (evs.length > 64) {
+                const cutoff = ts - 5 * this._fp.smartSellWinMs;
+                let i = 0;
+                while (i < evs.length && evs[i].ts < cutoff) i++;
+                if (i > 0) evs.splice(0, i);
+            }
+        }
+    }
+
+    /**
+     * T183 recentSmartSellBnb 窗内合计（smartSellWinMs 窗，now 由 buildFactorMap
+     * 传入——禁 Date.now 防前视红线）。空环/窗内无事件=0（有证据零值：
+     * 「聪明钱没在卖」是有效证据，释放臂 `>= sellReleaseBnb` 恒 false 不误触发）。
+     */
+    _smartSellWindowBnb(state, now) {
+        const cutoff = now - this._fp.smartSellWinMs;
+        let s = 0;
+        for (const e of state._smartSellEvents) {
             if (e.ts > cutoff) s += e.bnb;
         }
         return s;
@@ -4136,6 +4274,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceLastFamousBigBuySec: state._famousBigBuyLastAt === null ? null
                 : Number(((now - state._famousBigBuyLastAt) / 1000).toFixed(1)),
             recentFamousSellBnb: Number(this._famousSellWindowBnb(state, now).toFixed(4)),
+            // ── T183 聪明钱流两键（2026-11-18 bt-v150 0x2f17 案：smartHold 卖出
+            //    过滤臂原料，T137 逐行镜像）。token 级发射：null=从未有聪明钱大买/
+            //    roster 未加载 → smartHold 不命中 fail-open（无聪明钱的票零影响）；
+            //    0=窗内无卖出有证据零值非 null ──
+            sinceLastSmartBigBuySec: state._smartBigBuyLastAt === null ? null
+                : Number(((now - state._smartBigBuyLastAt) / 1000).toFixed(1)),
+            recentSmartSellBnb: Number(this._smartSellWindowBnb(state, now).toFixed(4)),
 
             // ── 交易活跃度滑窗 act* 9 键（2026-10-15；取代已删的 cycle 分桶路由。
             //    全史口径 tradeCount 族之外的短窗维度；0=空窗有证据零值非 null；

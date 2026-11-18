@@ -112,6 +112,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // fire 时刻值，序列不可重建；旧 FA/历史信号 → null 不掩盖
     sinceLastFamousBigBuySec: factorResults.sinceLastFamousBigBuySec ?? null,
     recentFamousSellBnb: factorResults.recentFamousSellBnb ?? null,
+    // T183 聪明钱流两键（2026-11-18 smartHold 卖出过滤臂载体，T137 镜像）：
+    // 聪明钱大买最后时刻距今秒数+60s 窗聪明钱卖出合计——HOLD 复盘需 fire 时刻值
+    //（名单=smartmoney-accum.json 静态快照，历史信号行重放兼容 null 不掩盖）
+    sinceLastSmartBigBuySec: factorResults.sinceLastSmartBigBuySec ?? null,
+    recentSmartSellBnb: factorResults.recentSmartSellBnb ?? null,
     // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
     highestHolderCountSinceLastBuy: factorResults.highestHolderCountSinceLastBuy,
     holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,
