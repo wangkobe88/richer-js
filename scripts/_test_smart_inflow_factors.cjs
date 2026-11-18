@@ -227,6 +227,35 @@ console.log('C. 判负分支（全部不触发 ready）');
     check('卖出行不建实体不破坏', () => assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 400100).smartInflowReady, 0));
 }
 
+// ═══════════════ C2. SI-5 在场腿（用户语义：后者明知前者仍持仓接盘） ═══════════════
+console.log('C2. 在场腿（前序实体已清仓=链断；残值 ≥5% 在场）');
+{
+    FourMemeFactorAggregator.setFamousCopyWalletsForTest(FAM3);
+    FourMemeFactorAggregator.setSmartMoneyWalletsForTest(SM);
+    // w1 买入后清仓 95% → 离场 → 链断
+    const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    fa.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null });
+    fa.processTick(mkTick({ sender_address: SM[0], block_number: 100, price_bnb: 1.0e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 1000 }));
+    fa.processTick(mkTick({ sender_address: SM[0], trade_type: 'sell', block_number: 103, price_bnb: 1.0e-9, bnb_amount: 0.095, token_amount: 0.95e8, timestamp: T0 + 5000 })); // 卖 95% → 净 5% 残值以下? 0.05e8/1e8=5% 恰线上（>=5% 在场）→ 改 96%
+    const fa2 = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    fa2.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null });
+    fa2.processTick(mkTick({ sender_address: SM[0], block_number: 100, price_bnb: 1.0e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 1000 }));
+    fa2.processTick(mkTick({ sender_address: SM[0], trade_type: 'sell', block_number: 103, price_bnb: 1.0e-9, bnb_amount: 0.096, token_amount: 0.96e8, timestamp: T0 + 5000 })); // 残值 4% <5% → 离场
+    fa2.processTick(mkTick({ sender_address: FAM3[0], block_number: 101, price_bnb: 1.01e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 200000 }));
+    fa2.processTick(mkTick({ sender_address: FAM3[1], block_number: 102, price_bnb: 1.02e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 400000 }));
+    check('前序实体清仓 96%（残值 4%）→ 链断不触发', () => assert.strictEqual(fa2.buildFactorMap('0xtoken', T0 + 400000).smartInflowReady, 0));
+    // 恰 95% 卖出（残值 5% 恰线）→ 在场 → 触发
+    fa.processTick(mkTick({ sender_address: FAM3[0], block_number: 101, price_bnb: 1.01e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 200000 }));
+    fa.processTick(mkTick({ sender_address: FAM3[1], block_number: 102, price_bnb: 1.02e-9, bnb_amount: 0.1, token_amount: 1e8, timestamp: T0 + 400000 }));
+    check('前序实体残值恰 5% → 仍在场 → 触发', () => assert.strictEqual(fa.buildFactorMap('0xtoken', T0 + 400000).smartInflowReady, 1));
+    // 非实体钱包的卖出行被忽略（不崩不误扣）
+    const fa3 = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    fa3.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null });
+    fa3.processTick(mkTick({ sender_address: OUTSIDER, trade_type: 'sell', block_number: 99, price_bnb: 1.0e-9, bnb_amount: 0.5, token_amount: 5e8, timestamp: T0 + 500 }));
+    feedRelay3(fa3);
+    check('非实体钱包卖出行忽略不误扣：正常触发', () => assert.strictEqual(fa3.buildFactorMap('0xtoken', T0 + 400000).smartInflowReady, 1));
+}
+
 // ═══════════════ D. 首事件锁存 ═══════════════
 console.log('D. 首事件 write-once 锁存');
 {
@@ -288,12 +317,12 @@ console.log('H. 源码口径断言');
         assert.ok(seg && !/Date\.now/.test(seg[0]));
     });
     check('写点①在 chainLate 域外（迟到行照建实体——不依赖价格可靠链）', () => {
-        const seg = src.match(/chainLate = true;[\s\S]{0,900}?_noteSmartInflow/);
+        const seg = src.match(/chainLate = true;[\s\S]{0,1300}?_noteSmartInflow/);
         assert.ok(seg, '写点①应在 chainLate 判定后的独立位置');
     });
     check('写点双段（价格段 !deferWallet + 补跑段 smartBotEligible）', () => {
-        const w1 = src.match(/if \(!deferWallet && isBuy && blockNumber !== null[\s\S]*?_noteSmartInflow/);
-        const w2 = src.match(/if \(vars\.smartBotEligible === true && isBuy && vars\.blockNumber != null[\s\S]*?_noteSmartInflow/);
+        const w1 = src.match(/if \(!deferWallet && blockNumber !== null[\s\S]*?_noteSmartInflow/);
+        const w2 = src.match(/if \(vars\.smartBotEligible === true && vars\.blockNumber != null[\s\S]*?_noteSmartInflow/);
         assert.ok(w1 && w2);
     });
     check('镜像合并进首见实体（e.amt += bnbAmount 不建新实体）', () => {
@@ -306,6 +335,7 @@ console.log('H. 源码口径断言');
         assert.ok(/inflowMaxChainBnb: 5,/.test(src));
         assert.ok(/inflowReadyHoldMs: 60000/.test(src));
         assert.ok(/inflowMirrorAmtTol: 0\.01/.test(src));
+        assert.ok(/inflowPresenceMinRatio: 0\.05/.test(src));
     });
 }
 
