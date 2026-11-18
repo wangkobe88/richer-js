@@ -3138,20 +3138,100 @@ class ExperimentSignals {
       const buyPointInfo = metadata.buyPoint || null;
       // T143 因子购买前检查门（FP1，门链第一门·纯代码零 Jev——duanju 案立法）
       const factorCheckInfo = metadata.factorCheck || null;
+      // T175/AF1 前置活跃度门（第 2 层·Jev 3 题分流——2026-11-18；灰度关=段缺席不渲染）
+      const actFrontGateInfo = metadata.actFrontGate || null;
 
-      // 门链触发行：legId/triggerNo/maxTriggers/bpPassLevels/cheatRecheck
+      // 门链触发行（2026-11-18 五层化）：触发行 + 五层门链 pipeline 总览
+      // （①信号触发→②因子检查→③活跃度→④作弊→⑤BP 买点——T175/AF1 后门链为
+      // 四门五层；段缺席=灰度关直通（②③）或前层拒未到达（④⑤））
+      const PIPE_CLS = {
+        ok: 'bg-green-200 text-green-900 border-green-400',
+        exempt: 'bg-yellow-200 text-yellow-900 border-yellow-400',
+        rej: 'bg-red-200 text-red-900 border-red-500 font-bold',
+        skip: 'bg-indigo-200 text-indigo-900 border-indigo-400',
+        warn: 'bg-amber-100 text-amber-900 border-amber-300',
+        pass0: 'bg-gray-200 text-gray-800 border-gray-400',
+        off: 'bg-gray-100 text-gray-500 border-gray-300',
+      };
+      const gateLayerState = (kind, info) => {
+        if (kind === 'signal') return { cls: 'ok', icon: '✅', text: '已触发', title: '触发条件 fire 且信号落库' };
+        if (!info) {
+          return (kind === 'factor' || kind === 'actfront')
+            ? { cls: 'off', icon: '—', text: '未启用·直通', title: '灰度关（本层未配置启用），直通下一层' }
+            : { cls: 'off', icon: '—', text: '未到达', title: '前层已拒或链断，本层未评估' };
+        }
+        if (kind === 'factor') {
+          if (info.status === 'assessed') return info.pass === true
+            ? { cls: 'ok', icon: '✅', text: '放行', title: '因子门纯代码判定通过' }
+            : { cls: 'rej', icon: '🚫', text: `拒 ${info.reason || ''}`, title: `拒因 factor_gate_${info.reason || '?'}` };
+          if (info.status === 'insufficient_ticks') return { cls: 'pass0', icon: '◻', text: '未判定·放行', title: '锚窗 ticks 不足不判定，BP 门兜底拒（不双拒）' };
+          return { cls: 'warn', icon: '⚠', text: '故障·放行', title: '检测层故障 fail-open 放行，下游门接管' };
+        }
+        if (kind === 'actfront') {
+          if (info.status === 'assessed') {
+            const p = info.path;
+            if (p === 'reject_low' || p === 'reject_ultra') return { cls: 'rej', icon: '🚫', text: `拒（${info.act}）`, title: `act_front_${(p || '').replace('reject_', '')}：低/过高活跃度且非 burst 直接拒` };
+            if (p === 'reject_wash') return { cls: 'rej', icon: '🚫', text: '拒（对倒 strong）', title: 'act_front_wash：high 档对倒 strong 拒（CD380 搬家）' };
+            if (p === 'burst_exempt') return { cls: 'skip', icon: '⏭', text: `${info.act}·burst 豁免`, title: 'sbw=burst 豁免跳过作弊门直进 BP（ba5e 立法）' };
+            if (p === 'high_skip') return { cls: 'skip', icon: '⏭', text: 'high·跳过作弊', title: '活跃度 high 跳过作弊门直进 BP（CD379 豁免显性化，省 10 题 Jev）' };
+            if (p === 'mid_full') return { cls: 'ok', icon: '✅', text: 'mid·走全链', title: '中等活跃度照走作弊门全 10 题' };
+            return { cls: 'warn', icon: '⚠', text: '放行进全链', title: '档位答案缺席 fail-open' };
+          }
+          return { cls: 'warn', icon: '⚠', text: '故障·放行', title: '检测层故障 fail-open 放行进作弊门全链' };
+        }
+        if (kind === 'cheat') {
+          if (info.status === 'skipped_by_act_front') return { cls: 'skip', icon: '⏭', text: '被③跳过', title: '前置活跃度门分流跳过（high/burst 豁免票不烧 10 题 Jev）' };
+          if (info.grade) {
+            if (info.grade === 'healthy') return info.exempt
+              ? { cls: 'exempt', icon: '🟡', text: `豁免过（原判 ${info.exempt.originalGrade || '?'}）`, title: '活跃度/burst 豁免放行' }
+              : { cls: 'ok', icon: '✅', text: 'healthy', title: '作弊检测放行' };
+            return { cls: 'rej', icon: '🚫', text: info.grade, title: info.grade === 'cheat' ? '拉黑不再交易+持仓清仓' : '本信号拒' };
+          }
+          if (info.status === 'timeout_fail_open') return { cls: 'warn', icon: '⏱', text: '超时·放行', title: '竞速超时放行，迟到结果下轮生效' };
+          if (info.status === 'insufficient_ticks') return { cls: 'pass0', icon: '◻', text: '未判定·放行', title: '锚窗 tick 不足不判定' };
+          if (info.status === 'skipped') return { cls: 'off', icon: '—', text: '未启用·直通', title: 'cheatCheck.enabled=false' };
+          if (info.status === 'fail' || info.status === 'error') return { cls: 'warn', icon: '⚠', text: '故障·放行', title: '检测层故障 fail-open' };
+          return { cls: 'warn', icon: '⚠', text: '放行', title: '检测层结果' };
+        }
+        if (kind === 'bp') {
+          if (info.status === 'assessed' && info.assessment) {
+            const b = String(info.assessment.bucket || '?');
+            if (b === 'good') return { cls: 'ok', icon: '✅', text: 'good', title: 'BP 买点判定 good 放行' };
+            if (b === 'neutral') return { cls: 'ok', icon: '🟡', text: 'neutral', title: 'BP 买点判定 neutral 放行' };
+            return { cls: 'rej', icon: '🚫', text: b, title: `BP 拒（${info.assessment.rule || ''}）` };
+          }
+          if (info.status === 'insufficient_ticks') return { cls: 'rej', icon: '🚫', text: '数据不足·拒', title: 'BP10：数据不够就挡住' };
+          if (info.status) return { cls: 'rej', icon: '🚫', text: '拒', title: 'BP 门 fail-closed（超时/失败全拒）' };
+          return { cls: 'off', icon: '—', text: '未到达', title: '前层已拒，本层未评估' };
+        }
+        return { cls: 'off', icon: '—', text: '—', title: '' };
+      };
       let signalGateHtml = '';
       if (signalGateInfo) {
         const sg = signalGateInfo;
+        const pipeSeg = (n, name, st) => `<span class="px-1.5 py-0.5 rounded border text-xs ${PIPE_CLS[st.cls] || PIPE_CLS.off}" title="${this._escapeHtml(st.title || '')}">${n} ${name} ${st.icon} ${this._escapeHtml(st.text)}</span>`;
         signalGateHtml = `
-        <div class="flex items-center flex-wrap gap-2 text-xs mb-2">
-          <span class="text-amber-200 font-semibold">⚡ 信号源门链</span>
-          <span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">触发腿 <code>${this._escapeHtml(String(sg.legId || '—'))}</code></span>
-          <span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">第 ${this._escapeHtml(String(sg.triggerNo ?? '—'))}/${this._escapeHtml(String(sg.maxTriggers ?? 1))} 次触发（触发即消耗·门拒不返还）</span>
-          ${Array.isArray(sg.bpPassLevels) && sg.bpPassLevels.length ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">BP 放行档 ${this._escapeHtml(sg.bpPassLevels.join('/'))}</span>` : ''}
-          ${sg.recheckCondition ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">作弊重判（CD381）<code>${this._escapeHtml(sg.recheckCondition)}</code></span>` : ''}
-          ${sg.cheatRecheck != null ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">cheatRecheck=${sg.cheatRecheck ? 'true（unhealthy 每信号重判）' : 'false（unhealthy 粘滞秒回省配额）'}</span>` : ''}
-          <span class="text-gray-700">门序：${factorCheckInfo && factorCheckInfo.status === 'assessed' ? '因子门 → ' : ''}作弊门 → BP 门，都过才买</span>
+        <div class="mb-2">
+          <div class="flex items-center flex-wrap gap-2 text-xs">
+            <span class="text-amber-200 font-semibold">⚡ 信号源门链（五层）</span>
+            <span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">触发腿 <code>${this._escapeHtml(String(sg.legId || '—'))}</code></span>
+            <span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">第 ${this._escapeHtml(String(sg.triggerNo ?? '—'))}/${this._escapeHtml(String(sg.maxTriggers ?? 1))} 次触发（触发即消耗·门拒不返还）</span>
+            ${Array.isArray(sg.bpPassLevels) && sg.bpPassLevels.length ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">BP 放行档 ${this._escapeHtml(sg.bpPassLevels.join('/'))}</span>` : ''}
+            ${sg.recheckCondition ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">作弊重判（CD381）<code>${this._escapeHtml(sg.recheckCondition)}</code></span>` : ''}
+            ${sg.cheatRecheck != null ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">cheatRecheck=${sg.cheatRecheck ? 'true（unhealthy 每信号重判）' : 'false（unhealthy 粘滞秒回省配额）'}</span>` : ''}
+          </div>
+          <div class="flex items-center flex-wrap gap-1.5 mt-1">
+            ${pipeSeg('①', '信号触发', gateLayerState('signal', null))}
+            <span class="text-gray-600 text-xs">→</span>
+            ${pipeSeg('②', '因子检查', gateLayerState('factor', factorCheckInfo))}
+            <span class="text-gray-600 text-xs">→</span>
+            ${pipeSeg('③', '活跃度', gateLayerState('actfront', actFrontGateInfo))}
+            <span class="text-gray-600 text-xs">→</span>
+            ${pipeSeg('④', '作弊', gateLayerState('cheat', cheatCheckInfo))}
+            <span class="text-gray-600 text-xs">→</span>
+            ${pipeSeg('⑤', 'BP 买点', gateLayerState('bp', buyPointInfo))}
+          </div>
+          <div class="text-xs text-gray-700 mt-0.5">五层都过才买；③活跃度 high/burst 豁免时⏭跳过④作弊门直进⑤；②③灰度关=直通、④⑤段缺席=前层已拒未到达</div>
         </div>
         `;
       }
@@ -3200,7 +3280,7 @@ class ExperimentSignals {
           factorGateHtml = `
           <div class="mt-2 pt-2 border-t border-emerald-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-emerald-800">🧮 因子购买前检查门（门链第一门 · 纯代码零 Jev）</div>
+              <div class="text-xs font-semibold text-emerald-800">🧮 因子购买前检查门（第 1 层 · 纯代码零 Jev）</div>
               ${fBadge}
             </div>
             <div class="flex flex-wrap gap-2 text-xs text-gray-800 mb-1">
@@ -3217,7 +3297,7 @@ class ExperimentSignals {
           factorGateHtml = `
           <div class="mt-2 pt-2 border-t border-emerald-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-emerald-800">🧮 因子购买前检查门（门链第一门 · 纯代码零 Jev）</div>
+              <div class="text-xs font-semibold text-emerald-800">🧮 因子购买前检查门（第 1 层 · 纯代码零 Jev）</div>
               <span class="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded-full">未判定·放行</span>
             </div>
             <div class="text-xs text-gray-700">锚窗 ${this._escapeHtml(String(factorCheckInfo.anchorTickCount ?? '—'))} ticks 不足——因子门放行，数据不足由 BP 门 insufficient_ticks 兜底拒（不双拒）</div>
@@ -3227,10 +3307,67 @@ class ExperimentSignals {
           factorGateHtml = `
           <div class="mt-2 pt-2 border-t border-emerald-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-emerald-800">🧮 因子购买前检查门（门链第一门 · 纯代码零 Jev）</div>
+              <div class="text-xs font-semibold text-emerald-800">🧮 因子购买前检查门（第 1 层 · 纯代码零 Jev）</div>
               <span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-900 rounded-full">${this._escapeHtml(fStatus || '—')}·放行</span>
             </div>
             <div class="text-xs text-gray-700">检测层异常 fail-open 放行（后续门接管）${factorCheckInfo.reason ? `：${this._escapeHtml(String(factorCheckInfo.reason))}` : ''}</div>
+          </div>
+          `;
+        }
+      }
+
+      // T175/AF1 前置活跃度门（第 2 层 · Jev 3 题分流，2026-11-18）：assessed=
+      // 活跃度/sbw/对倒三档徽章+分流 path 徽章；非 assessed=检测层故障 fail-open
+      // 放行进作弊门全链；段缺席（灰度关/AF 上线前行）不渲染零痕迹（factorCheck
+      // disabled 同惯例——pipeline 总览行仍显示「未启用·直通」）
+      let actFrontGateHtml = '';
+      if (actFrontGateInfo && actFrontGateInfo.status !== 'disabled') {
+        const afStatus = actFrontGateInfo.status || '';
+        if (afStatus === 'assessed') {
+          const act = actFrontGateInfo.act || null;
+          const sbw = actFrontGateInfo.sbw || null;
+          const wash = actFrontGateInfo.wash || null;
+          const path = actFrontGateInfo.path || null;
+          const PATH_LABELS = {
+            reject_low: '🚫 拒买（low ∧ 非 burst）',
+            reject_ultra: '🚫 拒买（ultra ∧ 非 burst）',
+            reject_wash: '🚫 拒买（high ∧ 对倒 strong）',
+            burst_exempt: '⏭ burst 豁免 → 跳过④直进⑤',
+            high_skip: '⏭ 跳过④作弊门 → 直进⑤',
+            mid_full: '✅ mid → 照走④全链',
+            fail_open: '⚠ 放行进全链（档位答案缺席）',
+          };
+          const afBadgeCls = path && path.startsWith('reject_')
+            ? 'bg-red-200 text-red-900 border-red-500 font-bold'
+            : (path === 'burst_exempt' || path === 'high_skip'
+              ? 'bg-indigo-200 text-indigo-900 border-indigo-400 font-semibold'
+              : (path === 'mid_full' ? 'bg-green-200 text-green-900 border-green-400' : 'bg-amber-100 text-amber-900 border-amber-300'));
+          actFrontGateHtml = `
+          <div class="mt-2 pt-2 border-t border-indigo-400">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-indigo-300">🌡️ 前置活跃度门（第 2 层 · Jev 3 题：活跃度+对倒+停滞突发波）</div>
+              <span class="text-xs px-2 py-1 rounded-full border ${afBadgeCls}">${this._escapeHtml(PATH_LABELS[path] || path || '—')}</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              ${act ? `<span class="px-2 py-0.5 rounded-full border ${gateBucketClass(act)}">活跃度 ${this._escapeHtml(act)}</span>` : '<span class="text-gray-700">活跃度档位缺席</span>'}
+              ${sbw ? `<span class="px-2 py-0.5 rounded-full border ${sbw === 'burst' ? 'bg-indigo-200 text-indigo-900 border-indigo-400' : 'bg-gray-200 text-gray-800 border-gray-400'}">停滞突发波 ${this._escapeHtml(sbw)}</span>` : ''}
+              ${wash ? `<span class="px-2 py-0.5 rounded-full border ${gateBucketClass(wash)}">对倒 ${this._escapeHtml(wash)}</span>` : ''}
+              <span class="text-gray-600">AF${this._escapeHtml(String(actFrontGateInfo.version || '1'))} · 每信号真调不粘滞 · 题面与作弊门同源</span>
+            </div>
+          </div>
+          `;
+        } else {
+          // timeout_fail_open / fail / insufficient_ticks：检测层故障 fail-open 放行进作弊门
+          const afFailLabel = afStatus === 'timeout_fail_open' ? '竞速超时'
+            : afStatus === 'insufficient_ticks' ? `锚窗 ${actFrontGateInfo.anchorTickCount ?? '—'} ticks 不足`
+            : `检测层故障（reason=${actFrontGateInfo.reason || '—'}）`;
+          actFrontGateHtml = `
+          <div class="mt-2 pt-2 border-t border-indigo-400">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-indigo-300">🌡️ 前置活跃度门（第 2 层 · Jev 3 题分流）</div>
+              <span class="text-xs px-2 py-1 bg-amber-100 text-amber-900 rounded-full border border-amber-300">⚠ 放行</span>
+            </div>
+            <div class="text-xs text-gray-700">${this._escapeHtml(afFailLabel)} → fail-open 放行进④作弊门全链（数据不可用不拦买点，下游门接管）</div>
           </div>
           `;
         }
@@ -3292,7 +3429,7 @@ class ExperimentSignals {
           buyPointHtml = `
           <div class="mt-2 pt-2 border-t border-blue-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（门链第二门）</div>
+              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（第 4 层 · Jev 3 题）</div>
               ${bpBadge}
             </div>
             <div class="flex flex-wrap gap-2 text-xs text-gray-800 mb-1">
@@ -3310,7 +3447,7 @@ class ExperimentSignals {
           buyPointHtml = `
           <div class="mt-2 pt-2 border-t border-blue-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（门链第二门）</div>
+              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（第 4 层 · Jev 3 题）</div>
               <span class="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded-full">未判定·拒</span>
             </div>
             <div class="text-xs text-gray-700">锚窗 ${this._escapeHtml(String(buyPointInfo.anchorTickCount ?? '—'))} ticks &lt; minTicks 7，不调 Jev 不判定——BP10 裁定 insufficient_ticks 硬拒（数据不够就挡住）</div>
@@ -3324,7 +3461,7 @@ class ExperimentSignals {
           buyPointHtml = `
           <div class="mt-2 pt-2 border-t border-blue-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（门链第二门）</div>
+              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（第 4 层 · Jev 3 题）</div>
               <span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full">拒</span>
             </div>
             <div class="text-xs text-gray-700">${failLabel}</div>
@@ -3607,7 +3744,7 @@ class ExperimentSignals {
               .sort((a, b) => gateBucketSortKey(a.bucket) - gateBucketSortKey(b.bucket));
             cheatQuestionsHtml = `
             <details class="mt-2">
-              <summary class="text-xs text-amber-200 cursor-pointer select-none">📋 16 题档位明细（Jev 题集，点开展开）</summary>
+              <summary class="text-xs text-amber-200 cursor-pointer select-none">📋 10 题档位明细（Jev 题集，点开展开）</summary>
               <div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
                 ${rows.map((r) => `
                 <div class="flex items-center justify-between gap-2 bg-gray-900 px-2 py-1 rounded border border-gray-700">
@@ -3624,7 +3761,7 @@ class ExperimentSignals {
           cheatCheckHtml = `
           <div class="mt-2 pt-2 border-t border-gray-600">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测（买信号门 CD158）</div>
+              <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测门（第 3 层 · Jev 10 题）</div>
               <div class="flex items-center gap-1 flex-wrap justify-end">${gBadge}${actBadge}${burstBadge}</div>
             </div>
             <div class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
@@ -3634,7 +3771,7 @@ class ExperimentSignals {
               ${codes ? `<div class="col-span-3"><span class="text-amber-200">触发通道:</span> <code class="text-xs bg-gray-900 px-1 rounded">${this._escapeHtml(codes)}</code></div>` : ''}
               ${exempt ? `<div class="col-span-3"><span class="text-amber-200">豁免链路:</span> 检测判定 <b>${this._escapeHtml(exempt.originalGrade)}</b> → ${this._escapeHtml(EXEMPT_LABELS[exempt.code] || exempt.code)} → 门决策 grade=${this._escapeHtml(g)} 放行</div>` : ''}
               ${denied ? `<div class="col-span-3"><span class="text-amber-200">豁免失效:</span> exemptDenied=${this._escapeHtml(denied)}（不豁免臂/资格收紧命中，原判保持）</div>` : ''}
-              <div class="col-span-3 text-gray-700">status=${this._escapeHtml(cs)}${srcBit} ${srcBit ? '' : '（档位判据=Jev 15 题；映射=cheat-grade G15）'}</div>
+              <div class="col-span-3 text-gray-700">status=${this._escapeHtml(cs)}${srcBit} ${srcBit ? '' : '（档位判据=Jev 10 题；映射=cheat-grade G22）'}</div>
             </div>
             ${cheatQuestionsHtml}
           </div>
@@ -3643,10 +3780,23 @@ class ExperimentSignals {
           cheatCheckHtml = `
           <div class="mt-2 pt-2 border-t border-gray-600">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测（G1 分级门）</div>
+              <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测门（第 3 层 · Jev 10 题）</div>
               <span class="text-xs px-2 py-1 bg-amber-200 text-amber-900 rounded-full">⏱️ 竞速超时放行</span>
             </div>
             <div class="text-xs text-gray-700">本笔放行（等待 ${cheatCheckInfo.awaitMs ?? '—'}ms 未出结果）；迟到结果下轮生效（cheat 迟到则补拉黑+清仓）</div>
+          </div>
+          `;
+        } else if (cs === 'skipped_by_act_front') {
+          // T175/AF1 跳过路径（high/burst 豁免票）：活跃度门分流跳过——不烧 10 题
+          // Jev，档位判定在上方②前置活跃度门卡片；levels.stallBurstWave 保留供
+          // BP cheatBurst 透传链（burst 票 BP state 行在场）
+          cheatCheckHtml = `
+          <div class="mt-2 pt-2 border-t border-gray-600">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测门（第 3 层 · Jev 10 题）</div>
+              <span class="text-xs px-2 py-1 bg-indigo-200 text-indigo-900 rounded-full border border-indigo-400 font-semibold">⏭ 被③活跃度门跳过</span>
+            </div>
+            <div class="text-xs text-gray-700">分流 path=${this._escapeHtml(String(cheatCheckInfo.path || '—'))}（act=${this._escapeHtml(String(cheatCheckInfo.act || '—'))}${cheatCheckInfo.sbw ? ` · sbw=${this._escapeHtml(String(cheatCheckInfo.sbw))}` : ''}）——高活跃度/burst 豁免票不烧 10 题直接进⑤BP 门；档位判定见上方②前置活跃度门</div>
           </div>
           `;
         } else {
@@ -3662,7 +3812,7 @@ class ExperimentSignals {
           cheatCheckHtml = `
           <div class="mt-2 pt-2 border-t border-gray-600">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测（买信号门 CD158）</div>
+              <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测门（第 3 层 · Jev 10 题）</div>
               <span class="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded-full">放行</span>
             </div>
             <div class="text-xs text-gray-700">${this._escapeHtml(label)}${cheatCheckInfo.lastAnchorTickCount != null ? ` · 上次锚窗 ${cheatCheckInfo.lastAnchorTickCount} ticks` : ''}</div>
@@ -3683,6 +3833,7 @@ class ExperimentSignals {
           ${strategyConfigHtml}
           ${signalGateHtml}
           ${factorGateHtml}
+          ${actFrontGateHtml}
           ${failedConditionsHtml}
           ${gmgnCheckHtml}
           ${cheatCheckHtml}
