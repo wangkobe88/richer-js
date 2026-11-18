@@ -199,7 +199,9 @@
 
 **单测**：`_test_cheat_detection_lib.cjs` D3.75 段 CD421 夹具四断言——①事故现场反证（10 历史钱包段外+3×0.0139 尘埃卖滤除 → wallets=0/gap=64 两腿成立；旧口径=13 永不 ≤2）②state 行「段前独立钱包 0 个」新口径渲染 ③聚合语义（同钱包 0.012+0.012=0.024 ≥0.02 计 1 参与=per-wallet 段内合计非逐笔门）④题面+criteria 双载体在场断言；存量 D3.75 三夹具（0xba67 案形/极早窗 fail-open/正常盘 3 钱包不触发/wallet=sender||trader）全部保持原断言零翻动（金额均 ≥0.02 且窗 <130s 新旧口径同值）；版本断言 D3.78×4。lib **634**（629+5）/gate 180/grade 120/service 200/buy_point_lib/buy_point_check_service 全绿。
 
-**注记**：①182 对拍待跑（本案 anchor 重析 act 应翻 not-high + CD417 0xba67 回归保持）；②生产灰度：actFrontGate.enabled 未开=AF1 通道不生效，但 act 题在 cheat 全 10 题内同享新口径（生产 cheat 门直接受益）；③坑留档：`_test_buy_point_lib` C 段 activity 27 键清单含 nearPre10 两键——键名不变纯口径改，零改动过。
+**182 对拍（2026-11-18，`scripts/tmp-cd421-parity.cjs` 不进 git，与 run.mjs 同源组装+act 单题 ×3 轮）**：①锚值层——0x9c69 锚 17 笔新口径 `nearPre10GapSec=65/nearPre10Wallets=0`（旧口径=10）反锚两腿成立；0xba67 锚 9 笔 `24/1` 与立法案值逐位一致（新旧口径同值，短窗零翻动）。②Jev 层——0x9c69 三轮 argmax=**mid**（low 0.40-0.42/mid 0.43-0.45/high 0.15-0.17 掉第三位）＝**act high→mid 翻案达成**（AF1 分流 high_skip→mid 照走 cheat 全 10 题）；0xba67 三轮 argmax=**mid 保持**（high 0.28-0.32 第三位，其尾窗 7 笔/4.14Bpm 密度真实、分布合理）——CD417 立法语义零回归。
+
+**注记**：①生产灰度：actFrontGate.enabled 未开=AF1 通道不生效，但 act 题在 cheat 全 10 题内同享新口径（生产 cheat 门直接受益）；②坑留档：`_test_buy_point_lib` C 段 activity 27 键清单含 nearPre10 两键——键名不变纯口径改，零改动过。
 
 ### CD420 CD405 burst 捆绑收割去尘线 0.01→0.03——0.01 级买入算捆绑钱包不合理（bt-v143 M4GA 首信号误拦案，2026-11-17）
 
