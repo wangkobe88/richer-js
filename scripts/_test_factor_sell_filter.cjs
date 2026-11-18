@@ -268,7 +268,10 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
 // AND sinceEntryBuyBnb>=1）pp=57.5<100 被 T157c 管辖门放走 → 全清后卖后 +350%。
 // 识别=condition 引用 sinceEntryNetBuyRatio（T113 家族唯一签名键，子串匹配抗
 // 阈值漂移）；非 pump 腿 pp<100 恒放行不变。
+// T186 起 pumpArmHold 默认开（臂级默认拦截遮蔽 famous/smart 证据型留痕）——
+// 本段锁 T183 形态语义（pump 臂仅 HOLD 证据才拦），块内遮蔽 CFG 为回滚形态。
 {
+    const CFG = normalizeFactorSellFilterConfig({ enabled: true, pumpArmHold: { enabled: false } }).normalized;
     const PUMP_LEG = { id: 'sell_pump', name: 'P5', condition: 'realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90 AND sinceEntryBuyBnb >= 1' };
     const OTHER_LEG = { id: 'sell_7', name: 'P7', condition: 'profitPercent > 100 AND peakProfitPct > 50' };
     // 本案帧：pp=57.5 + smart 2s 前大买 → pump 臂管辖下拦截
@@ -405,7 +408,9 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
 // 不受影响=同进程 Tiltpad 拦截成功的反证）。T183 离线重放用手构字符串腿
 // =测试盲区。修复=loadStrategies 腿对象保留原始条件串 conditionText +
 // legConditionText 双形状兼容。
+// T186 同 J 段：块内 CFG 遮蔽为 T183 回滚形态（本段锁 T183a 修复语义的 rule 留痕）。
 {
+    const CFG = normalizeFactorSellFilterConfig({ enabled: true, pumpArmHold: { enabled: false } }).normalized;
     // 事故现场反证：AST 腿无 conditionText → 签名管辖 false（修复前引擎腿恒此形状=漏拦根源）
     const AST_LEG_BROKEN = { id: 'p5', name: 'P5', condition: { type: 'AND', left: {}, right: {} } };
     ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 2, recentSmartSellBnb: 0 }, AST_LEG_BROKEN).info.pumpArmJurisdiction === false,
@@ -430,6 +435,47 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     // evaluate 返回的腿对象（引擎实跑消费点）同拦截
     const trig = se.evaluate({ realHoldDuration: 34, sinceEntryNetBuyRatio: 100, sinceEntryBuyBnb: 1.5, profitPercent: 57.5 }, '0x2f17', 0, { completedPairs: [] }, 'sell');
     ok(!!trig && judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 2, recentSmartSellBnb: 0 }, trig).blocked === true, 'M8 evaluate 返回腿端到端拦截（引擎实跑链路）');
+}
+
+// ── N. T186 pumpArmHold 泵失衡臂默认拦截（2026-11-18 用户裁定）──────────
+// 用户原话「这一臂卖出默认过滤掉，等我找到应该卖出的作弊票再提供过来构建
+// 信号通过的策略，没有的话这一臂就相当于废了」。立法依据：d345 六笔+bt-v150
+// 同窗九笔 P5 触发全部 pp<100 且卖后 15min 峰全正（+7%~+479%）=触发面 100%
+// 误伤；T168 复盘 4/5 卖早 0/5 避险。默认（pumpArmHold 省略=开）下 pump 签名
+// 腿无需 HOLD 证据直接拦，rule='pump_arm_hold'（臂级主因留痕，优先于
+// famous/smart 证据型）；enabled:false 回滚 T183 形态。
+{
+    const PUMP_LEG = { id: 'sell_pump', name: 'P5', condition: 'realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90 AND sinceEntryBuyBnb >= 1' };
+    // N1 BIBI 帧（用户点名「BIBI 也应该拦住卖出」）：pp=80.9 无任何 famous/smart 证据 → 默认拦
+    const bibiF = { profitPercent: 80.9, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0 };
+    const rN1 = judgeFactorSellFilter(CFG, bibiF, PUMP_LEG);
+    ok(rN1.blocked === true && rN1.rule === 'pump_arm_hold', 'N1 BIBI 帧（pp<100 零 HOLD 证据）默认拦截 pump_arm_hold');
+    ok(rN1.info.pumpArmHoldEnabled === true, 'N2 info.pumpArmHoldEnabled=true');
+    // N3 pp≥100 域同拦（臂级默认无 pp 豁免理由）
+    ok(judgeFactorSellFilter(CFG, { ...bibiF, profitPercent: 250 }, PUMP_LEG).rule === 'pump_arm_hold', 'N3 pp≥100 域 pump 腿同拦（臂级主因）');
+    // N4 famous 证据在场也记 pump_arm_hold（臂级默认=主因，证据型留痕让位）
+    ok(judgeFactorSellFilter(CFG, { ...bibiF, sinceLastFamousBigBuySec: 29 }, PUMP_LEG).rule === 'pump_arm_hold', 'N4 famous 证据在场留痕=pump_arm_hold（臂级主因优先）');
+    // N5 非 pump 腿不受默认拦截影响（pp<100 照旧放行=存量语义不变）
+    ok(judgeFactorSellFilter(CFG, bibiF, { id: 'p7', name: 'P7', condition: 'profitPercent > 100 AND peakProfitPct > 50' }).blocked === false, 'N5 非 pump 腿 pp<100 放行不变');
+    // N6 非 pump 腿 pp≥100 走 famous/smart 照旧（默认拦截只作用于 pump 签名腿）
+    const rN6 = judgeFactorSellFilter(CFG, { ...bibiF, profitPercent: 150, sinceLastSmartBigBuySec: 5 }, { id: 'p7', name: 'P7', condition: 'profitPercent > 100' });
+    ok(rN6.blocked === true && rN6.rule === 'smart_hold', 'N6 非 pump 腿 pp≥100 smart 臂照旧');
+    // N7 回滚开关：enabled:false → T183 形态（零 HOLD 证据放行）
+    const CFG183N = normalizeFactorSellFilterConfig({ enabled: true, pumpArmHold: { enabled: false } }).normalized;
+    ok(judgeFactorSellFilter(CFG183N, bibiF, PUMP_LEG).blocked === false, 'N7 enabled:false 回滚 T183 形态（BIBI 帧放行）');
+    // N8 AST 腿（引擎实跑形状）默认拦截端到端
+    const AST_LEG = { id: 'p5', name: 'P5', condition: { type: 'AND' }, conditionText: 'realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90 AND sinceEntryBuyBnb >= 1' };
+    ok(judgeFactorSellFilter(CFG, bibiF, AST_LEG).rule === 'pump_arm_hold', 'N8 AST 腿端到端默认拦截');
+    // N9 归一化：省略=默认开；enabled 非法值/未知键拒绝
+    ok(normalizeFactorSellFilterConfig({ enabled: true }).normalized.pumpArmHold.enabled === true, 'N9a 省略 pumpArmHold=默认开');
+    ok(normalizeFactorSellFilterConfig({ enabled: true, pumpArmHold: { enabled: false } }).normalized.pumpArmHold.enabled === false, 'N9b 显式 false=关');
+    ok(!!normalizeFactorSellFilterConfig({ enabled: true, pumpArmHold: { enabled: 'yes' } }).error, 'N9c enabled 非 bool 拒绝');
+    ok(!!normalizeFactorSellFilterConfig({ enabled: true, pumpArmHold: { minBuyBnb: 1 } }).error, 'N9d 未知键拒绝（放行判据待案例立法后扩键）');
+    // N10 引擎真实装载腿端到端（T183a conditionText × T186 默认拦）
+    const { StrategyEngine } = require('../src/strategies/StrategyEngine');
+    const seN = new StrategyEngine();
+    seN.loadStrategies([{ id: 'p5', name: '卖出策略 P5', action: 'sell', priority: 5, condition: 'realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90 AND sinceEntryBuyBnb >= 1' }]);
+    ok(judgeFactorSellFilter(CFG, bibiF, seN._strategies[0]).rule === 'pump_arm_hold', 'N10 真实装载腿端到端默认拦截（BIBI 案兑现）');
 }
 
 console.log(`✅ _test_factor_sell_filter 全部 ${passed} 断言通过`);

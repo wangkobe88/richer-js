@@ -66,6 +66,16 @@
  *   recoveryHold.enabled=false 一键回滚 T183 形态；chg10Pct/chg30Pct 纯观察
  *   落 metadata（阈值待触发分布裁定）。
  *
+ * 规则四 pumpArmHold（T186 2026-11-18 用户裁定「这一臂卖出默认过滤掉，等我找到
+ * 应该卖出的作弊票再提供过来构建信号通过的策略，没有的话这一臂就相当于废了」）：
+ *   拦截（拒绝卖出）= pump 臂签名管辖（condition 引用 sinceEntryNetBuyRatio）
+ *                     → **默认全部拦截**，无需 famous/smart HOLD 证据
+ *   立法依据：d345 六笔+bt-v150 同窗九笔 P5 触发全部 pp<100 且卖后 15min 峰全正
+ *   （+7%~+479%）=当前触发面 100% 误伤；T168 复盘十一实验 5 次触发 4/5 卖早
+ *   0/5 避险（v70 时代机器推盘对象已被买侧门链前置拦截，触发面变质为健康票
+ *   首波拉升）。放行判据（真作弊票「应该卖出」的信号特征）待案例立法后扩键。
+ *   pumpArmHold.enabled=false 一键回滚 T183 形态（pump 臂仅 HOLD 证据才拦）。
+ *
  * 与 bypass 卖臂的关系（T157c 全臂管辖知情面）：peak-protect 深回撤/famous-
  * entry-exit 等 bypass 腿同样受管（HOLD 证据在场 → 拦截顺延）——「famous/聪明钱
  * 还在入场就不急着卖」的 HOLD 语义一致适用于保命腿；famous-entry-exit 触发域=
@@ -151,11 +161,11 @@ function legConditionText(leg) {
 function normalizeFactorSellFilterConfig(raw) {
     if (raw == null) return { normalized: null };
     if (typeof raw !== 'object' || Array.isArray(raw)) {
-        return { error: `factorSellFilter 必须是对象（键：enabled/famousHold/smartHold/recoveryHold），实际 ${JSON.stringify(raw)}` };
+        return { error: `factorSellFilter 必须是对象（键：enabled/famousHold/smartHold/recoveryHold/pumpArmHold），实际 ${JSON.stringify(raw)}` };
     }
     for (const k of Object.keys(raw)) {
-        if (k !== 'enabled' && k !== 'famousHold' && k !== 'smartHold' && k !== 'recoveryHold') {
-            return { error: `factorSellFilter 未知键 "${k}"（仅支持 enabled/famousHold/smartHold/recoveryHold）` };
+        if (k !== 'enabled' && k !== 'famousHold' && k !== 'smartHold' && k !== 'recoveryHold' && k !== 'pumpArmHold') {
+            return { error: `factorSellFilter 未知键 "${k}"（仅支持 enabled/famousHold/smartHold/recoveryHold/pumpArmHold）` };
         }
     }
     if (raw.enabled === undefined || raw.enabled === null) {
@@ -172,12 +182,15 @@ function normalizeFactorSellFilterConfig(raw) {
         if (sh0.error) return { error: sh0.error };
         const rh0 = _normalizeRecoveryHold(raw.recoveryHold);
         if (rh0.error) return { error: rh0.error };
+        const pa0 = _normalizePumpArmHold(raw.pumpArmHold);
+        if (pa0.error) return { error: pa0.error };
         return {
             normalized: {
                 enabled: true,
                 famousHold: { ...FACTOR_SELL_FILTER_DEFAULTS },
                 smartHold: sh0.normalized,
                 recoveryHold: rh0.normalized,
+                pumpArmHold: pa0.normalized,
             },
         };
     }
@@ -201,7 +214,27 @@ function normalizeFactorSellFilterConfig(raw) {
     if (sh.error) return { error: sh.error };
     const rh = _normalizeRecoveryHold(raw.recoveryHold);
     if (rh.error) return { error: rh.error };
-    return { normalized: { enabled: true, famousHold: out, smartHold: sh.normalized, recoveryHold: rh.normalized } };
+    const pa = _normalizePumpArmHold(raw.pumpArmHold);
+    if (pa.error) return { error: pa.error };
+    return { normalized: { enabled: true, famousHold: out, smartHold: sh.normalized, recoveryHold: rh.normalized, pumpArmHold: pa.normalized } };
+}
+
+/** pumpArmHold 段归一化（T186）：省略/null=默认开（用户裁定「这一臂卖出默认过滤掉」）；
+ *  {enabled:false}=回滚 T183 形态（pump 臂仅 famous/smart HOLD 证据才拦）；仅 enabled 一键。 */
+function _normalizePumpArmHold(raw) {
+    if (raw == null) return { normalized: { enabled: true } };
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+        return { error: `factorSellFilter.pumpArmHold 必须是对象（enabled），实际 ${JSON.stringify(raw)}` };
+    }
+    for (const k of Object.keys(raw)) {
+        if (k !== 'enabled') {
+            return { error: `factorSellFilter.pumpArmHold 未知键 "${k}"（仅支持 enabled——放行判据待真作弊票案例立法后再扩键）` };
+        }
+    }
+    if (typeof raw.enabled !== 'boolean') {
+        return { error: `factorSellFilter.pumpArmHold.enabled 非法值 ${JSON.stringify(raw.enabled)}（须 bool）` };
+    }
+    return { normalized: { enabled: raw.enabled } };
 }
 
 /** smartHold 段归一化（T183）：省略/null=全默认开；{enabled:false}=单关（回滚
@@ -294,6 +327,7 @@ function judgeFactorSellFilter(config, factors, leg) {
     const fh = config && config.famousHold;
     const sh = config && config.smartHold;
     const rh = config && config.recoveryHold;
+    const ph = config && config.pumpArmHold;
     if (!fh) return { blocked: false, rule: null, info: null };
     const pp = factors ? factors.profitPercent : undefined;
     const sinceLast = factors ? factors.sinceLastFamousBigBuySec : undefined;
@@ -329,6 +363,7 @@ function judgeFactorSellFilter(config, factors, leg) {
         recoveryMinPeakProfitPct: rh ? rh.minPeakProfitPct : null,
         recoveryMaxLaunchPct: rh ? rh.maxLaunchPct : null,
         recoveryMinChg5Pct: rh ? rh.minChg5Pct : null,
+        pumpArmHoldEnabled: !!(ph && ph.enabled),
     };
     // T185 recoveryHold 命中（**独立管辖**：peakProfitPct ≥ minPeakProfitPct 本身
     // 即管辖——与 T157c「管辖判定=pp 本身」同构但换锚到峰值武装门）：
@@ -353,6 +388,17 @@ function judgeFactorSellFilter(config, factors, leg) {
     if (!ppGoverned && !info.pumpArmJurisdiction) {
         if (recoveryHit) return { blocked: true, rule: 'recovery_hold', info };
         return { blocked: false, rule: null, info };
+    }
+    // T186 pumpArmHold（2026-11-18 用户裁定「这一臂卖出默认过滤掉」）：泵失衡家族腿
+    //（condition 引用 sinceEntryNetBuyRatio）**默认拦截**——d345 六笔+bt-v150 同窗
+    // 九笔 P5 全部 pp<100 且卖后 15min 峰全正（+7%~+479%），T168 复盘「触发面变质
+    // 为健康票首波拉升」（11 实验 5 次触发 4/5 卖早 0/5 避险）——臂本意的机器推盘
+    // 对象已被买侧门链前置拦截，当前触发面=纯误伤。放行判据（真作弊票案例的
+    // 「应该卖出」信号）待用户提供案例后立法；enabled:false 一键回滚 T183 形态
+    //（pump 臂仅 famous/smart HOLD 证据才拦）。留痕 rule='pump_arm_hold'（臂级
+    // 默认拦截=主因，优先于 famous/smart 证据型留痕）。
+    if (info.pumpArmJurisdiction && ph && ph.enabled) {
+        return { blocked: true, rule: 'pump_arm_hold', info };
     }
     // famousHold 命中（原三键去掉 pp 门——管辖已上方判定，逐位同 T157c）：
     // famous 仍在入场（180s 内大买）且卖出未达释放线（<0.4）

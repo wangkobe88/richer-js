@@ -1955,9 +1955,13 @@ class AbstractTradingEngine extends ITradingEngine {
     this._factorSellFilterCfg = r.normalized;
     const sh = r.normalized.smartHold;
     const rh = r.normalized.recoveryHold;
+    const ph = r.normalized.pumpArmHold;
     this.logger.info(this._experimentId, 'SellEval',
       `因子卖出过滤门启用 | famousHold 全臂管辖（pp≥${r.normalized.famousHold.minProfitPct} 的卖信号统一过门：famous ${r.normalized.famousHold.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${r.normalized.famousHold.sellReleaseBnb} → 拦截）` +
       ` | smartHold${sh && sh.enabled ? `（聪明钱 ${sh.maxSinceBuySec}s 内大买 ∧ 60s 卖出 <${sh.sellReleaseBnb} → 拦截，T183）` : ' 关'} | pump 臂签名管辖（condition 引用 sinceEntryNetBuyRatio 无论 pp，T183）` +
+      (ph && ph.enabled
+        ? ' | pumpArmHold（泵失衡家族腿默认全拦 rule=pump_arm_hold，T186——放行判据待真作弊票案例立法）'
+        : ' | pumpArmHold 关（回滚 T183 形态：pump 臂仅 HOLD 证据才拦）') +
       ` | recoveryHold${rh && rh.enabled ? `（独立管辖 peak≥${rh.minPeakProfitPct} ∧ curVs≤${rh.maxLaunchPct} ∧ chg5>${rh.minChg5Pct}=暴跌后低位回涨=买点不卖，T185）` : ' 关'}`);
   }
 

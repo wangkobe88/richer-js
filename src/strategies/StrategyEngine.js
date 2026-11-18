@@ -370,6 +370,12 @@ class StrategyEngine {
                     action: config.action, // 'buy' | 'sell'
                     priority: config.priority,
                     condition,
+                    // T183a（2026-11-18 d345 熊二/狸花猫漏拦案）：condition=parseCondition
+                    // 的 AST 对象——因子卖出过滤门 pump 臂签名管辖（factor-sell-filter
+                    // legConditionText）需要**原始条件字符串**做子串匹配，此处保留
+                    // 原文；AST 腿无此键=签名管辖失效（pp<100 的泵失衡臂漏拦方向），
+                    // 引擎路径恒在此装载（手构字符串腿不受影响）
+                    conditionText: config.condition,
                     enabled: config.enabled !== false,
                     maxExecutions: config.maxExecutions || null,
                     // 首买/再买路由（T100）：见上方值域校验注释；null=不限轮次
