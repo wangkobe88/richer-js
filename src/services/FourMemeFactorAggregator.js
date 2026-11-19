@@ -83,6 +83,7 @@ const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggrega
 // G1 作弊盘因子化：grade 档位→数值出口映射（levelsFromObservation 同源表；无环——market-analysis 不反向 require FA）
 const { CHEAT_LEVEL_SCORES: _CHEAT_LEVEL_SCORES } = require('../market-analysis/cheat-grade');
 const { resolveLaunchPriceBnb: _resolveLaunchPriceBnb, floorLaunchPriceBnb: _floorLaunchPriceBnb } = require('../market-analysis/launch-price');
+const { BURST_COOLDOWN_DEFAULTS, BURST_CREW_RING_MAX, buildBurstCooldownView } = require('../trading-engine/core/burst-cooldown-exit');
 // PROTOCOL_ADDRS import 已随 earlyTrades* top1 剔除删除（T71 2026-10-26）——FA 内
 // 已无消费者；legacy preBuy 层自持引用（sniper-detector 单一真相源不动）
 
@@ -444,6 +445,11 @@ class FourMemeFactorAggregator extends EventEmitter {
         //   仅 advance lastSubstantialTickAt 水位——lastTickAt 全量口径零变化，
         //   idleSecSinceLastTick/act* 滑窗等所有既有消费者不受影响
         this._substantialTickBnb = null;
+
+        // T189 burst 承接冷盘 ring 开关（默认 false=零记录零开销）：引擎
+        //   burstCooldown 段在场时注入 true——per-token 最近 60s wallet 终态行环
+        //   （{ms,side,w,bnb}），承接视图检查点回溯计算（无累计状态，defer 乱序容忍）
+        this._bcRingEnabled = false;
 
         // P2b 死重维护开关（2026-10-12 回测性能案）：默认 true = 存量零变化。
         //   maintainClassifierTracks=false → 跳过 OPB 专用维护（_clsTicks push/prune、
@@ -1510,6 +1516,16 @@ class FourMemeFactorAggregator extends EventEmitter {
         const walletAddr = tick.sender_address || tick.trader_address || null;
         const { isBuy, bnbAmount, tokenAmount, blockNumber } = vars;
 
+        // T189 burst 承接冷盘 ring（wallet 终态口径每行恰一次——defer 两段喂食下
+        // 价格段先到 sender 可能仍 null，挂本段保证 wallet 真值；机制关=零记录）。
+        //   FIFO 上限保护（乱序晚到行少量，查询按 ms 过滤不依赖边界精确）
+        if (this._bcRingEnabled) {
+            let ring = state._bcRing;
+            if (!ring) { ring = []; state._bcRing = ring; }
+            ring.push({ ms: tick.timestamp, side: isBuy ? 'buy' : 'sell', w: walletAddr, bnb: bnbAmount });
+            if (ring.length > BURST_CREW_RING_MAX) ring.splice(0, ring.length - BURST_CREW_RING_MAX);
+        }
+
         // T147 等额捆绑簇检测（bundle-wave-exit 卖臂原料；wallet 终态行——defer 两段
         // 喂食下与 smartBot 同挂点每 tick 恰计一次）
         if (isBuy) this._trackEqualBundleBuy(state, { isBuy, bnbAmount, blockNumber, walletAddr });
@@ -1902,6 +1918,46 @@ class FourMemeFactorAggregator extends EventEmitter {
         this._substantialTickBnb = Number.isFinite(v) && v > 0 ? v : null;
     }
 
+    // ── T189 burst 承接冷盘（2026-11-19）：ring 开关 + arm/view/clear 三接口 ──
+    //   状态=state._bcArm {t0Ms, ownWallets:Set}（检查点回溯视图，无累计态）；
+    //   clearBuyState 同步清理（卖出/清仓解除观测）
+
+    /** 引擎 burstCooldown 段在场时注入 true（ring 才开始记录；关=零开销） */
+    setBurstCrewRingEnabled(v) {
+        this._bcRingEnabled = v === true;
+    }
+
+    /**
+     * 买入成交点登记观测（引擎买成功分支调用；t0=成交时刻——实时墙钟/回测虚拟 tickTs）
+     * @param {string} tokenAddress
+     * @param {number} t0Ms
+     * @param {string[]|Set<string>} [ownWallets] 自己的钱包（live 链上自己的买 tick
+     *   不得计入承接——0.2B 会直接豁免；虚拟/回测无自己链上 tick 传空）
+     */
+    armBurstCooldown(tokenAddress, t0Ms, ownWallets = []) {
+        const state = this._states.get(tokenAddress);
+        if (!state || !Number.isFinite(t0Ms)) return false;
+        const own = new Set([...(ownWallets || [])].map(w => String(w).toLowerCase()).filter(Boolean));
+        state._bcArm = { t0Ms, ownWallets: own };
+        return true;
+    }
+
+    /**
+     * 承接视图（引擎扫描点调用；内部=locateBurstCrew 回溯 + 承接分桶——纯查询）
+     * @returns {object|null} 无 arm/ring → null
+     */
+    getBurstCooldownView(tokenAddress, cfg) {
+        const state = this._states.get(tokenAddress);
+        if (!state || !state._bcArm) return null;
+        return buildBurstCooldownView(state._bcRing || [], state._bcArm, cfg || BURST_COOLDOWN_DEFAULTS);
+    }
+
+    /** 解除观测（30s 存活解除/清仓；幂等） */
+    clearBurstCooldown(tokenAddress) {
+        const state = this._states.get(tokenAddress);
+        if (state) state._bcArm = null;
+    }
+
     setPreFilter(ranges) {
         if (!ranges || (Array.isArray(ranges) && ranges.length === 0)) {
             this._preFilter = null;
@@ -2063,6 +2119,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             const remaining = [...state._positions.keys()];
             state._lastPositionKey = remaining.length > 0 ? remaining[remaining.length - 1] : null;
         }
+        // T189 burst 承接冷盘：仓位全清同步解除观测（再买由买成功点重新 arm）
+        if (state._positions.size === 0) state._bcArm = null;
     }
 
     /**

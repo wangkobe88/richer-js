@@ -28,6 +28,7 @@
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { resolveStallCloseExtension, effectiveStallExtension } = require('../core/stall-close-almost-launch.js');
+const { BURST_COOLDOWN_DEFAULTS, evaluateBurstCooldown } = require('../core/burst-cooldown-exit');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const { ExperimentStatsService } = require('../../web/services/ExperimentStatsService');
 const Logger = require('../../services/logger');
@@ -755,6 +756,24 @@ class BacktestEngine extends AbstractTradingEngine {
         `${this._stallCloseMinTickBnb != null ? `（足额门≥${this._stallCloseMinTickBnb}BNB）` : ''}（虚拟时钟 1s 节流扫描）` +
         `${this._stallCloseExt.almostLaunchMs != null ? `｜almost_launch 域(≤+10%)延长到${this._stallCloseExt.almostLaunchMs / 1000}s` : ''}` +
         `${this._stallCloseExt.breakdownMs != null ? `｜破发域(vs配置/首买价≤-5%)延长到${this._stallCloseExt.breakdownMs / 1000}s` : ''}）`);
+    }
+
+    // 6.9b T189 burst 承接冷盘（与实时引擎同配置同判据，回测 parity 红线；虚拟时钟
+    //     版挂主循环 stallClose 同位 1s 节流——ring 由 FA processTick 统一记录）
+    const _bcCfg = experimentConfig.burstCooldown;
+    this._burstCooldown = _bcCfg ? {
+      check1Sec: Number.isFinite(Number(_bcCfg.check1Sec)) ? Number(_bcCfg.check1Sec) : BURST_COOLDOWN_DEFAULTS.check1Sec,
+      check1MinAbsorbBnb: Number.isFinite(Number(_bcCfg.check1MinAbsorbBnb)) ? Number(_bcCfg.check1MinAbsorbBnb) : BURST_COOLDOWN_DEFAULTS.check1MinAbsorbBnb,
+      check2ConfirmSec: Number.isFinite(Number(_bcCfg.check2ConfirmSec)) ? Number(_bcCfg.check2ConfirmSec) : BURST_COOLDOWN_DEFAULTS.check2ConfirmSec,
+      check2Sec: Number.isFinite(Number(_bcCfg.check2Sec)) ? Number(_bcCfg.check2Sec) : BURST_COOLDOWN_DEFAULTS.check2Sec,
+      check2MinAbsorbBnb: Number.isFinite(Number(_bcCfg.check2MinAbsorbBnb)) ? Number(_bcCfg.check2MinAbsorbBnb) : BURST_COOLDOWN_DEFAULTS.check2MinAbsorbBnb,
+    } : null;
+    if (this._burstCooldown) {
+      this._factorAggregator.setBurstCrewRingEnabled(true);
+      this._lastBurstCdScanTs = null;
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `🛡️ burst承接冷盘已启用(回测) | 批1:${this._burstCooldown.check1Sec}s承接<${this._burstCooldown.check1MinAbsorbBnb}B 立即清仓` +
+        `｜批2:${this._burstCooldown.check1Sec}~${this._burstCooldown.check2Sec}s承接<${this._burstCooldown.check2MinAbsorbBnb}B（虚拟时钟 1s 节流扫描）`);
     }
 
     // 7. 批量写入缓冲区
@@ -1635,6 +1654,15 @@ class BacktestEngine extends AbstractTradingEngine {
             (this._lastStallScanTs === null || tickTs - this._lastStallScanTs >= 1000)) {
           this._lastStallScanTs = tickTs;
           await this._scanStallClose(tickTs);
+        }
+
+        // T189 burst 承接冷盘（虚拟时钟扫描，stallClose 同位同节流）：必须在
+        // processTick 之前（本 token 观测窗边缘的 tick 到达顺序与判定无关——
+        // 视图回溯按 ms 过滤，先扫后喂/先喂后扫等价；与 stallClose 同摆位）
+        if (this._burstCooldown != null &&
+            (this._lastBurstCdScanTs === null || tickTs - this._lastBurstCdScanTs >= 1000)) {
+          this._lastBurstCdScanTs = tickTs;
+          await this._scanBurstCooldown(tickTs);
         }
 
         // 因子增量（emitFactors:false 只推进状态不构建），随后 buildFactorMap 按
@@ -2777,6 +2805,10 @@ class BacktestEngine extends AbstractTradingEngine {
           // 公式 bit 一致）；回测执行=信号价无独立执行价 → buyExecutedPriceBnb 缺省 null
           buySignalAt: nowTs,
         });
+        // T189 burst 承接冷盘 arm（t0=虚拟成交时刻；回测无自己链上 tick → own 空）
+        if (this._burstCooldown) {
+          this._factorAggregator.armBurstCooldown(token.token, nowTs, []);
+        }
 
         this._bufferSignalUpdate(signalId, { executed: true, metadata: { execution_status: 'executed' } });
         this.metrics.executedSignals++;
@@ -2900,6 +2932,51 @@ class BacktestEngine extends AbstractTradingEngine {
    * 空窗前末 tick，与实时墙钟检测同价）；lastTickAt 缺失 fail-open（首 tick 前
    * 无证据不卖）。串行逐 token await（对齐实时与 _scanHoldingsStopLoss）。
    */
+  /**
+   * T189 burst 承接冷盘扫描（虚拟时钟版，与实时引擎同判据；主循环 1s 节流驱动）：
+   * per 持仓票回溯视图 → 状态机 → sell=bypass 全清 / release=解除。因子 asOf=
+   * 检测时点 tickTs（与 stallClose 的检测点重锚同语义）。
+   */
+  async _scanBurstCooldown(nowTs) {
+    if (this._burstCooldown == null) return;
+    for (const holding of this._getAllHoldings()) {
+      const tokenAddress = holding.tokenAddress;
+      if (!tokenAddress) continue;
+      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
+      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+      if (!token || token.status !== 'bought') continue;
+      const view = this._factorAggregator.getBurstCooldownView(tokenAddress, this._burstCooldown);
+      if (!view) continue;
+      const verdict = evaluateBurstCooldown(view, nowTs, this._burstCooldown);
+      if (!verdict) continue;
+      if (verdict.action === 'release') {
+        this._factorAggregator.clearBurstCooldown(tokenAddress);
+        continue;
+      }
+      const factors = this._factorAggregator.buildFactorMap(tokenAddress, nowTs);
+      if (!factors) continue;
+      await this._emitBurstCooldownSell(token, factors, verdict, nowTs);
+    }
+  }
+
+  /** T189 卖出（回测版，stallClose 回放版同构：bypass 立即全清） */
+  async _emitBurstCooldownSell(token, factors, verdict, nowTs) {
+    const strategy = {
+      id: 'burstCooldown',
+      name: `burst承接冷盘(${verdict.batch === 'w1'
+        ? `${this._burstCooldown.check1Sec}s承接${verdict.info.w1Bnb}<${this._burstCooldown.check1MinAbsorbBnb}B`
+        : verdict.batch === 'w2-fast'
+          ? `段内承接枯竭${this._burstCooldown.check2ConfirmSec}s`
+          : `${this._burstCooldown.check2Sec}s承接${verdict.info.w2Bnb}<${this._burstCooldown.check2MinAbsorbBnb}B`})`,
+      action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
+      priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
+      burstCooldownInfo: { ...verdict.info, reason: verdict.reason },
+    };
+    this.logger.info(this._experimentId, 'BurstCooldown',
+      `${token.symbol || token.token.slice(0, 10)} 触发${strategy.name}(回放) | 波成员=${verdict.info.crewSize} 承接w1=${verdict.info.w1Bnb}B/w2=${verdict.info.w2Bnb}B | profitPercent=${factors.profitPercent?.toFixed(1)}%`);
+    return this._emitSellSignal(token, strategy, factors, nowTs, null);
+  }
+
   async _scanStallClose(nowTs) {
     if (this._stallCloseMs == null) return;
     for (const holding of this._getAllHoldings()) {

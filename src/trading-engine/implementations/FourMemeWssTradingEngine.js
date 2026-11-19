@@ -39,6 +39,7 @@ const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { TxSeenSignal } = require('../core/TxSeenSignal.js');
 const { createIpfsCacheWriter } = require('../core/IpfsCacheWriter.js');
 const { resolveStallCloseExtension, effectiveStallExtension } = require('../core/stall-close-almost-launch.js');
+const { BURST_COOLDOWN_DEFAULTS, evaluateBurstCooldown } = require('../core/burst-cooldown-exit');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const Logger = require('../../services/logger');
 const Decimal = require('decimal.js');
@@ -943,6 +944,28 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         `${this._stallCloseExt.breakdownMs != null ? `｜破发域(vs配置/首买价≤-5%)延长到${this._stallCloseExt.breakdownMs / 1000}s` : ''}）`);
     }
 
+    // 6.9 T189 burst 承接冷盘两批卖出（2026-11-19 立法，四窗 98 票对拍 Δ+0.57）：
+    //     burst 触发买入成交后观测「承接」=非 burst 成员钱包的买额——批1（15s 承接
+    //     <0.1B）立即 bypass 全清；批2（15~30s 段承接 <0.05B ∧ 枯竭确认/段末兜底）
+    //     补卖；30s 承接在场解除。与 stallClose 互补（管「有成交但无新钱包承接」，
+    //     577c/583a 死时全是卖单 tick=stallClose 盲区）。段在场即启用（{}=全默认）；
+    //     不配段=机制关闭零变化。详见 core/burst-cooldown-exit.js 头注。
+    const _bcCfg = experimentConfig.burstCooldown;
+    this._burstCooldown = _bcCfg ? {
+      check1Sec: Number.isFinite(Number(_bcCfg.check1Sec)) ? Number(_bcCfg.check1Sec) : BURST_COOLDOWN_DEFAULTS.check1Sec,
+      check1MinAbsorbBnb: Number.isFinite(Number(_bcCfg.check1MinAbsorbBnb)) ? Number(_bcCfg.check1MinAbsorbBnb) : BURST_COOLDOWN_DEFAULTS.check1MinAbsorbBnb,
+      check2ConfirmSec: Number.isFinite(Number(_bcCfg.check2ConfirmSec)) ? Number(_bcCfg.check2ConfirmSec) : BURST_COOLDOWN_DEFAULTS.check2ConfirmSec,
+      check2Sec: Number.isFinite(Number(_bcCfg.check2Sec)) ? Number(_bcCfg.check2Sec) : BURST_COOLDOWN_DEFAULTS.check2Sec,
+      check2MinAbsorbBnb: Number.isFinite(Number(_bcCfg.check2MinAbsorbBnb)) ? Number(_bcCfg.check2MinAbsorbBnb) : BURST_COOLDOWN_DEFAULTS.check2MinAbsorbBnb,
+    } : null;
+    if (this._burstCooldown) {
+      this._factorAggregator.setBurstCrewRingEnabled(true);
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        `🛡️ burst承接冷盘已启用 | 批1:${this._burstCooldown.check1Sec}s承接<${this._burstCooldown.check1MinAbsorbBnb}B 立即清仓` +
+        `｜批2:${this._burstCooldown.check1Sec}~${this._burstCooldown.check2Sec}s承接<${this._burstCooldown.check2MinAbsorbBnb}B` +
+        `（枯竭${this._burstCooldown.check2ConfirmSec}s确认+段末兜底）｜承接=非波成员钱包买额（ring 回溯视图）`);
+    }
+
     // 7. live 执行层（FourMemeDirectTrader + 钱包），必须在重启恢复之前就绪
     if (this._isLive) {
       await this._initializeLiveTrader();
@@ -1516,6 +1539,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           this.logger.error(this._experimentId, 'StallClose', `流动性止损扫描异常: ${err.message}`);
         });
       }, Math.min(1000, this._stallCloseMs));
+    }
+
+    // T189 burst 承接冷盘扫描：与 stallClose 同款 1s 墙钟定时器（承接观测期
+    // （30s 内）盘面可能仍有卖单 tick 但引擎扫描点不依赖 tick 到达；30s 后解除）
+    if (this._burstCooldown) {
+      this._intervals.burstCooldown = setInterval(() => {
+        this._scanBurstCooldown().catch(err => {
+          this.logger.error(this._experimentId, 'BurstCooldown', `burst承接冷盘扫描异常: ${err.message}`);
+        });
+      }, 1000);
     }
 
     // 账号信息复检（C166）：周期=fast 档间隔（slow 档靠 per-token 节流跳过）；只查
@@ -2837,6 +2870,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         // T116 GMGN 进场验证重置：再买入=重新开始新一轮检查点（防陈旧 'none'
         // 首tick误卖，同款双保险）
         this._resetGmgnEntryFor(tokenAddress);
+        // T189 burst 承接冷盘：买入成交点 arm（t0=墙钟成交时刻；live 自己的链上
+        // 买 tick 由 ownWallets 排除出承接——0.2B 自买会直接豁免整机制）
+        if (this._burstCooldown) {
+          this._factorAggregator.armBurstCooldown(tokenAddress, Date.now(), this._ownWalletAddresses());
+        }
         // T116b 买点进场观察：成交帧三类在场数落 signal metadata（纯观察不进门）
         this._recordGmgnEntryBuyObs(signalId, tokenAddress);
 
@@ -3085,6 +3123,57 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * 买/卖执行中跳过（不重入）；buildFactorMap 传 Date.now()（对齐持仓扫描惯例，
    * 断流期 holdDuration 继续走）。串行逐 token await（对齐 _scanHoldingsStopLoss）。
    */
+  /**
+   * T189 burst 承接冷盘扫描（1s 墙钟；与 stallClose 同组织）：per 持仓票
+   * FA.getBurstCooldownView 回溯视图 → evaluateBurstCooldown 状态机 →
+   * sell=bypass 全清 / release=解除观测（正常卖腿接管）。卖出失败不解除
+   * （下轮重判重卖，stallClose maxExecutions=null 同语义）。
+   */
+  async _scanBurstCooldown() {
+    if (!this._burstCooldown) return;
+    for (const holding of this._getAllHoldings()) {
+      const tokenAddress = holding.tokenAddress;
+      if (!tokenAddress) continue;
+      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
+      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+      if (!token || token.status !== 'bought') continue;
+      const view = this._factorAggregator.getBurstCooldownView(tokenAddress, this._burstCooldown);
+      if (!view) continue;
+      const verdict = evaluateBurstCooldown(view, Date.now(), this._burstCooldown);
+      if (!verdict) continue;
+      if (verdict.action === 'release') {
+        this._factorAggregator.clearBurstCooldown(tokenAddress);
+        continue;
+      }
+      const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
+      if (!factors) continue;
+      await this._emitBurstCooldownSell(token, factors, verdict);
+    }
+  }
+
+  /** T189 卖出（stallClose 同族保命腿：bypass 立即全清，不走卖确认窗/卖出过滤门） */
+  async _emitBurstCooldownSell(token, factors, verdict) {
+    const strategy = {
+      id: 'burstCooldown',
+      name: `burst承接冷盘(${verdict.batch === 'w1'
+        ? `${this._burstCooldown.check1Sec}s承接${verdict.info.w1Bnb}<${this._burstCooldown.check1MinAbsorbBnb}B`
+        : verdict.batch === 'w2-fast'
+          ? `段内承接枯竭${this._burstCooldown.check2ConfirmSec}s`
+          : `${this._burstCooldown.check2Sec}s承接${verdict.info.w2Bnb}<${this._burstCooldown.check2MinAbsorbBnb}B`})`,
+      action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
+      priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
+      burstCooldownInfo: { ...verdict.info, reason: verdict.reason },
+    };
+    this.logger.info(this._experimentId, 'BurstCooldown',
+      `${token.symbol || token.token.slice(0, 10)} 触发${strategy.name} | 波成员=${verdict.info.crewSize} 承接w1=${verdict.info.w1Bnb}B/w2=${verdict.info.w2Bnb}B | profitPercent=${factors.profitPercent?.toFixed(1)}%`);
+    return this._emitSellSignal(token, strategy, factors, null);
+  }
+
+  /** live 自己的钱包地址集（T189 承接排除；虚拟/回测 _walletAddress=null → 空数组） */
+  _ownWalletAddresses() {
+    return this._walletAddress ? [this._walletAddress] : [];
+  }
+
   async _scanStallClose() {
     if (this._stallCloseMs == null) return;
     for (const holding of this._getAllHoldings()) {
