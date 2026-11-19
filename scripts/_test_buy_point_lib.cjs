@@ -470,6 +470,11 @@ console.log('A9. famousTraces 手算（注入名单——收割完/在场/无命
   // 手算：fl 序列 3e8→0.6e8(t+5)→3.8e8(t+8)→0.4e8(t+11=末卖同刻，谷值)→2.1e8(t+20)→3.35e8(t+30)；
   // 谷值时刻 circ=6.2e8 → 0.4e8/6.2e8=6.451→6.5%
   ok(ft.postSellTroughPct === 6.5, `T167d 流通谷值 6.5%（0.4e8/6.2e8，实际 ${ft.postSellTroughPct}）`);
+  // capped 形状：锚窗 tick>拉数帽中段被裁（慢票）——累计起点失真 → null（宁拦不冒充）
+  {
+    const ftCap = buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: rosterFt, capped: true }).buyDerived.famousTraces;
+    ok(ftCap.postSellTroughPct === null, `T167d capped 窗 → null（实际 ${ftCap.postSellTroughPct}）`);
+  }
   // null 形状：roster 内无卖行（lastRelSell=null）→ 谷值 null fail-closed（宁拦不冒充）
   {
     const ftNoSell = buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: new Set([W_B]) }).buyDerived.famousTraces;

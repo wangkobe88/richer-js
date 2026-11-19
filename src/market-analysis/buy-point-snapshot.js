@@ -1153,7 +1153,7 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     // （SELL 缺 tok 不扣=谷值偏高=豁免更难 fail-closed）。无 famous 可靠价卖行/
     // 末卖后零 tick → null 不豁免保持拦（宁拦不冒充）。
     let postSellTroughPct = null;
-    if (lastRelSell) {
+    if (lastRelSell && !snapshot.capped) { // capped=锚窗 tick>拉数帽中段被裁（慢票）——累计起点失真，null 不豁免保持拦（宁拦不冒充，f63f/a035 重放实证漂移 11.7→2.8/40.3→5.6）
       let fl = 0, ci = 0, trough = null, troughCirc = 0;
       for (const t of ticks) {
         const tk = Number(t.tok) || 0;
