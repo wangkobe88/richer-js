@@ -466,6 +466,15 @@ console.log('A9. famousTraces 手算（注入名单——收割完/在场/无命
   // BP70：在场净额合计直供+尘埃残仓判读指针（判据与 state 直供同构——BP61 三修铁律）
   ok(stFt.includes('在场净额合计（净>0 钱包净额之和）+0.0100') && stFt.includes('在场净额合计=尘埃量级（参考 <0.05 BNB）∧盘面基本归零过（发行价位置行「涨起后最低」≤+10%）后又流量涌入的 burst 重启形状=上一轮尘埃残仓不算在场（BP70 判读见③桶）'),
     'state 痕迹行 BP70 直供（在场净额合计数值+burst 重启尘埃残仓指针句）');
+  // T167d/FP20：末卖后在外流通谷值%（逐 tick Σ(BUY−SELL).tok，lastRelSell(W_FB t+11) 起含同刻取最小）
+  // 手算：fl 序列 3e8→0.6e8(t+5)→3.8e8(t+8)→0.4e8(t+11=末卖同刻，谷值)→2.1e8(t+20)→3.35e8(t+30)；
+  // 谷值时刻 circ=6.2e8 → 0.4e8/6.2e8=6.451→6.5%
+  ok(ft.postSellTroughPct === 6.5, `T167d 流通谷值 6.5%（0.4e8/6.2e8，实际 ${ft.postSellTroughPct}）`);
+  // null 形状：roster 内无卖行（lastRelSell=null）→ 谷值 null fail-closed（宁拦不冒充）
+  {
+    const ftNoSell = buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: new Set([W_B]) }).buyDerived.famousTraces;
+    ok(ftNoSell.postSellTroughPct === null, `T167d 无 famous 卖行 → null（实际 ${ftNoSell.postSellTroughPct}）`);
+  }
   const ftMiss = buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: new Set(['0x' + '99'.repeat(20)]) }).buyDerived.famousTraces;
   ok(ftMiss.wallets.length === 0 && ftMiss.inCustodyCount === 0
     && buildBuyPointState(buildBuyPointSnapshot(rowsFt, metaFt, { famousRoster: new Set(['0x' + '99'.repeat(20)]) })).state.includes('famous 痕迹: 锚窗内名单钱包 0 个（无 famous 活动证据'),

@@ -1143,6 +1143,27 @@ function computeBuyPointDerived(snapshot, famousRoster) {
         if (postEntryMinBnb === null || t.priceBnb < postEntryMinBnb) postEntryMinBnb = t.priceBnb;
       }
     }
+    // ── T167d/FP20 豁免换轨原料（2026-11-19 0x6075 苏琳案二修，用户口径原话
+    // 「famous卖出后，最低的在外流通量还剩多少。如果没有多少了，代表抛压彻底
+    // 清除，之后的流量算是新一波」）──末卖后在外流通谷值：逐 tick 维护
+    // outFloating=Σ(BUY.tok−SELL.tok)（未卖回池筹码总量）与 circ=Σ(BUY.tok)（曲线
+    // 累计流出），lastRelSell 起（含同刻）取 outFloating 最小值；发射 pct=谷值÷
+    // 谷值时刻 circ×100。谷值小=出清彻底完成过（8baf 0.0%/28ad 2.9% vs
+    // 0x6075 10.0%/a035 40.3%，182 十一票面验证 ≤8.5% 四张全正）；tok 缺失行计 0
+    // （SELL 缺 tok 不扣=谷值偏高=豁免更难 fail-closed）。无 famous 可靠价卖行/
+    // 末卖后零 tick → null 不豁免保持拦（宁拦不冒充）。
+    let postSellTroughPct = null;
+    if (lastRelSell) {
+      let fl = 0, ci = 0, trough = null, troughCirc = 0;
+      for (const t of ticks) {
+        const tk = Number(t.tok) || 0;
+        if (t.side === 'BUY') { fl += tk; ci += tk; } else fl -= tk;
+        if (t.dt !== null && t.dt !== undefined && t.dt >= lastRelSell.dt && ci > 0) {
+          if (trough === null || fl < trough) { trough = fl; troughCirc = ci; }
+        }
+      }
+      if (trough !== null && troughCirc > 0) postSellTroughPct = +((trough / troughCirc) * 100).toFixed(1);
+    }
     return {
       wallets,
       lastSellDt: lastRelSell ? lastRelSell.dt : null,
@@ -1154,6 +1175,8 @@ function computeBuyPointDerived(snapshot, famousRoster) {
       groupBuyPct: cd.totalBuyBnb > 0 ? +((groupBuyBnb / cd.totalBuyBnb) * 100).toFixed(1) : null,
       // T167b/FP10 破发豁免直供（上段注释）：加权入场价 + 首买后盘面最低（可靠价域）
       groupEntryAvgBnb, postEntryMinBnb,
+      // T167d/FP20 豁免换轨直供：末卖后在外流通谷值%（上段注释）
+      postSellTroughPct,
       groupSellBnb,
       groupSellPct: cd.totalSellBnb > 0 ? +((groupSellBnb / cd.totalSellBnb) * 100).toFixed(1) : null,
       groupFirstBuyDt, groupFirstBuyRank,
