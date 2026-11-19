@@ -356,18 +356,20 @@ console.log('D3. 回测引擎足额门（虚拟时钟 + asOf 检测时点 parity
 console.log('E0. 纯函数 stall-close-almost-launch（两档配置归一化 + 档位判定）');
 {
   const M = require('../src/trading-engine/core/stall-close-almost-launch.js');
-  // resolveStallCloseExtension：两档缺省 90s/180s（T170b 2026-11-18 裁定）/
+  // resolveStallCloseExtension：almost 缺省 90s / 破发档缺省关（T170c 2026-11-19
+  // d345c 对拍 12/12 全负撤回，显式 breakdownStallMs>0 可恢复）/
   // max 只延长不缩短 / 显式 0 关对应臂 / 机制整体关
-  check('缺省两档 90s/180s（T170b 裁定值）', M.resolveStallCloseExtension({}, 40000), { almostLaunchMs: 90000, breakdownMs: 180000 });
-  check('配置 almost 45s 生效（40s→45s 只延长不缩短）', M.resolveStallCloseExtension({ almostLaunchStallMs: 45000 }, 40000), { almostLaunchMs: 45000, breakdownMs: 180000 });
-  check('配置 breakdown 240s 生效（>缺省）', M.resolveStallCloseExtension({ breakdownStallMs: 240000 }, 40000), { almostLaunchMs: 90000, breakdownMs: 240000 });
-  check('stallMs 本身 ≥档阈值 → 等于 stallMs（不缩短）', M.resolveStallCloseExtension({}, 200000), { almostLaunchMs: 200000, breakdownMs: 200000 });
-  check('显式 0=关对应臂（两臂独立）', M.resolveStallCloseExtension({ almostLaunchStallMs: 0 }, 40000), { almostLaunchMs: null, breakdownMs: 180000 });
+  check('缺省 almost 90s + 破发档缺省关（T170c 撤回后）', M.resolveStallCloseExtension({}, 40000), { almostLaunchMs: 90000, breakdownMs: null });
+  check('配置 almost 45s 生效（40s→45s 只延长不缩短）', M.resolveStallCloseExtension({ almostLaunchStallMs: 45000 }, 40000), { almostLaunchMs: 45000, breakdownMs: null });
+  check('配置 breakdown 240s 显式开启生效', M.resolveStallCloseExtension({ breakdownStallMs: 240000 }, 40000), { almostLaunchMs: 90000, breakdownMs: 240000 });
+  check('stallMs 本身 ≥档阈值 → 等于 stallMs（不缩短）', M.resolveStallCloseExtension({ breakdownStallMs: 180000 }, 200000), { almostLaunchMs: 200000, breakdownMs: 200000 });
+  check('显式 0=关对应臂（两臂独立）', M.resolveStallCloseExtension({ almostLaunchStallMs: 0, breakdownStallMs: 180000 }, 40000), { almostLaunchMs: null, breakdownMs: 180000 });
   check('显式 0=关破发臂（almost 臂保留）', M.resolveStallCloseExtension({ breakdownStallMs: 0 }, 40000), { almostLaunchMs: 90000, breakdownMs: null });
   check('stallClose 机制整体关 → 两臂随关', M.resolveStallCloseExtension({ almostLaunchStallMs: 90000 }, null), { almostLaunchMs: null, breakdownMs: null });
-  check('段缺失（{}兜底）缺省两档', M.resolveStallCloseExtension(null, 40000), { almostLaunchMs: 90000, breakdownMs: 180000 });
+  check('段缺失（{}兜底）almost 缺省+破发关', M.resolveStallCloseExtension(null, 40000), { almostLaunchMs: 90000, breakdownMs: null });
   // effectiveStallExtension：档位判定（almost ≤+10 / breakdown floorPct≤−5 优先更深档）
-  const eff = (curVs, floorPct, ext = M.resolveStallCloseExtension({}, 40000)) =>
+  const EXT_ON = { almostLaunchMs: 90000, breakdownMs: 180000 }; // 破发臂显式开形状（留档机制可用性）
+  const eff = (curVs, floorPct, ext = EXT_ON) =>
     M.effectiveStallExtension(ext, { currentVsLaunchPct: curVs, currentVsFloorPct: floorPct });
   check('almost 域 curVs=10 恰等在内 → 90s 档', eff(10, null), { ms: 90000, tier: 'almost' });
   check('almost 域外 curVs=10.01 → 不延长', eff(10.01, null), null);
@@ -383,6 +385,11 @@ console.log('E0. 纯函数 stall-close-almost-launch（两档配置归一化 + �
   check('floorPct null → 破发臂 fail-closed（curVs 域内照走 almost 档）', eff(5, null), { ms: 90000, tier: 'almost' });
   check('双因子 null → 不延长', eff(null, null), null);
   check('双臂全关 → 恒 null', eff(0, -7, { almostLaunchMs: null, breakdownMs: null }), null);
+  // ★T170c 撤回锁死：缺省配置（无 breakdownStallMs 键）下破发票不再落破发档——
+  // d345c 12/12 全负（瑞娅/面包又鸟/Lora 等），破发域断流=阴跌进行时无恢复期权
+  const EXT_DEFAULT = M.resolveStallCloseExtension({}, 40000);
+  check('★撤回锁死：缺省配置破发票（curVs 域外）不延长照 40s 卖', M.effectiveStallExtension(EXT_DEFAULT, { currentVsLaunchPct: 86, currentVsFloorPct: -7 }), null);
+  check('★撤回锁死：缺省配置破发票（curVs 恰 almost 域内）落 almost 档非破发档', M.effectiveStallExtension(EXT_DEFAULT, { currentVsLaunchPct: 3.3, currentVsFloorPct: -7 }), { ms: 90000, tier: 'almost' });
 }
 
 console.log('E1. 实时引擎延长臂（stallMs=10s，almost 90s / 破发 180s）');

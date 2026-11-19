@@ -9,25 +9,28 @@
  * 5s 后即来 4×0.11B 足额买盘重开流量，66s 后价格到卖出价 ~2.4 倍（+140%）。
  *
  * T170b（2026-11-18 用户裁定两档化）：
- * ①almost_launch 档延长 60s → **90s（1 分半）**；
- * ②新增**破发档**：现价相对 min(平台常量, 首笔买入价) 锚（T130 地板，**刻意不吃
- *   T134 滚动最低**）≤ **−5%** → 延长到 **180s（3 分钟）**。
- *   ⚠口径立法（用户点名）：破发判定**不能用 currentVsLaunchPct**——该键分母=
- *   min(常量, 首买价, 滚动最低)（T139 完整地板），历史破发过的票滚动最低会垫低
- *   地板，curVs 变成「相对历史最低价的涨幅」：票曾深砸 −50% 后回弹到发行价下
- *   方 −7%，curVs 显示 +86%（almost_launch 域外！）而真实位置是破发。破发档
- *   锚=FA 新键 `currentVsFloorPct`（现价 vs min(常量, 首买价)，无滚动最低）。
+ * ①almost_launch 档延长 60s → **90s（1 分半）**（现行）；
+ * ②**破发档（d345c 对拍否证已撤回，缺省关）**：现价相对 min(平台常量, 首笔买入价)
+ *   锚（T130 地板，刻意不吃 T134 滚动最低）≤ −5% → 延长到 180s——d345c（36h
+ *   win1012 对拍，`2fe55b27`）破发档 12/12 全负 Σ−0.15 零翻案：破发域断流的票
+ *   恰是还在阴跌的票，多等 3 分钟没有恢复期权只有延迟离场代价（用户裁定
+ *   「破发档撤销吧」2026-11-19）；**缺省关**（显式 `breakdownStallMs > 0` 可恢复，
+ *   T120 buySignalCooldownTicks 缺省退役同款留档形态）。同窗对照：50s 基础档
+ *   14 票 +0.096（9正/5负）+2 张等到流量不再断流 +0.093=正贡献保留。
+ *   ⚠口径立法（用户点名，历史档）：破发判定**不能用 currentVsLaunchPct**——
+ *   该键分母=min(常量, 首买价, 滚动最低)（T139 完整地板），历史破发过的票滚动
+ *   最低会垫低地板使 curVs 显示高涨幅。破发档锚=FA 键 `currentVsFloorPct`
+ *   （现价 vs min(常量, 首买价)，无滚动最低）——键保留纯观察+显式开启时判档。
  *
  * 语义（两引擎共用，实时墙钟/回测虚拟时钟同判）：
  *   - 档位判定（断流期 state 冻结，检测时点与延长点因子无差）：
- *       floorPct ≤ −5（且破发臂开）→ 破发档（180s，恒 max(stallMs, ·)）
+ *       floorPct ≤ −5（且破发臂显式开）→ 破发档（显式阈值，恒 max(stallMs, ·)）
  *       else curVs ≤ +10（含破发，且 almost 臂开）→ almost 档（90s）
  *       else → 不延长（原阈值照卖）
- *     两域取更深档（破发域 ⊂ 价格更低区域，180 > 90 只延长不缩短）。
  *   - 因子 null（未见可靠价/未知平台无锚）→ 对应臂不触发（fail-closed：缺证据
  *     不给恢复期权，与 FA null 语义族同向）。
- *   - stallClose 段未配 → 各档缺省 90s/180s；显式 almostLaunchStallMs/
- *     breakdownStallMs ≤0 → 对应臂关（存量实验可分别关闭）。
+ *   - stallClose 段未配 → almost 档缺省 90s / 破发档缺省关；显式
+ *     almostLaunchStallMs / breakdownStallMs ≤0 → 对应臂关。
  *
  * 零 DB 零网络纯函数；单测 scripts/_test_stall_close.cjs E 段。
  */
@@ -41,16 +44,14 @@ const STALL_CLOSE_BREAKDOWN_PCT = -5;
 /** almost_launch 档缺省（T170b 2026-11-18 用户裁定「延长到 1 分半」） */
 const DEFAULT_ALMOST_LAUNCH_STALL_MS = 90000;
 
-/** 破发档缺省（T170b 2026-11-18 用户裁定「延长到 3 分钟」） */
-const DEFAULT_BREAKDOWN_STALL_MS = 180000;
-
 /**
  * 配置归一化（两引擎 ctor 同一段 stallClose 配置调用）。
  * @param {object|null} stallCloseCfg 实验配置 stallClose 段（stallMs/minTickBnb
  *   既有键外：almostLaunchStallMs / breakdownStallMs 两档可分别覆盖）
  * @param {number|null} stallCloseMs 已归一化的基础断流阈值（null=机制整体未启用）
  * @returns {{almostLaunchMs: number|null, breakdownMs: number|null}} 各档生效阈值
- *   （恒 ≥ stallCloseMs 只延长不缩短；null=对应臂关）；机制整体关 → 两臂全 null
+ *   （恒 ≥ stallCloseMs 只延长不缩短；null=对应臂关）；机制整体关 → 两臂全 null。
+ *   破发臂**缺省关**（d345c 否证撤回）——显式 breakdownStallMs > 0 才启用。
  */
 function resolveStallCloseExtension(stallCloseCfg, stallCloseMs) {
   if (stallCloseMs == null) return { almostLaunchMs: null, breakdownMs: null };
@@ -58,7 +59,7 @@ function resolveStallCloseExtension(stallCloseCfg, stallCloseMs) {
   const rawA = Number(cfg.almostLaunchStallMs);
   const a = Number.isFinite(rawA) ? rawA : DEFAULT_ALMOST_LAUNCH_STALL_MS;
   const rawB = Number(cfg.breakdownStallMs);
-  const b = Number.isFinite(rawB) ? rawB : DEFAULT_BREAKDOWN_STALL_MS;
+  const b = Number.isFinite(rawB) ? rawB : 0; // T170c（2026-11-19）：缺省关（d345c 12/12 全负撤回）
   return {
     almostLaunchMs: a > 0 ? Math.max(stallCloseMs, a) : null,
     breakdownMs: b > 0 ? Math.max(stallCloseMs, b) : null,
@@ -95,7 +96,6 @@ module.exports = {
   STALL_CLOSE_ALMOST_LAUNCH_PCT,
   STALL_CLOSE_BREAKDOWN_PCT,
   DEFAULT_ALMOST_LAUNCH_STALL_MS,
-  DEFAULT_BREAKDOWN_STALL_MS,
   resolveStallCloseExtension,
   effectiveStallExtension,
 };
