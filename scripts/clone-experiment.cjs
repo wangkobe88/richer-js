@@ -2,7 +2,10 @@
 // 正式克隆工具（2026-11-19 立，T167c 会话用户裁定「标准克隆模板默认带上 factorCheck」）：
 // 整包复制基底实验 config + 门链标准段确保（factorCheck/cheatCheck/actFrontGate/buyPointCheck
 // 缺则补 enabled:true——FP 族/CD/AF1/BP 四门在克隆产物永远在位）+ signalGate 买腿 cards:4
-// 自动补（bt-v149 作废教训）+ trading_mode 陷阱断言（克隆脚本 trading-mode-trap memory）。
+// 自动补（bt-v149 作废教训）+ stallClose.stallMs→50000 标准化（T170b 模板默认 50s——
+// 2026-11-19 用户发现该裁定只落了文档没落工具，克隆链一直原样携带 40s；仅当 stallClose
+// 段在场且 stallMs 已配=机制开着时改值，段缺席/stallMs 未配=机制关不强制开）+
+// trading_mode 陷阱断言（克隆脚本 trading-mode-trap memory）。
 // 只建行不启动（启动走 182 main.js start-experiment）；--dry 打印注入计划不写库。
 //
 // 用法：
@@ -53,6 +56,16 @@ async function main() {
     const sc = cfg.strategiesConfig || cfg.strategy || {};
     for (const l of (sc.buyStrategies || [])) {
       if (l.signalGate && l.cards !== 4) { l.cards = 4; changes.push('买腿[' + (l.name || 'leg') + '] cards→4'); }
+    }
+    // ④ 断流卖出时长标准化（T170b 模板默认 50s，2026-11-19 用户裁定实装）：
+    //    stallClose 段在场且 stallMs 已配（=机制开着）→ 改值 50000 并留痕；
+    //    段缺席 / stallMs 未配（=机制关）不强制开机制，保持克隆语义。
+    //    对拍实验需保留其它值时走 --no-gates 纯整包复制，或建行后手改 config。
+    if (cfg.stallClose && typeof cfg.stallClose.stallMs === 'number' && cfg.stallClose.stallMs > 0) {
+      if (cfg.stallClose.stallMs !== 50000) {
+        changes.push('stallClose.stallMs ' + cfg.stallClose.stallMs + '→50000（T170b 模板默认 50s）');
+        cfg.stallClose.stallMs = 50000;
+      }
     }
   }
 
