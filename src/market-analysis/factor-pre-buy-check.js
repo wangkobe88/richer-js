@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP26'; // FP26=尾段买力枯竭+卖压在场臂（2026-11-19 bt-v158〔7ae8e398 win1019 48h 全门链〕交易数据因子分析立法——用户确认形状「30 秒内的活跃度相当部分被卖出掌控，买入又偏弱」+裁定落 FP26：win30 卖单 ≥5 笔〔流量被卖方掌控〕∧ 尾 5s 买入 ≤1 笔〔买点此刻接盘的人已经走了〕→ 拒 tail_no_buyer_pressure——「卖压驱动的假活跃」死盘：卖单滚动维持吞吐 4~5B/min〔act 族 L1~L5「吞吐死寂 <1B/min」线结构性失明——方向性信息无消费者〕、买方缺席，买入后唯一流动性来源=新买家进场而尾段明示不在场；三窗重放〔w1019 bt-v158/w1012 bt-v150/w1103 bt-v145，273 成交票〕**20 票 0 胜 17 负 2 平净 −0.44**，w1019 命中 8 票含该窗前两大亏〔大小姐 0x1ec898…7777 −0.0699/吕吕 0xe8cb59…7777 −0.0693〕且 8/8 全部断流出场〔stallClose〕；阈值敏感性 selN=5 最优〔4 引入 3 张赢票/8 丢命中面〕；sbw 腿可省〔sbw=burst 子集仅 1 票 −0.018 也负——纯数值版无前视问题可直接挂最前门〕；与 CD414（重砸盘 15 钱包/2B/净−1.5）正交=互斥序在 cd414 后重砸盘码先认领、本臂管线外轻量阴跌；与 FP18（进行时崩塌 chg5/chg30 双负）正交=不限动量管「跌完仍无人接」〔命中面 FP18 形状仅 5/20〕；BP74「买入力在场豁免」〔尾10s 买≥3∧0.1B 放行〕的纯代码反向镜像——题面判读 Jev 未稳定执行〔BP61 铁律又一支〕；边缘命中票阿峰理论 0x0524…57777〔开盘收割余波型：净流 +0.44 但尾 5s 仅 1 笔买、unrec −9.71 恰浅于已否证 A1 臂 −10 线从缝里漏过被本臂接住〕；否证面勿重跑：D1 尾10s卖钱包≥2∧win30卖≥7 三窗全伤〔w1103 +1.62〕、A2/A3 未收复深跌族 win1012/1103 翻坏、sbw 数值代理 burst5Bnb<0.3 分布重叠不可行；键源 buyDerived.activity.nearTail5BuyN+win[30].sellN〔纯现成键零新增 snapshot 键〕；null 容缺不触发〔宁漏不冒充〕）；FP25=T192 大周期卖压残局臂（2026-11-19 bt-v156 0x54e33173…7777 案，用户裁定「这个不是 burst，但从我的角度也应该被拦」+「这种小反弹在代币尾声状态应该都起不来」：走完一轮 ath124.4%/总额15.67B 的票 32s 静默后卖单砸簇〔簇卖占 58.7%/0.49B，+10s 4 钱包同秒卖 0.338B〕+17s 双买反弹，ladder 腿恰在反弹瞬间 fire〔chg5 +7.91 废 FP18「进行时」两腿刀〕→ 买入 90s 断流 almost 延长档平手出局 −0.0034。FP16 六腿里总额/ath/静默/波买全过、卡在 D3.67 波锚 null——按笔数最密 5s 窗被卖簇劫持窗内零 BUY → sinceWaveEnd 无法计算 → 波近锚腿证据缺席 fail-open〔FP16 与 CD401 的簇键/D3.67 波键两族口径混用结构性缝〕。臂=FP16 同主干〔ath≥100∧总额≥11∧静默≥30s∧深破豁免<−10 全复用〕+CD407 最大流量簇两腿〔卖占比≥50∧卖额≥0.3=CD401 同线〕+簇贴近锚〔**新 snapshot 键 burstSecSinceSegEnd**=簇末行距窗末秒，D3.67 波锚卖簇劫持形状结构性 null 本键以簇自身末行定位〕→ 拒 lifecycle_sell_residual；买入涌入归 FP16、卖出砸出归本臂两臂对称分工不修波定位器；今晨双门 FP21〔posH=22<25 户数腿失〕/FP22〔HHI=0.126≥0.10 集中度腿失〕均差一点且均系筹码维度非生命周期维度天然不管此形）；FP24=T191 FP16 总额线降线 15→11（chibi 0x854d4f2f…7777 案：总额 11.5295<15 漏面，用户裁定「接受这个误伤」案源锚定取整；T∈[10,11.5] 两窗拦面全同=带内数据等价；深破豁免腿不动两张真重启票正确放行）；FP23=T190 相邻双块捆绑砸盘尾承接臂（2026-11-19 bt-v156 0x2b63c82e…7777 ASCEND「大量捆绑砸盘尾声票」案立法，用户选线 CD403 卖方 ≥8 只拦极端+追裁定「偏前期」案特性（后期代币下跌段连续两 slot 砸盘 8 个=正常市场化抛售不拦，注意误伤）：**前期域 票龄≤600s** ∧ dump2Block 卖方≥8 ∧ 合并卖额≥0.5B ∧ 跌幅≤-10% ∧ 距锚≤60s ∧ 承接比<0.3 → 拒 dump_pair_low_absorption〔CD403 单块 ≥0.5B 达标口径对跨两块分摊捆绑砸盘结构性失明的补集；BP78 总额≥20B 豁免照抄；三窗重放拦本案 1 票全负零误伤、AZ 案票 0x397a 五卖方用户知情漏〕；键源 buyDerived.dump2Block+tokenAgeSec——sellers 剔路由/dropPct 含 outlier 事实口径/followBuyBnb 已剔 BP85 闪进闪出）；FP22=T188 持仓均等作弊仓臂（筹码结构维度二连——2026-11-19 用户裁定「HHI 这么低是作弊票的概率比较高」「这一窗算是持仓均等异常的作弊仓，没有明显误伤，可以落」+同日二修流通腿「只控流动筹码比例高一些的——『不对劲』这种我还想救一救」线值三裁取 16.5：HHI<0.10 ∧ 流通≥16.5 → 拒 even_split_crew 团伙分仓已派发指纹〔四窗验证：拦 11 票 −0.252 大亏全拦〔0x531d/CEPE/DND/低电量/치이카와/Burn〕/救 16 票 +0.473 大肉全保〔不对劲 +131/猫厨师 +55/프론티어 +38/大美 +24〕；键源 cheat-snapshot holderHHI+circSupplyPct→buyDerived.chip；HHI=Σ份额² 对尾部尘埃免疫与基尼互补〕；FP21=T187 持有者打散臂（筹码结构维度立法——2026-11-19 用户裁定「代币已经交易了一段时间，参与者比较多，筹码已经完全打乱形不成主力了」+「通过 top1-2 的集中度把薄肌俱乐部救回来」+「落到因子过滤模块即可」：正净持有者 ≥25 ∧ top1-2 集中度不足 → 拒 holder_scatter，豁免=top1HoldCircPct≥45 ∨ top1Top2HoldCircPct≥60（有主力承接在场——两窗 bt-v155/156 全成交面 16 票 −0.30 止血/误伤 3 正票 +0.109 用户知情接受〔雅迪X5 0x0c959153 realPct+24 但闪跌闪拉真实交易吃不到点位〕；键源 buyDerived.chip〔CD 锚窗口径 posHolderCount/holdingsProfile circPct，D3.35 在场流通分母〕；两窗豁免臂零触发=纯前瞻保护，薄肌 0x51a17dda h=19 天然不进门）；FP20=T167d FP10 豁免换轨：末卖后在外流通谷值≤9%（T167c 10s 冷却线随退役——距锚随时间过线=多信号自愈 bt-v154 实证仅推迟 4s；谷值只随真实卖回下降，出清更深=语义自洽），0x6075 苏琳案二修；FP19=T167c FP10 豁免最短冷却（破发豁免须距 famous 末卖 ≥10s——末卖数秒内深破=砸落进行时非清场完成，0x6075 苏琳案四张真空接刀 −0.149 止血、28ad dist=16s 精确保留豁免，10s 取线留 6s 余量防同型票 dist 浮动误杀 +1.4 级尾部）；FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
+const FACTOR_PREBUY_VERSION = 'FP27'; // FP27=大户静默卸货臂（2026-11-19 bt-v158 因子分析续挖立法，用户裁定「先落吧」：bigHolderSellBnb60∈[0.1,0.3)〔top5 正净持仓者 60s 轻量出货带——锚窗全量 ticks 算 per-wallet 净 token 持仓〔买加卖减、剔 9 址聚合路由伪钱包〕取正净 top5，**清仓离场者净 ≤0 自动出局**=本键天然只量在场持有者〕∧ athVsLaunchPct<80〔票还没走完一轮大周期〕→ 拒 holder_quiet_unload——「上升/中途庄提前离场」：还持有大量筹码的人在偷偷卖而生命周期尚未走完，此时出货=阴跌抽血前兆非兑现；三窗重放〔w1019/w1012/w1103〕**21 票胜 5 净 −0.374 三窗全负**（w1019 −0.250〔9 票含 Tự do −0.074/大小姐 −0.070〕/w1012 −0.100/w1103 −0.024），误伤面仅 5 张全部 ≤+0.03〔最大天狗 +0.029/水军 +0.026/Doki +0.0096〕零大赢票；与 FP16/FP25〔ath≥100 走完一轮残局门〕互补=**生命周期两方向闭环**（ATH<80 途中离场 vs ≥100 走完残局）；**⚠上界 0.3 必须=非单调实证**：bhs≥0.3 重出货三窗反而 +0.30 正——重砸=换手完成有人接走〔ASTER 类深砸重启形状〕，轻出货 0.1~0.3 才是抽血；ath<80 单独三窗 +5.13 正=分离来自组合非 ath 腿；**famous/聪明钱不合并**〔2026-11-19 三口径对拍否证：top5∪famous(37址)∪smartmoney(158址) 独有增量三窗净 +1.44 伤——memes famous 卖 0.35 仍 +142% 一票否决、CMC sm 卖 0.31 仍 +17%；名单钱包「在场重仓持有」已在 top5 隐式覆盖、已边卖边走〔top5=0〕的裸卖出额无分离力——现有 famous 门族全带形状腿〔FP10 全清+低价域/FP9 波内占比/FP11 快闪〕正因如此，维持纯结构口径〕；与 FP26 命中面重叠〔大小姐/라이언断流族〕→ 挂 FP26 后=断流预测器先认领、本臂接住非 FP26 的出货票；键源 buyDerived.bigHolderSellBnb60+athVsLaunchPct 现成键零新增；null 容缺不触发〔宁漏不冒充〕）；FP26=尾段买力枯竭+卖压在场臂（2026-11-19 bt-v158〔7ae8e398 win1019 48h 全门链〕交易数据因子分析立法——用户确认形状「30 秒内的活跃度相当部分被卖出掌控，买入又偏弱」+裁定落 FP26：win30 卖单 ≥5 笔〔流量被卖方掌控〕∧ 尾 5s 买入 ≤1 笔〔买点此刻接盘的人已经走了〕→ 拒 tail_no_buyer_pressure——「卖压驱动的假活跃」死盘：卖单滚动维持吞吐 4~5B/min〔act 族 L1~L5「吞吐死寂 <1B/min」线结构性失明——方向性信息无消费者〕、买方缺席，买入后唯一流动性来源=新买家进场而尾段明示不在场；三窗重放〔w1019 bt-v158/w1012 bt-v150/w1103 bt-v145，273 成交票〕**20 票 0 胜 17 负 2 平净 −0.44**，w1019 命中 8 票含该窗前两大亏〔大小姐 0x1ec898…7777 −0.0699/吕吕 0xe8cb59…7777 −0.0693〕且 8/8 全部断流出场〔stallClose〕；阈值敏感性 selN=5 最优〔4 引入 3 张赢票/8 丢命中面〕；sbw 腿可省〔sbw=burst 子集仅 1 票 −0.018 也负——纯数值版无前视问题可直接挂最前门〕；与 CD414（重砸盘 15 钱包/2B/净−1.5）正交=互斥序在 cd414 后重砸盘码先认领、本臂管线外轻量阴跌；与 FP18（进行时崩塌 chg5/chg30 双负）正交=不限动量管「跌完仍无人接」〔命中面 FP18 形状仅 5/20〕；BP74「买入力在场豁免」〔尾10s 买≥3∧0.1B 放行〕的纯代码反向镜像——题面判读 Jev 未稳定执行〔BP61 铁律又一支〕；边缘命中票阿峰理论 0x0524…57777〔开盘收割余波型：净流 +0.44 但尾 5s 仅 1 笔买、unrec −9.71 恰浅于已否证 A1 臂 −10 线从缝里漏过被本臂接住〕；否证面勿重跑：D1 尾10s卖钱包≥2∧win30卖≥7 三窗全伤〔w1103 +1.62〕、A2/A3 未收复深跌族 win1012/1103 翻坏、sbw 数值代理 burst5Bnb<0.3 分布重叠不可行；键源 buyDerived.activity.nearTail5BuyN+win[30].sellN〔纯现成键零新增 snapshot 键〕；null 容缺不触发〔宁漏不冒充〕）；FP25=T192 大周期卖压残局臂（2026-11-19 bt-v156 0x54e33173…7777 案，用户裁定「这个不是 burst，但从我的角度也应该被拦」+「这种小反弹在代币尾声状态应该都起不来」：走完一轮 ath124.4%/总额15.67B 的票 32s 静默后卖单砸簇〔簇卖占 58.7%/0.49B，+10s 4 钱包同秒卖 0.338B〕+17s 双买反弹，ladder 腿恰在反弹瞬间 fire〔chg5 +7.91 废 FP18「进行时」两腿刀〕→ 买入 90s 断流 almost 延长档平手出局 −0.0034。FP16 六腿里总额/ath/静默/波买全过、卡在 D3.67 波锚 null——按笔数最密 5s 窗被卖簇劫持窗内零 BUY → sinceWaveEnd 无法计算 → 波近锚腿证据缺席 fail-open〔FP16 与 CD401 的簇键/D3.67 波键两族口径混用结构性缝〕。臂=FP16 同主干〔ath≥100∧总额≥11∧静默≥30s∧深破豁免<−10 全复用〕+CD407 最大流量簇两腿〔卖占比≥50∧卖额≥0.3=CD401 同线〕+簇贴近锚〔**新 snapshot 键 burstSecSinceSegEnd**=簇末行距窗末秒，D3.67 波锚卖簇劫持形状结构性 null 本键以簇自身末行定位〕→ 拒 lifecycle_sell_residual；买入涌入归 FP16、卖出砸出归本臂两臂对称分工不修波定位器；今晨双门 FP21〔posH=22<25 户数腿失〕/FP22〔HHI=0.126≥0.10 集中度腿失〕均差一点且均系筹码维度非生命周期维度天然不管此形）；FP24=T191 FP16 总额线降线 15→11（chibi 0x854d4f2f…7777 案：总额 11.5295<15 漏面，用户裁定「接受这个误伤」案源锚定取整；T∈[10,11.5] 两窗拦面全同=带内数据等价；深破豁免腿不动两张真重启票正确放行）；FP23=T190 相邻双块捆绑砸盘尾承接臂（2026-11-19 bt-v156 0x2b63c82e…7777 ASCEND「大量捆绑砸盘尾声票」案立法，用户选线 CD403 卖方 ≥8 只拦极端+追裁定「偏前期」案特性（后期代币下跌段连续两 slot 砸盘 8 个=正常市场化抛售不拦，注意误伤）：**前期域 票龄≤600s** ∧ dump2Block 卖方≥8 ∧ 合并卖额≥0.5B ∧ 跌幅≤-10% ∧ 距锚≤60s ∧ 承接比<0.3 → 拒 dump_pair_low_absorption〔CD403 单块 ≥0.5B 达标口径对跨两块分摊捆绑砸盘结构性失明的补集；BP78 总额≥20B 豁免照抄；三窗重放拦本案 1 票全负零误伤、AZ 案票 0x397a 五卖方用户知情漏〕；键源 buyDerived.dump2Block+tokenAgeSec——sellers 剔路由/dropPct 含 outlier 事实口径/followBuyBnb 已剔 BP85 闪进闪出）；FP22=T188 持仓均等作弊仓臂（筹码结构维度二连——2026-11-19 用户裁定「HHI 这么低是作弊票的概率比较高」「这一窗算是持仓均等异常的作弊仓，没有明显误伤，可以落」+同日二修流通腿「只控流动筹码比例高一些的——『不对劲』这种我还想救一救」线值三裁取 16.5：HHI<0.10 ∧ 流通≥16.5 → 拒 even_split_crew 团伙分仓已派发指纹〔四窗验证：拦 11 票 −0.252 大亏全拦〔0x531d/CEPE/DND/低电量/치이카와/Burn〕/救 16 票 +0.473 大肉全保〔不对劲 +131/猫厨师 +55/프론티어 +38/大美 +24〕；键源 cheat-snapshot holderHHI+circSupplyPct→buyDerived.chip；HHI=Σ份额² 对尾部尘埃免疫与基尼互补〕；FP21=T187 持有者打散臂（筹码结构维度立法——2026-11-19 用户裁定「代币已经交易了一段时间，参与者比较多，筹码已经完全打乱形不成主力了」+「通过 top1-2 的集中度把薄肌俱乐部救回来」+「落到因子过滤模块即可」：正净持有者 ≥25 ∧ top1-2 集中度不足 → 拒 holder_scatter，豁免=top1HoldCircPct≥45 ∨ top1Top2HoldCircPct≥60（有主力承接在场——两窗 bt-v155/156 全成交面 16 票 −0.30 止血/误伤 3 正票 +0.109 用户知情接受〔雅迪X5 0x0c959153 realPct+24 但闪跌闪拉真实交易吃不到点位〕；键源 buyDerived.chip〔CD 锚窗口径 posHolderCount/holdingsProfile circPct，D3.35 在场流通分母〕；两窗豁免臂零触发=纯前瞻保护，薄肌 0x51a17dda h=19 天然不进门）；FP20=T167d FP10 豁免换轨：末卖后在外流通谷值≤9%（T167c 10s 冷却线随退役——距锚随时间过线=多信号自愈 bt-v154 实证仅推迟 4s；谷值只随真实卖回下降，出清更深=语义自洽），0x6075 苏琳案二修；FP19=T167c FP10 豁免最短冷却（破发豁免须距 famous 末卖 ≥10s——末卖数秒内深破=砸落进行时非清场完成，0x6075 苏琳案四张真空接刀 −0.149 止血、28ad dist=16s 精确保留豁免，10s 取线留 6s 余量防同型票 dist 浮动误杀 +1.4 级尾部）；FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -352,6 +352,13 @@ const DENSE_DUMP_MAX_NET_BNB = -1.5;
  *  阈值敏感性三窗实测：卖 5 最优（4 引入 3 张赢票、8 丢命中面） */
 const TAIL_NO_BUYER_MIN_SELL_N = 5;
 const TAIL_NO_BUYER_MAX_BUY_N = 1;
+
+/** FP27 大户静默卸货三线（2026-11-19 bt-v158 三窗立法）：bhs∈[0.1,0.3) ∧
+ *  ath<80——带状下界 0.1=轻量抽血、上界 0.3 必须（≥0.3 重出货三窗 +0.30 反而
+ *  正=换手完成有人接走，非单调）；ath 严格 <80（80 恰线不拦） */
+const HOLDER_QUIET_UNLOAD_MIN_BNB = 0.1;
+const HOLDER_QUIET_UNLOAD_MAX_BNB = 0.3;
+const HOLDER_QUIET_UNLOAD_MAX_ATH_PCT = 80;
 
 // ── FP23 相邻双块捆绑砸盘尾承接臂（T190，2026-11-19 bt-v156 0x2b63c82e…7777
 //    ASCEND 案立法，用户裁定原话「大量捆绑砸盘尾声票，看看怎么拦截」+选线
@@ -656,6 +663,30 @@ function armDenseDump(bd) {
     && w30.netBnb <= DENSE_DUMP_MAX_NET_BNB;
 }
 
+/** FP27 大户静默卸货（未走完周期）：bigHolderSellBnb60∈[0.1,0.3)（top5 正净
+ *  持仓者 60s 轻量出货带）∧ athVsLaunchPct<80（票还没走完一轮大周期）→ 拒
+ *  holder_quiet_unload——「上升/中途庄提前离场」：筹码结构里还持有大量筹码的
+ *  人在偷偷卖（清仓离场者净持仓 ≤0 自动出局不计——本键天然只量在场持有者），
+ *  而 ATH 未及 80%=生命周期尚未走完，此时出货=阴跌抽血前兆非兑现。与
+ *  FP16/FP25（ath≥100 走完一轮的残局门）互补=生命周期两方向闭环。
+ *  ⚠上界 0.3 必须（非单调实证）：bhs≥0.3 重出货三窗反而 +0.30 正——重砸=
+ *  换手完成有人接走（ASTER 类深砸重启形状），轻出货 0.1~0.3 才是抽血；
+ *  ath<80 单独三窗 +5.13 正——分离来自组合非 ath 腿。famous/聪明钱不合并
+ *  （2026-11-19 三口径对拍否证：top5∪famous∪sm 独有增量三窗净 +1.44 伤——
+ *  memes famous 卖 0.35 仍 +142% 一票否决；名单钱包「在场重仓持有」已在
+ *  top5 隐式覆盖、已边卖边走〔top5=0〕的裸卖出额无分离力——现有 famous
+ *  门族全带形状腿正因如此）。三窗重放 21 票胜 5 净 −0.374、误伤 5 张全部
+ *  ≤+0.03（最大天狗 +0.029）；与 FP26 有命中面重叠（大小姐/라이언等断流
+ *  族）→ 挂 FP26 后=断流预测器先认领、本臂接住非 FP26 的出货票。null 容缺
+ *  不触发（宁漏不冒充）。 */
+function armHolderQuietUnload(bd) {
+  if (!bd) return false;
+  if (typeof bd.bigHolderSellBnb60 !== 'number') return false;
+  if (bd.bigHolderSellBnb60 < HOLDER_QUIET_UNLOAD_MIN_BNB || bd.bigHolderSellBnb60 >= HOLDER_QUIET_UNLOAD_MAX_BNB) return false;
+  if (typeof bd.athVsLaunchPct !== 'number' || bd.athVsLaunchPct >= HOLDER_QUIET_UNLOAD_MAX_ATH_PCT) return false;
+  return true;
+}
+
 /** FP26 尾段买力枯竭+卖压在场：win30 卖单 ≥5 笔 ∧ 尾 5s 买入 ≤1 笔 → 拒
  *  tail_no_buyer_pressure——「卖压驱动的假活跃」：30s 窗流量被卖方掌控（方向）
  *  ∧ 买点此刻接盘者已走（尾 5s 即时买力——30s 整体买入可以不小/净流可正，
@@ -926,6 +957,11 @@ function buildFactorGates(parts) {
       id: 'tail_no_buyer', label: 'FP26·尾段买力枯竭+卖压在场',
       value: `尾5s买${d(actTailG && actTailG.nearTail5BuyN)}笔 30s卖${d(w30g && w30g.sellN)}笔`,
       line: '尾5s买≤1 ∧ 30s卖单≥5（卖压假活跃——货在砸、接盘者已走）', hit: parts.armHits.includes('tail_no_buyer_pressure'),
+    });
+    g.push({
+      id: 'holder_quiet_unload', label: 'FP27·大户静默卸货',
+      value: `top5卖${d(parts.bd && parts.bd.bigHolderSellBnb60, 'B')} ath${d(parts.bd && parts.bd.athVsLaunchPct, '%')}`,
+      line: '60s top5卖∈[0.1,0.3)B ∧ ath<80%（未走完周期庄提前离场；≥0.3=换手完成放行）', hit: parts.armHits.includes('holder_quiet_unload'),
     });
   }
   // FP3 famous 两法
@@ -1350,6 +1386,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     else if (armExtremeDumpSellers(cd, snapshot.buyDerived)) arms.push('cd412_extreme_dump_sellers');
     else if (armDenseDump(snapshot.buyDerived) && !domFall.observe) arms.push('cd414_dense_dump'); // FP7 短窗持续密集砸盘（observe 命中票排除——famous 场景归观察）
     else if (armTailNoBuyerSellPressure(snapshot.buyDerived)) arms.push('tail_no_buyer_pressure'); // FP26 尾段买力枯竭+卖压在场（卖压假活跃——act 族死寂线的方向性补集，cd414 重砸盘线外轻量阴跌）
+    else if (armHolderQuietUnload(snapshot.buyDerived)) arms.push('holder_quiet_unload'); // FP27 大户静默卸货（未走完周期 ath<80 的 top5 轻量出货带——与 FP16/FP25 残局门成生命周期两方向闭环；FP26 先认领断流族）
     else if (armSlowPumpUnload(snapshot)) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）
     else if (armFamousHarvestFinal(snapshot)) arms.push('fam_harvested_final'); // FP8b famous 收割完残局（大涨过+已离场+已砸落）
     else if (armFamousBurstWave(snapshot.buyDerived)) arms.push('fam_burst_wave'); // FP9 famous 系突发波（burst 纯 famous 带起来的）
@@ -1430,6 +1467,7 @@ module.exports = {
   armDumpPairLowAbsorption,
   armBurstWeakWave,
   TAIL_NO_BUYER_MIN_SELL_N, TAIL_NO_BUYER_MAX_BUY_N, armTailNoBuyerSellPressure,
+  HOLDER_QUIET_UNLOAD_MIN_BNB, HOLDER_QUIET_UNLOAD_MAX_BNB, HOLDER_QUIET_UNLOAD_MAX_ATH_PCT, armHolderQuietUnload,
   armExtremeDumpSellers, armDenseDump, armSlowPumpUnload, armFamousHarvestFinal, armFamousBurstWave,
   armFamousLowExit, famousBreachExemptPct, FAM_LOW_EXIT_BREACH_EXEMPT_PCT,
   armFamousEarlyFlip,
