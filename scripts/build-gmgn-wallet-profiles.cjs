@@ -174,6 +174,16 @@ async function upsert(rows) {
   console.log(`[build-gmgn-wallet-profiles] days=${DAYS} limit=${LIMIT} min-bnb=${MIN_BNB} ` +
     `rank-by=${RANK_BY} period=${PERIOD} refresh-days=${REFRESH_DAYS} interval=${INTERVAL_MS}ms commit=${COMMIT}`);
   const t0 = Date.now();
+  // 表结构预检（--commit 时）：旧结构表（buy_7d 时代）DROP 重建后再跑——2026-11-19 首跑
+  // 事故：CREATE IF NOT EXISTS 对已存在旧表静默跳过，upsert 每批失败被吞成单钱包 fail，
+  // 460 次成功 API 零落表空烧配额
+  if (COMMIT) {
+    const probe = await sb.from('gmgn_wallet_profiles').select('buy_count').limit(1);
+    if (probe.error) {
+      throw new Error(`表结构预检失败（须新列 buy_count——旧结构表（buy_7d 时代）DROP 重建，` +
+        `见 migrations/create_gmgn_wallet_profiles.sql）: ${probe.error.message}`);
+    }
+  }
   const { stat, rowsScanned } = await collectWallets();
   console.log(`[scan] 完成：${rowsScanned} 行 → ${stat.size} 去重钱包（${((Date.now() - t0) / 1000).toFixed(0)}s）`);
   if (stat.size === 0) { console.log('无钱包，退出'); return; }
@@ -207,20 +217,17 @@ async function upsert(rows) {
   };
   for (let i = 0; i < todo.length; i++) {
     const addr = todo[i];
+    // ① 拉取（API 层错误：429 退避/单钱包 fail）
+    let data = null;
     try {
-      const data = await api.getWalletStats('bsc', addr, PERIOD);
-      const row = apiRow(addr, data, prevCount.get(addr) || 0);
-      if (row.created_at_sec == null && row.tags.length === 0 && row.buy_count == null) empty++;
-      pending.push(row);
-      await flush(false);
-      ok++; banStreak = 0;
+      data = await api.getWalletStats('bsc', addr, PERIOD);
     } catch (e) {
       // base-api 已自动重试 ≤5s；重试耗尽仍限流 → 暂停续跑；连续 MAX_BAN 轮停机
       if (e && (e.apiError === 'RATE_LIMIT_EXCEEDED' || e.apiError === 'RATE_LIMIT_BANNED')) {
         banStreak++;
         console.log(`\n[429] ${addr} ${e.apiError}（第 ${banStreak}/${MAX_BAN} 轮）→ 暂停 30s`);
         if (banStreak >= MAX_BAN) {
-          await flush(true);
+          await flush(true).catch(() => {});
           console.log(`[stop] 连续 ${MAX_BAN} 轮限流，停机。已落 ${ok} 行（fail=${fail}）；` +
             `配额恢复后重跑（增量语义自动续）`);
           process.exit(2);
@@ -231,6 +238,20 @@ async function upsert(rows) {
       }
       fail++;
       if (fail <= 5 || fail % 50 === 0) console.log(`\n[fail] ${addr}: ${e?.message || e}`);
+      await sleep(INTERVAL_MS);
+      continue;
+    }
+    // ② 落表（表层错误=fatal 停机：表坏了继续拉=配额空烧——首跑事故教训）
+    const row = apiRow(addr, data, prevCount.get(addr) || 0);
+    if (row.created_at_sec == null && row.tags.length === 0 && row.buy_count == null) empty++;
+    pending.push(row);
+    ok++; banStreak = 0;
+    try {
+      await flush(false);
+    } catch (e) {
+      console.error(`\n[fatal] upsert 失败（表结构/权限？）——停机防配额空烧: ${e?.message || e}`);
+      console.error(`[fatal] 已拉取未落表 ${pending.length} 行丢弃；修复表后重跑（增量语义自动续）`);
+      process.exit(3);
     }
     if (i % 10 === 0 || i === todo.length - 1) {
       process.stdout.write(`\r[fetch] ${i + 1}/${todo.length} ok=${ok} empty=${empty} fail=${fail}   `);
