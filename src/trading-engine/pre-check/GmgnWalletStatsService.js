@@ -1,5 +1,7 @@
 /**
- * GMGN 钱包画像统计层（2026-10-18 GMGN wallet_stats 调研接入，Agentum/Konasu/7777 sybil 案）
+ * GMGN 钱包画像统计层（2026-10-18 GMGN wallet_stats 调研接入，Agentum/Konasu/7777 sybil 案；
+ * 2026-11-19 表首建：计数列 7d→30d 口径——张雪电摩 pump 作弊案定标 30d 票数/盈亏是
+ * 分离力字段，7d 对间歇作业号误判死钱包；realized_profit 新列「稳定小亏」打工号指纹）
  *
  * 架构（用户裁定=离线建库优先）：`gmgn_wallet_profiles` 表（全局 PK，离线脚本
  * build-gmgn-wallet-profiles.cjs 批量回填）为 fire 时刻主数据源（PK 查询毫秒级）；
@@ -60,9 +62,10 @@ const DEFAULTS = {
   mirrorMinBuy: 5,        // 近镜像最低 buy 计数（低频钱包三元组撞型是噪音）
 };
 
-const SELECT_COLS = 'address,tags,created_at_sec,fund_from_address,buy_7d,sell_7d,token_num_7d,winrate,last_active_sec,native_balance_bnb,fetched_at,fetch_count';
+const SELECT_COLS = 'address,tags,created_at_sec,fund_from_address,stats_period,buy_count,sell_count,token_num,realized_profit,winrate,last_active_sec,native_balance_bnb,fetched_at,fetch_count';
 
-/** 表行 → 内存画像（缺列宽容归一；GMGN 无记录的行=空画像有效行） */
+/** 表行 → 内存画像（缺列宽容归一；GMGN 无记录的行=空画像有效行）
+ *  2026-11-19 起 30d 口径（stats_period 留痕；张雪电摩 pump 作弊案定标） */
 function rowToProfile(row) {
   const tags = Array.isArray(row.tags) ? row.tags.map(String) : [];
   return {
@@ -70,14 +73,16 @@ function rowToProfile(row) {
     tags,
     createdAtSec: Number.isFinite(Number(row.created_at_sec)) ? Number(row.created_at_sec) : null,
     fundFrom: row.fund_from_address ? String(row.fund_from_address).toLowerCase() : null,
-    buy7d: Number.isFinite(Number(row.buy_7d)) ? Number(row.buy_7d) : null,
-    sell7d: Number.isFinite(Number(row.sell_7d)) ? Number(row.sell_7d) : null,
-    tokenNum7d: Number.isFinite(Number(row.token_num_7d)) ? Number(row.token_num_7d) : null,
+    buyCount: Number.isFinite(Number(row.buy_count)) ? Number(row.buy_count) : null,
+    sellCount: Number.isFinite(Number(row.sell_count)) ? Number(row.sell_count) : null,
+    tokenNum: Number.isFinite(Number(row.token_num)) ? Number(row.token_num) : null,
+    realizedProfit: Number.isFinite(Number(row.realized_profit)) ? Number(row.realized_profit) : null,
     fetchedAtMs: row.fetched_at ? Date.parse(row.fetched_at) : 0,
   };
 }
 
-/** GMGN wallet_stats 返回 → 画像（字段路径按 182 实测：common.tags/common.created_at/…） */
+/** GMGN wallet_stats 返回 → 画像（字段路径按 182 实测：common.tags/common.created_at/…；
+ *  30d 窗口——7d 对间歇作业号会误判死钱包） */
 function apiToProfile(address, data) {
   const common = data && typeof data === 'object' ? (data.common || {}) : {};
   const pnl = data && typeof data === 'object' ? (data.pnl_stat || {}) : {};
@@ -87,9 +92,10 @@ function apiToProfile(address, data) {
     tags: Array.isArray(common.tags) ? common.tags.map(String) : [],
     createdAtSec: num(common.created_at),
     fundFrom: common.fund_from_address ? String(common.fund_from_address).toLowerCase() : null,
-    buy7d: num(data?.buy),
-    sell7d: num(data?.sell),
-    tokenNum7d: num(pnl.token_num),
+    buyCount: num(data?.buy),
+    sellCount: num(data?.sell),
+    tokenNum: num(pnl.token_num),
+    realizedProfit: num(data?.realized_profit),
     fetchedAtMs: Date.now(),
   };
 }
@@ -230,8 +236,8 @@ class GmgnWalletStatsService {
     const createdBnbPct = cw >= 2 ? pct(cbnb) : 0;
 
     // ── 镜像三元组（精确臂：全等；容差臂：排序链式相邻聚类）──
-    const trip = rows.filter(r => r.p.buy7d != null && r.p.sell7d != null && r.p.tokenNum7d != null)
-      .map(r => ({ b: r.p.buy7d, s: r.p.sell7d, t: r.p.tokenNum7d }));
+    const trip = rows.filter(r => r.p.buyCount != null && r.p.sellCount != null && r.p.tokenNum != null)
+      .map(r => ({ b: r.p.buyCount, s: r.p.sellCount, t: r.p.tokenNum }));
     const key3 = (x) => `${x.b}|${x.s}|${x.t}`;
     const exact = new Map();
     for (const x of trip) exact.set(key3(x), (exact.get(key3(x)) || 0) + 1);
@@ -360,7 +366,7 @@ class GmgnWalletStatsService {
       // 惰性 require（GmgnRiskCheckService 同款：单测打桩/未配置 GMGN 零加载）
       const { GMGNPortfolioAPI } = require('../../core/gmgn-api');
       const api = new GMGNPortfolioAPI({ apiKey, timeout: this._c.fetchTimeoutMs });
-      const data = await api.getWalletStats('bsc', addr, '7d');
+      const data = await api.getWalletStats('bsc', addr, '30d');
       this._consecutiveFails = 0;
       const profile = apiToProfile(addr, data);
       this._mem.set(addr, { profile, at: Date.now() });
@@ -409,9 +415,12 @@ class GmgnWalletStatsService {
       tags: profile.tags,
       created_at_sec: profile.createdAtSec,
       fund_from_address: profile.fundFrom,
-      buy_7d: profile.buy7d,
-      sell_7d: profile.sell7d,
-      token_num_7d: profile.tokenNum7d,
+      stats_period: '30d',
+      buy_count: profile.buyCount,
+      sell_count: profile.sellCount,
+      token_num: profile.tokenNum,
+      realized_profit: profile.realizedProfit,
+      fetched_at: new Date().toISOString(), // ★显式写：upsert 冲突更新不走 DEFAULT
     };
     await client.from('gmgn_wallet_profiles').upsert(row, { onConflict: 'address' });
   }

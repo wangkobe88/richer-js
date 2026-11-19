@@ -78,12 +78,12 @@ const NOW = Date.UTC(2026, 9, 18, 12, 0, 0);          // 2026-10-18 12:00 UTC（
 const KONASU_T0 = Math.floor(Date.UTC(2026, 9, 17, 13, 40, 0) / 1000);
 const pK = (addr, over) => Object.assign({
   address: addr, tags: [], createdAtSec: null, fundFrom: null,
-  buy7d: null, sell7d: null, tokenNum7d: null, fetchedAtMs: NOW,
+  buyCount: null, sellCount: null, tokenNum: null, fetchedAtMs: NOW,
 }, over);
 const KONASU = [
-  pK('wk1', { buy7d: 707, sell7d: 707, tokenNum7d: 710, createdAtSec: KONASU_T0 }),
-  pK('wk2', { buy7d: 704, sell7d: 710, tokenNum7d: 707, createdAtSec: KONASU_T0 + 60 }),
-  pK('wk3', { buy7d: 710, sell7d: 704, tokenNum7d: 713, createdAtSec: KONASU_T0 - 30 }),
+  pK('wk1', { buyCount: 707, sellCount: 707, tokenNum: 710, createdAtSec: KONASU_T0 }),
+  pK('wk2', { buyCount: 704, sellCount: 710, tokenNum: 707, createdAtSec: KONASU_T0 + 60 }),
+  pK('wk3', { buyCount: 710, sellCount: 704, tokenNum: 713, createdAtSec: KONASU_T0 - 30 }),
 ];
 // Konasu creator dadca49e：[smart_degen,fomo,gmgn_go,launchpad_smart,gmgn]（正面标签陷阱现场）
 const KONASU_CREATOR = pK('dadca49e', {
@@ -92,10 +92,10 @@ const KONASU_CREATOR = pK('dadca49e', {
 // Agentum 簇 A（0x76e85a19…7777）：c2847ca4=fresh_wallet 4 天前创建；1ae117b4/bf3a2045
 // buy=7/sell=7/tok=24~25（4.2% 容差内）；c30b791d buy=1/tok=4 散户形状；其余 created null
 const AGENTUM_A = [
-  pK('c2847ca4', { tags: ['fresh_wallet'], createdAtSec: Math.floor(NOW / 1000) - 4 * 86400, buy7d: 3, sell7d: 3, tokenNum7d: 5 }),
-  pK('1ae117b4', { buy7d: 7, sell7d: 7, tokenNum7d: 24 }),
-  pK('bf3a2045', { buy7d: 7, sell7d: 7, tokenNum7d: 25 }),
-  pK('c30b791d', { buy7d: 1, sell7d: 1, tokenNum7d: 4 }),
+  pK('c2847ca4', { tags: ['fresh_wallet'], createdAtSec: Math.floor(NOW / 1000) - 4 * 86400, buyCount: 3, sellCount: 3, tokenNum: 5 }),
+  pK('1ae117b4', { buyCount: 7, sellCount: 7, tokenNum: 24 }),
+  pK('bf3a2045', { buyCount: 7, sellCount: 7, tokenNum: 25 }),
+  pK('c30b791d', { buyCount: 1, sellCount: 1, tokenNum: 4 }),
 ];
 // Agentum 簇 B：两钱包 08:38:59/08:40:00（差 61s 跨分钟边界——固定分钟桶分 38/40 两桶漏）
 const AGENTUM_B = [
@@ -129,7 +129,7 @@ console.log('A. 纯函数簇指纹（Agentum/Konasu 现场反证）');
   const single = f([KONASU[0]]);
   check('A11 单钱包创建不成簇（<2 → 0；young/fresh 簇状双门槛同语义）', single.gwpCreatedClusterWallets === 0 && single.gwpMirrorClusterWallets === 0);
   // mirrorMinBuy 门：低频钱包三元组撞型是噪音（c30b791d buy=1 形状 ×2）
-  const low = f([pK('x1', { buy7d: 1, sell7d: 1, tokenNum7d: 4 }), pK('x2', { buy7d: 1, sell7d: 1, tokenNum7d: 4 })]);
+  const low = f([pK('x1', { buyCount: 1, sellCount: 1, tokenNum: 4 }), pK('x2', { buyCount: 1, sellCount: 1, tokenNum: 4 })]);
   check('A12 低频精确镜像不进近镜像臂（buy<5 噪音门）；精确臂 2 照记（观察分离）', low.gwpNearMirrorClusterWallets === 0 && low.gwpMirrorClusterWallets === 2);
   // fundSrc
   const ff = f([pK('y1', { fundFrom: '0xfeeder' }), pK('y2', { fundFrom: '0xfeeder' }), pK('y3', { fundFrom: null })]);
@@ -172,7 +172,7 @@ async function withKey(fn) {
 }
 const cDone = (async () => {
   // C1 表命中零 API：预填表行 → buildFactors 直查表
-  tableRows.set('wk1', { address: 'wk1', tags: JSON.stringify(['gmgn']), created_at_sec: KONASU_T0, buy_7d: 707, sell_7d: 707, token_num_7d: 710, fetched_at: new Date().toISOString(), fetch_count: 1 });
+  tableRows.set('wk1', { address: 'wk1', tags: JSON.stringify(['gmgn']), created_at_sec: KONASU_T0, buy_count: 707, sell_count: 707, token_num: 710, fetched_at: new Date().toISOString(), fetch_count: 1 });
   apiCalls.length = 0;
   const svc = fresh();
   const out = await withKey(() => svc.buildFactors([{ wallet: 'wk1', bnb: 0.2 }]));

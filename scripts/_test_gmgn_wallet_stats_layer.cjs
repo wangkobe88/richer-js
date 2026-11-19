@@ -95,9 +95,9 @@ console.log('B. checkAndEvaluate 第五参（存量零影响）');
     const gwp = GmgnWalletStatsService.computeWalletProfileFactors(
       [{ wallet: 'w1', bnb: 0.3 }, { wallet: 'w2', bnb: 0.3 }, { wallet: 'w3', bnb: 0.3 }],
       new Map([
-        ['w1', { tags: [], createdAtSec: 100, buy7d: 707, sell7d: 707, tokenNum7d: 710 }],
-        ['w2', { tags: [], createdAtSec: 101, buy7d: 704, sell7d: 710, tokenNum7d: 707 }],
-        ['w3', { tags: [], createdAtSec: 102, buy7d: 700, sell7d: 707, tokenNum7d: 709 }],
+        ['w1', { tags: [], createdAtSec: 100, buyCount: 707, sellCount: 707, tokenNum: 710 }],
+        ['w2', { tags: [], createdAtSec: 101, buyCount: 704, sellCount: 710, tokenNum: 707 }],
+        ['w3', { tags: [], createdAtSec: 102, buyCount: 700, sellCount: 707, tokenNum: 709 }],
       ]), {}, Date.now());
     const v3 = await svc().checkAndEvaluate('0xB3', 'bsc', GWP_GATE, null,
       { ...gwp, gwpCovered: 1, gwpSelected: 3, gwpProfiled: 3, gwpFailed: 0 });
