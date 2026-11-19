@@ -3031,6 +3031,31 @@ console.log('I. 著名钱包单极控盘锚（cheat 门消费已退役，锚族=
     // CD411 最大段：第一段 2 买 0.5 vs 第二段 0.6 卖+0.9 买=1.5 → 第二段选中
     ok(d6.burstWaveSegBuyBnb === 0.9 && d6.burstWaveSegSellBnb === 0.6,
       `CD411 切断后最大段选择（第一段 0.5 vs 第二段 1.5→第二段选中含买卖；实际 ${d6.burstWaveSegBuyBnb}/${d6.burstWaveSegSellBnb}）`);
+
+    // ⑦ T192 burstSecSinceSegEnd（大周期卖压残局「当下事件」腿：簇末行→窗末秒；
+    //    D3.67 波锚在卖簇劫持形状下 null 的独立锚，0x54e33173…7777 案立法）
+    const d7a = d407([
+      mkRow(10, 100, 1, 'buy', 0.2, 1e-9, { sender: w(90) }),
+      mkRow(70, 200, 1, 'sell', 0.15, 1e-9, { sender: w(1) }),  // 出口行（gap 60s ≥30 成段）
+      mkRow(73, 201, 1, 'sell', 0.1, 1e-9, { sender: w(2) }),    // +3s 3 卖同秒（案形：4 钱包卖簇）
+      mkRow(73, 201, 2, 'sell', 0.1, 1e-9, { sender: w(3) }),
+      mkRow(73, 201, 3, 'sell', 0.1, 1e-9, { sender: w(4) }),
+      mkRow(74, 202, 1, 'buy', 0.2, 1e-9, { sender: w(5) }),     // 反弹双买（ladder 腿在此 fire）
+      mkRow(75, 203, 1, 'buy', 0.15, 1e-9, { sender: w(6) }),    // 窗末=簇末 → 距锚 0
+    ]);
+    ok(d7a.burstSecSinceSegEnd === 0 && d7a.burstWaveSegSellPct === 56.3 && d7a.burstWaveSegSellBnb === 0.45,
+      `T192 案形：卖砸簇+反弹双买一体到窗末（簇末距锚 0s/卖占 56.3/卖 0.45；实际 ${d7a.burstSecSinceSegEnd}/${d7a.burstWaveSegSellPct}/${d7a.burstWaveSegSellBnb}）`);
+    const d7b = d407([
+      mkRow(10, 100, 1, 'buy', 0.2, 1e-9, { sender: w(90) }),
+      mkRow(70, 200, 1, 'sell', 0.15, 1e-9, { sender: w(1) }),
+      mkRow(73, 201, 1, 'sell', 0.3, 1e-9, { sender: w(2) }),
+      mkRow(95, 210, 1, 'buy', 0.05, 1e-9, { sender: w(7) }),    // gap 22s：≥5 切断簇、<30 不成新段
+      mkRow(115, 220, 1, 'buy', 0.05, 1e-9, { sender: w(8) }),
+      mkRow(135, 230, 1, 'buy', 0.05, 1e-9, { sender: w(9) }),   // 窗末距簇末 135−73=62s=历史遗迹
+    ]);
+    ok(d7b.burstSecSinceSegEnd === 62 && d7b.burstWaveSegSellBnb === 0.45,
+      `T192 历史簇遗迹（簇末 73 → 窗末 135=62s>60 不评；实际 ${d7b.burstSecSinceSegEnd}）`);
+    ok(d4.burstSecSinceSegEnd === null, 'T192 无静默段簇锚 null 同族容缺');
   }
 
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);

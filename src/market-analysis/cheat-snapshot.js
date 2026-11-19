@@ -1202,6 +1202,12 @@ function computeDerived(snapshot, famousRoster) {
   // 投影/state/题面）；无静默段/dt 缺失 → null 容缺不触发；簇必含出口行故
   // buy+sell>0 恒成立（防御性 0 值 → sellPct=null 宁拦不冒充）。
   let burstWaveSegBuyBnb = null, burstWaveSegSellBnb = null, burstWaveSegSellPct = null;
+  // T192 大周期卖压残局「当下事件」腿（2026-11-19 0x54e33173…7777 案立法）：
+  // 簇末行→锚点（窗末）秒数——与 burstSecSinceWaveEnd 同约定（dt 非空行窗末≈
+  // 信号时刻）。D3.67 波锚（按笔数最密 5s 窗）在卖簇劫持形状下 null（窗内零
+  // BUY 无法定位波末买），本键以 CD407 最大流量簇自身的末行定位「流量事件结束
+  // 距锚多远」——历史簇遗迹不评（宁不拦）。无段/无簇 null 容缺。
+  let burstSecSinceSegEnd = null;
   // CD405 burst 捆绑收割两键（2026-11-14 btv111 Request C，用户裁定「Burst 中
   // 出现大量捆绑买入（拉高收割），我认为这个形态也要拒绝，这摆明了不给任何人
   // 入场机会，收割的概率很高」+定线「只控制极端情况就好……去掉 dust，捆绑钱包
@@ -1393,7 +1399,7 @@ function computeDerived(snapshot, famousRoster) {
       // 最大段=第二段 → CD401 消费第二段的买卖数据（旧版取第一段 0.04<0.3 拦不住）。
       // 簇内累加 buy/sell（资金不滤 outlier）；sellPct 同款防御性 0 值 → null。
       {
-        let _bestBuy = 0, _bestSell = 0, _bestTotal = -1;
+        let _bestBuy = 0, _bestSell = 0, _bestTotal = -1, _bestEndDt = null;
         let _i = _lastGapIdx;
         while (_i < waveTicksAll.length) {
           let _cBuy = 0, _cSell = 0, _prev = null;
@@ -1405,12 +1411,16 @@ function computeDerived(snapshot, famousRoster) {
             _prev = t;
           }
           const _tot = _cBuy + _cSell;
-          if (_tot > _bestTotal) { _bestTotal = _tot; _bestBuy = _cBuy; _bestSell = _cSell; }
+          if (_tot > _bestTotal) { _bestTotal = _tot; _bestBuy = _cBuy; _bestSell = _cSell; _bestEndDt = _prev ? _prev.dt : null; }
           _i = _j; // 跳到段末（gap≥5s 的行=下一段起点）
         }
         burstWaveSegBuyBnb = _bestTotal > 0 ? +_bestBuy.toFixed(4) : null;
         burstWaveSegSellBnb = _bestTotal > 0 ? +_bestSell.toFixed(4) : null;
         if (_bestTotal > 0) burstWaveSegSellPct = +((_bestSell / _bestTotal) * 100).toFixed(1);
+        // T192：最大簇末行→窗末距离（当下事件腿；簇必含末行故 _bestEndDt 非空）
+        if (_bestTotal > 0 && _bestEndDt !== null) {
+          burstSecSinceSegEnd = waveTicksAll[waveTicksAll.length - 1].dt - _bestEndDt;
+        }
       }
       // T143-CD401 背景活跃度两键：背景窗=静默段起点（静默前最后一行=出口行
       // 前一行）往前 60s——「静默之前盘面是否本来就热」；Go Brrrrr 案 39s 喘息
@@ -2012,6 +2022,8 @@ function computeDerived(snapshot, famousRoster) {
     // CD407 burst 流量簇三键（burst_exit_sell_pressure 臂判据源 CD401 起改读本族——
     // 「这一波突然的流量」簇内买/卖/卖%；无段 null 容缺；头注见计算段）
     burstWaveSegBuyBnb, burstWaveSegSellBnb, burstWaveSegSellPct,
+    // T192 大周期卖压残局「当下事件」腿：簇末行→窗末秒数（无段/无簇 null）
+    burstSecSinceSegEnd,
     // T143-CD401 背景活跃度两键（静默前 60s 窗——低/中背景才构成 burst 语境）
     burstPreSegTicksPerMin, burstPreSegBnbPerMin,
     // CD405 burst 捆绑收割两键（burst_bundled_wave 不豁免臂判据源——波窗单块/
