@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP18'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP19'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP18');
+    assert.strictEqual(r.version, 'FP19');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -710,6 +710,26 @@ console.log('O. FP10 famous 低价全清冷却臂（T167：btv140 BP-T055/T056�
     assert.ok(g && g.value.includes('28.9%') && g.value.includes('破发豁免'), g.value);
     assert.strictEqual(g.hit, false);
   });
+  check('O15 T167c 豁免最短冷却：0x6075 形状（破深 28.8 但距锚 5s——famous 刚走、深破=砸落进行时）→ 不豁免保持拒', () => {
+    const r = M.evaluateFactorPreBuy(SNAPF(FT({ groupEntryAvgBnb: 6.368e-9, postEntryMinBnb: 4.53e-9, lastSellToAnchorSec: 5 })));
+    assert.strictEqual(r.reason, 'fam_low_exit_cooldown');
+    assert.ok(r.arms.includes('fam_low_exit_cooldown'));
+    const g = r.gates.find((x) => x.id === 'fam_low_exit');
+    assert.ok(g && !g.value.includes('破发豁免'), g.value); // 标注与判定同构：5s 不标豁免
+  });
+  check('O16 T167c 边界：距锚恰 10s（含）→ 豁免；9s → 拦', () => {
+    const r10 = M.evaluateFactorPreBuy(SNAPF(FT({ groupEntryAvgBnb: 6.368e-9, postEntryMinBnb: 4.53e-9, lastSellToAnchorSec: 10 })));
+    assert.ok(!r10.arms.includes('fam_low_exit_cooldown'));
+    const r9 = M.evaluateFactorPreBuy(SNAPF(FT({ groupEntryAvgBnb: 6.368e-9, postEntryMinBnb: 4.53e-9, lastSellToAnchorSec: 9 })));
+    assert.strictEqual(r9.reason, 'fam_low_exit_cooldown');
+  });
+  check('O17 T167c 28ad 形状保持豁免（距锚 16s——清场隔归零+重启波距买点 60s+）+ gates line 含 ≥10s 豁免腿', () => {
+    const r = M.evaluateFactorPreBuy(SNAPF(FT({ groupEntryAvgBnb: 6.368e-9, postEntryMinBnb: 4.53e-9, lastSellToAnchorSec: 16 })));
+    assert.ok(!r.arms.includes('fam_low_exit_cooldown'));
+    assert.notStrictEqual(r.reason, 'fam_low_exit_cooldown');
+    const g = r.gates.find((x) => x.id === 'fam_low_exit');
+    assert.ok(g && g.value.includes('破发豁免') && g.line.includes('≥10s'), g.line);
+  });
 }
 
 console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/SI 点名两票——famous 极早快闪=基本无救）');
@@ -786,7 +806,7 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP17（T180 首两波大部队迁入；FP16=大周期 burst 残局）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP18'); // FP17=T180 launch_squad（FP16=大周期 burst 残局，FP15=T174b burst 弱波合并口径）
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP19'); // FP19=T167c FP10 豁免最短冷却（末卖≥10s，0x6075 苏琳案）；FP18=T182 尾部接刀；FP17=T180 launch_squad
   });
 }
 
@@ -975,7 +995,7 @@ console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入�
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'launch_squad_dominance');
     assert.ok(r.arms.includes('launch_squad_dominance'));
-    assert.strictEqual(r.version, 'FP18');
+    assert.strictEqual(r.version, 'FP19');
   });
   check('T2 有机热门盘 wave≥8 但 dom<30 → 放（da405bd0 wave13 dom0 实证——占比轴保护赢家）', () => {
     const r = M.evaluateFactorPreBuy(LS(13, 0));
@@ -1069,8 +1089,8 @@ console.log('U. FP19 尾部接刀臂（T182）');
     const g2 = M.evaluateFactorPreBuy(TK(74, 23.7, -13.1, -1.7)).gates.find((x) => x.id === 'tail_dip_knife');
     assert.strictEqual(g2.hit, false);
   });
-  check('U10 版本 FP18（T182 尾部接刀；并行 T180 二修版本断言预同步让位）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP18');
+  check('U10 版本 FP19（T167c FP10 豁免最短冷却；FP18=T182 尾部接刀）', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP19');
   });
 }
 

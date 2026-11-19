@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP18'; // FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会；并行 T180 二修已把版本断言预同步 FP18 给本臂让位）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
+const FACTOR_PREBUY_VERSION = 'FP19'; // FP19=T167c FP10 豁免最短冷却（破发豁免须距 famous 末卖 ≥10s——末卖数秒内深破=砸落进行时非清场完成，0x6075 苏琳案四张真空接刀 −0.149 止血、28ad dist=16s 精确保留豁免，10s 取线留 6s 余量防同型票 dist 浮动误杀 +1.4 级尾部）；FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -152,6 +152,15 @@ const FAM_LOW_EXIT_COOLDOWN_SEC = 120;
  *  T056 12.4/T107 4.4）分离带 14.5pp 取中偏保守 20；「末卖价低于成本」口径刻意不用
  *  （T055 sellBreach 13.1 ≈ 28ad 11.5 分不开，182 对拍实证）；null 不豁免宁拦不冒充 */
 const FAM_LOW_EXIT_BREACH_EXEMPT_PCT = 20;
+/** FP10 豁免最短冷却（T167c，2026-11-19 0x6075 苏琳案）：豁免须距 famous 末卖 ≥10s——
+ *  末卖后数秒内的深破=砸落进行时（famous 卖压直接砸出来的「破发」，流量清场尚未
+ *  完成）；T167b 豁免语义「famous 流量已清场」在末卖瞬间不成立，10s 内保持拦。
+ *  定标：豁免面 10 去重票距锚 4~16s——0x6075 型真空接刀 4 张（0~9s，Σ−0.149，买点
+ *  夹在砸落途中、末 10s 仅 3 笔 0.0988B 承接）vs 28ad 豁免正例（清场后隔归零(+0.9%)
+ *  +重启波(1.45B/14笔) 距买点 60s+，锚窗快照 dist=16s，+1.4261）；10s 线净改善
+ *  +0.108（误伤 3 张小正 +0.041）。14/15s 只多拦两张小负 −0.022 但距 28ad 仅 1~2s
+ *  （dist 锚窗快照同型票浮动 2~3s 常见，误杀一张丢 +1.4 级尾部）刻意取 10s 留余量。 */
+const FAM_LOW_EXIT_EXEMPT_MIN_GAP_SEC = 10;
 
 // ── FP11 famous 早窗快闪双支臂（2026-11-17 bt-v141 复审用户点名两票立法：
 //    거침없이 0x288b3aad…7777（−0.0553 全窗最差）/ SI 0x13ccc4b9…7777（−0.0508
@@ -861,11 +870,13 @@ function buildFactorGates(parts) {
   {
     const ft2 = parts.bd && parts.bd.famousTraces;
     const breach = famousBreachExemptPct(ft2);
-    const exempted = breach !== null && breach >= FAM_LOW_EXIT_BREACH_EXEMPT_PCT;
+    // T167c 豁免标注与判定同构：深破≥20 ∧ 末卖≥10s 冷却（渲染层 gap 容缺判 false=不标）
+    const exempted = breach !== null && breach >= FAM_LOW_EXIT_BREACH_EXEMPT_PCT
+      && ft2 && typeof ft2.lastSellToAnchorSec === 'number' && ft2.lastSellToAnchorSec >= FAM_LOW_EXIT_EXEMPT_MIN_GAP_SEC;
     g.push({
       id: 'fam_low_exit', label: 'FP10·famous低价全清冷却',
       value: `末卖@+${d(ft2 && ft2.lastSellVsLaunchPct, '%')} 距锚${d(ft2 && ft2.lastSellToAnchorSec, 's')} 买${d(ft2 && ft2.groupBuyBnb, 'B')} 残仓${d(ft2 && ft2.presenceNetBnb, 'B')} 破深${d(breach !== null ? +breach.toFixed(1) : null, '%')}${exempted ? '→破发豁免' : ''}`,
-      line: '买≥0.2B ∧ 自卖比≥0.9 ∧ 残仓≤0.05B ∧ 卖价≤+40% ∧ 距锚≤120s ∧ 破深<20%（famous 成本深破≥20%=流量已清场豁免）', hit: parts.armHits.includes('fam_low_exit_cooldown'),
+      line: '买≥0.2B ∧ 自卖比≥0.9 ∧ 残仓≤0.05B ∧ 卖价≤+40% ∧ 距锚≤120s ∧ 破深<20%（famous 成本深破≥20%∧距锚≥10s=流量已清场豁免）', hit: parts.armHits.includes('fam_low_exit_cooldown'),
     });
   }
   // FP11 famous 早窗快闪双支
@@ -1109,9 +1120,12 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     else if (armSlowPumpUnload(snapshot)) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）
     else if (armFamousHarvestFinal(snapshot)) arms.push('fam_harvested_final'); // FP8b famous 收割完残局（大涨过+已离场+已砸落）
     else if (armFamousBurstWave(snapshot.buyDerived)) arms.push('fam_burst_wave'); // FP9 famous 系突发波（burst 纯 famous 带起来的）
-    else if (armFamousLowExit(snapshot)) { // FP10 famous 低价全清冷却（立马接盘 → 拒；破发豁免=流量清场已兑现，T167b/28ad 案）
-      const breach = famousBreachExemptPct(snapshot.buyDerived && snapshot.buyDerived.famousTraces);
-      if (breach === null || breach < FAM_LOW_EXIT_BREACH_EXEMPT_PCT) arms.push('fam_low_exit_cooldown');
+    else if (armFamousLowExit(snapshot)) { // FP10 famous 低价全清冷却（立马接盘 → 拒；破发豁免=流量清场已兑现 ∧ 末卖≥10s 冷却，T167b/T167c/28ad 案）
+      const ftLow = snapshot.buyDerived && snapshot.buyDerived.famousTraces;
+      const breach = famousBreachExemptPct(ftLow);
+      // T167c 豁免最短冷却：末卖 10s 内深破=砸落进行时不豁免（armFamousLowExit 已保证 lastSellToAnchorSec 为数）
+      const cooled = ftLow.lastSellToAnchorSec >= FAM_LOW_EXIT_EXEMPT_MIN_GAP_SEC;
+      if (breach === null || breach < FAM_LOW_EXIT_BREACH_EXEMPT_PCT || !cooled) arms.push('fam_low_exit_cooldown');
     }
     else { // FP11 famous 早窗快闪双支（T171 거침없이/SI 案；FP10 子集形状已被上面更具体码认领）
       const earlyFlip = armFamousEarlyFlip(snapshot);
