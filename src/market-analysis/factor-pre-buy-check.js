@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP22'; // FP22=T188 持仓均等作弊仓臂（筹码结构维度二连——2026-11-19 用户裁定「HHI 这么低是作弊票的概率比较高」「这一窗算是持仓均等异常的作弊仓，没有明显误伤，可以落」+同日二修流通腿「只控流动筹码比例高一些的——『不对劲』这种我还想救一救」线值三裁取 16.5：HHI<0.10 ∧ 流通≥16.5 → 拒 even_split_crew 团伙分仓已派发指纹〔四窗验证：拦 11 票 −0.252 大亏全拦〔0x531d/CEPE/DND/低电量/치이카와/Burn〕/救 16 票 +0.473 大肉全保〔不对劲 +131/猫厨师 +55/프론티어 +38/大美 +24〕；键源 cheat-snapshot holderHHI+circSupplyPct→buyDerived.chip；HHI=Σ份额² 对尾部尘埃免疫与基尼互补〕；FP21=T187 持有者打散臂（筹码结构维度立法——2026-11-19 用户裁定「代币已经交易了一段时间，参与者比较多，筹码已经完全打乱形不成主力了」+「通过 top1-2 的集中度把薄肌俱乐部救回来」+「落到因子过滤模块即可」：正净持有者 ≥25 ∧ top1-2 集中度不足 → 拒 holder_scatter，豁免=top1HoldCircPct≥45 ∨ top1Top2HoldCircPct≥60（有主力承接在场——两窗 bt-v155/156 全成交面 16 票 −0.30 止血/误伤 3 正票 +0.109 用户知情接受〔雅迪X5 0x0c959153 realPct+24 但闪跌闪拉真实交易吃不到点位〕；键源 buyDerived.chip〔CD 锚窗口径 posHolderCount/holdingsProfile circPct，D3.35 在场流通分母〕；两窗豁免臂零触发=纯前瞻保护，薄肌 0x51a17dda h=19 天然不进门）；FP20=T167d FP10 豁免换轨：末卖后在外流通谷值≤9%（T167c 10s 冷却线随退役——距锚随时间过线=多信号自愈 bt-v154 实证仅推迟 4s；谷值只随真实卖回下降，出清更深=语义自洽），0x6075 苏琳案二修；FP19=T167c FP10 豁免最短冷却（破发豁免须距 famous 末卖 ≥10s——末卖数秒内深破=砸落进行时非清场完成，0x6075 苏琳案四张真空接刀 −0.149 止血、28ad dist=16s 精确保留豁免，10s 取线留 6s 余量防同型票 dist 浮动误杀 +1.4 级尾部）；FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
+const FACTOR_PREBUY_VERSION = 'FP23'; // FP23=T190 相邻双块捆绑砸盘尾承接臂（2026-11-19 bt-v156 0x2b63c82e…7777 ASCEND「大量捆绑砸盘尾声票」案立法，用户选线 CD403 卖方 ≥8 只拦极端+追裁定「偏前期」案特性（后期代币下跌段连续两 slot 砸盘 8 个=正常市场化抛售不拦，注意误伤）：**前期域 票龄≤600s** ∧ dump2Block 卖方≥8 ∧ 合并卖额≥0.5B ∧ 跌幅≤-10% ∧ 距锚≤60s ∧ 承接比<0.3 → 拒 dump_pair_low_absorption〔CD403 单块 ≥0.5B 达标口径对跨两块分摊捆绑砸盘结构性失明的补集；BP78 总额≥20B 豁免照抄；三窗重放拦本案 1 票全负零误伤、AZ 案票 0x397a 五卖方用户知情漏〕；键源 buyDerived.dump2Block+tokenAgeSec——sellers 剔路由/dropPct 含 outlier 事实口径/followBuyBnb 已剔 BP85 闪进闪出）；FP22=T188 持仓均等作弊仓臂（筹码结构维度二连——2026-11-19 用户裁定「HHI 这么低是作弊票的概率比较高」「这一窗算是持仓均等异常的作弊仓，没有明显误伤，可以落」+同日二修流通腿「只控流动筹码比例高一些的——『不对劲』这种我还想救一救」线值三裁取 16.5：HHI<0.10 ∧ 流通≥16.5 → 拒 even_split_crew 团伙分仓已派发指纹〔四窗验证：拦 11 票 −0.252 大亏全拦〔0x531d/CEPE/DND/低电量/치이카와/Burn〕/救 16 票 +0.473 大肉全保〔不对劲 +131/猫厨师 +55/프론티어 +38/大美 +24〕；键源 cheat-snapshot holderHHI+circSupplyPct→buyDerived.chip；HHI=Σ份额² 对尾部尘埃免疫与基尼互补〕；FP21=T187 持有者打散臂（筹码结构维度立法——2026-11-19 用户裁定「代币已经交易了一段时间，参与者比较多，筹码已经完全打乱形不成主力了」+「通过 top1-2 的集中度把薄肌俱乐部救回来」+「落到因子过滤模块即可」：正净持有者 ≥25 ∧ top1-2 集中度不足 → 拒 holder_scatter，豁免=top1HoldCircPct≥45 ∨ top1Top2HoldCircPct≥60（有主力承接在场——两窗 bt-v155/156 全成交面 16 票 −0.30 止血/误伤 3 正票 +0.109 用户知情接受〔雅迪X5 0x0c959153 realPct+24 但闪跌闪拉真实交易吃不到点位〕；键源 buyDerived.chip〔CD 锚窗口径 posHolderCount/holdingsProfile circPct，D3.35 在场流通分母〕；两窗豁免臂零触发=纯前瞻保护，薄肌 0x51a17dda h=19 天然不进门）；FP20=T167d FP10 豁免换轨：末卖后在外流通谷值≤9%（T167c 10s 冷却线随退役——距锚随时间过线=多信号自愈 bt-v154 实证仅推迟 4s；谷值只随真实卖回下降，出清更深=语义自洽），0x6075 苏琳案二修；FP19=T167c FP10 豁免最短冷却（破发豁免须距 famous 末卖 ≥10s——末卖数秒内深破=砸落进行时非清场完成，0x6075 苏琳案四张真空接刀 −0.149 止血、28ad dist=16s 精确保留豁免，10s 取线留 6s 余量防同型票 dist 浮动误杀 +1.4 级尾部）；FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -346,6 +346,45 @@ const TAIL_BROKE_FLOOR_PCT = 3;
 const DENSE_DUMP_MIN_SELLERS = 15;
 const DENSE_DUMP_MIN_SELL_BNB = 2;
 const DENSE_DUMP_MAX_NET_BNB = -1.5;
+
+// ── FP23 相邻双块捆绑砸盘尾承接臂（T190，2026-11-19 bt-v156 0x2b63c82e…7777
+//    ASCEND 案立法，用户裁定原话「大量捆绑砸盘尾声票，看看怎么拦截」+选线
+//    「这个 case 极端多了，捆绑卖方远大于 4，并且跌幅也足够大（砸盘的流动性
+//    占比高），这是核心特征。按照我们的原则，只拦极端情况，不造成隐含误伤」
+//    =CD403 线卖方 ≥8）——案形：t0 首发 0.7013B 大买+t+8s 同块 3 钱包等额捆绑
+//    3×0.2296 拉 ATH +49% → t+17s 起连续出货（0.474/0.455 单笔大卖）→ t+29s
+//    **相邻双块 12 卖方砸 0.761B（块内 -21%）** → 买点 t+39s 落砸盘末笔后
+//    「缓跌尾声」（chg5=-3.39 恰好躲过 FP18「进行时」-5 线）→ 买后无 V 反
+//    90s 断流止损 -16.4%。全链缺口：CD400/CD403 的 nearDump 达标块=**单块
+//    ≥0.5B**，本案最恶性单块 9 卖方仅 0.418——跨两块分摊的捆绑砸盘在 CD 单块
+//    口径下结构性失明；AF1 act=high（吞吐 7.36B/min——砸盘流量本身制造高
+//    活跃）skip 掉整个 cheat 门；BP 锚全在场（dump2Block 十键）但 Jev 判
+//    normal_dip 0.43（BP82 贴锚臂判读拼装失败，BP61 铁律又一支）。判据五腿
+//    （键源 buyDerived.dump2Block——BP77 相邻 block 对合并同款：sellers 剔
+//    router/dropPct 含 outlier 价格影响事实口径/followBuyBnb 已剔 BP85 同块
+//    闪进闪出/secToAnchor=砸块末距锚秒数）：卖方 ≥8（CD403/BP77 塞单门同线）
+//    ∧ 合并卖额 ≥0.5B ∧ 跌幅 ≤-10%（BP77 判读线；snapshot 预筛 -8 一档宽）
+//    ∧ 距锚 ≤60s（「尾声」窗——历史砸盘遗迹已充分换手不拦）∧ 承接比 <0.3
+//    （贴锚 secToAnchor<10s followBuyRatio 恒 null 时回落 followBuyBnb÷卖额
+//    ——BP82 贴锚臂同款）。BP78 总额豁免照抄：锚窗总额 ≥20 BNB（市场化
+//    恐慌抛售≠庄出逃）不拦。三窗重放（10-19/10-12/11-04，268 成交）：CD403
+//    双块线命中 1 票=本案 −0.0328 全负零误伤；AZ 案票 0x397a（5 卖方/0.698B/
+//    -13.5%/承接 14.2%）用户知情选择 ≥8 线漏（选项披露）；未命中最差面承接
+//    ≥58%/跌幅 ≤8.5%/单鲸——分离带宽。null 容缺不拦（FP 哲学：拒方向证据
+//    缺席不拒） ──
+/** FP23 合并卖额线（BNB）：≥0.5（BP77 恶意砸盘判读线同线；snapshot 预筛 0.3 一档宽防截断） */
+const DUMP_PAIR_MIN_BNB = 0.5;
+/** FP23 合并跌幅线：≤-10%（BP77 判读线；单块内首末行价含 outlier 事实口径） */
+const DUMP_PAIR_MAX_DROP_PCT = -10;
+/** FP23 尾声窗：砸块末距锚 ≤60s（历史遗迹已充分换手不拦——砸完不久我们接刀才是本案形状） */
+const DUMP_PAIR_NEAR_SEC = 60;
+/** FP23 BP78 总额豁免线：锚窗总成交 ≥20 BNB=市场化恐慌抛售不拦（「交易了比较久」立法线照抄） */
+const DUMP_PAIR_TOTAL_VOLUME_EXEMPT_BNB = 20;
+/** FP23 前期域线：买点票龄 ≤600s 才评（用户裁定「这个 case 还有一个特性，就是它偏前期，
+ *  后期代币的下跌段，出现连续两个 slot 砸盘 8 个，我认为也算正常。反正，注意误伤」——
+ *  前期=开盘操纵/分仓团伙建仓即出货域；后期下跌段的双块 8+ 卖方=市场化恐慌抛售放行）。
+ *  600s=十分钟宽线（本案 38s；90s 出生窗/600s 慢热帽族先例量级）；null 容缺不拦宁漏。 */
+const DUMP_PAIR_EARLY_MAX_AGE_SEC = 600;
 
 // ── CD401 sbw 机械化代理线（用户两分法路线 1；预扫描校准点） ──
 /** 波贴近锚：出口波末笔距今 ≤ 此秒（「当下事件」非历史遗迹） */
@@ -792,6 +831,18 @@ function buildFactorGates(parts) {
       value: `卖方${d(cd.nearDumpWorstSellers)} 承接比${(typeof cd.nearDumpMinAbsorbBnb === 'number' && typeof cd.nearDumpWorstSellBnb === 'number' && cd.nearDumpWorstSellBnb > 0) ? (cd.nearDumpMinAbsorbBnb / cd.nearDumpWorstSellBnb).toFixed(2) : '-'}`,
       line: '卖方≥8 ∧ 比<0.3', hit: parts.armHits.includes('cd403_dump_low_absorption'),
     });
+    // FP23 相邻双块捆绑砸盘尾承接（T190——CD403 单块口径跨块分摊盲区）
+    {
+      const d2 = (parts.bd && parts.bd.dump2Block) || null;
+      const d2Ratio = d2 && typeof d2.sellBnb === 'number' && d2.sellBnb > 0
+        ? (typeof d2.followBuyRatio === 'number' ? d2.followBuyRatio : (typeof d2.followBuyBnb === 'number' ? d2.followBuyBnb / d2.sellBnb : null))
+        : null;
+      g.push({
+        id: 'dump_pair', label: 'FP23·双块捆绑砸盘尾承接',
+        value: d2 ? `卖方${d(d2.sellers)} 卖${d(d2.sellBnb, 'B')} 跌${d(d2.dropPct, '%')} 距锚${d(d2.secToAnchor, 's')} 承接${d2Ratio !== null ? (d2Ratio * 100).toFixed(1) + '%' : '-'} 龄${d(parts.bd && parts.bd.tokenAgeSec, 's')}` : '-',
+        line: '前期龄≤600s ∧ 卖方≥8 ∧ 卖≥0.5B ∧ 跌≤10% ∧ 距锚≤60s ∧ 承接<30%（总额≥20B豁免；后期下跌段不评）', hit: parts.armHits.includes('dump_pair_low_absorption'),
+      });
+    }
     g.push({
       id: 'cd401', label: 'CD401·burst出口卖压',
       value: `簇卖占${d(cd.burstWaveSegSellPct, '%')} 卖额${d(cd.burstWaveSegSellBnb, 'B')}`,
@@ -930,6 +981,27 @@ function armDumpLowAbsorption(cd) {
   if (typeof cd.nearDumpWorstSellers !== 'number' || cd.nearDumpWorstSellers < DUMP_RATIO_MIN_SELLERS) return false;
   if (typeof cd.nearDumpMinAbsorbBnb !== 'number' || typeof cd.nearDumpWorstSellBnb !== 'number') return false;
   return cd.nearDumpWorstSellBnb > 0 && cd.nearDumpMinAbsorbBnb / cd.nearDumpWorstSellBnb < DUMP_LOW_ABSORPTION_RATIO;
+}
+
+/** FP23 相邻双块捆绑砸盘尾承接（T190/0x2b63 案）：**前期域**（票龄 ≤600s——
+ *  用户裁定「偏前期」是案特性，后期下跌段双块 8+ 卖方=市场化抛售放行）∧
+ *  dump2Block 卖方 ≥8 ∧ 合并卖额 ≥0.5 ∧ 跌幅 ≤-10% ∧ 距锚 ≤60s ∧ 承接比
+ *  <0.3 → 拒 dump_pair_low_absorption——CD403 单块 ≥0.5B 达标口径对「跨两块
+ *  分摊的捆绑砸盘」失明的补集臂；承接比非贴锚用 followBuyRatio（60s 完整窗）、
+ *  贴锚（<10s ratio 恒 null 观察窗未启）回落 followBuyBnb÷卖额（BP82 贴锚臂
+ *  同款）；BP78 总额 ≥20B 豁免（市场化抛售）；锚缺失全族 null 容缺不拦
+ *  （宁漏不冒充）。 */
+function armDumpPairLowAbsorption(bd) {
+  if (!bd || typeof bd.tokenAgeSec !== 'number' || bd.tokenAgeSec > DUMP_PAIR_EARLY_MAX_AGE_SEC) return false; // 前期域（后期下跌段不评）
+  const d2 = bd.dump2Block;
+  if (!d2 || typeof d2.sellers !== 'number' || d2.sellers < DUMP_RATIO_MIN_SELLERS) return false;
+  if (typeof d2.sellBnb !== 'number' || d2.sellBnb < DUMP_PAIR_MIN_BNB) return false;
+  if (typeof d2.dropPct !== 'number' || d2.dropPct > DUMP_PAIR_MAX_DROP_PCT) return false;
+  if (typeof d2.secToAnchor !== 'number' || d2.secToAnchor > DUMP_PAIR_NEAR_SEC) return false;
+  if (typeof bd.totalVolumeBnb === 'number' && bd.totalVolumeBnb >= DUMP_PAIR_TOTAL_VOLUME_EXEMPT_BNB) return false;
+  const ratio = typeof d2.followBuyRatio === 'number' ? d2.followBuyRatio
+    : (typeof d2.followBuyBnb === 'number' && d2.sellBnb > 0 ? d2.followBuyBnb / d2.sellBnb : null);
+  return ratio !== null && ratio < DUMP_LOW_ABSORPTION_RATIO;
 }
 
 /**
@@ -1191,6 +1263,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     if (armEvenSplitCrew(snapshot.buyDerived)) arms.push('even_split_crew'); // T188/FP22 持仓均等作弊仓（HHI<0.10 团伙分仓指纹）
     if (armDumpNoAbsorption(cd)) arms.push('cd400_dump_no_absorption');
     else if (armDumpLowAbsorption(cd)) arms.push('cd403_dump_low_absorption');
+    else if (armDumpPairLowAbsorption(snapshot.buyDerived)) arms.push('dump_pair_low_absorption'); // FP23 相邻双块捆绑砸盘尾承接（T190/0x2b63 案——CD403 单块口径的跨块分摊盲区补集）
     else if (armBurstExitSellPressure(cd)) arms.push('cd401_burst_exit_sell_pressure');
     else if (armBurstBundledWave(cd)) arms.push('cd405_burst_bundled_wave');
     else if (armBurstWeakWave(snapshot.buyDerived)) arms.push('burst_weak_wave'); // FP13 burst 弱波（无大户认可+无压箱，T174 联立线）
@@ -1263,6 +1336,8 @@ module.exports = {
   FAM_LOW_EXIT_MIN_BUY_BNB, FAM_LOW_EXIT_MIN_SOLD_RATIO, FAM_LOW_EXIT_MAX_PRESENCE_BNB,
   FAM_LOW_EXIT_MAX_VS_PCT, FAM_LOW_EXIT_COOLDOWN_SEC,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
+  DUMP_PAIR_MIN_BNB, DUMP_PAIR_MAX_DROP_PCT, DUMP_PAIR_NEAR_SEC, DUMP_PAIR_TOTAL_VOLUME_EXEMPT_BNB,
+  DUMP_PAIR_EARLY_MAX_AGE_SEC,
   EXTREME_DUMP_MIN_SELLERS, EXTREME_DUMP_MIN_BNB,
   SBW_PROXY_WAVE_NEAR_SEC, SBW_PROXY_MEDIAN_DUST_BNB,
   BURST_WEAK_PRE_WAVE_BNB,
@@ -1272,6 +1347,7 @@ module.exports = {
   judgeRetailPvp, judgeActivityLevel, judgeFamousDanger, judgeTailPhaseActivity,
   judgeFamousDominanceFall, buildFactorGates,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
+  armDumpPairLowAbsorption,
   armBurstWeakWave,
   armExtremeDumpSellers, armDenseDump, armSlowPumpUnload, armFamousHarvestFinal, armFamousBurstWave,
   armFamousLowExit, famousBreachExemptPct, FAM_LOW_EXIT_BREACH_EXEMPT_PCT,
