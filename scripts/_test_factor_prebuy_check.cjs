@@ -1148,15 +1148,24 @@ console.log('V. T187/FP21 持有者打散臂（筹码结构维度：posH≥25 �
 
 console.log('W. T188/FP22 持仓均等作弊仓臂（HHI<0.10 团伙分仓指纹；四窗 v155/156/140/145 归因）');
 {
-  const CH2 = (hhi, posH) => SNAP({ buyDerived: { chip: { holderHHI: hhi, posHolderCount: posH, top1HoldCircPct: 20, top1Top2HoldCircPct: 35 }, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 3 } } });
-  check('W1 币安锁形状（HHI=0.090 团伙分仓）→ arms 含 even_split_crew', () => {
-    const r = M.evaluateFactorPreBuy(CH2(0.090, 20));
+  const CH2 = (hhi, posH, circ = 20) => SNAP({ buyDerived: { chip: { holderHHI: hhi, posHolderCount: posH, top1HoldCircPct: 20, top1Top2HoldCircPct: 35, circSupplyPct: circ }, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 3 } } });
+  check('W1 币安锁形状（HHI=0.090 团伙分仓 ∧ 流通 20% 已派发）→ arms 含 even_split_crew', () => {
+    const r = M.evaluateFactorPreBuy(CH2(0.090, 20, 20));
     assert.ok(r.arms.includes('even_split_crew'));
   });
-  check('W2 边界严格性（0.099 拒 / 0.100 恰达线放 / 0.11 放）', () => {
-    assert.strictEqual(M.armEvenSplitCrew(CH2(0.099, 20).buyDerived), true);
-    assert.strictEqual(M.armEvenSplitCrew(CH2(0.100, 20).buyDerived), false);
-    assert.strictEqual(M.armEvenSplitCrew(CH2(0.11, 20).buyDerived), false);
+  check('W1b 「不对劲」救回形状（HHI=0.091 ∧ 流通 13.7% 拉升中段）→ 放行（用户裁定二修流通腿）', () => {
+    const r = M.evaluateFactorPreBuy(CH2(0.091, 26, 13.7));
+    assert.ok(!r.arms.includes('even_split_crew'));
+  });
+  check('W2 边界严格性（HHI 0.099 拒 / 0.100 恰达线放；流通 16.5 拒 / 16.4 放——线值三裁 15→18→16.5 折中）', () => {
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.099, 20, 20).buyDerived), true);
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.100, 20, 20).buyDerived), false);
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.11, 20, 20).buyDerived), false);
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.09, 20, 16.5).buyDerived), true);
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.09, 20, 16.4).buyDerived), false);
+  });
+  check('W2b 流通腿 null 容缺（circSupplyPct null=totalSupply 缺失）→ 救回方向 fail-open 放行', () => {
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.09, 20, null).buyDerived), false);
   });
   check('W3 null 容缺（holderHHI null——<2 正净持有人有证据的缺席）→ 不评宁不拦', () => {
     assert.strictEqual(M.armEvenSplitCrew(CH2(null, 20).buyDerived), false);
@@ -1182,9 +1191,12 @@ console.log('W. T188/FP22 持仓均等作弊仓臂（HHI<0.10 团伙分仓指纹
     const g2 = M.evaluateFactorPreBuy(CH2(0.3, 20)).gates.find((x) => x.id === 'even_split_crew');
     assert.strictEqual(g2.hit, false);
   });
-  check('W6 事故反证（猫厨师 0.081 拒 / 甜点带 0.20-0.35 票 0.25 放行）', () => {
-    assert.strictEqual(M.armEvenSplitCrew(CH2(0.081, 21).buyDerived), true);
-    assert.strictEqual(M.armEvenSplitCrew(CH2(0.25, 7).buyDerived), false);
+  check('W6 事故反证（猫厨师 0.081∧12.4→救回；大美 0.10∧15.3 混合带→16.5 线下救回；DND 0.096∧19.3→拒；BNCBSI 0.064∧16.9→拦误伤知情；甜点带 0.25 放行）', () => {
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.081, 21, 12.4).buyDerived), false);
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.100, 13, 15.3).buyDerived), false);
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.096, 28, 19.3).buyDerived), true);
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.064, 26, 16.9).buyDerived), true);
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.25, 7, 20).buyDerived), false);
   });
   check('W7 HHI 对尾部人数免疫语义锁（同样 top1 份额、尾部户数不同——HHI 由份额平方决定： [50,50]→0.5 vs [50, 25×2]→0.375）', () => {
     const hhi = xs => { const s = xs.reduce((a, b) => a + b, 0); return xs.reduce((a, x) => a + (x / s) ** 2, 0); };

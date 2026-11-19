@@ -787,6 +787,16 @@ function computeDerived(snapshot, famousRoster) {
   //    <2 正净持有人 → null（有证据的缺席，同 top2 族语义）──
   const holderHHI = posTokTotal > 0 && posSorted.length >= 2
     ? posSorted.reduce((s, [, v]) => s + (v / posTokTotal) * (v / posTokTotal), 0) : null;
+  // ── T188 流通腿锚（2026-11-19 同日二修，用户裁定「只控流动筹码比例高一些的
+  //    ——『不对劲』这种我还想救一救」）：在场流通占比 = Σ正净持仓 ÷ totalSupply
+  //    ×100（正净口径 ≤ Σ买−Σ卖 净流出——负净钱包净卖回已回池抵消，与全史
+  //    circTokens/totalSupply 重放口径差 <1pp，15 线不受影响）。HHI<0.10 ∧
+  //    流通<15% = 团伙筹码尚未派发（拉升中段，四窗大肉全在此侧：不对劲 +131%/
+  //    猫厨师 +55%/프론티어 +38%/大美 +24%）→ 救回；流通 ≥15% = 已充分派发
+  //    （残局接刀，17 票 −0.200）→ 拒。totalSupply 缺失 → null（FP 腿 null
+  //    容缺放行，救回方向 fail-open）；不进题面/state/FA 投影 ──
+  const circSupplyPct = totalSupply !== null && posTokTotal > 0
+    ? (posTokTotal / totalSupply) * 100 : null;
   const walletOf = new Map(wallets.map((e) => [e.w, e]));
   let top1Top2FirstBuyGapSec = null;
   {
@@ -1960,6 +1970,8 @@ function computeDerived(snapshot, famousRoster) {
     posHolderCount, top1Top2HoldCircPct, top3HoldCircPct,
     // T188/FP22 持仓均等度锚（正净分布 HHI；buyDerived.chip 切片供 FP 臂消费）
     holderHHI,
+    // T188 流通腿锚（在场流通占比=Σ正净÷totalSupply；HHI 臂的派发进度条件）
+    circSupplyPct,
     clusterHoldSupplyPct, t1PlusClusterSupplyPct, holdingsProfile,
     // D3.41 簇占在场流通两锚（token 域，holdings_balance 档位判读原料）
     sameBlockHoldCircPct, equalBandHoldCircPct,

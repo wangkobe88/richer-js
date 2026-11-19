@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP22'; // FP22=T188 持仓均等作弊仓臂（筹码结构维度二连——2026-11-19 用户裁定「HHI 这么低是作弊票的概率比较高」「这一窗算是持仓均等异常的作弊仓，没有明显误伤，可以落」：正净持仓分布 HHI<0.10 → 拒 even_split_crew 团伙分仓指纹〔四窗验证：v155/156/140/145，正票全为团伙拉盘中段浮盈=砸前侥幸非误伤——币安锁两秒三块 7 笔协同齐砸/大美同块等额捆绑/猫厨师成对钱包协同卖/「不对劲」同块等额双买反复双卖、프론티어每块 5 钱包成组进场；键源 cheat-snapshot holderHHI→buyDerived.chip；HHI=Σ份额² 对尾部尘埃免疫与基尼互补〕；FP21=T187 持有者打散臂（筹码结构维度立法——2026-11-19 用户裁定「代币已经交易了一段时间，参与者比较多，筹码已经完全打乱形不成主力了」+「通过 top1-2 的集中度把薄肌俱乐部救回来」+「落到因子过滤模块即可」：正净持有者 ≥25 ∧ top1-2 集中度不足 → 拒 holder_scatter，豁免=top1HoldCircPct≥45 ∨ top1Top2HoldCircPct≥60（有主力承接在场——两窗 bt-v155/156 全成交面 16 票 −0.30 止血/误伤 3 正票 +0.109 用户知情接受〔雅迪X5 0x0c959153 realPct+24 但闪跌闪拉真实交易吃不到点位〕；键源 buyDerived.chip〔CD 锚窗口径 posHolderCount/holdingsProfile circPct，D3.35 在场流通分母〕；两窗豁免臂零触发=纯前瞻保护，薄肌 0x51a17dda h=19 天然不进门）；FP20=T167d FP10 豁免换轨：末卖后在外流通谷值≤9%（T167c 10s 冷却线随退役——距锚随时间过线=多信号自愈 bt-v154 实证仅推迟 4s；谷值只随真实卖回下降，出清更深=语义自洽），0x6075 苏琳案二修；FP19=T167c FP10 豁免最短冷却（破发豁免须距 famous 末卖 ≥10s——末卖数秒内深破=砸落进行时非清场完成，0x6075 苏琳案四张真空接刀 −0.149 止血、28ad dist=16s 精确保留豁免，10s 取线留 6s 余量防同型票 dist 浮动误杀 +1.4 级尾部）；FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
+const FACTOR_PREBUY_VERSION = 'FP22'; // FP22=T188 持仓均等作弊仓臂（筹码结构维度二连——2026-11-19 用户裁定「HHI 这么低是作弊票的概率比较高」「这一窗算是持仓均等异常的作弊仓，没有明显误伤，可以落」+同日二修流通腿「只控流动筹码比例高一些的——『不对劲』这种我还想救一救」线值三裁取 16.5：HHI<0.10 ∧ 流通≥16.5 → 拒 even_split_crew 团伙分仓已派发指纹〔四窗验证：拦 11 票 −0.252 大亏全拦〔0x531d/CEPE/DND/低电量/치이카와/Burn〕/救 16 票 +0.473 大肉全保〔不对劲 +131/猫厨师 +55/프론티어 +38/大美 +24〕；键源 cheat-snapshot holderHHI+circSupplyPct→buyDerived.chip；HHI=Σ份额² 对尾部尘埃免疫与基尼互补〕；FP21=T187 持有者打散臂（筹码结构维度立法——2026-11-19 用户裁定「代币已经交易了一段时间，参与者比较多，筹码已经完全打乱形不成主力了」+「通过 top1-2 的集中度把薄肌俱乐部救回来」+「落到因子过滤模块即可」：正净持有者 ≥25 ∧ top1-2 集中度不足 → 拒 holder_scatter，豁免=top1HoldCircPct≥45 ∨ top1Top2HoldCircPct≥60（有主力承接在场——两窗 bt-v155/156 全成交面 16 票 −0.30 止血/误伤 3 正票 +0.109 用户知情接受〔雅迪X5 0x0c959153 realPct+24 但闪跌闪拉真实交易吃不到点位〕；键源 buyDerived.chip〔CD 锚窗口径 posHolderCount/holdingsProfile circPct，D3.35 在场流通分母〕；两窗豁免臂零触发=纯前瞻保护，薄肌 0x51a17dda h=19 天然不进门）；FP20=T167d FP10 豁免换轨：末卖后在外流通谷值≤9%（T167c 10s 冷却线随退役——距锚随时间过线=多信号自愈 bt-v154 实证仅推迟 4s；谷值只随真实卖回下降，出清更深=语义自洽），0x6075 苏琳案二修；FP19=T167c FP10 豁免最短冷却（破发豁免须距 famous 末卖 ≥10s——末卖数秒内深破=砸落进行时非清场完成，0x6075 苏琳案四张真空接刀 −0.149 止血、28ad dist=16s 精确保留豁免，10s 取线留 6s 余量防同型票 dist 浮动误杀 +1.4 级尾部）；FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -731,8 +731,8 @@ function buildFactorGates(parts) {
     const chip = (parts.bd && parts.bd.chip) || null;
     g.push({
       id: 'even_split_crew', label: 'T188·持仓均等作弊仓',
-      value: chip ? `HHI${chip.holderHHI != null ? chip.holderHHI.toFixed(3) : '-'}` : '-',
-      line: 'HHI<0.10（团伙分仓近似均等——协同拉砸结构指纹）', hit: parts.armHits.includes('even_split_crew'),
+      value: chip ? `HHI${chip.holderHHI != null ? chip.holderHHI.toFixed(3) : '-'} 流通${chip.circSupplyPct != null ? chip.circSupplyPct.toFixed(1) + '%' : '-'}` : '-',
+      line: 'HHI<0.10 ∧ 流通≥16.5%（团伙分仓已派发——残局接刀；低流通=拉升中段救回）', hit: parts.armHits.includes('even_split_crew'),
     });
   }
   // FP18 尾部接刀（T182）
@@ -1012,27 +1012,36 @@ function armHolderScatter(bd) {
   return true;
 }
 
-/** T188/FP22 持仓均等作弊仓臂（2026-11-19 筹码结构维度二连，四窗归因）：
- *  正净持仓分布 HHI < 0.10 → 拒 even_split_crew。HHI=Σ(份额²)——平方加权
- *  头部敏感、对尾部尘埃人数免疫（与基尼互补：基尼被散户人数推高、HHI 不受
- *  「同样 top1=89% 尾部从 2 户变 60 户」影响，0.80 纹丝不动）。团伙分仓
- *  （多钱包近似均分防集中度检测——拉盘/出货协同）天然压低 HHI：
+/** T188/FP22 持仓均等作弊仓臂（2026-11-19 筹码结构维度二连，四窗归因；同日
+ *  二修加流通腿——用户裁定「只控流动筹码比例高一些的——『不对劲』这种我还想
+ *  救一救」）：HHI < 0.10 ∧ 流通占比 ≥15% → 拒 even_split_crew。
+ *  HHI=Σ(份额²)——平方加权头部敏感、对尾部尘埃人数免疫（与基尼互补：基尼
+ *  被散户人数推高、HHI 不受「同样 top1=89% 尾部从 2 户变 60 户」影响）。团伙
+ *  分仓（多钱包近似均分防集中度检测——拉盘/出货协同）天然压低 HHI：
  *  · 币安锁 0x426c0aca（bt-v155）：开盘 6 钱包分批买 → +35% 后两秒三块
  *    7 笔协同齐砸 0.8B（卖方名单与开盘买方一一对应）33s 直线砸 −44pp
  *  · 大美 0x61a1f7cf：0.033B×3/0.123B×4 同块等额捆绑拉盘进行时
  *  · 猫厨师 0xdc212d5b：拉到 +116% 后成对钱包两块 6 笔协同卖 0.87B
  *  · 「不对劲」0xb84e7e0e/프론티어 0x0b46c992（bt-v140 正票）：同块等额
  *    双买反复双卖/每块 5 钱包成组进场——正票均为团伙拉盘中段浮盈（砸前
- *    侥幸），与负票同生态两个时点=非误伤。
- *  四窗拦截面（HHI<0.10，全史重放口径=CD 锚窗域等价）：v155 7 票 / v156
- *  9 票 −0.145 / v140 8 票 / v145 3 票；与 T187 重叠面（posH≥25）已由
- *  holder_scatter 认领，本臂独立增量=posH<25 的均等分仓形状。锚缺席
- *  （holderHHI null——<2 正净持有人）不评宁不拦（FP 惯例）。 */
+ *    侥幸），与负票同生态两个时点。
+ *  流通腿（二修，线值三裁 15→18→16.5 折中）：流通占比=Σ正净÷总量——低流通
+ *  =团伙筹码尚未派发（拉升中段，四窗大肉全在此侧：不对劲 +131%@13.7%/猫
+ *  厨师 +55%@12.4%/프론티어 +38%@12.1%/大美 +24%@15.3 → <16.5% 放行救回
+ *  16 票 +0.473）；高流通=已充分派发（残局接刀）→ 拒 11 票 −0.252（0x531d
+ *  −31%@17.9/CEPE@18.0/DND@19.3/低电量@20.6/치이카와@21.6/Burn@22.4
+ *  大亏全拦，BNCBSI +19%@16.9/0x5793 +15%@17.2 误伤知情）；15-16.5 混合
+ *  带（大美/币安共建/币安一直都在/누룽쥐 五正二负）划给放行侧。
+ *  锚缺席容缺（FP 惯例）：holderHHI null（<2 正净持有人）或 circSupplyPct
+ *  null（totalSupply 缺失）→ 不拦（流通腿=救回条件，null 走放行 fail-open）。 */
 const HOLDER_EVEN_CREW_MAX_HHI = 0.10;
+const HOLDER_EVEN_CREW_MIN_CIRC_PCT = 16.5;
 function armEvenSplitCrew(bd) {
   const chip = bd && bd.chip;
   if (!chip || typeof chip.holderHHI !== 'number') return false;
-  return chip.holderHHI < HOLDER_EVEN_CREW_MAX_HHI;
+  if (chip.holderHHI >= HOLDER_EVEN_CREW_MAX_HHI) return false;
+  if (typeof chip.circSupplyPct !== 'number') return false; // 流通腿缺席=无法确认高流通，救回方向 fail-open
+  return chip.circSupplyPct >= HOLDER_EVEN_CREW_MIN_CIRC_PCT;
 }
 
 /** FP18 尾部接刀：域（拉高过 ∧ 回到触发线内低位）∧ 5s 急跌 ∧ 30s 同向 → 拒
@@ -1249,7 +1258,7 @@ module.exports = {
   LIFECYCLE_BURST_EXEMPT_FLOOR_PCT, armLifecycleBurstResidual,
   HOLDER_SCATTER_MIN_HOLDERS, HOLDER_SCATTER_EXEMPT_TOP1_PCT, HOLDER_SCATTER_EXEMPT_TOP12_PCT,
   armHolderScatter,
-  HOLDER_EVEN_CREW_MAX_HHI, armEvenSplitCrew,
+  HOLDER_EVEN_CREW_MAX_HHI, HOLDER_EVEN_CREW_MIN_CIRC_PCT, armEvenSplitCrew,
   HOLDER_EVEN_CREW_MAX_HHI, armEvenSplitCrew,
   FAM_LOW_EXIT_MIN_BUY_BNB, FAM_LOW_EXIT_MIN_SOLD_RATIO, FAM_LOW_EXIT_MAX_PRESENCE_BNB,
   FAM_LOW_EXIT_MAX_VS_PCT, FAM_LOW_EXIT_COOLDOWN_SEC,
