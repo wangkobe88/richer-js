@@ -18,6 +18,8 @@ npm start                                  # 实验管理 CLI（交互式 start/
 npm run dev
 npm run web                                # Web 界面（端口 3010）
 node src/run-engine.js <experiment_id>     # 单实验直跑（virtual；live 显式拒绝）
+node scripts/clone-experiment.cjs --src <expId> --name <新名> [--desc ..] [--dry] [--no-gates]
+                                           # 正式克隆工具：整包 config 复制+门链标准段确保（factorCheck/cheatCheck/actFrontGate/buyPointCheck 缺则补开）+signalGate 买腿 cards:4 自动补；只建行不启动（2026-11-19 用户裁定克隆模板默认带 FP 门）
 npm run narrative-engine                   # 叙事分析 worker
 npm run case-regression [-- --only C98,C104 | --list | --add <addr> --case C112 --note .. | --update-expect C97 --because ..]
                                            # 叙事 case 回归集（票数随案渐增；重析对拍在 182 跑，工具文档 docs/case-regression-tool.md）
