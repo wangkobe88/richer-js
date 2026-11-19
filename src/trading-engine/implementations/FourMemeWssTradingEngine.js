@@ -2399,6 +2399,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       //   bpPassLevels（默认 good/neutral）过；poor/insufficient/超时/错/disabled 拒
       // signalGate 腿与七个旧门字段互斥（loadStrategies fail-fast throw）→ 下方
       // preBuy/叙事直调/旧版 cheat 门/GMGN 段天然 no-op，零旧链交互
+      // T189b 资格线载体：门链 sbw（买点时刻二桶题判定）非 burst → 买入后不 arm
+      // burst 承接冷盘（2026-11-19 用户裁定「burst 需要 sbw 确认」）
+      let t189SbwBurst = false;
       if (strategy.signalGate) {
         this._sgRecordTrigger(tokenAddress, strategy.id);
 
@@ -2452,6 +2455,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             }
           }
         }
+
+        // T189b（2026-11-19 用户裁定「burst 需要 sbw 确认」）：sbw=门链二桶题
+        // levels.stallBurstWave==1（AF1 skip 路径合成同键）才 arm T189。买侧判
+        // 「波太薄不够 burst」（CD402 量级线 <0.3B）的票，卖侧不再按 burst 处置
+        // ——0xe9e8 天狗 sbw=none 承接迟到 2~5s 卖后 +133%/0x419c 圆圆 sbw=none
+        // 死盘小流量 15s 零承接卖后 +88% 两案。fail-closed：sbw 缺席（故障/超时/
+        // 非 signalGate 腿）=无 burst 证据不 arm，与 BP _cheatBurstForBp 同向。
+        t189SbwBurst = !!(cheatGate.info && cheatGate.info.levels
+          && cheatGate.info.levels.stallBurstWave === 1);
 
         const bpGate = await this._bpGateEvaluate(
           tokenAddress, token, faState, signalId, strategy.signalGate, {
@@ -2872,8 +2884,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         this._resetGmgnEntryFor(tokenAddress);
         // T189 burst 承接冷盘：买入成交点 arm（t0=墙钟成交时刻；live 自己的链上
         // 买 tick 由 ownWallets 排除出承接——0.2B 自买会直接豁免整机制）
-        if (this._burstCooldown) {
+        // T189b：sbw 未确认 burst 不 arm（资格判定见门链段注释）
+        if (this._burstCooldown && t189SbwBurst) {
           this._factorAggregator.armBurstCooldown(tokenAddress, Date.now(), this._ownWalletAddresses());
+        } else if (this._burstCooldown) {
+          this.logger.info(this._experimentId, 'BurstCooldown',
+            `⏭️ sbw 未确认 burst → 不 arm 承接冷盘 | ${token.symbol}（买点门链 sbw=none/缺席）`);
+        }
+        if (this._burstCooldown && signalId) {
+          this._updateSignalMetadata(signalId, { burstCooldownArm: { armed: t189SbwBurst } })
+            .catch(() => { /* 留痕失败不阻断买入路径 */ });
         }
         // T116b 买点进场观察：成交帧三类在场数落 signal metadata（纯观察不进门）
         this._recordGmgnEntryBuyObs(signalId, tokenAddress);

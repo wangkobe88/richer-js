@@ -257,5 +257,31 @@ T('FA 机制关（ring 未启用）→ view 无 crew（null crew 退化为全量
   assert.strictEqual(view.crewSize, 0, 'ring 空 → crew 空（引擎关=不 arm 不扫，此形状不会出现，防御性断言）');
 });
 
+// ── T189b 源码口径锁（2026-11-19 用户裁定「burst 需要 sbw 确认」）──
+// 资格线在引擎 arm 点（非纯函数层）：两引擎 armBurstCooldown 调用必须以
+// t189SbwBurst（门链 sbw==1 判定）为前置条件。0xe9e8 天狗/0x419c 圆圆两案
+// （sbw=none 却被 burst 卖出）立法；重构丢掉资格线=此断言失败。
+T('T189b 源码锁：两引擎 arm 点资格线在场（sbw 未确认不 arm）', () => {
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of [
+    'src/trading-engine/implementations/FourMemeWssTradingEngine.js',
+    'src/trading-engine/implementations/BacktestEngine.js',
+  ]) {
+    const src = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+    const arms = [...src.matchAll(/armBurstCooldown\(/g)];
+    assert.ok(arms.length > 0, `${f} 应有 armBurstCooldown 调用点`);
+    for (const m of arms) {
+      // 取调用点前方 200 字符窗口，须含 t189SbwBurst 条件（arm 资格线）
+      const before = src.slice(Math.max(0, m.index - 200), m.index);
+      assert.ok(before.includes('t189SbwBurst'),
+        `${f} armBurstCooldown 调用点缺 t189SbwBurst 资格条件（T189b sbw 确认线被丢？）`);
+    }
+    // sbw 判定式在场（levels.stallBurstWave === 1 → t189SbwBurst）
+    assert.ok(/t189SbwBurst = !!\(cheatGate\.info && cheatGate\.info\.levels/.test(src),
+      `${f} 缺 sbw 判定赋值（门链 sbw → t189SbwBurst）`);
+  }
+});
+
 console.log(`\n结果: ${passed} 通过 / ${failed} 失败`);
 process.exit(failed ? 1 : 0);

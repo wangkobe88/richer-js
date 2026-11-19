@@ -2347,6 +2347,9 @@ class BacktestEngine extends AbstractTradingEngine {
       // 不截=锚窗吃信号后数据=马后炮）；gateToken 组装=回测 token 形状适配
       // （created_at 秒/creator_address 双形状 + _tokenMeta 兜底 meta 缺行——
       // createdAt 锚缺失会让 cheat 题面锚窗退化，尽量补齐）
+      // T189b 资格线载体：门链 sbw（买点时刻二桶题判定）非 burst → 买入后不 arm
+      // burst 承接冷盘（2026-11-19 用户裁定「burst 需要 sbw 确认」；fail-closed）
+      let t189SbwBurst = false;
       if (strategy.signalGate && this._signalGateReal) {
         this._sgRecordTrigger(tokenAddress, strategy.id);
 
@@ -2410,6 +2413,10 @@ class BacktestEngine extends AbstractTradingEngine {
             { anchorMs: nowTs, factorResults });
         }
         const _chDt = Date.now() - _chT0;
+        // T189b：sbw=levels.stallBurstWave==1 才 arm T189（同实时引擎；AF1 skip
+        // 路径合成同键；sbw 缺席=无 burst 证据不 arm fail-closed）
+        t189SbwBurst = !!(cheatGate.info && cheatGate.info.levels
+          && cheatGate.info.levels.stallBurstWave === 1);
         if (!cheatGate.pass) return { success: false, reason: cheatGate.reason };
         if (cheatGate.info && signalId && cheatGate.info.status !== 'skipped_by_act_front') {
           try {
@@ -2806,8 +2813,15 @@ class BacktestEngine extends AbstractTradingEngine {
           buySignalAt: nowTs,
         });
         // T189 burst 承接冷盘 arm（t0=虚拟成交时刻；回测无自己链上 tick → own 空）
-        if (this._burstCooldown) {
+        // T189b：sbw 未确认 burst 不 arm（资格判定见门链段注释）
+        if (this._burstCooldown && t189SbwBurst) {
           this._factorAggregator.armBurstCooldown(token.token, nowTs, []);
+        } else if (this._burstCooldown) {
+          this.logger.info(this._experimentId, 'BurstCooldown',
+            `⏭️ sbw 未确认 burst → 不 arm 承接冷盘 | ${token.symbol}（买点门链 sbw=none/缺席）`);
+        }
+        if (this._burstCooldown && signalId) {
+          this._bufferSignalUpdate(signalId, { metadata: { burstCooldownArm: { armed: t189SbwBurst } } });
         }
 
         this._bufferSignalUpdate(signalId, { executed: true, metadata: { execution_status: 'executed' } });
