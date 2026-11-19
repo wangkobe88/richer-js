@@ -193,7 +193,7 @@ console.log('DP. FP23 相邻双块捆绑砸盘尾承接（T190/0x2b63 ASCEND 案
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'dump_pair_low_absorption');
     assert.deepStrictEqual(r.arms, ['dump_pair_low_absorption']);
-    assert.strictEqual(r.version, 'FP23');
+    assert.strictEqual(r.version, 'FP24');
     const g = r.gates.find(x => x.id === 'dump_pair');
     assert.ok(g, 'gates 须含 dump_pair 门');
     assert.strictEqual(g.hit, true);
@@ -206,7 +206,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP23'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP24'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -317,7 +317,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP23');
+    assert.strictEqual(r.version, 'FP24');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -870,7 +870,7 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP17（T180 首两波大部队迁入；FP16=大周期 burst 残局）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP23'); // FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP24'); // FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
   });
 }
 
@@ -942,9 +942,11 @@ console.log('R. FP16 大周期 burst 残局（2026-11-18 bt-v147 瓦尔哈 0x5fb
     assert.strictEqual(M.armLifecycleBurstResidual(BD({ launchMinVsFloorPct: null }), CD()), true);
     assert.strictEqual(M.armLifecycleBurstResidual(BD({ launchMinVsFloorPct: undefined }), CD()), true);
   });
-  check('R4 生命周期腿：ath 99.9 不拦 / 总额 14.99 不拦（本案 17.63 锚定线 15）', () => {
+  check('R4 生命周期腿：ath 99.9 不拦 / 总额 10.99 不拦 / 11.00 恰线拦 / 14.99 拦（T191 降线 15→11，chibi 案 11.5295 锚定）', () => {
     assert.strictEqual(M.armLifecycleBurstResidual(BD({ athVsLaunchPct: 99.9 }), CD()), false);
-    assert.strictEqual(M.armLifecycleBurstResidual(BD({ totalVolumeBnb: 14.99 }), CD()), false);
+    assert.strictEqual(M.armLifecycleBurstResidual(BD({ totalVolumeBnb: 10.99 }), CD()), false);
+    assert.strictEqual(M.armLifecycleBurstResidual(BD({ totalVolumeBnb: 11 }), CD()), true);
+    assert.strictEqual(M.armLifecycleBurstResidual(BD({ totalVolumeBnb: 14.99 }), CD()), true); // T191 前放行带=现拦截带
   });
   check('R5 burst 结构腿：静默 29s 不拦 / 波远锚 61s 不拦 / 波买 0.29B 不拦 / 任一 null 不拦', () => {
     assert.strictEqual(M.armLifecycleBurstResidual(BD(), CD({ burstLastGapSec: 29 })), false);
@@ -980,6 +982,25 @@ console.log('R. FP16 大周期 burst 残局（2026-11-18 bt-v147 瓦尔哈 0x5fb
     assert.strictEqual(M.armExtremeDumpSellers(cd412, BD({ launchMinVsFloorPct: -0.5 })), false); // 浅破豁免
     assert.strictEqual(M.armExtremeDumpSellers(cd412, BD({ launchMinVsFloorPct: 5 })), true); // 未破发照拦
     assert.strictEqual(M.armExtremeDumpSellers(cd412, BD({ launchMinVsFloorPct: null })), true); // 豁免证据缺席不豁免
+  });
+  check('R9 T191 案值（2026-11-19 真回放六腿）：chibi 11.5295 拦 / 0x8fbb5ae7 12.6675 拦（知情误伤 +0.0321）/ 0x9391a6d2 14.0218 拦', () => {
+    assert.strictEqual(M.armLifecycleBurstResidual(
+      { athVsLaunchPct: 107.5, totalVolumeBnb: 11.5295, launchMinVsFloorPct: 12.94 },
+      { burstLastGapSec: 51, burstSecSinceWaveEnd: 0, burstWaveSegBuyBnb: 0.4178 }), true);
+    assert.strictEqual(M.armLifecycleBurstResidual(
+      { athVsLaunchPct: 137.7, totalVolumeBnb: 12.6675, launchMinVsFloorPct: -1.93 },
+      { burstLastGapSec: 77, burstSecSinceWaveEnd: 0, burstWaveSegBuyBnb: 0.579 }), true);
+    assert.strictEqual(M.armLifecycleBurstResidual(
+      { athVsLaunchPct: 136.4, totalVolumeBnb: 14.0218, launchMinVsFloorPct: -3.64 },
+      { burstLastGapSec: 1710, burstSecSinceWaveEnd: 0, burstWaveSegBuyBnb: 0.5439 }), true);
+  });
+  check('R10 T191 深破豁免腿不动（真重启票两窗实证）：0x953866a7 −11.87 / 0x4c6c9378 −15.34 → 放行', () => {
+    assert.strictEqual(M.armLifecycleBurstResidual(
+      { athVsLaunchPct: 162, totalVolumeBnb: 11.1397, launchMinVsFloorPct: -11.87 },
+      { burstLastGapSec: 45, burstSecSinceWaveEnd: 0, burstWaveSegBuyBnb: 0.3528 }), false);
+    assert.strictEqual(M.armLifecycleBurstResidual(
+      { athVsLaunchPct: 228.7, totalVolumeBnb: 14.3837, launchMinVsFloorPct: -15.34 },
+      { burstLastGapSec: 547, burstSecSinceWaveEnd: 0, burstWaveSegBuyBnb: 0.5938 }), false);
   });
 }
 
@@ -1059,7 +1080,7 @@ console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入�
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'launch_squad_dominance');
     assert.ok(r.arms.includes('launch_squad_dominance'));
-    assert.strictEqual(r.version, 'FP23');
+    assert.strictEqual(r.version, 'FP24');
   });
   check('T2 有机热门盘 wave≥8 但 dom<30 → 放（da405bd0 wave13 dom0 实证——占比轴保护赢家）', () => {
     const r = M.evaluateFactorPreBuy(LS(13, 0));
@@ -1154,7 +1175,7 @@ console.log('U. FP19 尾部接刀臂（T182）');
     assert.strictEqual(g2.hit, false);
   });
   check('U10 版本 FP22（T188 持仓均等作弊仓；FP21=T187 持有者打散臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP23');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP24');
   });
 }
 
@@ -1203,7 +1224,7 @@ console.log('V. T187/FP21 持有者打散臂（筹码结构维度：posH≥25 �
     assert.strictEqual(M.armHolderScatter(CH(29, 28, 50).buyDerived), true);
   });
   check('V10 版本 FP21（T187 持有者打散；豁免=top1≥45 ∨ 前2≥60）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP23');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP24');
   });
 }
 
@@ -1265,7 +1286,7 @@ console.log('W. T188/FP22 持仓均等作弊仓臂（HHI<0.10 团伙分仓指纹
     assert.ok(Math.abs(hhi([50, 25, 25]) - 0.375) < 1e-12);
   });
   check('W8 版本 FP22（T188 持仓均等作弊仓臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP23');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP24');
   });
 }
 

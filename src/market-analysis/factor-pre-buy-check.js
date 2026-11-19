@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP23'; // FP23=T190 相邻双块捆绑砸盘尾承接臂（2026-11-19 bt-v156 0x2b63c82e…7777 ASCEND「大量捆绑砸盘尾声票」案立法，用户选线 CD403 卖方 ≥8 只拦极端+追裁定「偏前期」案特性（后期代币下跌段连续两 slot 砸盘 8 个=正常市场化抛售不拦，注意误伤）：**前期域 票龄≤600s** ∧ dump2Block 卖方≥8 ∧ 合并卖额≥0.5B ∧ 跌幅≤-10% ∧ 距锚≤60s ∧ 承接比<0.3 → 拒 dump_pair_low_absorption〔CD403 单块 ≥0.5B 达标口径对跨两块分摊捆绑砸盘结构性失明的补集；BP78 总额≥20B 豁免照抄；三窗重放拦本案 1 票全负零误伤、AZ 案票 0x397a 五卖方用户知情漏〕；键源 buyDerived.dump2Block+tokenAgeSec——sellers 剔路由/dropPct 含 outlier 事实口径/followBuyBnb 已剔 BP85 闪进闪出）；FP22=T188 持仓均等作弊仓臂（筹码结构维度二连——2026-11-19 用户裁定「HHI 这么低是作弊票的概率比较高」「这一窗算是持仓均等异常的作弊仓，没有明显误伤，可以落」+同日二修流通腿「只控流动筹码比例高一些的——『不对劲』这种我还想救一救」线值三裁取 16.5：HHI<0.10 ∧ 流通≥16.5 → 拒 even_split_crew 团伙分仓已派发指纹〔四窗验证：拦 11 票 −0.252 大亏全拦〔0x531d/CEPE/DND/低电量/치이카와/Burn〕/救 16 票 +0.473 大肉全保〔不对劲 +131/猫厨师 +55/프론티어 +38/大美 +24〕；键源 cheat-snapshot holderHHI+circSupplyPct→buyDerived.chip；HHI=Σ份额² 对尾部尘埃免疫与基尼互补〕；FP21=T187 持有者打散臂（筹码结构维度立法——2026-11-19 用户裁定「代币已经交易了一段时间，参与者比较多，筹码已经完全打乱形不成主力了」+「通过 top1-2 的集中度把薄肌俱乐部救回来」+「落到因子过滤模块即可」：正净持有者 ≥25 ∧ top1-2 集中度不足 → 拒 holder_scatter，豁免=top1HoldCircPct≥45 ∨ top1Top2HoldCircPct≥60（有主力承接在场——两窗 bt-v155/156 全成交面 16 票 −0.30 止血/误伤 3 正票 +0.109 用户知情接受〔雅迪X5 0x0c959153 realPct+24 但闪跌闪拉真实交易吃不到点位〕；键源 buyDerived.chip〔CD 锚窗口径 posHolderCount/holdingsProfile circPct，D3.35 在场流通分母〕；两窗豁免臂零触发=纯前瞻保护，薄肌 0x51a17dda h=19 天然不进门）；FP20=T167d FP10 豁免换轨：末卖后在外流通谷值≤9%（T167c 10s 冷却线随退役——距锚随时间过线=多信号自愈 bt-v154 实证仅推迟 4s；谷值只随真实卖回下降，出清更深=语义自洽），0x6075 苏琳案二修；FP19=T167c FP10 豁免最短冷却（破发豁免须距 famous 末卖 ≥10s——末卖数秒内深破=砸落进行时非清场完成，0x6075 苏琳案四张真空接刀 −0.149 止血、28ad dist=16s 精确保留豁免，10s 取线留 6s 余量防同型票 dist 浮动误杀 +1.4 级尾部）；FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
+const FACTOR_PREBUY_VERSION = 'FP24'; // FP24=T191 FP16 总额线降线 15→11（2026-11-19 bt-v156 chibi 0x854d4f2f…7777 案：走完一轮 ath107.5%∧静默51s∧波买0.4178B∧波近锚 全过唯独总额 11.5295B<15 漏面，P2 腿买入 40s 断流止损 −0.0228；用户令「扫数据支持就调」→四实验两窗（v154/155=win1012、v156/157=win1019）扫描+5 张成交近失票真 snapshot 六腿核验后净账 −0.0093（止血 chibi −0.0228 vs 同构误伤 0x8fbb5ae7 +0.0321，win1012 唯一正票 0x953866a7 +0.0272 系深破豁免腿正确放行）→用户看完 0x8fbb 信号页裁定「接受这个误伤」降线；线=案源 11.53 向下取整（T181 立法 17.63→15 同构），T∈[10,11.5] 两窗拦面完全相同=带内数据等价；0x9391a6d2(14.02/pnl 0)随线翻转、0x4c6c9378(−15.3)/0x953866a7(−11.9) 深破豁免不动；⚠gate 显示值缺波近锚/深破豁免两腿，翻转分析必须真 snapshot 回放；platform 取 wss_events.platform 列非 payload）；FP23=T190 相邻双块捆绑砸盘尾承接臂（2026-11-19 bt-v156 0x2b63c82e…7777 ASCEND「大量捆绑砸盘尾声票」案立法，用户选线 CD403 卖方 ≥8 只拦极端+追裁定「偏前期」案特性（后期代币下跌段连续两 slot 砸盘 8 个=正常市场化抛售不拦，注意误伤）：**前期域 票龄≤600s** ∧ dump2Block 卖方≥8 ∧ 合并卖额≥0.5B ∧ 跌幅≤-10% ∧ 距锚≤60s ∧ 承接比<0.3 → 拒 dump_pair_low_absorption〔CD403 单块 ≥0.5B 达标口径对跨两块分摊捆绑砸盘结构性失明的补集；BP78 总额≥20B 豁免照抄；三窗重放拦本案 1 票全负零误伤、AZ 案票 0x397a 五卖方用户知情漏〕；键源 buyDerived.dump2Block+tokenAgeSec——sellers 剔路由/dropPct 含 outlier 事实口径/followBuyBnb 已剔 BP85 闪进闪出）；FP22=T188 持仓均等作弊仓臂（筹码结构维度二连——2026-11-19 用户裁定「HHI 这么低是作弊票的概率比较高」「这一窗算是持仓均等异常的作弊仓，没有明显误伤，可以落」+同日二修流通腿「只控流动筹码比例高一些的——『不对劲』这种我还想救一救」线值三裁取 16.5：HHI<0.10 ∧ 流通≥16.5 → 拒 even_split_crew 团伙分仓已派发指纹〔四窗验证：拦 11 票 −0.252 大亏全拦〔0x531d/CEPE/DND/低电量/치이카와/Burn〕/救 16 票 +0.473 大肉全保〔不对劲 +131/猫厨师 +55/프론티어 +38/大美 +24〕；键源 cheat-snapshot holderHHI+circSupplyPct→buyDerived.chip；HHI=Σ份额² 对尾部尘埃免疫与基尼互补〕；FP21=T187 持有者打散臂（筹码结构维度立法——2026-11-19 用户裁定「代币已经交易了一段时间，参与者比较多，筹码已经完全打乱形不成主力了」+「通过 top1-2 的集中度把薄肌俱乐部救回来」+「落到因子过滤模块即可」：正净持有者 ≥25 ∧ top1-2 集中度不足 → 拒 holder_scatter，豁免=top1HoldCircPct≥45 ∨ top1Top2HoldCircPct≥60（有主力承接在场——两窗 bt-v155/156 全成交面 16 票 −0.30 止血/误伤 3 正票 +0.109 用户知情接受〔雅迪X5 0x0c959153 realPct+24 但闪跌闪拉真实交易吃不到点位〕；键源 buyDerived.chip〔CD 锚窗口径 posHolderCount/holdingsProfile circPct，D3.35 在场流通分母〕；两窗豁免臂零触发=纯前瞻保护，薄肌 0x51a17dda h=19 天然不进门）；FP20=T167d FP10 豁免换轨：末卖后在外流通谷值≤9%（T167c 10s 冷却线随退役——距锚随时间过线=多信号自愈 bt-v154 实证仅推迟 4s；谷值只随真实卖回下降，出清更深=语义自洽），0x6075 苏琳案二修；FP19=T167c FP10 豁免最短冷却（破发豁免须距 famous 末卖 ≥10s——末卖数秒内深破=砸落进行时非清场完成，0x6075 苏琳案四张真空接刀 −0.149 止血、28ad dist=16s 精确保留豁免，10s 取线留 6s 余量防同型票 dist 浮动误杀 +1.4 级尾部）；FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -431,8 +431,10 @@ const BURST_WEAK_PRE_WAVE_BNB = 1;
 //    −38%/28ad 类真重启票——本案浅破 -5.6 照拦）──
 /** 生命周期门：ATH 相对发行价 ≥+100%「涨超一倍」 */
 const LIFECYCLE_MIN_ATH_PCT = 100;
-/** 生命周期门：锚窗总成交额（BNB）——本案 17.63 锚定（FP5 尾声门 20 线差 2.37B 漏网） */
-const LIFECYCLE_MIN_TOTAL_VOLUME_BNB = 15;
+/** 生命周期门：锚窗总成交额（BNB）——T181 立法 17.63→15；T191 降 15→11（chibi 案 11.53
+ *  漏面引出，用户裁定接受同构误伤 0x8fbb5ae7 +0.0321；案源向下取整同构，带内两窗
+ *  T∈[10,11.5] 拦面全同=数据等价取整） */
+const LIFECYCLE_MIN_TOTAL_VOLUME_BNB = 11;
 /** burst 结构前提：最后静默段时长（CD406 BURST_STALL_GAP_SEC 同线） */
 const LIFECYCLE_BURST_STALL_GAP_SEC = 30;
 /** 深破豁免线：launchMinVsFloorPct < 此值放行（G1 五连收线同线；豁免证据缺席不豁免） */
@@ -861,7 +863,7 @@ function buildFactorGates(parts) {
     g.push({
       id: 'lifecycle_burst', label: 'FP16·大周期burst残局',
       value: `ath${d(parts.bd && parts.bd.athVsLaunchPct, '%')} 总额${d(parts.bd && parts.bd.totalVolumeBnb, 'B')} 静默${d(cd.burstLastGapSec, 's')} 波买${d(cd.burstWaveSegBuyBnb, 'B')}`,
-      line: 'ath≥100% ∧ 总额≥15B ∧ burst结构（静默≥30s∧波近锚∧波买≥0.3B）；深破<−10豁免', hit: parts.armHits.includes('lifecycle_burst_residual'),
+      line: 'ath≥100% ∧ 总额≥11B ∧ burst结构（静默≥30s∧波近锚∧波买≥0.3B）；深破<−10豁免', hit: parts.armHits.includes('lifecycle_burst_residual'),
     });
     g.push({
       id: 'cd412', label: 'CD412·极端捆绑砸盘',
@@ -1161,9 +1163,10 @@ function armBurstWeakWave(bd) {
 }
 
 /**
- * FP16 大周期 burst 残局：走过一轮大生命周期（ATH ≥+100% ∧ 总额 ≥15B）的票，
- * burst 结构在场（静默 ≥30s → 出口波贴近锚 ≤60s ∧ 波买 ≥0.3B）→ 拒——「不买
- * burst」。深破豁免 launchMinVsFloorPct < -10（真重启票放行，G1 五连收线同线）。
+ * FP16 大周期 burst 残局：走过一轮大生命周期（ATH ≥+100% ∧ 总额 ≥11B——T191
+ * 自 15 降线，chibi 0x854d4f2f…7777 案）的票，burst 结构在场（静默 ≥30s →
+ * 出口波贴近锚 ≤60s ∧ 波买 ≥0.3B）→ 拒——「不买 burst」。深破豁免
+ * launchMinVsFloorPct < -10（真重启票放行，G1 五连收线同线）。
  * null 语义：拒方向证据缺席不拒（ath/总额/静默段/波锚任一 null → 不拦）；
  * 豁免证据缺席不豁免（launchMinVsFloorPct null → 照拦）。
  */
