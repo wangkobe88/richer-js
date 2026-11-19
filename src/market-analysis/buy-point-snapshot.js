@@ -956,6 +956,8 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     top1HoldCircPct: hp.length > 0 ? hp[0].circPct ?? null : null,
     top1Top2HoldCircPct: cd.top1Top2HoldCircPct ?? null,
     top3HoldCircPct: cd.top3HoldCircPct ?? null,
+    // T188/FP22 持仓均等度（正净分布 HHI，cheat-snapshot 直切；团伙分仓指纹）
+    holderHHI: cd.holderHHI ?? null,
     sameBlockHoldPct: cd.sameBlockHoldPct ?? null,
     equalBandHoldPct: cd.equalBandHoldPct ?? null,
     buyersTotal,

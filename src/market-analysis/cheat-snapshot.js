@@ -778,6 +778,15 @@ function computeDerived(snapshot, famousRoster) {
     ? ((top1NetTok + top2NetTok) / posTokTotal) * 100 : null;
   const top3HoldCircPct = posTokTotal > 0 && top3NetTok > 0
     ? ((top1NetTok + top2NetTok + top3NetTok) / posTokTotal) * 100 : null;
+  // ── T188/FP22 持仓均等度锚（2026-11-19 筹码结构维度二连，正净持仓分布 HHI
+  //    = Σ(份额²)：平方加权=头部敏感、对尾部尘埃人数免疫（与基尼的成对差互补
+  //    ——基尼被散户人数推高，HHI 只看头部垄断）。团伙分仓（多钱包近似均分
+  //    拉盘/出货，bt-v155 币安锁 0x426c0aca 开盘 6 钱包分批买→两秒三块 7 笔
+  //    协同齐砸 0.8B 实证）天然压低 HHI——「持仓均等异常的作弊仓」结构指纹。
+  //    消费=T188 FP 臂（buyDerived.chip 切片），不进题面/state/FA 投影；
+  //    <2 正净持有人 → null（有证据的缺席，同 top2 族语义）──
+  const holderHHI = posTokTotal > 0 && posSorted.length >= 2
+    ? posSorted.reduce((s, [, v]) => s + (v / posTokTotal) * (v / posTokTotal), 0) : null;
   const walletOf = new Map(wallets.map((e) => [e.w, e]));
   let top1Top2FirstBuyGapSec = null;
   {
@@ -1949,6 +1958,8 @@ function computeDerived(snapshot, famousRoster) {
     top2HoldSupplyPct, top1Top2HoldSupplyPct, top1Top2FirstBuyGapSec,
     // D3.60 持有者基数三锚（头注见计算段；holdings_balance 分层判读原料）
     posHolderCount, top1Top2HoldCircPct, top3HoldCircPct,
+    // T188/FP22 持仓均等度锚（正净分布 HHI；buyDerived.chip 切片供 FP 臂消费）
+    holderHHI,
     clusterHoldSupplyPct, t1PlusClusterSupplyPct, holdingsProfile,
     // D3.41 簇占在场流通两锚（token 域，holdings_balance 档位判读原料）
     sameBlockHoldCircPct, equalBandHoldCircPct,

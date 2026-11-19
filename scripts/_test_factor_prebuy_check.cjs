@@ -145,7 +145,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP21'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP22'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -256,7 +256,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP21');
+    assert.strictEqual(r.version, 'FP22');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -809,7 +809,7 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP17（T180 首两波大部队迁入；FP16=大周期 burst 残局）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP21'); // FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP22'); // FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
   });
 }
 
@@ -998,7 +998,7 @@ console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入�
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'launch_squad_dominance');
     assert.ok(r.arms.includes('launch_squad_dominance'));
-    assert.strictEqual(r.version, 'FP21');
+    assert.strictEqual(r.version, 'FP22');
   });
   check('T2 有机热门盘 wave≥8 但 dom<30 → 放（da405bd0 wave13 dom0 实证——占比轴保护赢家）', () => {
     const r = M.evaluateFactorPreBuy(LS(13, 0));
@@ -1092,8 +1092,8 @@ console.log('U. FP19 尾部接刀臂（T182）');
     const g2 = M.evaluateFactorPreBuy(TK(74, 23.7, -13.1, -1.7)).gates.find((x) => x.id === 'tail_dip_knife');
     assert.strictEqual(g2.hit, false);
   });
-  check('U10 版本 FP21（T187 持有者打散臂；FP20=T167d 豁免换轨流通谷值）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP21');
+  check('U10 版本 FP22（T188 持仓均等作弊仓；FP21=T187 持有者打散臂）', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP22');
   });
 }
 
@@ -1142,7 +1142,57 @@ console.log('V. T187/FP21 持有者打散臂（筹码结构维度：posH≥25 �
     assert.strictEqual(M.armHolderScatter(CH(29, 28, 50).buyDerived), true);
   });
   check('V10 版本 FP21（T187 持有者打散；豁免=top1≥45 ∨ 前2≥60）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP21');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP22');
+  });
+}
+
+console.log('W. T188/FP22 持仓均等作弊仓臂（HHI<0.10 团伙分仓指纹；四窗 v155/156/140/145 归因）');
+{
+  const CH2 = (hhi, posH) => SNAP({ buyDerived: { chip: { holderHHI: hhi, posHolderCount: posH, top1HoldCircPct: 20, top1Top2HoldCircPct: 35 }, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 3 } } });
+  check('W1 币安锁形状（HHI=0.090 团伙分仓）→ arms 含 even_split_crew', () => {
+    const r = M.evaluateFactorPreBuy(CH2(0.090, 20));
+    assert.ok(r.arms.includes('even_split_crew'));
+  });
+  check('W2 边界严格性（0.099 拒 / 0.100 恰达线放 / 0.11 放）', () => {
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.099, 20).buyDerived), true);
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.100, 20).buyDerived), false);
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.11, 20).buyDerived), false);
+  });
+  check('W3 null 容缺（holderHHI null——<2 正净持有人有证据的缺席）→ 不评宁不拦', () => {
+    assert.strictEqual(M.armEvenSplitCrew(CH2(null, 20).buyDerived), false);
+    assert.strictEqual(M.armEvenSplitCrew({}), false);
+    const r = M.evaluateFactorPreBuy(CH2(null, 20));
+    assert.ok(!r.arms.includes('even_split_crew'));
+  });
+  check('W4 与 T187 独立并存（HHI 低但 posH<25=不被 holder_scatter 认领 → even_split_crew 认领；HHI 高 posH≥25 → 只 holder_scatter）', () => {
+    const r1 = M.evaluateFactorPreBuy(CH2(0.070, 13));
+    assert.ok(r1.arms.includes('even_split_crew'));
+    assert.ok(!r1.arms.includes('holder_scatter'));
+    const r2 = M.evaluateFactorPreBuy(CH2(0.30, 30));
+    assert.ok(r2.arms.includes('holder_scatter'));
+    assert.ok(!r2.arms.includes('even_split_crew'));
+  });
+  check('W5 gates 门行在位（信号页②因子检查卡展示 HHI 值）', () => {
+    const r = M.evaluateFactorPreBuy(CH2(0.090, 20));
+    const g = r.gates.find((x) => x.id === 'even_split_crew');
+    assert.ok(g, 'even_split_crew 门行缺失');
+    assert.strictEqual(g.hit, true);
+    assert.ok(g.value.includes('0.090'));
+    assert.ok(g.line.includes('0.10'));
+    const g2 = M.evaluateFactorPreBuy(CH2(0.3, 20)).gates.find((x) => x.id === 'even_split_crew');
+    assert.strictEqual(g2.hit, false);
+  });
+  check('W6 事故反证（猫厨师 0.081 拒 / 甜点带 0.20-0.35 票 0.25 放行）', () => {
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.081, 21).buyDerived), true);
+    assert.strictEqual(M.armEvenSplitCrew(CH2(0.25, 7).buyDerived), false);
+  });
+  check('W7 HHI 对尾部人数免疫语义锁（同样 top1 份额、尾部户数不同——HHI 由份额平方决定： [50,50]→0.5 vs [50, 25×2]→0.375）', () => {
+    const hhi = xs => { const s = xs.reduce((a, b) => a + b, 0); return xs.reduce((a, x) => a + (x / s) ** 2, 0); };
+    assert.ok(Math.abs(hhi([50, 50]) - 0.5) < 1e-12);
+    assert.ok(Math.abs(hhi([50, 25, 25]) - 0.375) < 1e-12);
+  });
+  check('W8 版本 FP22（T188 持仓均等作弊仓臂）', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP22');
   });
 }
 
