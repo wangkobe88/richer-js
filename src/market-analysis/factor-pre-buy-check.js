@@ -65,7 +65,7 @@ const ACT_ULTRA_BUY_BNB_MAX = 0.1;
 const ACT_ULTRA_TPM = 150;
 const ACT_ULTRA_IDLE_PCT = 5;
 
-const FACTOR_PREBUY_VERSION = 'FP20'; // FP20=T167d FP10 豁免换轨：末卖后在外流通谷值≤9%（T167c 10s 冷却线随退役——距锚随时间过线=多信号自愈 bt-v154 实证仅推迟 4s；谷值只随真实卖回下降，出清更深=语义自洽），0x6075 苏琳案二修；FP19=T167c FP10 豁免最短冷却（破发豁免须距 famous 末卖 ≥10s——末卖数秒内深破=砸落进行时非清场完成，0x6075 苏琳案四张真空接刀 −0.149 止血、28ad dist=16s 精确保留豁免，10s 取线留 6s 余量防同型票 dist 浮动误杀 +1.4 级尾部）；FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
+const FACTOR_PREBUY_VERSION = 'FP21'; // FP21=T187 持有者打散臂（筹码结构维度立法——2026-11-19 用户裁定「代币已经交易了一段时间，参与者比较多，筹码已经完全打乱形不成主力了」+「通过 top1-2 的集中度把薄肌俱乐部救回来」+「落到因子过滤模块即可」：正净持有者 ≥25 ∧ top1-2 集中度不足 → 拒 holder_scatter，豁免=top1HoldCircPct≥45 ∨ top1Top2HoldCircPct≥60（有主力承接在场——两窗 bt-v155/156 全成交面 16 票 −0.30 止血/误伤 3 正票 +0.109 用户知情接受〔雅迪X5 0x0c959153 realPct+24 但闪跌闪拉真实交易吃不到点位〕；键源 buyDerived.chip〔CD 锚窗口径 posHolderCount/holdingsProfile circPct，D3.35 在场流通分母〕；两窗豁免臂零触发=纯前瞻保护，薄肌 0x51a17dda h=19 天然不进门）；FP20=T167d FP10 豁免换轨：末卖后在外流通谷值≤9%（T167c 10s 冷却线随退役——距锚随时间过线=多信号自愈 bt-v154 实证仅推迟 4s；谷值只随真实卖回下降，出清更深=语义自洽），0x6075 苏琳案二修；FP19=T167c FP10 豁免最短冷却（破发豁免须距 famous 末卖 ≥10s——末卖数秒内深破=砸落进行时非清场完成，0x6075 苏琳案四张真空接刀 −0.149 止血、28ad dist=16s 精确保留豁免，10s 取线留 6s 余量防同型票 dist 浮动误杀 +1.4 级尾部）；FP18=T182 尾部接刀臂（域内崩塌进行时不接刀：拉高过+回低位 ∧ chg5<-5 ∧ chg30<-5 → 拒 tail_dip_knife，bt-v147 0x51d9e360…7777 案研究立法——域腿不可去掉，对照组接刀是肥尾机会）；FP17=T180 首两波大部队×高占比（wave≥8 ∧ dom≥30 不买，0x17b09420…7777 案；首落 ladder v32 后同日用户裁定迁移本模块「放到因子过滤模块吧，不要放到信号触发模块了」——键源 buyDerived.launchSquad 两锚）；FP16=大周期 burst 残局（走过一轮+burst 不买，bt-v147 瓦尔哈案）；FP15=T174b burst 弱波大户合并口径（同块∨同额并为一个钱包，M4GA 案）；T175 N 升格臂同日证伪撤回（见 enableCheatArms 段注释）
 
 // ── FP8a 慢拉卸货臂（2026-11-17 btv140 复审 BP-T024 币安一直都在 0x7e99d2d9…7777
 //    案用户裁定：「024 需要挡，它属于涨幅跟量不匹配的票，作弊方自己慢速拉盘然后卸货，
@@ -717,6 +717,15 @@ function buildFactorGates(parts) {
       line: 'wave≥8 ∧ dom≥30（首2s尘线钱包挤入 ∧ 捆绑块占窗买）', hit: parts.armHits.includes('launch_squad_dominance'),
     });
   }
+  // T187 持有者打散无主力（FP21）
+  {
+    const chip = (parts.bd && parts.bd.chip) || null;
+    g.push({
+      id: 'holder_scatter', label: 'T187·持有者打散无主力',
+      value: chip ? `posH${d(chip.posHolderCount)} top1${d(chip.top1HoldCircPct, '%')} 前2${d(chip.top1Top2HoldCircPct, '%')}` : '-',
+      line: '持有者≥25 ∧ top1<45 ∧ 前2<60（豁免=主力承接在场）', hit: parts.armHits.includes('holder_scatter'),
+    });
+  }
   // FP18 尾部接刀（T182）
   {
     const bdk = parts.bd || {};
@@ -967,6 +976,33 @@ function armLaunchSquad(bd) {
   return ls.waveWallets >= LAUNCH_SQUAD_MIN_WALLETS && ls.domPct >= LAUNCH_SQUAD_MIN_DOM_PCT;
 }
 
+/** T187/FP21 持有者打散臂（2026-11-19 筹码结构维度立法，bt-v155/156 两窗成交面
+ *  归因）：「代币已经交易了一段时间，参与者比较多，筹码已经完全打乱形不成主力
+ *  了」——正净持有者 ≥25 ∧ top1-2 集中度不足 → 拒 holder_scatter。
+ *  · 键源 buyDerived.chip（CD 锚窗口径：posHolderCount 正净持有者/holdingsProfile
+ *    circPct 在场流通分母 D3.35——与 FA holders 族同构、分母略异，线值已按 CD 口径
+ *    预留余量：进场票实测 t2c（T91a 口径）最高 45%，CD 口径放大约 1.1-1.2× 后
+ *    仍 <60 豁免线）
+ *  · 豁免臂（用户裁定「通过 top1-2 的集中度把薄肌俱乐部救回来」）：
+ *    top1HoldCircPct ≥45 ∨ top1Top2HoldCircPct ≥60 = 有主力承接在场，筹码虽散
+ *    但有人主导 → 放行。两窗零触发=纯前瞻保护（薄肌 0x51a17dda h=19 不进门）。
+ *  · 锚缺席（posHolderCount null）不评宁不拦（FP 惯例）；top1/top1-2 缺席
+ *    （holdingsProfile 空）只走另一豁免键，双缺=无豁免证据照拒（fail-closed
+ *    方向=分散盘宁拦）。 */
+const HOLDER_SCATTER_MIN_HOLDERS = 25;
+const HOLDER_SCATTER_EXEMPT_TOP1_PCT = 45;
+const HOLDER_SCATTER_EXEMPT_TOP12_PCT = 60;
+function armHolderScatter(bd) {
+  const chip = bd && bd.chip;
+  if (!chip || typeof chip.posHolderCount !== 'number') return false;
+  if (chip.posHolderCount < HOLDER_SCATTER_MIN_HOLDERS) return false;
+  if (typeof chip.top1Top2HoldCircPct === 'number'
+    && chip.top1Top2HoldCircPct >= HOLDER_SCATTER_EXEMPT_TOP12_PCT) return false;
+  if (typeof chip.top1HoldCircPct === 'number'
+    && chip.top1HoldCircPct >= HOLDER_SCATTER_EXEMPT_TOP1_PCT) return false;
+  return true;
+}
+
 /** FP18 尾部接刀：域（拉高过 ∧ 回到触发线内低位）∧ 5s 急跌 ∧ 30s 同向 → 拒
  *  tail_dip_knife（T182）。双腿刀缺一不拦：chg30 企稳（≥-5）的瞬间深针=V 型
  *  反弹入场点（dae106 chg30=-1.7/chg5=-13.1 → ep+88 正票）刻意保护。 */
@@ -1110,6 +1146,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     // 丢失面=「act 恒 high∧纯 N」票，三窗 0 成交实证。版本不 bump：N 臂从未
     // 在任何窗口生效过（commit 与撤回同日，FP15 并行改动叠上））
     if (armLaunchSquad(snapshot.buyDerived)) arms.push('launch_squad_dominance'); // T180 首两波大部队×高占比（ladder v32 迁入 FP17——用户裁定归因子过滤模块；结构指纹臂置链首）
+    if (armHolderScatter(snapshot.buyDerived)) arms.push('holder_scatter'); // T187/FP21 持有者打散无主力（筹码结构维度：posH≥25 ∧ top1-2 集中度不足）
     if (armDumpNoAbsorption(cd)) arms.push('cd400_dump_no_absorption');
     else if (armDumpLowAbsorption(cd)) arms.push('cd403_dump_low_absorption');
     else if (armBurstExitSellPressure(cd)) arms.push('cd401_burst_exit_sell_pressure');
@@ -1177,6 +1214,8 @@ module.exports = {
   FAM_BURST_MIN_WAVE_BUY_BNB, FAM_BURST_MIN_SHARE_PCT,
   LIFECYCLE_MIN_ATH_PCT, LIFECYCLE_MIN_TOTAL_VOLUME_BNB, LIFECYCLE_BURST_STALL_GAP_SEC,
   LIFECYCLE_BURST_EXEMPT_FLOOR_PCT, armLifecycleBurstResidual,
+  HOLDER_SCATTER_MIN_HOLDERS, HOLDER_SCATTER_EXEMPT_TOP1_PCT, HOLDER_SCATTER_EXEMPT_TOP12_PCT,
+  armHolderScatter,
   FAM_LOW_EXIT_MIN_BUY_BNB, FAM_LOW_EXIT_MIN_SOLD_RATIO, FAM_LOW_EXIT_MAX_PRESENCE_BNB,
   FAM_LOW_EXIT_MAX_VS_PCT, FAM_LOW_EXIT_COOLDOWN_SEC,
   DUMP_NO_ABSORB_BNB, DUMP_RATIO_MIN_SELLERS, DUMP_LOW_ABSORPTION_RATIO, BURST_BUNDLE_MIN_WALLETS,
