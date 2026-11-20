@@ -30,6 +30,7 @@ const newsRoutes = require('./web/routes/news.routes');
 const executorsRoutes = require('./web/routes/executors.routes');
 const apiStatusRoutes = require('./web/routes/api-status.routes');
 const manualTradeRoutes = require('./web/routes/manual-trades.routes');
+const experimentHourlyStatsRoutes = require('./web/routes/experiment-hourly-stats.routes');
 
 // buildLLMAnalysis 是 ESM 模块，首次使用时动态导入并缓存
 let _buildLLMAnalysis = null;
@@ -279,6 +280,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_cheat_analysis.html'));
     });
 
+    // 统计监控页面（按小时 × 平台：新票/出内盘/热度标签）
+    this.app.get('/experiment/:id/hourly-stats', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_hourly_stats.html'));
+    });
+
     // 代币详情页面（独立页面，不在实验子路由下）
     this.app.get('/token-detail', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/token_detail.html'));
@@ -367,6 +373,9 @@ class RicherJsWebServer {
 
     // ============ API路由：手工交易命令队列（P0-C 实盘前置批，路径含 /experiment/:id 前缀）============
     this.app.use('/api', manualTradeRoutes);
+
+    // ============ API路由：实验统计监控（按小时 × 平台，per-experiment 60s 缓存）============
+    this.app.use('/api', experimentHourlyStatsRoutes);
 
     // ============ API路由：事件监控 ============
 

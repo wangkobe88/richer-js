@@ -290,6 +290,11 @@ class ExperimentDetail {
     if (linkCheatAnalysis) {
       linkCheatAnalysis.href = `/experiment/${this.experimentId}/cheat-analysis`;
     }
+    // 统计监控：按小时 × 平台（新票/出内盘/热度标签）
+    const linkHourlyStats = document.getElementById('link-hourly-stats');
+    if (linkHourlyStats) {
+      linkHourlyStats.href = `/experiment/${this.experimentId}/hourly-stats`;
+    }
     // 手工交易入口（P0-C 实盘前置批）：仅 live 实验显示（页面/命令 API 均仅 live 语义）
     const linkManual = document.getElementById('link-manual');
     if (linkManual) {
