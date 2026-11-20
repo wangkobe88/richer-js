@@ -870,7 +870,18 @@ function computeBuyPointDerived(snapshot, famousRoster) {
   // （买点时刻死寂），多笔大额=涌入波内（双向锚）；dt 缺失全族 null（tEnd null
   // 即 null 绝不冒充）──
   let nearTail5TickN = null, nearTail5BuyN = null, nearTail5BuyBnb = null, nearTail5BuySharePct = null;
+  // T195/FP28 尾段 7s 窗买入笔数（早窗启动失败死盘臂腿——5s 窗边界效应：Missy
+  // 0x89aa 案值尾 5s 0 笔但 t-6s 三笔真实买力恰在格外、6/7s 窗=3 笔即救出；
+  // 7s 取代 5s 一步到位不纠结 6s——真死盘 7s 内也凑不满 3 笔；与 nearTail5 族
+  // 并存：5s 族是 BP 题面判读原料（题集不 bump），7s 单键仅供 FP28 消费）
+  let nearTail7BuyN = null;
   if (tEnd !== null) {
+    let tn7 = 0;
+    for (const t of ticks) {
+      if (!bpInWin(t, tEnd, 7)) continue;
+      if (t.side === 'BUY') tn7++;
+    }
+    nearTail7BuyN = tn7;
     let tn5 = 0, bn5 = 0, bb5 = 0;
     for (const t of ticks) {
       if (!bpInWin(t, tEnd, BP_TAIL_SEC)) continue;
@@ -931,6 +942,7 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     nearTail5BuyN,
     nearTail5BuyBnb,
     nearTail5BuySharePct,
+    nearTail7BuyN, // T195/FP28 尾段 7s 窗买入笔数（启动失败死盘臂腿）
     // BP72 本地买方在场性（尾 10s 买卖分解，BP 侧自算）
     nearTail10BuyN,
     nearTail10BuyBnb,

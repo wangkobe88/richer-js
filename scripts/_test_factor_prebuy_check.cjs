@@ -193,7 +193,7 @@ console.log('DP. FP23 相邻双块捆绑砸盘尾承接（T190/0x2b63 ASCEND 案
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'dump_pair_low_absorption');
     assert.deepStrictEqual(r.arms, ['dump_pair_low_absorption']);
-    assert.strictEqual(r.version, 'FP27');
+    assert.strictEqual(r.version, 'FP28');
     const g = r.gates.find(x => x.id === 'dump_pair');
     assert.ok(g, 'gates 须含 dump_pair 门');
     assert.strictEqual(g.hit, true);
@@ -206,7 +206,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP27'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP28'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -317,7 +317,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP27');
+    assert.strictEqual(r.version, 'FP28');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -870,7 +870,7 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP17（T180 首两波大部队迁入；FP16=大周期 burst 残局）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP27'); // FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP28'); // FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
   });
 }
 
@@ -1104,7 +1104,7 @@ console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入�
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'launch_squad_dominance');
     assert.ok(r.arms.includes('launch_squad_dominance'));
-    assert.strictEqual(r.version, 'FP27');
+    assert.strictEqual(r.version, 'FP28');
   });
   check('T2 有机热门盘 wave≥8 但 dom<30 → 放（da405bd0 wave13 dom0 实证——占比轴保护赢家）', () => {
     const r = M.evaluateFactorPreBuy(LS(13, 0));
@@ -1199,7 +1199,7 @@ console.log('U. FP19 尾部接刀臂（T182）');
     assert.strictEqual(g2.hit, false);
   });
   check('U10 版本 FP22（T188 持仓均等作弊仓；FP21=T187 持有者打散臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP27');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP28');
   });
 }
 
@@ -1248,7 +1248,7 @@ console.log('V. T187/FP21 持有者打散臂（筹码结构维度：posH≥25 �
     assert.strictEqual(M.armHolderScatter(CH(29, 28, 50).buyDerived), true);
   });
   check('V10 版本 FP21（T187 持有者打散；豁免=top1≥45 ∨ 前2≥60）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP27');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP28');
   });
 }
 
@@ -1310,7 +1310,7 @@ console.log('W. T188/FP22 持仓均等作弊仓臂（HHI<0.10 团伙分仓指纹
     assert.ok(Math.abs(hhi([50, 25, 25]) - 0.375) < 1e-12);
   });
   check('W8 版本 FP22（T188 持仓均等作弊仓臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP27');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP28');
   });
 }
 
@@ -1372,7 +1372,7 @@ console.log('X. FP26/T193 尾段买力枯竭+卖压在场（bt-v158 因子分析
     assert.strictEqual(g2.hit, false);
   });
   check('X7 版本（T193 尾段买力枯竭+卖压在场，T194 后顺延 FP27）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP27');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP28');
   });
 }
 
@@ -1438,8 +1438,89 @@ console.log('Y. FP27/T194 大户静默卸货（未走完周期庄提前离场—
     const g2 = M.evaluateFactorPreBuy(Y27(0.3, 50)).gates.find((x) => x.id === 'holder_quiet_unload');
     assert.strictEqual(g2.hit, false);
   });
-  check('Y8 版本 FP27（T194 大户静默卸货）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP27');
+  check('Y8 版本（T194 大户静默卸货，T195 后顺延 FP28）', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP28');
+  });
+}
+
+console.log('Z. FP28/T195 早窗启动失败死盘（bt-v162 热窗首测立法——7s 窗用户裁定）');
+{
+  const Z28 = (ath, age, t7, over) => SNAP(Object.assign({
+    wallets: [W(0.3, 0, 0.3, 10)],
+    buyDerived: {
+      bundledBlock: null,
+      win: { 30: { buyBnb: 0.5, buyN: 5, sellN: 0 } },
+      athVsLaunchPct: ath, tokenAgeSec: age,
+      activity: { nearTail10BuyN: 3, nearTail7BuyN: t7 },
+    },
+    cheatDerived: {},
+  }, over));
+  check('Z1 案值：MOLLY(31.3,81,1)拦/小团子(24.9,23,1)拦/奶娃踢馆(29.2,15,2)拦/唐三角(21,61,2)拦（真死盘 7s 内也凑不满 3 笔）', () => {
+    for (const [ath, age, t7] of [[31.3, 81, 1], [24.9, 23, 1], [29.2, 15, 2], [21, 61, 2]]) {
+      assert.strictEqual(M.armLaunchFailDead(Z28(ath, age, t7).buyDerived), true, `${ath},${age},${t7}`);
+    }
+    const r = M.evaluateFactorPreBuy(Z28(31.3, 81, 1));
+    assert.ok(r.arms.includes('launch_fail_dead'), JSON.stringify(r.arms));
+    assert.strictEqual(r.reason, 'launch_fail_dead');
+  });
+  check('Z2 7s 窗救出面（用户裁定改 7s 的实证）：Missy(36.6,85,t7=3)放/凑凑(31.3,81,t7=4)放/テスラSI能飞(t7=4, pnl+0.25)放——买力在 t-6s 格内的边界票', () => {
+    assert.strictEqual(M.armLaunchFailDead(Z28(36.6, 85, 3).buyDerived), false);
+    assert.strictEqual(M.armLaunchFailDead(Z28(31.3, 81, 4).buyDerived), false);
+    assert.strictEqual(M.armLaunchFailDead(Z28(30, 60, 4).buyDerived), false);
+  });
+  check('Z3 边界：ath 39.9 拦 40 恰线不拦（FP18 域界同值镜像）/ age 89 拦 90 不拦 / t7 2 拦 3 不拦', () => {
+    assert.strictEqual(M.armLaunchFailDead(Z28(39.9, 60, 1).buyDerived), true);
+    assert.strictEqual(M.armLaunchFailDead(Z28(40, 60, 1).buyDerived), false);
+    assert.strictEqual(M.armLaunchFailDead(Z28(30, 89, 1).buyDerived), true);
+    assert.strictEqual(M.armLaunchFailDead(Z28(30, 90, 1).buyDerived), false);
+    assert.strictEqual(M.armLaunchFailDead(Z28(30, 60, 2).buyDerived), true);
+    assert.strictEqual(M.armLaunchFailDead(Z28(30, 60, 3).buyDerived), false);
+  });
+  check('Z4 null 容缺（宁漏不冒充）：ath/t7 null → 不拦', () => {
+    assert.strictEqual(M.armLaunchFailDead(Z28(null, 60, 1).buyDerived), false);
+    assert.strictEqual(M.armLaunchFailDead(Z28(30, 60, null).buyDerived), false);
+    assert.strictEqual(M.armLaunchFailDead(null), false);
+  });
+  check('Z5 t7 腿=分离关键锁：同域（ath<40∧age<90）尾段买力 ≥3 放行（「正在启动」好票——去掉该腿四窗 +0.70 正的反证）', () => {
+    assert.strictEqual(M.armLaunchFailDead(Z28(30, 60, 3).buyDerived), false);
+    assert.strictEqual(M.armLaunchFailDead(Z28(35, 85, 5).buyDerived), false);
+  });
+  check('Z6 与 FP26 else-if 分工：同票两臂同真（ath31/age81/t7=1 ∧ selN=7）→ tail_no_buyer_pressure 卖压证据更具体先认领', () => {
+    const r = M.evaluateFactorPreBuy(Z28(31.3, 81, 1, {
+      buyDerived: {
+        bundledBlock: null, athVsLaunchPct: 31.3, tokenAgeSec: 81,
+        win: { 30: { buyBnb: 0.5, buyN: 5, sellN: 7 } },
+        activity: { nearTail10BuyN: 3, nearTail7BuyN: 1, nearTail5BuyN: 1 },
+      },
+    }));
+    assert.ok(r.arms.includes('tail_no_buyer_pressure'), JSON.stringify(r.arms));
+    assert.ok(!r.arms.includes('launch_fail_dead'), 'FP26 先认领卖压死盘');
+  });
+  check('Z7 snapshot 新键 nearTail7BuyN 口径锁（bpInWin 半开窗 (tEnd-7, tEnd]）：t-6s 买在 7s 窗内 5s 窗外', () => {
+    const { buildBuyPointSnapshot } = require('../src/market-analysis/buy-point-snapshot.js');
+    const T0 = Date.parse('2026-10-03T10:00:00Z');
+    let li = 0;
+    const mk = (dt, type, bnb) => ({
+      block_time: new Date(T0 + dt * 1000).toISOString(), block_number: 1, log_index: li++,
+      trade_type: type, bnb_amount: bnb, token_amount: bnb / 5e-9, price_bnb: 5e-9,
+      sender_address: '0xw' + dt + '_' + li, trader_address: null,
+    });
+    const rows = [mk(10, 'buy', 0.1), mk(40, 'buy', 0.1), mk(94, 'buy', 0.3), mk(100, 'sell', 0.15)];
+    const act = (buildBuyPointSnapshot(rows, { platform: 'fourmeme', totalSupply: 1e9, createdAt: new Date(T0).toISOString() }, {}).buyDerived || {}).activity || {};
+    assert.strictEqual(act.nearTail7BuyN, 1, 't-6s 一笔在 7s 窗内');
+    assert.strictEqual(act.nearTail5BuyN, 0, '5s 窗外');
+  });
+  check('Z8 gates 门行在位（值含 ath/龄/尾7s买）', () => {
+    const r = M.evaluateFactorPreBuy(Z28(31.3, 81, 1));
+    const g = r.gates.find((x) => x.id === 'launch_fail_dead');
+    assert.ok(g, 'launch_fail_dead 门行缺失');
+    assert.strictEqual(g.hit, true);
+    assert.ok(g.value.includes('31.3') && g.value.includes('1笔'), g.value);
+    const g2 = M.evaluateFactorPreBuy(Z28(30, 60, 3)).gates.find((x) => x.id === 'launch_fail_dead');
+    assert.strictEqual(g2.hit, false);
+  });
+  check('Z9 版本 FP28（T195 早窗启动失败死盘）', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP28');
   });
 }
 
