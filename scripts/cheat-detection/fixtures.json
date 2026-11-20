@@ -5840,6 +5840,22 @@
       "addedAt": "2026-11-20",
       "expectSince": "2026-11-20",
       "expectBecause": "CD422 裁定推论：出口行孤笔不成波→sbw=none；act=low→E 通道 unhealthy（B 阶段 3/3+回归 4/4 稳定）"
+    },
+    {
+      "caseId": "CD423",
+      "symbol": "ZKind",
+      "addr": "0xa79e736482f55c89e42000151e04af630f2b7777",
+      "platform": "flap",
+      "anchor": {
+        "tickCount": 42
+      },
+      "expect": {
+        "verdict": "unclear"
+      },
+      "note": "CD423 立法案：sbw 量级线 0.3→0.29 净额口径（名义 0.3 扣费落地 0.29x）；波买 0.297/2 钱包/距锚 0s 应翻 burst——锚=信号#1 12:15:19 时刻 tick 数 42",
+      "addedAt": "2026-11-20",
+      "expectSince": "2026-11-20",
+      "expectBecause": "--add 基线快照（CD423 立法案：sbw 量级线 0.3→0.29 净额口径（名义 0.3 扣费落地 0.29x）；波买 0.297/2 钱包/距锚 0s 应翻 burst——锚=信号#1 12:15:19 时刻 tick 数 42）"
     }
   ]
 }

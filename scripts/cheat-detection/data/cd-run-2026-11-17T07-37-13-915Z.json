@@ -1,0 +1,1068 @@
+{
+  "ranAt": "2026-11-17T07:37:13.915Z",
+  "questionVersion": "D3.74",
+  "dry": false,
+  "results": [
+    {
+      "caseId": "CD1",
+      "addr": "0x23f1c4afb4ec09fbde68166bff0adbc5d1d57777",
+      "anchor": {
+        "tickCount": 66
+      },
+      "questionVersion": "D3.74",
+      "gradeRulesVersion": "G19",
+      "grade": "cheat",
+      "gradeReasons": [
+        {
+          "level": "cheat",
+          "code": "A_strong:coordinated_sell_back+same_block_buy_wave+slow_grind_pump"
+        },
+        {
+          "level": "unhealthy",
+          "code": "E_low_activity"
+        },
+        {
+          "level": "unhealthy",
+          "code": "R_abnormal_dominant"
+        }
+      ],
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "moderate",
+          "coordinated_sell_back": "strong",
+          "sell_dispersion": "weak"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "weak",
+          "slow_grind_pump": "strong",
+          "wash_pair": "none",
+          "burst_spike_concentration": "none"
+        },
+        "activityLevel": {
+          "bucket": "low",
+          "prob": 0.9
+        },
+        "bundledDominance": {
+          "bucket": "mid",
+          "prob": 0.49
+        },
+        "abnormalBehavior": {
+          "bucket": "dominant",
+          "prob": 0.89
+        },
+        "anchors": {
+          "sameBlockHoldPct": 20.869162038639065,
+          "equalBandHoldPct": 28.14055017434586,
+          "bundleBuyPct": 82.9,
+          "washPairCount": null,
+          "washPairSellPct": null,
+          "washPairBuyPct": null,
+          "top1HoldSupplyPct": 4.090859792458522,
+          "top1HoldCircPct": 52.81999146811113,
+          "top2HoldSupplyPct": 2.404764101583394,
+          "top1Top2HoldSupplyPct": 6.495623894041916,
+          "top1Top2FirstBuyGapSec": 49,
+          "posHolderCount": 3,
+          "top1Top2HoldCircPct": 83.86960591899376,
+          "top3HoldCircPct": 100,
+          "clusterHoldSupplyPct": null,
+          "t1PlusClusterSupplyPct": 4.090859792458522,
+          "burstMaxGapSec": 77,
+          "burstWaveBuyBnb": 3.6796,
+          "burstWaveWallets": 13,
+          "burstWaveStartVsLaunchPct": null,
+          "burstExitVsLaunchPct": null,
+          "burstLastGapSec": null,
+          "burstExitWaveFromDt": null,
+          "burstExitWaveEndDt": null,
+          "burstExitWaveBuyBnb": null,
+          "burstExitWaveWallets": null,
+          "burstSecSinceWaveEnd": null,
+          "burstWaveWalletNetBnb": null,
+          "burstWaveSellBackPct": null,
+          "burstWaveNetBnb": null,
+          "burstWaveWalletAvgBnb": null,
+          "burstWaveWalletMedianBnb": null,
+          "noBuySellPct": 5.8,
+          "noBuySellVolumePct": 2.8,
+          "maxBlockBuyCount": 3,
+          "maxBlockBuyPct": 13,
+          "maxBlockPreGapSec": 1,
+          "sameAmountWalletPct": 16,
+          "creatorPeakHoldSupplyPct": 8.18,
+          "sameBlockHoldCircPct": 0,
+          "equalBandHoldCircPct": 0,
+          "clusterRoundTripPct": 93.2,
+          "clusterRoundTripSellPct": 83.1,
+          "clusterRoundTripBlocks": 8,
+          "spikeBuyPctInBurst": null,
+          "spikeHoldPctAll": null,
+          "anchorBuySellRatio": 1.08,
+          "exactEqualBlockBuyPct": 24.2,
+          "exactEqualBlockClusterCount": 4,
+          "exactEqualBlockMaxWallets": 2,
+          "pulseBlockCount": 7,
+          "pulseBlockBuyPct": 61.5,
+          "pulseMaxGapBlocks": 136,
+          "routerEntryBuyPct": 77.8,
+          "pumpStablePoints": 3,
+          "pumpStableSpanSec": 13,
+          "pumpStableR2": 0.983,
+          "pumpStableSlopePctPerMin": -35.54,
+          "pumpRisePerBuyBnb": -0.01,
+          "pumpSellTickCountPct": 45.5,
+          "postStallSpanSec": null,
+          "postStallBuyBnb": null,
+          "postStallBuyerCount": null,
+          "postStallFreshBuyerPct": null,
+          "postStallEqualClusterPct": null,
+          "postStallMaxBlockBuyPct": null,
+          "nearDumpQualBlocks": null,
+          "nearDumpMinAbsorbBnb": null,
+          "nearDumpWorstSellers": null,
+          "nearDumpWorstSellBnb": null,
+          "nearDumpWorstSecToAnchor": null,
+          "nearDumpWorstSameBlkBuyBnb": null,
+          "burstExitSegBuyBnb": null,
+          "burstExitSegSellBnb": null,
+          "burstExitSegSellPct": null,
+          "burstWaveSegBuyBnb": null,
+          "burstWaveSegSellBnb": null,
+          "burstWaveSegSellPct": null,
+          "burstPreSegBnbPerMin": null,
+          "burstPreSegTicksPerMin": null,
+          "burstWaveBundleMaxWallets": null,
+          "burstWaveBundleAdjPairSum": null
+        }
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 10960,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.39,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.02,
+            "moderate": 0.54,
+            "strong": 0.43
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.85,
+          "probabilities": {
+            "none": 0,
+            "weak": 0,
+            "moderate": 0.11,
+            "strong": 0.89
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.32,
+          "probabilities": {
+            "none": 0.19,
+            "weak": 0.49,
+            "moderate": 0.2,
+            "strong": 0.12
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "burst": 0
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.31,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.06,
+            "moderate": 0.48,
+            "strong": 0.44
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.37,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.09,
+            "moderate": 0.36,
+            "strong": 0.53
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "low",
+          "confidence": 0.87,
+          "probabilities": {
+            "low": 0.9,
+            "mid": 0.1,
+            "high": 0,
+            "ultra": 0
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "mid",
+          "confidence": 0.24,
+          "probabilities": {
+            "low": 0.39,
+            "mid": 0.49,
+            "high": 0.12
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "weak",
+          "confidence": 0.53,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.65,
+            "moderate": 0.29,
+            "strong": 0.03
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.48,
+          "probabilities": {
+            "none": 0.24,
+            "weak": 0.05,
+            "moderate": 0.1,
+            "strong": 0.61
+          }
+        },
+        "wash_pair": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.56,
+          "probabilities": {
+            "none": 0.67,
+            "weak": 0.27,
+            "moderate": 0.05,
+            "strong": 0.01
+          }
+        },
+        "abnormal_behavior_ratio": {
+          "type": "choice",
+          "choice": "dominant",
+          "confidence": 0.85,
+          "probabilities": {
+            "negligible": 0.01,
+            "noticeable": 0.1,
+            "dominant": 0.89,
+            "unclear": 0
+          }
+        },
+        "burst_spike_concentration": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.31,
+          "probabilities": {
+            "none": 0.48,
+            "weak": 0.18,
+            "moderate": 0.19,
+            "strong": 0.15
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 20.869162038639065,
+        "equalBandHoldPct": 28.14055017434586,
+        "bundleBuyPct": 82.9,
+        "top1HoldSupplyPct": 4.090859792458522,
+        "top1HoldCircPct": 52.81999146811113,
+        "washPairCount": null,
+        "washPairSellPct": null,
+        "washPairBuyPct": null,
+        "top2HoldSupplyPct": 2.404764101583394,
+        "top1Top2HoldSupplyPct": 6.495623894041916,
+        "top1Top2FirstBuyGapSec": 49,
+        "clusterHoldSupplyPct": null,
+        "t1PlusClusterSupplyPct": 4.090859792458522,
+        "posHolderCount": 3,
+        "top1Top2HoldCircPct": 83.86960591899376,
+        "top3HoldCircPct": 100,
+        "burstMaxGapSec": 77,
+        "burstWaveBuyBnb": 3.6796,
+        "burstWaveWallets": 13,
+        "noBuySellPct": 5.8,
+        "maxBlockBuyCount": 3,
+        "maxBlockBuyPct": 13,
+        "maxBlockPreGapSec": 1,
+        "sameAmountWalletPct": 16,
+        "creatorPeakHoldSupplyPct": 8.18,
+        "sameBlockHoldCircPct": 0,
+        "equalBandHoldCircPct": 0,
+        "clusterRoundTripPct": 93.2,
+        "clusterRoundTripSellPct": 83.1,
+        "clusterRoundTripBlocks": 8,
+        "spikeBuyPctInBurst": null,
+        "spikeHoldPctAll": null,
+        "anchorBuySellRatio": 1.08,
+        "noBuySellVolumePct": 2.8,
+        "exactEqualBlockBuyPct": 24.2,
+        "exactEqualBlockClusterCount": 4,
+        "exactEqualBlockMaxWallets": 2,
+        "pulseBlockCount": 7,
+        "pulseBlockBuyPct": 61.5,
+        "pulseMaxGapBlocks": 136,
+        "pumpStablePoints": 3,
+        "pumpStableSpanSec": 13,
+        "pumpStableR2": 0.983,
+        "pumpStableSlopePctPerMin": -35.54,
+        "pumpRisePerBuyBnb": -0.01,
+        "pumpSellTickCountPct": 45.5,
+        "postStallSpanSec": null,
+        "postStallBuyBnb": null,
+        "postStallBuyerCount": null,
+        "postStallFreshBuyerPct": null,
+        "postStallEqualClusterPct": null,
+        "postStallMaxBlockBuyPct": null,
+        "routerEntryBuyPct": 77.8
+      },
+      "activity": {
+        "ticksPerMin": 16.85,
+        "avgTradeBnb": 0.2235,
+        "maxGapSec": 77,
+        "idlePct": 54,
+        "level": "mid",
+        "cv": 1.06,
+        "uneven": true
+      },
+      "famous": {
+        "holdPct": null,
+        "top1Pct": null,
+        "followerPct": null,
+        "followerTop3Pct": null,
+        "groupBuyPct": null,
+        "dominancePct": null,
+        "level": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "caseId": "CD53",
+      "addr": "0x19ad4a2cb4ad2c2f359af1de17a3336adc147777",
+      "anchor": {
+        "tickCount": 19
+      },
+      "questionVersion": "D3.74",
+      "gradeRulesVersion": "G19",
+      "grade": "cheat",
+      "gradeReasons": [
+        {
+          "level": "cheat",
+          "code": "A_strong:equal_amount_split+same_block_buy_wave+slow_grind_pump+burst_spike_concentration"
+        },
+        {
+          "level": "unhealthy",
+          "code": "E_low_activity"
+        },
+        {
+          "level": "unhealthy",
+          "code": "R_abnormal_dominant"
+        },
+        {
+          "level": "unhealthy",
+          "code": "N_no_retail_entry5.6"
+        }
+      ],
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "strong",
+          "coordinated_sell_back": "none",
+          "sell_dispersion": "none"
+        },
+        "extLevels": {
+          "stall_burst_wave": "none",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "strong",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "strong",
+          "wash_pair": "none",
+          "burst_spike_concentration": "strong"
+        },
+        "activityLevel": {
+          "bucket": "low",
+          "prob": 0.87
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.97
+        },
+        "abnormalBehavior": {
+          "bucket": "dominant",
+          "prob": 0.96
+        },
+        "anchors": {
+          "sameBlockHoldPct": 54.4239046791852,
+          "equalBandHoldPct": 54.4239046791852,
+          "bundleBuyPct": 53.8,
+          "washPairCount": null,
+          "washPairSellPct": null,
+          "washPairBuyPct": null,
+          "top1HoldSupplyPct": 9.49453795640262,
+          "top1HoldCircPct": 38.5460560674543,
+          "top2HoldSupplyPct": 1.4116035159739688,
+          "top1Top2HoldSupplyPct": 10.90614147237659,
+          "top1Top2FirstBuyGapSec": 26,
+          "posHolderCount": 17,
+          "top1Top2HoldCircPct": 44.27690347905013,
+          "top3HoldCircPct": 49.84927511594652,
+          "clusterHoldSupplyPct": 12.534398421917858,
+          "t1PlusClusterSupplyPct": 22.02893637832048,
+          "burstMaxGapSec": 25,
+          "burstWaveBuyBnb": 1.145,
+          "burstWaveWallets": 12,
+          "burstWaveStartVsLaunchPct": null,
+          "burstExitVsLaunchPct": null,
+          "burstLastGapSec": null,
+          "burstExitWaveFromDt": null,
+          "burstExitWaveEndDt": null,
+          "burstExitWaveBuyBnb": null,
+          "burstExitWaveWallets": null,
+          "burstSecSinceWaveEnd": null,
+          "burstWaveWalletNetBnb": null,
+          "burstWaveSellBackPct": null,
+          "burstWaveNetBnb": null,
+          "burstWaveWalletAvgBnb": null,
+          "burstWaveWalletMedianBnb": null,
+          "noBuySellPct": 0,
+          "noBuySellVolumePct": 0,
+          "maxBlockBuyCount": 10,
+          "maxBlockBuyPct": 53.8,
+          "maxBlockPreGapSec": 14,
+          "sameAmountWalletPct": 55.6,
+          "creatorPeakHoldSupplyPct": 9.49,
+          "sameBlockHoldCircPct": 50.88732348657833,
+          "equalBandHoldCircPct": 50.88732348657833,
+          "clusterRoundTripPct": 0,
+          "clusterRoundTripSellPct": null,
+          "clusterRoundTripBlocks": 0,
+          "spikeBuyPctInBurst": 61.6,
+          "spikeHoldPctAll": 62.3,
+          "anchorBuySellRatio": 73.85,
+          "exactEqualBlockBuyPct": 53.8,
+          "exactEqualBlockClusterCount": 1,
+          "exactEqualBlockMaxWallets": 10,
+          "pulseBlockCount": 1,
+          "pulseBlockBuyPct": 53.8,
+          "pulseMaxGapBlocks": null,
+          "routerEntryBuyPct": 5.6,
+          "pumpStablePoints": 3,
+          "pumpStableSpanSec": 15,
+          "pumpStableR2": 1,
+          "pumpStableSlopePctPerMin": 4.49,
+          "pumpRisePerBuyBnb": 0.17,
+          "pumpSellTickCountPct": 5.3,
+          "postStallSpanSec": null,
+          "postStallBuyBnb": null,
+          "postStallBuyerCount": null,
+          "postStallFreshBuyerPct": null,
+          "postStallEqualClusterPct": null,
+          "postStallMaxBlockBuyPct": null,
+          "nearDumpQualBlocks": null,
+          "nearDumpMinAbsorbBnb": null,
+          "nearDumpWorstSellers": null,
+          "nearDumpWorstSellBnb": null,
+          "nearDumpWorstSecToAnchor": null,
+          "nearDumpWorstSameBlkBuyBnb": null,
+          "burstExitSegBuyBnb": null,
+          "burstExitSegSellBnb": null,
+          "burstExitSegSellPct": null,
+          "burstWaveSegBuyBnb": null,
+          "burstWaveSegSellBnb": null,
+          "burstWaveSegSellPct": null,
+          "burstPreSegBnbPerMin": null,
+          "burstPreSegTicksPerMin": null,
+          "burstWaveBundleMaxWallets": null,
+          "burstWaveBundleAdjPairSum": null
+        }
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 6841,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.61,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.04,
+            "moderate": 0.24,
+            "strong": 0.71
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.93,
+          "probabilities": {
+            "none": 0.95,
+            "weak": 0.05,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.84,
+          "probabilities": {
+            "none": 0.88,
+            "weak": 0.11,
+            "moderate": 0,
+            "strong": 0.01
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.84,
+          "probabilities": {
+            "none": 0.92,
+            "burst": 0.08
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.37,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.09,
+            "moderate": 0.53,
+            "strong": 0.35
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.28,
+          "probabilities": {
+            "none": 0.06,
+            "weak": 0.29,
+            "moderate": 0.19,
+            "strong": 0.46
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "low",
+          "confidence": 0.83,
+          "probabilities": {
+            "low": 0.87,
+            "mid": 0.08,
+            "high": 0.05,
+            "ultra": 0
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.96,
+          "probabilities": {
+            "low": 0.01,
+            "mid": 0.02,
+            "high": 0.97
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.85,
+          "probabilities": {
+            "none": 0.89,
+            "weak": 0.11,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.48,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.08,
+            "moderate": 0.27,
+            "strong": 0.61
+          }
+        },
+        "wash_pair": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.97,
+          "probabilities": {
+            "none": 0.98,
+            "weak": 0.02,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "abnormal_behavior_ratio": {
+          "type": "choice",
+          "choice": "dominant",
+          "confidence": 0.95,
+          "probabilities": {
+            "negligible": 0.02,
+            "noticeable": 0.01,
+            "dominant": 0.96,
+            "unclear": 0.01
+          }
+        },
+        "burst_spike_concentration": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.61,
+          "probabilities": {
+            "none": 0.02,
+            "weak": 0.03,
+            "moderate": 0.24,
+            "strong": 0.71
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 54.4239046791852,
+        "equalBandHoldPct": 54.4239046791852,
+        "bundleBuyPct": 53.8,
+        "top1HoldSupplyPct": 9.49453795640262,
+        "top1HoldCircPct": 38.5460560674543,
+        "washPairCount": null,
+        "washPairSellPct": null,
+        "washPairBuyPct": null,
+        "top2HoldSupplyPct": 1.4116035159739688,
+        "top1Top2HoldSupplyPct": 10.90614147237659,
+        "top1Top2FirstBuyGapSec": 26,
+        "clusterHoldSupplyPct": 12.534398421917858,
+        "t1PlusClusterSupplyPct": 22.02893637832048,
+        "posHolderCount": 17,
+        "top1Top2HoldCircPct": 44.27690347905013,
+        "top3HoldCircPct": 49.84927511594652,
+        "burstMaxGapSec": 25,
+        "burstWaveBuyBnb": 1.145,
+        "burstWaveWallets": 12,
+        "noBuySellPct": 0,
+        "maxBlockBuyCount": 10,
+        "maxBlockBuyPct": 53.8,
+        "maxBlockPreGapSec": 14,
+        "sameAmountWalletPct": 55.6,
+        "creatorPeakHoldSupplyPct": 9.49,
+        "sameBlockHoldCircPct": 50.88732348657833,
+        "equalBandHoldCircPct": 50.88732348657833,
+        "clusterRoundTripPct": 0,
+        "clusterRoundTripSellPct": null,
+        "clusterRoundTripBlocks": 0,
+        "spikeBuyPctInBurst": 61.6,
+        "spikeHoldPctAll": 62.3,
+        "anchorBuySellRatio": 73.85,
+        "noBuySellVolumePct": 0,
+        "exactEqualBlockBuyPct": 53.8,
+        "exactEqualBlockClusterCount": 1,
+        "exactEqualBlockMaxWallets": 10,
+        "pulseBlockCount": 1,
+        "pulseBlockBuyPct": 53.8,
+        "pulseMaxGapBlocks": null,
+        "pumpStablePoints": 3,
+        "pumpStableSpanSec": 15,
+        "pumpStableR2": 1,
+        "pumpStableSlopePctPerMin": 4.49,
+        "pumpRisePerBuyBnb": 0.17,
+        "pumpSellTickCountPct": 5.3,
+        "postStallSpanSec": null,
+        "postStallBuyBnb": null,
+        "postStallBuyerCount": null,
+        "postStallFreshBuyerPct": null,
+        "postStallEqualClusterPct": null,
+        "postStallMaxBlockBuyPct": null,
+        "routerEntryBuyPct": 5.6
+      },
+      "activity": {
+        "ticksPerMin": 13.9,
+        "avgTradeBnb": 0.0991,
+        "maxGapSec": 25,
+        "idlePct": 30.5,
+        "level": "low",
+        "cv": 0.98,
+        "uneven": false
+      },
+      "famous": {
+        "holdPct": null,
+        "top1Pct": null,
+        "followerPct": null,
+        "followerTop3Pct": null,
+        "groupBuyPct": null,
+        "dominancePct": null,
+        "level": null
+      },
+      "model": "jev-1.14.0"
+    },
+    {
+      "caseId": "CD99",
+      "addr": "0x0b35285fe783dd3441573b84be4fbdb743457777",
+      "anchor": {
+        "tickCount": 34
+      },
+      "questionVersion": "D3.74",
+      "gradeRulesVersion": "G19",
+      "grade": "cheat",
+      "gradeReasons": [
+        {
+          "level": "cheat",
+          "code": "A_strong:slow_grind_pump"
+        }
+      ],
+      "interp": {
+        "phenomena": {
+          "equal_amount_split": "moderate",
+          "coordinated_sell_back": "none",
+          "sell_dispersion": "none"
+        },
+        "extLevels": {
+          "stall_burst_wave": "burst",
+          "amount_tiering": "moderate",
+          "same_block_buy_wave": "moderate",
+          "insider_supply_sell": "none",
+          "slow_grind_pump": "strong",
+          "wash_pair": "none",
+          "burst_spike_concentration": "moderate"
+        },
+        "activityLevel": {
+          "bucket": "high",
+          "prob": 0.74
+        },
+        "bundledDominance": {
+          "bucket": "high",
+          "prob": 0.48
+        },
+        "abnormalBehavior": {
+          "bucket": "noticeable",
+          "prob": 0.47
+        },
+        "anchors": {
+          "sameBlockHoldPct": 21.48814290274555,
+          "equalBandHoldPct": 16.880898665737483,
+          "bundleBuyPct": 34.2,
+          "washPairCount": null,
+          "washPairSellPct": null,
+          "washPairBuyPct": null,
+          "top1HoldSupplyPct": 3.5182441101920507,
+          "top1HoldCircPct": 11.82045244353952,
+          "top2HoldSupplyPct": 2.8212824400396084,
+          "top1Top2HoldSupplyPct": 6.33952655023166,
+          "top1Top2FirstBuyGapSec": 72,
+          "posHolderCount": 31,
+          "top1Top2HoldCircPct": 21.299281617351713,
+          "top3HoldCircPct": 30.547795941938617,
+          "clusterHoldSupplyPct": 9.643784063347356,
+          "t1PlusClusterSupplyPct": 13.162028173539406,
+          "burstMaxGapSec": 406,
+          "burstWaveBuyBnb": 1.427,
+          "burstWaveWallets": 19,
+          "burstWaveStartVsLaunchPct": null,
+          "burstExitVsLaunchPct": null,
+          "burstLastGapSec": null,
+          "burstExitWaveFromDt": null,
+          "burstExitWaveEndDt": null,
+          "burstExitWaveBuyBnb": null,
+          "burstExitWaveWallets": null,
+          "burstSecSinceWaveEnd": null,
+          "burstWaveWalletNetBnb": null,
+          "burstWaveSellBackPct": null,
+          "burstWaveNetBnb": null,
+          "burstWaveWalletAvgBnb": null,
+          "burstWaveWalletMedianBnb": null,
+          "noBuySellPct": null,
+          "noBuySellVolumePct": 0,
+          "maxBlockBuyCount": 3,
+          "maxBlockBuyPct": 11.9,
+          "maxBlockPreGapSec": 0,
+          "sameAmountWalletPct": 6.5,
+          "creatorPeakHoldSupplyPct": null,
+          "sameBlockHoldCircPct": 19.755879222681738,
+          "equalBandHoldCircPct": 16.316083465896835,
+          "clusterRoundTripPct": 0,
+          "clusterRoundTripSellPct": null,
+          "clusterRoundTripBlocks": 0,
+          "spikeBuyPctInBurst": 54.5,
+          "spikeHoldPctAll": 52.2,
+          "anchorBuySellRatio": null,
+          "exactEqualBlockBuyPct": null,
+          "exactEqualBlockClusterCount": 0,
+          "exactEqualBlockMaxWallets": 0,
+          "pulseBlockCount": 2,
+          "pulseBlockBuyPct": 21.5,
+          "pulseMaxGapBlocks": 1,
+          "routerEntryBuyPct": 35.3,
+          "pumpStablePoints": 4,
+          "pumpStableSpanSec": 414,
+          "pumpStableR2": 1,
+          "pumpStableSlopePctPerMin": 0.96,
+          "pumpRisePerBuyBnb": 0.25,
+          "pumpSellTickCountPct": 0,
+          "postStallSpanSec": 92,
+          "postStallBuyBnb": 2.2524,
+          "postStallBuyerCount": 30,
+          "postStallFreshBuyerPct": 96.7,
+          "postStallEqualClusterPct": 0,
+          "postStallMaxBlockBuyPct": 12.4,
+          "nearDumpQualBlocks": null,
+          "nearDumpMinAbsorbBnb": null,
+          "nearDumpWorstSellers": null,
+          "nearDumpWorstSellBnb": null,
+          "nearDumpWorstSecToAnchor": null,
+          "nearDumpWorstSameBlkBuyBnb": null,
+          "burstExitSegBuyBnb": null,
+          "burstExitSegSellBnb": null,
+          "burstExitSegSellPct": null,
+          "burstWaveSegBuyBnb": null,
+          "burstWaveSegSellBnb": null,
+          "burstWaveSegSellPct": null,
+          "burstPreSegBnbPerMin": null,
+          "burstPreSegTicksPerMin": null,
+          "burstWaveBundleMaxWallets": null,
+          "burstWaveBundleAdjPairSum": null
+        }
+      },
+      "pass": true,
+      "failures": [],
+      "promptChars": 9063,
+      "answersRaw": {
+        "equal_amount_split": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.37,
+          "probabilities": {
+            "none": 0.06,
+            "weak": 0.33,
+            "moderate": 0.53,
+            "strong": 0.08
+          }
+        },
+        "coordinated_sell_back": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "sell_dispersion": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "stall_burst_wave": {
+          "type": "choice",
+          "choice": "burst",
+          "confidence": 0.82,
+          "probabilities": {
+            "none": 0.09,
+            "burst": 0.91
+          }
+        },
+        "amount_tiering": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.36,
+          "probabilities": {
+            "none": 0.12,
+            "weak": 0.28,
+            "moderate": 0.52,
+            "strong": 0.08
+          }
+        },
+        "same_block_buy_wave": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.52,
+          "probabilities": {
+            "none": 0.03,
+            "weak": 0.14,
+            "moderate": 0.64,
+            "strong": 0.19
+          }
+        },
+        "activity_level": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.65,
+          "probabilities": {
+            "low": 0.17,
+            "mid": 0.08,
+            "high": 0.74,
+            "ultra": 0.01
+          }
+        },
+        "bundled_trade_dominance": {
+          "type": "choice",
+          "choice": "high",
+          "confidence": 0.22,
+          "probabilities": {
+            "low": 0.06,
+            "mid": 0.46,
+            "high": 0.48
+          }
+        },
+        "insider_supply_sell": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.99,
+          "probabilities": {
+            "none": 0.99,
+            "weak": 0.01,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "slow_grind_pump": {
+          "type": "choice",
+          "choice": "strong",
+          "confidence": 0.45,
+          "probabilities": {
+            "none": 0.04,
+            "weak": 0.08,
+            "moderate": 0.29,
+            "strong": 0.59
+          }
+        },
+        "wash_pair": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 1,
+          "probabilities": {
+            "none": 1,
+            "weak": 0,
+            "moderate": 0,
+            "strong": 0
+          }
+        },
+        "abnormal_behavior_ratio": {
+          "type": "choice",
+          "choice": "noticeable",
+          "confidence": 0.29,
+          "probabilities": {
+            "negligible": 0.26,
+            "noticeable": 0.47,
+            "dominant": 0.25,
+            "unclear": 0.02
+          }
+        },
+        "burst_spike_concentration": {
+          "type": "choice",
+          "choice": "moderate",
+          "confidence": 0.36,
+          "probabilities": {
+            "none": 0.01,
+            "weak": 0.03,
+            "moderate": 0.52,
+            "strong": 0.44
+          }
+        }
+      },
+      "anchors": {
+        "sameBlockHoldPct": 21.48814290274555,
+        "equalBandHoldPct": 16.880898665737483,
+        "bundleBuyPct": 34.2,
+        "top1HoldSupplyPct": 3.5182441101920507,
+        "top1HoldCircPct": 11.82045244353952,
+        "washPairCount": null,
+        "washPairSellPct": null,
+        "washPairBuyPct": null,
+        "top2HoldSupplyPct": 2.8212824400396084,
+        "top1Top2HoldSupplyPct": 6.33952655023166,
+        "top1Top2FirstBuyGapSec": 72,
+        "clusterHoldSupplyPct": 9.643784063347356,
+        "t1PlusClusterSupplyPct": 13.162028173539406,
+        "posHolderCount": 31,
+        "top1Top2HoldCircPct": 21.299281617351713,
+        "top3HoldCircPct": 30.547795941938617,
+        "burstMaxGapSec": 406,
+        "burstWaveBuyBnb": 1.427,
+        "burstWaveWallets": 19,
+        "noBuySellPct": null,
+        "maxBlockBuyCount": 3,
+        "maxBlockBuyPct": 11.9,
+        "maxBlockPreGapSec": 0,
+        "sameAmountWalletPct": 6.5,
+        "creatorPeakHoldSupplyPct": null,
+        "sameBlockHoldCircPct": 19.755879222681738,
+        "equalBandHoldCircPct": 16.316083465896835,
+        "clusterRoundTripPct": 0,
+        "clusterRoundTripSellPct": null,
+        "clusterRoundTripBlocks": 0,
+        "spikeBuyPctInBurst": 54.5,
+        "spikeHoldPctAll": 52.2,
+        "anchorBuySellRatio": null,
+        "noBuySellVolumePct": 0,
+        "exactEqualBlockBuyPct": null,
+        "exactEqualBlockClusterCount": 0,
+        "exactEqualBlockMaxWallets": 0,
+        "pulseBlockCount": 2,
+        "pulseBlockBuyPct": 21.5,
+        "pulseMaxGapBlocks": 1,
+        "pumpStablePoints": 4,
+        "pumpStableSpanSec": 414,
+        "pumpStableR2": 1,
+        "pumpStableSlopePctPerMin": 0.96,
+        "pumpRisePerBuyBnb": 0.25,
+        "pumpSellTickCountPct": 0,
+        "postStallSpanSec": 92,
+        "postStallBuyBnb": 2.2524,
+        "postStallBuyerCount": 30,
+        "postStallFreshBuyerPct": 96.7,
+        "postStallEqualClusterPct": 0,
+        "postStallMaxBlockBuyPct": 12.4,
+        "routerEntryBuyPct": 35.3
+      },
+      "activity": {
+        "ticksPerMin": 4.08,
+        "avgTradeBnb": 0.0692,
+        "maxGapSec": 406,
+        "idlePct": 94.4,
+        "level": "low",
+        "cv": 3.51,
+        "uneven": true
+      },
+      "famous": {
+        "holdPct": null,
+        "top1Pct": null,
+        "followerPct": null,
+        "followerTop3Pct": null,
+        "groupBuyPct": null,
+        "dominancePct": null,
+        "level": null
+      },
+      "model": "jev-1.14.0"
+    }
+  ]
+}
