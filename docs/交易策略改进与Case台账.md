@@ -1631,3 +1631,11 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 - **端到端（182 真模块）**：三窗 21/21 精确命中零漏零多；FP26 重叠 4 票（w1019 1/w1012 3）由 else-if 序先认领=同拒不同码行为等价。
 - **单测**：factor_prebuy 219→**227**（Y1 三窗案值六票/Y2 带状边界〔0.099 不拦 0.1 恰线 0.3 上界不拦 KIM 0.4585 不拦〕/Y3 ath 边界〔80 恰线不拦 100.1 残局域归 FP16/25〕/Y4 null 容缺/Y5 与 FP26 else-if 分工/Y6 天狗知情误伤+深砸重启放行/Y7 gates/Y8 版本）；版本断言 9 处→FP27；buy_point_check_service 41/0。
 - **余留**：生产灰度随 factorCheck.enabled 待放行（与 FP26 同批）；bhs 带 [0.1,0.3) 上下界分布观察（误伤 5 张 bhs 全 0.11~0.28 无带内偏侧=带值健康）；w1012 famous 面单独看有肉（−0.16）但被 memes 否决——若将来 famous 门族扩形状腿可参考该面。
+
+**T193 GMGN 钱包画像库首建+BP 门参与者观察段（2026-11-19；案源=用户报票张雪电摩 `0x7174c6d4…7777`（flap 10-20，6 分钟生命 +87% 拉升→00:32:16 三笔连砸 -42%→阴跌归零）「这也是 pump 作弊，之前希望通过买方远大于卖方的卖出臂卖出，后来发现误伤太多了。我想获取一下参与者的 GMGN profile」）**：
+
+- **参与者画像五层异常（56 钱包 GMGN 30d 全量实证）**：①官方 bot 标签 36%（gmgn/gmgn_go 15+arbitrager 5，零 smart/insider/kol）②30d 平均 293 票高频刷量矩阵 ③33/54 亏损 Σ-8704$ 稳定小亏打工形状 ④**7 钱包 last_timestamp 同秒 11-03 20:41 批量停机**（恰为案内 0.15~0.2B 对倒主力占全场成交 24%，全为 11~25 票低频小号=一次性批次号，另 6 钱包 11-15 13:26 批次）⑤大号机器人案内尘埃单打密度+小号扛主力资金分工。**T113 净买比臂误伤根源=形状层无分离度，分离轴在参与者身份层**（用户裁定离线建库：绝不引擎实时逐钱包 API）。
+- **库**：`gmgn_wallet_profiles` 表首建（10-18 C89 旧结构表存在但 CREATE IF NOT EXISTS 静默跳过列未换——首跑 460 次成功 API 空烧事故，修=DROP 重建+脚本 upsert fatal 停机+启动表结构预检）。30d 口径（7d 对间歇作业号误判死钱包：案内主力 11-03 停机后 7d 零交易）+realized_profit 新列；4273 钱包（14 天 ≥0.01B buy+sell 全扫）45 分钟零失败入库。
+- **基线校准（4273 库分布）**：bot 标签 76%/30d 票数 p50=246/亏损 62%/小亏带 53%/≤30d 新号 27%——**单指标无判别力**（健康票买家同形状），阈值立法必须组合形状+真实信号分布，故第一版=纯观察键。亿级 realized_profit（-25~-50 亿 ×3）=sandwich/arbitrager 统计伪值，中位数天然免疫。库是「当前活跃圈」快照：案内 56 钱包仅 10 在库（14 天窗滑过案发期）——实时门够用、历史案复盘重扫当时窗口。
+- **消费端**：①BP 门观察段（`fourmemeWs.buyPointCheck.participantProfile.enabled` 缺省 false）：锚窗 top10 买家（≥0.01B 聚合口径）查表聚合 PP1 段（medianTokenNum/smallLoserPct(-2000,0]/youngPct≤30d/botTagPct）落 digest+signal metadata，**不进门不拦截**；回测 persist=false 不跑=时序穿越防线；查表失败段级 fail-open。②工具 `scripts/gmgn-token-forensics.cjs`：任意票盘面×画像×top 钱包×同秒停机组×聚合键，零配额全查库（--fetch-miss 显式补拉）。③GmgnWalletStatsService 列名 30d 化同步（保留层零接线）。实现陷阱：`Number(null)=0` 且 finite——画像字段 null 会冒充 0（rp=null 落进小亏带），单测 B4/B6 反证锁定；尘 tick 聚合口径（单笔 0.005×3 过线）=拆单规避面知情锁。单测 `_test_participant_profile.cjs` 19 断言全绿（含「观察键不进 FP 判定层」源码锁）。
+- **余留**：生产灰度未开（实验 config 显式加段）；维护节奏=182 每一两天增量跑；阈值立法待分布（同秒停机组=事后取证指纹不可进实时门）。

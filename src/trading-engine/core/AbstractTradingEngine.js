@@ -1696,6 +1696,8 @@ class AbstractTradingEngine extends ITradingEngine {
             dimensions: res.dimensions ?? null, anchors: res.anchors ?? null,
             passLevels, passed: pass,
             model: res.model ?? null, usage: res.usage ?? null,
+            // T193 参与者画像观察键（additive；灰度关/回测=缺省不序列化）
+            ...(res.participantProfile ? { participantProfile: res.participantProfile } : {}),
           };
           this.logger.info(this._experimentId, 'SignalGate',
             `BP 门${pass ? '放行' : '拒买'} | ${token.symbol || tokenAddress.slice(0, 10)} assessment=${bucket}（pass=[${passLevels.join('/')}]）`);

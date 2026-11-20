@@ -104,6 +104,11 @@ class BuyPointCheckService {
     // 开=因子门（PVP 纯代码判定+CD 四臂升格门）先于 cheat/BP 门评估（引擎侧挂点）；
     // 关/缺段=零行为（引擎 fail-open 放行进 cheat 门）。物化语义与 enabled 同款。
     this._factorEnabled = !!(config.factorCheck && config.factorCheck.enabled === true);
+    // T193 参与者 GMGN 画像观察键（张雪电摩 pump 作弊案→画像库消费端）：锚窗 top-N
+    // 买家查 gmgn_wallet_profiles 聚合（票数中位/小亏带/新号/bot 浓度）。**观察键不
+    // 进门不拦截**（阈值待分布裁定）；灰度缺省 false；回测（persist=false）不跑=
+    // 时序穿越防线（表是现在拉的 30d 快照）。fail-open：查表失败段={error} 照常评估。
+    this._ppEnabled = !!(config.participantProfile && config.participantProfile.enabled === true);
     this._auditShadow = config.memSource ? config.memSource.auditShadow !== false : true;
     // 回测隔离（backtest.signalGateReal 实验专用，引擎构造时硬编码注入）：persist=false
     // 禁 _writeRow——buy_point_analyses 是全局表，回测判定行会污染生产域；判定轨迹由
@@ -129,6 +134,7 @@ class BuyPointCheckService {
       shadowAudits: 0, shadowMismatches: 0, shadowErrors: 0, // mem 对拍护栏观测
       persistSkipped: 0, // persist=false 跳写计数（回测隔离观测）
       factorNoted: 0, factorAssessed: 0, factorBlocked: 0, factorInsufficient: 0, factorErrors: 0, // T143 因子门观测
+      ppAggregated: 0, ppErrors: 0, ppSkippedDisabled: 0, // T193 参与者画像观察键
     };
   }
 
@@ -313,15 +319,25 @@ class BuyPointCheckService {
       });
       const { state } = buildBuyPointState(snapshot);
 
+      // 6b) T193 参与者画像观察键（锚窗已拉零新增拉数；回测不跑；fail-open 段级容错）
+      let participantProfile = null;
+      if (this._ppEnabled) {
+        if (this._persist) {
+          participantProfile = await this._participantProfile(pull.rows);
+        } else {
+          this.stats.ppSkippedDisabled++; // 回测隔离：快照表对历史锚=时序穿越
+        }
+      }
+
       // 7) Jev（超时竞速；迟到结果丢弃防锚重复行）
       const res = await this._runJev(state, this._llm.buildBuyPointQuestions());
       if (!res.ok) {
         if (res.kind === 'timeout') {
           this.stats.timeouts++;
-          await this._writeRow(token, meta, pull, { verdict: 'timeout', failReason: `jev_timeout_${this._timeoutMs}ms` }, null, context, snapshot);
+          await this._writeRow(token, meta, pull, { verdict: 'timeout', failReason: `jev_timeout_${this._timeoutMs}ms` }, null, context, snapshot, participantProfile);
         } else {
           this.stats.errors++;
-          await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `jev_error: ${res.error?.message || res.error}` }, null, context, snapshot);
+          await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `jev_error: ${res.error?.message || res.error}` }, null, context, snapshot, participantProfile);
         }
         // 失败冷却（防故障环；不粘滞——下个买信号受冷却后可重析）
         this._failUntil.set(token, this._now() + this._failCooldownMs);
@@ -336,11 +352,11 @@ class BuyPointCheckService {
         obs = buildBuyPointObservation(res.result.answers, snapshot.buyDerived);
       } catch (e) {
         this.stats.errors++;
-        await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `mapper: ${e?.message || e}` }, null, context, snapshot);
+        await this._writeRow(token, meta, pull, { verdict: 'error', failReason: `mapper: ${e?.message || e}` }, null, context, snapshot, participantProfile);
         this._failUntil.set(token, this._now() + this._failCooldownMs);
         return { status: 'fail', reason: 'mapper_error' };
       }
-      await this._writeRow(token, meta, pull, obs, { answers: res.result.answers, model: res.result.model, usage: res.result.usage, state }, context, snapshot);
+      await this._writeRow(token, meta, pull, obs, { answers: res.result.answers, model: res.result.model, usage: res.result.usage, state }, context, snapshot, participantProfile);
       this.stats.analyzed++;
 
       const dim = obs.dimensions;
@@ -362,6 +378,8 @@ class BuyPointCheckService {
         anchors: obs.anchors,
         model: res.result.model || null,
         usage: res.result.usage || null,
+        // T193 参与者画像观察键（additive；灰度关/回测=缺省 undefined 不序列化）
+        ...(participantProfile ? { participantProfile } : {}),
       };
     } catch (e) {
       // 兜底吞错（门链 catch 返回 fail——调用方 fail-closed 拒）loud 留痕
@@ -401,6 +419,36 @@ class BuyPointCheckService {
     const { dbManager } = require('../services/dbManager');
     this._dbClient = dbManager.getClient();
     return this._dbClient;
+  }
+
+  /**
+   * T193 参与者画像观察键（BP 门锚窗零新增拉数）：top-N 买家 → 表批量 PK 查询 →
+   * 纯函数聚合。查表失败 fail-open 段={error}（观察键不拦门链）；调用方须 _persist
+   * 门控（回测不跑=时序穿越防线）。
+   */
+  async _participantProfile(tickRows) {
+    const { selectTopBuyers, aggregateParticipantProfile, PARTICIPANT_PROFILE_VERSION } = require('./participant-profile');
+    try {
+      const top = selectTopBuyers(tickRows);
+      if (!top.length) return { version: PARTICIPANT_PROFILE_VERSION, selected: 0, profiled: 0 };
+      const profiles = new Map();
+      const client = this._client();
+      for (let i = 0; i < top.length; i += 50) { // .in ≤50/批（URL 8KB 红线）
+        const batch = top.slice(i, i + 50).map(t => t.wallet);
+        const { data, error } = await client.from('gmgn_wallet_profiles')
+          .select('address,tags,created_at_sec,token_num,realized_profit,winrate')
+          .in('address', batch);
+        if (error) throw new Error(error.message);
+        for (const r of data || []) profiles.set(String(r.address).toLowerCase(), r);
+      }
+      const seg = aggregateParticipantProfile(top, profiles, { nowSec: Math.floor(this._now() / 1000) });
+      this.stats.ppAggregated++;
+      return seg;
+    } catch (e) {
+      this.stats.ppErrors++;
+      this._log('warn', `参与者画像聚合失败（fail-open 段级容错） | ${e?.message || e}`);
+      return { version: PARTICIPANT_PROFILE_VERSION, error: e?.message || String(e) };
+    }
   }
 
   _log(level, msg) {
@@ -592,7 +640,7 @@ class BuyPointCheckService {
    * 落库（buy_point_analyses；写失败 loud warn 不重试不抛——行丢=可观测）。
    * jev_prompt 仅每 (token, question_version) 首行落全文（无界增长防线）。
    */
-  async _writeRow(token, meta, pull, mapped, raw, context, snapshot) {
+  async _writeRow(token, meta, pull, mapped, raw, context, snapshot, participantProfile = null) {
     // persist=false（回测隔离）：绝不写 buy_point_analyses 全局表；判定轨迹由引擎侧
     // signal metadata（buyPoint 段）留档
     if (!this._persist) { this.stats.persistSkipped++; return; }
@@ -638,6 +686,8 @@ class BuyPointCheckService {
           holdersNow: b.holdersNow ?? null,
           holdersDelta60: b.holdersDelta60 ?? null,
         },
+        // T193 参与者 GMGN 画像观察段（灰度关=缺省 null；观察键不进门）
+        participantProfile: participantProfile ?? null,
       };
       const row = {
         token_address: token,
