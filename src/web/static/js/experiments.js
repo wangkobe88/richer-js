@@ -429,6 +429,7 @@ class ExperimentMonitor {
             </div>
             <div class="flex items-center gap-1 flex-wrap">
               <a href="/experiment/${exp.id}/token-returns" target="_blank" class="text-xs px-1.5 py-0.5 text-orange-400 hover:bg-orange-900 rounded transition-colors">收益</a>
+              <a href="/experiment/${exp.id}/hourly-stats" target="_blank" class="text-xs px-1.5 py-0.5 text-sky-400 hover:bg-sky-900 rounded transition-colors" title="按小时 × 平台：新票/出内盘/热度">统计</a>
               <a href="/experiment/${exp.id}/narrative" target="_blank" class="text-xs px-1.5 py-0.5 text-emerald-400 hover:bg-emerald-900 rounded transition-colors">叙事</a>
               <a href="/token-holders?experiment=${exp.id}" target="_blank" class="text-xs px-1.5 py-0.5 text-cyan-400 hover:bg-cyan-900 rounded transition-colors">持有者</a>
               <button data-action="copy-experiment" data-id="${exp.id}" class="text-xs px-1.5 py-0.5 text-indigo-400 hover:bg-indigo-900 rounded transition-colors" title="复制">📋复制</button>
