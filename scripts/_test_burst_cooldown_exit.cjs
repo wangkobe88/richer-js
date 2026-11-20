@@ -79,6 +79,69 @@ T('fire 前无行、fire+1s 单行 → 宽限窗内单行成窗（crew=该钱包
   assert.strictEqual(view.w1Bnb, 0, '唯一行是 crew 自身 → 承接 0（量门兜底判定，宁不拦不冒充由放行余量保障）');
 });
 
+// ── T199c 平手破除（2026-11-20 修复，0x4509 案立法）──
+// 旧形状 `n > best.n` 严格大于 = first-found 判更早窗；新 = n 并列依次比
+// 窗内买力大者 → 窗末更晚。以下四夹具锁死破除序。
+T('T199c·0x4509 事故现场：贴 fire 真波 0.4159B vs 13s 前旧回补簇（含恰 5s 边界卖单）→ crew=真波四户', () => {
+  const ring = rows([
+    // 旧簇：t-47s 两笔卖（老持仓出货）+ t-42s 同钱包回补——[−47s,−42s] 恰好 5s
+    // 边界（≤WIN 含端点）凑出 4 行簇，first-found 旧逻辑判它赢（crewBnb 0.0988）
+    S(-47000, 'w_old1', 0.1185), S(-47000, 'w_old2', 0.1321),
+    B(-42000, 'w_old1', 0.0494), B(-42000, 'w_old2', 0.0494),
+    B(-38000, 'w_old1', 0.0247), B(-38000, 'w_old2', 0.0247),
+    // 真波：t-1s~t0 四户 0.4159B——触发本买的波
+    B(-1000, 'w_c1', 0.0988), B(-1000, 'w_c2', 0.0989),
+    B(0, 'w_c3', 0.1292), B(0, 'w_c4', 0.0890),
+  ]);
+  const crew = locateBurstCrew(ring, t0);
+  assert.strictEqual(crew.crewSet.size, 4, `真波四户，实际 ${crew.crewSet.size}`);
+  assert.ok(crew.crewSet.has('w_c3') && crew.crewSet.has('w_c4'), 't0 同秒波成员在 crew');
+  assert.ok(!crew.crewSet.has('w_old1') && !crew.crewSet.has('w_old2'), '旧回补钱包不进 crew');
+  assert.ok(Math.abs(crew.crewBnb - 0.4159) < 1e-9, `crewBnb=0.4159，实际 ${crew.crewBnb}`);
+  // 事故反证：同秒波内续买（旧逻辑误计承接 0.218B 救活批1）→ 现在 w1=0、批1 15s 即触发
+  //（修复救不了本案——判死更早是记账正确化的知情效果）
+  const view = buildBurstCooldownView(ring, { t0Ms: t0, ownWallets: new Set() }, CFG);
+  assert.strictEqual(view.w1Bnb, 0, `波内续买剔除后 w1=0，实际 ${view.w1Bnb}`);
+  const v = evaluateBurstCooldown(view, t0 + 15000, CFG);
+  assert.ok(v && v.action === 'sell' && v.batch === 'w1', '批1 15s 触发');
+});
+
+T('T199c·买力第一序：平手时旧窗买力 0.5B > 贴 fire 窗 0.296B → crew 判旧窗（不盲信「更晚」）', () => {
+  const ring = rows([
+    B(-40000, 'w_a', 0.125), B(-40000, 'w_b', 0.125),
+    B(-36000, 'w_a', 0.125), B(-36000, 'w_b', 0.125),
+    B(-1000, 'w_c', 0.074), B(-1000, 'w_d', 0.074),
+    B(0, 'w_c', 0.074), B(0, 'w_d', 0.074),
+  ]);
+  const crew = locateBurstCrew(ring, t0);
+  assert.ok(crew.crewSet.has('w_a') && crew.crewSet.has('w_b') && crew.crewSet.size === 2, '买力更强的旧窗胜');
+  assert.ok(Math.abs(crew.crewBnb - 0.5) < 1e-9);
+});
+
+T('T199c·等买力兜底：n 与买力全平 → 窗末更晚（贴 fire）者胜', () => {
+  const ring = rows([
+    B(-50000, 'w_x1', 0.1), B(-50000, 'w_x2', 0.1),
+    B(-46000, 'w_x1', 0.1), B(-46000, 'w_x2', 0.1),
+    B(-1000, 'w_y1', 0.1), B(-1000, 'w_y2', 0.1),
+    B(0, 'w_y1', 0.1), B(0, 'w_y2', 0.1),
+  ]);
+  const crew = locateBurstCrew(ring, t0);
+  assert.ok(crew.crewSet.has('w_y1') && crew.crewSet.has('w_y2') && crew.crewSet.size === 2, '同买力取更贴 fire 的窗');
+});
+
+T('T199c·卖单簇不产空 crew：前卖簇（0 买力）与后买簇平密度 → 买簇胜（旧 first-found 判卖簇→crew 空=承接全量误计）', () => {
+  const ring = rows([
+    S(-40000, 'w_dump1', 0.3), S(-40000, 'w_dump2', 0.3),
+    S(-36000, 'w_dump1', 0.2), S(-36000, 'w_dump2', 0.2),
+    B(-1000, 'w_b1', 0.15), B(-1000, 'w_b2', 0.15),
+    B(0, 'w_b3', 0.15), B(0, 'w_b4', 0.15),
+  ]);
+  const crew = locateBurstCrew(ring, t0);
+  assert.strictEqual(crew.crewSet.size, 4, `买簇四户，实际 ${crew.crewSet.size}`);
+  assert.ok(crew.crewSet.has('w_b1') && !crew.crewSet.has('w_dump1'), '卖单簇钱包不进 crew');
+  assert.ok(Math.abs(crew.crewBnb - 0.6) < 1e-9);
+});
+
 console.log('== 2. buildBurstCooldownView 承接分桶 ==');
 
 T('crew/own/null-wallet 三重排除 + w1/w2 分桶 + lastAbs 时刻', () => {

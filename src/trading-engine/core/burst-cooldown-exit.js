@@ -62,13 +62,33 @@ function locateBurstCrew(ring, t0Ms) {
   const hi = t0Ms + BURST_CREW_END_GRACE_MS;
   const rows = ring.filter(t => t.ms >= lo && t.ms <= hi);
   if (rows.length === 0) return null;
-  // 最密 5s 窗（全 tick 口径——买卖都算密度；与回放 densest5s 一致）
+  // 最密 5s 窗（全 tick 口径——买卖都算密度；与回放 densest5s 一致）。
+  // T199c 平手破除（2026-11-20，0x4509 案）：n 并列时依次比 ①窗内买力大者
+  //（真波买力强于旧回补簇/卖单簇——CD402 量级线同逻辑；卖单簇赢密度时 crew
+  // 可为空集=承接全量误计、机制欠火）②窗末更晚（更贴 fire——crew 语义锚=
+  // 「触发我们买入的那波」，与 t0+5s 宽限意图一致）。旧形状 `n > best.n`
+  // 严格大于=first-found 判更早窗：0x4509 案贴 fire 真波（4 户 0.416B）输给
+  // 13s 前旧回补窗（2 户 0.099B，含恰好 5s 边界的两笔卖单）→ 波成员同秒
+  // 续买 0.218B 误计承接救活批1。六窗影响面（tmp-4509-tiebreak-impact.cjs）：
+  // 307 armed 中 crew 换窗 42/判定翻转 10（全部提前到批1@15s，含 2 张晚卖
+  // 价差 −35.8%/−23.7%、3 张 release 误活改杀）+22 张旧空 crew 票新进 armed
   let best = null;
   for (let i = 0; i < rows.length; i++) {
     let j = i;
     while (j < rows.length && rows[j].ms - rows[i].ms <= BURST_CREW_WIN_MS) j++;
     const n = j - i;
-    if (best === null || n > best.n) best = { n, i, endIdx: j - 1 };
+    if (n === 0) continue;
+    let buyBnb = 0;
+    for (let k = i; k < j; k++) {
+      if (rows[k].side === 'buy' && rows[k].w) buyBnb += rows[k].bnb || 0;
+    }
+    const endMs = rows[j - 1].ms;
+    if (best === null
+      || n > best.n
+      || (n === best.n && (buyBnb > best.buyBnb
+        || (buyBnb === best.buyBnb && endMs > best.endMs)))) {
+      best = { n, i, endIdx: j - 1, buyBnb, endMs };
+    }
   }
   if (best === null || best.n === 0) return null;
   const winStartMs = rows[best.i].ms;
