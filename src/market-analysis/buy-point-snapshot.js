@@ -51,6 +51,13 @@ const BP_LAUNCH_SQUAD_WIN_SEC = 90;
 const BP_LAUNCH_SQUAD_DUST_BNB = 0.015;
 const BP_LAUNCH_SQUAD_WAVE_SEC = 2;
 const BP_LAUNCH_SQUAD_BLOCK_WALLETS = 5;
+/** T201 大户推迟锚（ladder v34 G2 迁 FP 因子门 big_buy_defer 臂——T180 同款迁移；
+ * 判定线在 factor-pre-buy-check）。三线全与 FA 同源：0.001=FA minTickBnb 尘 tick
+ * 不进因子镜像（collectors 默认值）；0.01=FA earlyUniformDustBnb 同块等额合并
+ * 指纹尘门；0.19=FA T169 大户线（0.19~0.2 视同 0.2 级） */
+const BP_LAUNCH_DEFER_MIN_TICK_BNB = 0.001;
+const BP_LAUNCH_DEFER_UNIFORM_DUST_BNB = 0.01;
+const BP_LAUNCH_DEFER_BIG_BUY_BNB = 0.19;
 /** 摆动确认阈值（%）：zigzag 反向运动超此值确认峰/谷摆点（BP8 圣诞树原料；初版待校准） */
 const BP_SWING_THRESHOLD_PCT = 20;
 /** 开盘段宽度（秒）：dt < 此值=开盘段（BP18 盘面分类锚——首段购买力结构度量） */
@@ -1543,6 +1550,61 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
     }
   }
 
+  // ── T201 大户推迟锚（ladder v34 G2 自条件串迁入 FP 因子门 big_buy_defer 臂——
+  //    T180 同款迁移；FA launchBigBuyBnb/sinceFirstTradeSec 的 snapshot 镜像）：
+  //    bigBuyBnb=出生窗（dt≤90，FA firstTickAt+90s 锚同构——dt 缺失退化 first_tick）
+  //    每钱包累计买入（≥0.001=FA minTickBnb 尘 tick 不进因子镜像；raw 全量含复购、
+  //    不滤 outlier——「前期买入太多」历史事实载体口径）经 T172/T173 同块等额合并
+  //    （首买同块四位归一全等 ≥2 钱包组=一个「用户」，指纹尘门 0.01=FA
+  //    earlyUniformDustBnb 镜像；组外钱包与合并组各自过 0.19 线=T169）后合计；
+  //    sinceFirstTradeSec=锚末−首笔可靠买价时刻（T149 口径镜像；谓词与
+  //    launchMinVsFloorPct 的 firstBuyRel 同款 !outlier∧priceBnb>0）；
+  //    minVsFloorPct=T145 锚窗版已有键直传（深破豁免腿复用零重算）。
+  //    截窗未覆盖出生段（firstDt>90）→ 整段 null 不评（老票 sFT>60 域放行语义
+  //    等价——T180 launchSquad 同约定）；窗内零买 → null（fire 必有买，防御形状）。──
+  let launchDefer = null;
+  {
+    const winRows = ticks.filter((t) => t.dt !== null && t.dt !== undefined && t.dt <= BP_LAUNCH_SQUAD_WIN_SEC);
+    const firstDt = winRows.length ? winRows[0].dt : null;
+    if (firstDt !== null && firstDt <= BP_LAUNCH_COVER_TOL) {
+      const wCum = new Map();
+      const wFirst = new Map();
+      let firstTradeDt = null;
+      for (const t of winRows) {
+        if (t.side !== 'BUY' || (t.bnb || 0) < BP_LAUNCH_DEFER_MIN_TICK_BNB) continue;
+        if (t.wallet) {
+          wCum.set(t.wallet, (wCum.get(t.wallet) || 0) + (t.bnb || 0));
+          if (!wFirst.has(t.wallet)) wFirst.set(t.wallet, { blk: t.block ?? null, bnb: t.bnb || 0 });
+        }
+        if (firstTradeDt === null && !t.outlier && t.priceBnb > 0) firstTradeDt = t.dt;
+      }
+      const eqGroups = new Map();
+      const grouped = new Set();
+      for (const [w, f] of wFirst) {
+        if (f.blk === null || f.bnb < BP_LAUNCH_DEFER_UNIFORM_DUST_BNB) continue;
+        const k = f.blk + '|' + (Math.round(f.bnb * 1e4) / 1e4);
+        let arr = eqGroups.get(k);
+        if (!arr) { arr = []; eqGroups.set(k, arr); }
+        arr.push(w);
+      }
+      for (const arr of eqGroups.values()) if (arr.length >= 2) for (const w of arr) grouped.add(w);
+      let bigBuyBnb = 0;
+      for (const [w, v] of wCum) if (!grouped.has(w) && v >= BP_LAUNCH_DEFER_BIG_BUY_BNB) bigBuyBnb += v;
+      for (const arr of eqGroups.values()) {
+        if (arr.length < 2) continue;
+        let merged = 0;
+        for (const w of arr) merged += wCum.get(w) || 0;
+        if (merged >= BP_LAUNCH_DEFER_BIG_BUY_BNB) bigBuyBnb += merged;
+      }
+      launchDefer = {
+        bigBuyBnb: +bigBuyBnb.toFixed(4),
+        sinceFirstTradeSec: firstTradeDt !== null && tEnd !== null
+          ? +((tEnd - firstTradeDt).toFixed(1)) : null,
+        minVsFloorPct: launchMinVsFloorPct,
+      };
+    }
+  }
+
   return {
     // 时点位置
     tokenAgeSec, spanSec, currentVsAthPct, secSinceAth, madeHigh120,
@@ -1573,6 +1635,7 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
     // T180 首两波大部队×高占比（{waveWallets,domPct}；截窗不覆盖出生段/窗内零买
     // → null 不评——FP launch_squad 臂原料，见上方注释）
     launchSquad,
+    launchDefer,
     // 市值位置族（BP2：supply 缺失全族 null）
     mcapBnb, mcapPeakBnb, mcapFromPeakPct,
     // holder 流向族（BP2：tok 缺失全族 null）

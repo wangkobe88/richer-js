@@ -2180,6 +2180,79 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
       'T5 窗内零买 → null（FP T6 不评放行的键源）');
   }
 
+  // ═══════════════ T2. T201 launchDefer 锚（FP32 big_buy_defer 臂原料——FA launchBigBuyBnb/
+  //     sinceFirstTradeSec 的 snapshot 镜像；夹具与 _test_launch_bundle_factors W/X 段同数字跨层对拍）═══
+  console.log('\nT2. T201 launchDefer 锚（bigBuyBnb/sinceFirstTradeSec——FA launch 键镜像）');
+  {
+    const mkW2 = (i) => '0x' + (0x2000 + i).toString(16).padStart(40, '0');
+    // U1 案源镜像（0x7b0c9b1b…7777 :55 时刻形状）：0.454+0.3175+0.2581+0.1911=1.2207 ≥1
+    const rowsD1 = [
+      row(5, 'BUY', mkW2(1), 0.2581, 6.15e-9, 4.2e7, { block: 700, li: 0 }),
+      row(5, 'BUY', mkW2(2), 0.3175, 6.75e-9, 4.7e7, { block: 701, li: 0 }),
+      row(10, 'BUY', mkW2(3), 0.4540, 7.02e-9, 6.5e7, { block: 702, li: 0 }),
+      row(26, 'BUY', mkW2(4), 0.1911, 7.12e-9, 2.7e7, { block: 703, li: 0 }),
+      row(26, 'BUY', mkW2(5), 0.0046, 6.76e-9, 6.8e5, { block: 703, li: 1 }), // 尘+线下双不计
+    ];
+    const d1 = buildBuyPointSnapshot(rowsD1, metaA).buyDerived;
+    ok(d1.launchDefer && near(d1.launchDefer.bigBuyBnb, 1.2207),
+      'U1a bigBuyBnb=1.2207（0.19 线上四大户毛买合计；0.0046 尘+线下双不计——FA 同值）');
+    ok(d1.launchDefer && d1.launchDefer.sinceFirstTradeSec === 21,
+      'U1b sinceFirstTradeSec=锚末26−首可靠买5=21（T149 首笔可靠买价锚镜像）');
+    // U2 T172/T173 同块等额合并（跨层对拍=X 段 1.1177）：0.846 单户 + 同块 0.1358×2 组
+    const rowsD2 = [
+      row(5, 'BUY', mkW2(10), 0.8460, 6.2e-9, 1.3e8, { block: 800, li: 0 }),
+      row(8, 'BUY', mkW2(11), 0.13582946, 6.3e-9, 2.1e7, { block: 801, li: 0 }),
+      row(8, 'BUY', mkW2(12), 0.13580056, 6.3e-9, 2.1e7, { block: 801, li: 1 }),
+      row(26, 'BUY', mkW2(13), 0.1, 6.4e-9, 1.5e7, { block: 802, li: 0 }),
+    ];
+    const d2 = buildBuyPointSnapshot(rowsD2, metaA).buyDerived;
+    ok(d2.launchDefer && near(d2.launchDefer.bigBuyBnb, 1.1176),
+      'U2 同块等额首买=单用户合并：0.846+0.2716=1.1176（四位归一全等 ≥2 钱包组过 0.19 线；等额对单钱包 0.1358 各自线下漏计=旧口径漏——跨层对拍 FA X 段同口径）');
+    // U3 分单小队累计口径：0.15+0.15=0.3 过线（首买 only 口径漏——T151 累计核心）
+    const rowsD3 = [
+      row(5, 'BUY', mkW2(20), 0.15, 6.2e-9, 2.4e7, { block: 810, li: 0 }),
+      row(15, 'BUY', mkW2(20), 0.15, 6.3e-9, 2.3e7, { block: 811, li: 0 }),
+      row(20, 'BUY', mkW2(21), 0.4, 6.4e-9, 6.2e7, { block: 812, li: 0 }),
+    ];
+    const d3 = buildBuyPointSnapshot(rowsD3, metaA).buyDerived;
+    ok(d3.launchDefer && near(d3.launchDefer.bigBuyBnb, 0.7),
+      'U3 分单累计：0.15+0.15=0.3 过 0.19 线 → 0.3+0.4=0.7（FA W1b 同值）');
+    // U4 outlier 买不充当首笔可靠买（sFT 锚谓词 !outlier∧price>0）
+    const rowsD4 = [
+      row(5, 'BUY', mkW2(30), 0.5, 1e-8, 5e7, { block: 820, li: 0, outlier: true }),
+      row(10, 'BUY', mkW2(31), 0.5, 6.2e-9, 8e7, { block: 821, li: 0 }),
+      row(20, 'SELL', mkW2(32), 0.2, 6.2e-9, 3.2e7, { block: 822, li: 0 }),
+    ];
+    const d4 = buildBuyPointSnapshot(rowsD4, metaA).buyDerived;
+    ok(d4.launchDefer && d4.launchDefer.sinceFirstTradeSec === 10,
+      'U4 outlier 首买不设 sFT 锚（锚末20−首可靠买10=10；若误吃 outlier 行则为 15。bigBuy 资金口径不滤 outlier 照计=1.0）');
+    // U5 截窗未覆盖出生段 → null（老票 sFT>60 域放行语义等价）
+    const rowsD5 = Array.from({ length: 5 }, (_, i) =>
+      row(120 + i, 'BUY', mkW2(40 + i), 0.1, 1.3 * E9, 8e7, { block: 950 + i, li: 0 }));
+    ok(buildBuyPointSnapshot(rowsD5, metaA).buyDerived.launchDefer === null,
+      'U5 截窗未覆盖出生段（firstDt=120>90）→ launchDefer=null 不评');
+    // U6 尘 tick（<0.001）不进 wCum（FA minTickBnb 镜像）
+    const rowsD6 = [
+      row(5, 'BUY', mkW2(50), 0.19, 6.2e-9, 3e7, { block: 960, li: 0 }),
+      row(6, 'BUY', mkW2(50), 0.0005, 6.2e-9, 8e4, { block: 961, li: 0 }),
+      row(7, 'BUY', mkW2(51), 0.0004, 6.2e-9, 6e4, { block: 962, li: 0 }),
+    ];
+    const d6 = buildBuyPointSnapshot(rowsD6, metaA).buyDerived;
+    ok(d6.launchDefer && near(d6.launchDefer.bigBuyBnb, 0.19),
+      'U6 尘 tick <0.001 不计入（0.19+0.0005 不越线；0.0004 钱包全尘不入账）');
+    // U7 minVsFloorPct 透传（platform=flap 时 T145 锚窗版已有键直传）
+    const metaFlap = { ...metaA, platform: 'flap' };
+    const rowsD7 = [
+      row(5, 'BUY', mkW2(60), 0.25, 5.0e-9, 5e7, { block: 970, li: 0 }),
+      row(30, 'SELL', mkW2(61), 0.2, 4.9e-9, 4.1e7, { block: 971, li: 0 }),
+    ];
+    const d7 = buildBuyPointSnapshot(rowsD7, metaFlap).buyDerived;
+    ok(d7.launchDefer && typeof d7.launchDefer.minVsFloorPct === 'number' && d7.launchDefer.minVsFloorPct < 0,
+      'U7 minVsFloorPct=launchMinVsFloorPct 直传（flap 常量锚下砸 4.9e-9<min(FL,首买5.0e-9) → 负值在场）');
+    ok(buildBuyPointSnapshot(rowsD7, metaA).buyDerived.launchDefer.minVsFloorPct === null,
+      'U7b 无常量平台（metaA 无 platform）→ minVsFloorPct null=豁免证据缺席（FA null 语义同向）');
+  }
+
   console.log(`\n✅ buy_point_lib 全部通过（${passed} 断言）`);
 
   // ═══ T197/FP29 分仓出货残局盘三键（超卖钱包提取：aggregateWallets per-wallet

@@ -764,9 +764,8 @@ console.log('V. T162 买入额过滤修正（2026-11-17 用户修正 T150：「�
   }
 }
 
-console.log('W. T151 launchBigBuyBnb（前期买入太多载体）+ 推迟门');
+console.log('W. T151 launchBigBuyBnb（前期买入太多载体）+ 推迟门（v34/T201 迁 FP32 臂）');
 {
-  const { ConditionEvaluator } = require(path.join(ROOT, 'src', 'strategies', 'ConditionEvaluator.js'));
   const fa = newFA();
   feed(fa, [
     { timestamp: T0 + 1000, block_number: 100, log_index: 1, sender_address: 'wA', trader_address: '0xeA', bnb_amount: 0.6 },
@@ -797,35 +796,47 @@ console.log('W. T151 launchBigBuyBnb（前期买入太多载体）+ 推迟门');
   check('W1c 大户线 0.19：0.1973 计入（视同 0.2 级）、0.1899 门外 → 0.5911+0.1973=0.7884', () =>
     assert.strictEqual(F(fa3, T0 + 5000).launchBigBuyBnb, 0.7884));
   // 推迟门求值：heavy(<60s 挡/60s 后放) vs mid(0.79 档 45s) vs light
-  const gate = 'launchBigBuyBnb < 0.79 OR (launchBigBuyBnb < 1 AND sinceFirstTradeSec > 45) OR sinceFirstTradeSec > 60 OR launchMinVsFloorPct < -10';
-  const ev = new ConditionEvaluator();
+  // v34/T201 迁移：门串自 ladder 条件串整段撤出，判定语义迁 FP32 armBigBuyDefer
+  // （返回 true=推迟拦；旧门串 evaluate true=放行——方向翻转，案例矩阵逐条对拍）
+  const { armBigBuyDefer } = require(path.join(ROOT, 'src', 'market-analysis', 'factor-pre-buy-check.js'));
+  const mkLd = (bigBuyBnb, sinceFirstTradeSec, minVsFloorPct = null) =>
+    ({ launchDefer: { bigBuyBnb, sinceFirstTradeSec, minVsFloorPct } });
   check('W2 heavy@+30s → 挡（1.4≥1 ∧ 30≤60）', () =>
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.4, sinceFirstTradeSec: 30 }), false));
+    assert.strictEqual(armBigBuyDefer(mkLd(1.4, 30)), true));
   check('W3 heavy@+61s → 放（抛压释放窗）', () =>
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.4, sinceFirstTradeSec: 61 }), true));
+    assert.strictEqual(armBigBuyDefer(mkLd(1.4, 61)), false));
   check('W4 mid@+20s → 挡（v29/T173 0.79 档：0.9∈[0.79,1) ∧ 20≤45——旧门串 0.9<1 放行）', () =>
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.9, sinceFirstTradeSec: 20 }), false));
+    assert.strictEqual(armBigBuyDefer(mkLd(0.9, 20)), true));
   check('W4b mid@+46s → 放（45s 档释放）', () =>
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.9, sinceFirstTradeSec: 46 }), true));
+    assert.strictEqual(armBigBuyDefer(mkLd(0.9, 46)), false));
   check('W4c light@+20s → 放（0.78<0.79 线下无推迟）', () =>
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.78, sinceFirstTradeSec: 20 }), true));
-  check('W4d 驴党案反证（0x f37fe6de…7777：bigBuy=0.7934 贴线视同 0.8 级 T169 惯例 ∧ 36s fire → 拦）', () =>
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.7934, sinceFirstTradeSec: 36 }), false));
+    assert.strictEqual(armBigBuyDefer(mkLd(0.78, 20)), false));
+  check('W4d 驴党案反证（0xf37fe6de…7777：bigBuy=0.7934 贴线视同 0.8 级 T169 惯例 ∧ 36s fire → 拦）', () =>
+    assert.strictEqual(armBigBuyDefer(mkLd(0.7934, 36)), true));
   check('W4e Ardot 案反证（T172 合并后 bigBuy=1.1177 ≥1 ∧ 21s ∧ 浅破发 -0.96 不豁免 → 拦；旧门串豁免臂 <0 放行）', () =>
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.1177, sinceFirstTradeSec: 21, launchMinVsFloorPct: -0.96 }), false));
+    assert.strictEqual(armBigBuyDefer(mkLd(1.1177, 21, -0.96)), true));
   check('W4f 油宝案反证（−6.3 落 −5~−10 带 v29 不豁免——T172 合并 bigBuy 1.1644≥1 ∧ 20s → 拦；首裁 −5 线曾豁免放行引出深化 −10）', () =>
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.1644, sinceFirstTradeSec: 20, launchMinVsFloorPct: -6.3 }), false));
+    assert.strictEqual(armBigBuyDefer(mkLd(1.1644, 20, -6.3)), true));
   check('W4f2 深破发豁免同享两档（−11 < −10 → mid 档照豁免放行；ASTER 类形状）', () =>
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 0.9, sinceFirstTradeSec: 20, launchMinVsFloorPct: -11 }), true));
+    assert.strictEqual(armBigBuyDefer(mkLd(0.9, 20, -11)), false));
   check('W4g 豁免边界 -10（-9.9 不豁免拦 / -10.1 豁免放）', () => {
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.4, sinceFirstTradeSec: 30, launchMinVsFloorPct: -9.9 }), false);
-    assert.strictEqual(ev.evaluate(gate, { launchBigBuyBnb: 1.4, sinceFirstTradeSec: 30, launchMinVsFloorPct: -10.1 }), true);
+    assert.strictEqual(armBigBuyDefer(mkLd(1.4, 30, -9.9)), true);
+    assert.strictEqual(armBigBuyDefer(mkLd(1.4, 30, -10.1)), false);
   });
-  check('W5 deploy DELAY_GATE 逐字一致（防漂移；v27 起推迟门同享破发豁免臂，v29 线 <0→<-5+0.79 档 45s）', () => {
+  check('W4h 键缺席不评=放行（launchDefer null/键 null——截窗未覆盖出生段=老票 sFT>60 域语义等价，T180 同约定）', () => {
+    assert.strictEqual(armBigBuyDefer({ launchDefer: null }), false);
+    assert.strictEqual(armBigBuyDefer({}), false);
+    assert.strictEqual(armBigBuyDefer(null), false);
+    assert.strictEqual(armBigBuyDefer({ launchDefer: { bigBuyBnb: 1.4, sinceFirstTradeSec: null } }), false);
+    assert.strictEqual(armBigBuyDefer({ launchDefer: { bigBuyBnb: 1.4, sinceFirstTradeSec: 30, minVsFloorPct: null } }), true, 'floor null=豁免证据缺席照拦（FA null 语义同向）');
+  });
+  check('W5 v34/T201 迁出锁：deploy 无 DELAY_GATE 残留；FP32 臂在位；条件串不再引用 launchBigBuyBnb', () => {
     const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
-    const mm = deploySrc.match(/const DELAY_GATE = '((?:[^'\\]|\\.)*)'/);
-    assert.ok(mm, 'DELAY_GATE 缺失');
-    assert.strictEqual(mm[1].replace(/^ AND \(/, '').replace(/\)$/, ''), gate);
+    assert.ok(!deploySrc.includes('DELAY_GATE'), 'DELAY_GATE 残留——迁移未完成（T180/WAVE_DOM_VETO_GATE 同款删净）');
+    assert.ok(!/"condition":[^"]*launchBigBuyBnb/.test(deploySrc), '条件串仍引用 launchBigBuyBnb');
+    const fpSrc = fs.readFileSync(path.join(ROOT, 'src', 'market-analysis', 'factor-pre-buy-check.js'), 'utf8');
+    assert.ok(fpSrc.includes("arms.push('big_buy_defer')"), 'FP32 big_buy_defer 臂不在位');
+    assert.ok(fpSrc.includes('armBigBuyDefer'), '臂函数缺失');
   });
 }
 
