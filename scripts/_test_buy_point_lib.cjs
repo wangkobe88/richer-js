@@ -2181,8 +2181,67 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
   }
 
   console.log(`\n✅ buy_point_lib 全部通过（${passed} 断言）`);
+
+  // ═══ T197/FP29 分仓出货残局盘三键（超卖钱包提取：aggregateWallets per-wallet
+  // 买/卖账本剔路由——MOLLY 案形状：出货户买 0.246 卖 1.321=transfer 分仓指纹） ═══
+  console.log('V. T197 oversell 三键提取（CI/MOLLY 工厂盘取证立法）');
+  {
+    const W_OS = '0x' + '99'.repeat(20); // 出货户
+    const rowsOs = [
+      // 出货户：买 0.246 卖 1.321（卖 >买×1.5 ∧ ≥0.3 → 超卖钱包）
+      row(5, 'BUY', W_OS, 0.246, 1.0 * E9, 2.4e8),
+      row(30, 'SELL', W_OS, 0.55, 1.2 * E9, 4.5e7),
+      row(45, 'SELL', W_OS, 0.771, 1.15 * E9, 6.6e7),
+      // 7 个普通钱包（买∪卖各一笔小额——凑 8 钱包微型盘）
+      ...[0, 1, 2, 3, 4, 5, 6].map((i) => row(10 + i * 5, 'BUY', '0x' + (0x20 + i).toString(16).repeat(20), 0.05, 1.0 * E9, 5e7)),
+    ];
+    const dOs = buildBuyPointSnapshot(rowsOs, metaA).buyDerived;
+    ok(dOs.oversellBnb === 1.321 && dOs.oversellerN === 1 && dOs.anchorWalletN === 8,
+      `V1 MOLLY 案形状：超卖 1.321/1 户/锚窗 8 钱包（实际 ${dOs.oversellBnb}/${dOs.oversellerN}/${dOs.anchorWalletN}）`);
+    // CI 形状反证：creator 买 0.5 卖 0.63（1.26 倍不达 1.5）→ 零超卖
+    const rowsCi = [
+      row(5, 'BUY', CREATOR, 0.5, 1.0 * E9, 5e8),
+      row(30, 'SELL', CREATOR, 0.63, 1.2 * E9, 5e8),
+      row(15, 'BUY', W_B, 0.3, 1.0 * E9, 3e8),
+    ];
+    const dCi = buildBuyPointSnapshot(rowsCi, metaA).buyDerived;
+    ok(dCi.oversellBnb === 0 && dCi.oversellerN === 0 && dCi.anchorWalletN === 2,
+      `V2 CI 反证：真实买卖闭环（1.26 倍）不算超卖（实际 ${dCi.oversellBnb}/${dCi.oversellerN}/${dCi.anchorWalletN}）`);
+    // 倍率边界：买 0.3 卖 0.44=1.47 倍不命中；卖 0.46=1.53 倍命中（「恰 1.5」是浮点
+    // 噪声边界无语义，两侧取明确值——研究同款裸比较无 toFixed 保护）
+    const rowsEq = [
+      row(5, 'BUY', W_OS, 0.3, 1.0 * E9, 3e8),
+      row(30, 'SELL', W_OS, 0.44, 1.2 * E9, 3e8),
+    ];
+    ok(buildBuyPointSnapshot(rowsEq, metaA).buyDerived.oversellBnb === 0, 'V3 1.47 倍不命中');
+    const rowsEq2 = [
+      row(5, 'BUY', W_OS, 0.3, 1.0 * E9, 3e8),
+      row(30, 'SELL', W_OS, 0.46, 1.2 * E9, 3e8),
+    ];
+    ok(buildBuyPointSnapshot(rowsEq2, metaA).buyDerived.oversellBnb === 0.46, 'V3b 1.53 倍命中');
+    // 单户尘门 0.3：卖 0.29（即使 0 买入）不入
+    const rowsDust = [row(30, 'SELL', W_OS, 0.29, 1.2 * E9, 3e7)];
+    ok(buildBuyPointSnapshot(rowsDust, metaA).buyDerived.oversellBnb === 0, 'V4 单户卖 0.29<0.3 尘门外');
+    // 路由伪钱包大额卖出不算（wallets 剔路由同口径）
+    const rowsRouter = [
+      row(5, 'SELL', W_OS, 0.9, 1.2 * E9, 9e7),
+      row(10, 'BUY', W_B, 0.2, 1.0 * E9, 2e8),
+    ];
+    const dRouter = buildBuyPointSnapshot([row(5, 'SELL', W_OS, 0.9, 1.2 * E9, 9e7, { trader: ROUTER, sender: null })], metaA).buyDerived;
+    ok(dRouter.anchorWalletN === null || dRouter.oversellBnb === null, 'V5 伪钱包行（sender null）不进 wallets——零钱包=全 null 容缺');
+    // 多超卖钱包合计口径
+    const rowsMulti = [
+      row(5, 'SELL', W_OS, 0.35, 1.1 * E9, 3.5e7),
+      row(15, 'SELL', W_B, 0.30, 1.1 * E9, 3e7),
+      row(25, 'BUY', W_C, 0.1, 1.0 * E9, 1e8),
+    ];
+    const dMulti = buildBuyPointSnapshot(rowsMulti, metaA).buyDerived;
+    ok(Math.abs(dMulti.oversellBnb - 0.65) < 1e-6 && dMulti.oversellerN === 2 && dMulti.anchorWalletN === 3,
+      `V6 两户合计 0.65/2 户/3 钱包（实际 ${dMulti.oversellBnb}/${dMulti.oversellerN}/${dMulti.anchorWalletN}）`);
+  }
 })().catch((e) => {
   console.error('\n❌ FAIL:', e && e.message);
   console.error(e);
   process.exit(1);
 });
+

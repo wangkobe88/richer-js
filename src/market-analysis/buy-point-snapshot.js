@@ -38,6 +38,11 @@ const BP_BURST_SEC = 5;
 const BP_PRICE_BUCKETS = 20;
 /** 发行价覆盖判据容差（秒）：数组最早 dt ≤ 此值 = ticks 含出生段（BP5 发行价锚） */
 const BP_LAUNCH_COVER_TOL = 90;
+/** T197/FP29 分仓出货残局盘提取口径线（超卖钱包=卖出远超买入的 curve 外筹码
+ * 来源账户——链上 transfer 分仓在买卖账本上的唯一可见指纹）：单钱包卖出门
+ * 0.3B ∧ 卖>买×1.5；合计门线 0.5B/钱包数 ≤12 在 factor-pre-buy-check 臂侧 */
+const BP_OVERSELL_WALLET_MIN_BNB = 0.3;
+const BP_OVERSELL_BUY_RATIO = 1.5;
 /** T180 首两波大部队×高占比锚（2026-11-18 0x17b09420…7777 案，用户裁定迁移
  * 因子过滤模块）：四参数全与 FA launch 键同线（launchBundleWinMs=90s /
  * holderDustBnb=0.015 / LAUNCH_FIRST_WAVE_MS=2s / LAUNCH_BUNDLE_WAVE_MIN_WALLETS=5
@@ -977,6 +982,20 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     buyersTotal,
   };
 
+  // ── T197/FP29 分仓出货残局盘族（锚窗钱包级单点：超卖钱包=卖出远超买入的
+  //    curve 外筹码来源账户——transfer 分仓出货在买卖账本上的指纹；wallets
+  //    已剔聚合路由伪钱包与 buy∪卖全集同研究口径；oversellBnb=0 有证据零值
+  //    =无超卖钱包；wallets 空=证据缺席全 null 容缺不拦〔宁漏不冒充〕）──
+  const oversell = (() => {
+    const ws = snapshot.wallets || [];
+    if (!ws.length) return { oversellBnb: null, oversellerN: null, anchorWalletN: null };
+    let bnb = 0, n = 0;
+    for (const e of ws) {
+      if (e.sellBnb >= BP_OVERSELL_WALLET_MIN_BNB && e.sellBnb > e.buyBnb * BP_OVERSELL_BUY_RATIO) { bnb += e.sellBnb; n++; }
+    }
+    return { oversellBnb: +bnb.toFixed(4), oversellerN: n, anchorWalletN: ws.length };
+  })();
+
   // ── 开盘段结构族（BP18 盘面分类锚：判「强庄开盘进入 / 开盘狙击衰竭」的直接
   // 度量）：开盘段=dt < 30s；资金口径不滤 outlier；大额线 0.3 BNB 与 BP16 大户
   // 判据同线；截窗未覆盖开盘段（首行 dt > BP_LAUNCH_COVER_TOL 同款判据）全族
@@ -1515,6 +1534,11 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     exactEqualBlockMaxWallets, exactEqualBlockClusters, dumpBlock, dump2Block, totalVolumeBnb,
     // 卖压族
     bigHolderSellBnb60, exitSellerCount60,
+    // T197/FP29 分仓出货残局盘三键（超卖钱包合计/户数+锚窗独立钱包数——
+    // FP 门 oversell_residual 臂原料；判据史与四窗验证见台账 T197）
+    oversellBnb: oversell.oversellBnb,
+    oversellerN: oversell.oversellerN,
+    anchorWalletN: oversell.anchorWalletN,
     // 活跃度锚族透传（BP13：cheatDerived 同名单点照抄——判读归 Jev activity_level 题）
     activity,
     // 筹码结构锚族透传（BP14：famous 控盘+持仓集中分层+参与/持有分叉——famous 判读
