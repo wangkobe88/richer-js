@@ -143,6 +143,26 @@ const BURST_SEG_SEARCH_SEC = 60;
  */
 const BURST_BUNDLE_WALLET_DUST_BNB = 0.03;
 /**
+ * CD424 burst 判定行集尘埃线（2026-11-20 牢猫 0xe83626c4…7777 案，用户裁定
+ * 「尘埃买卖在 burst 判定中都可以去掉」）：**sbw 判定主链**（段定位/出口行/
+ * 波窗/波额/波钱包/户均中位/波窗净流/出口价锚）在剔尘埃行集上进行——单笔
+ * bnb < 此值的买卖行不参与：尘埃行不断静默（不把一段长沉积切成两截）、不充当
+ * 断流出口行（案源：47s 静默后 0.0095B 尘埃卖当出口行→孤笔不成波→16~18s 后
+ * 0.533B/4 钱包真波被甩出 5s 绑定窗→sbw 判 none）；波内尘埃买不计入波买额/
+ * 波钱包数（CD402 量级线/资格线的原料更诚实——尘埃买单垫钱包数的形状不再过
+ * 资格线）。与 BURST_BUNDLE_WALLET_DUST_BNB 同值同族（CD420「0.01 的买入
+ * 如果算一个钱包有点不合理了」），语义独立常量不共用。**刻意保持全行口径**：
+ * ①T134 地板原料 _minRel（与 FA/BP 三点同源 bit 不变）+D3.65 最密窗旧两键
+ * （纯观察）；②波钱包全窗净额/卖回率（流向追踪——波钱包的尘埃卖出也是流出
+ * 证据）；③burstSecSinceWaveEnd/SegEnd 的窗末（距锚语义=锚侧最后行）；
+ * ④CD401 出口整窗/CD407 流量簇/CD405 捆绑搜索域/T143 背景两键——各臂尘线/
+ * 定线是**含尘标定**（CD411 最大段 0.3 线、CD420 per-wallet 块内合并、CD410
+ * 背景笔数线），行集剔尘会重标定已立法臂；CD424 只把各臂锚点换到非尘出口行
+ * （_exitAllIdx）。活跃度题①的 idlePct 静默口径（「尘埃额都算交易、都打破
+ * 静默」）刻意不同向：①度量持续稀疏死寂、burst 度量沉积+释放，两题口径分立。
+ */
+const BURST_SCAN_DUST_BNB = 0.03;
+/**
  * CD407 burst 流量簇切分阈值（2026-11-14，btv113 Cashless 0xbcb72829 案——用户
  * 裁定原话「我们考量 burst 的对象……只考量『这一波突然的流量』即可。这里四个
  * 买入之后是停止一段时间才卖出的，这些卖出我认为不是 burst 的一部分。burst
@@ -1234,13 +1254,19 @@ function computeDerived(snapshot, famousRoster) {
   // CD401 同形）。
   let burstWaveBundleMaxWallets = null, burstWaveBundleAdjPairSum = null;
   const waveTicksAll = ticks.filter((t) => t.dt !== null && t.dt !== undefined);
+  // CD424 burst 判定行集：剔尘埃（买+卖单笔 < BURST_SCAN_DUST_BNB）——sbw 判定
+  // 主链（段定位/出口行/波窗/波额/波钱包）在此行集上；CD401/405/407/T143 各臂
+  // 与全行口径结构的边界见常量头注。burstScan <2 行=无非尘结构可言（段定位
+  // 不出，全族 null 与「无段」同语义）。
+  const burstScan = waveTicksAll.filter((t) => (t.bnb || 0) >= BURST_SCAN_DUST_BNB);
   if (waveTicksAll.length >= 2) {
     const waveTicks = waveTicksAll; // D3.65：锚前全窗（D3.56 临近段过滤退役，见上头注）
     // 最后 ≥BURST_STALL_GAP_SEC 静默段（D3.66 起为 burstExitVsLaunchPct 扫描域；
-    // D3.67 起提升为单段波族的绑定锚——「最近一次沉积」而非「最深沉积」）
+    // D3.67 起提升为单段波族的绑定锚——「最近一次沉积」而非「最深沉积」；
+    // CD424 起在剔尘埃行集上扫——尘埃不断静默）
     let _lastGapIdx = -1;
-    for (let i = 1; i < waveTicksAll.length; i++) {
-      if (waveTicksAll[i].dt - waveTicksAll[i - 1].dt >= BURST_STALL_GAP_SEC) _lastGapIdx = i;
+    for (let i = 1; i < burstScan.length; i++) {
+      if (burstScan[i].dt - burstScan[i - 1].dt >= BURST_STALL_GAP_SEC) _lastGapIdx = i;
     }
     {
       // CD392（2026-11-09 ad80fb7a 案）：burst 波起点价锚——D3.56-D3.64 为临近段
@@ -1278,7 +1304,8 @@ function computeDerived(snapshot, famousRoster) {
         // 出口在低域（ba5e 最后静默段 07:50:32→07:51:40 出口 +35.4% 放；M4GA/
         // CD383 原案 +2.9% 放）。刻意不取段内最低/锚时刻现价：CD392 台账「取
         // 最低会放行高位砸落再弹形状」（ad80 末段砸落 +17.5% 必须拒）。扫描域
-        // =waveTicksAll（dt 过滤序与 maxGapSec 的 dts 同源；CD383 时代与 gap 腿
+        // =burstScan[_lastGapIdx:]（CD424 起剔尘埃行集——出口行即非尘出口，dt
+        // 过滤序与 maxGapSec 的 dts 同源；CD383 时代与 gap 腿
         // bit 同口径，CD397 起 gap 腿退役、段定位为本阈值唯一消费）。null 条件：
         // 无 ≥30s 段/段后无可靠价/launch 地板缺失（无常量
         // 平台）→ fail-closed 不授予（与 CD383 gap null「不扩大收紧面」不同向
@@ -1286,7 +1313,7 @@ function computeDerived(snapshot, famousRoster) {
         // 帽影响（出口段在锚侧，帽窗内必含）。**D3.67/CD397 起第四腿代码门整体
         // 退役（判定权归 Jev），本锚保留为题面「位置参考」事实**。
         if (_lastGapIdx >= 0) {
-          const _exitRel = waveTicksAll.slice(_lastGapIdx).find((t) => !t.outlier && t.priceBnb > 0);
+          const _exitRel = burstScan.slice(_lastGapIdx).find((t) => !t.outlier && t.priceBnb > 0);
           if (_exitRel) burstExitVsLaunchPct = +(((_exitRel.priceBnb / _launch) - 1) * 100).toFixed(1);
         }
       }
@@ -1312,8 +1339,9 @@ function computeDerived(snapshot, famousRoster) {
       burstWaveBuyBnb = +bestBuy.toFixed(4);
       burstWaveWallets = bestWalletN;
     }
-    // ── D3.67/CD397 单段绑定波（CD422 收紧，头注见变量声明区）：
-    // 绑定锚=「最近一次 ≥30s 沉积」的出口行（waveTicksAll[_lastGapIdx]）。波=
+    // ── D3.67/CD397 单段绑定波（CD422 收紧+CD424 尘埃剔除，头注见变量声明区）：
+    // 绑定锚=「最近一次 ≥30s 沉积」的出口行（burstScan[_lastGapIdx]——剔尘埃
+    // 行集上的出口行，尘埃单不充当出口）。波=
     // **出口行起 BURST_WAVE_SEC 固定窗**（波首=出口行——「紧跟出口」结构化：
     // 出口与涌入是同一连续事件，出口 5s 外到达的流量不属本波；旧「出口后 60s
     // 内最密 5s 窗」允许出口与波间夹任意间隙=缝合误判源，0xc71a 案退役）；出口
@@ -1321,20 +1349,26 @@ function computeDerived(snapshot, famousRoster) {
     // 卖回率/户均/中位=「尘埃 vs 真实流量」「涌入 vs 流出」两判轴的原料。所有
     // 数值只是事实，跨度/尘埃/流向的判读全归 Jev（裁定第三条），代码零硬线。
     if (_lastGapIdx >= 1) {
-      const _exitTick = waveTicksAll[_lastGapIdx];
-      burstLastGapSec = _exitTick.dt - waveTicksAll[_lastGapIdx - 1].dt;
+      const _exitTick = burstScan[_lastGapIdx];
+      burstLastGapSec = _exitTick.dt - burstScan[_lastGapIdx - 1].dt;
+      // CD424：出口行=非尘行（burstScan 元素是 waveTicksAll 同引用），_exitAllIdx
+      // =该行在全行链序的下标——CD401/CD405/CD407/T143 各臂窗口内容**保持全行**
+      // （各臂尘线/定线含尘标定：CD411 最大段 0.3 线、CD420 per-wallet 合并、
+      // CD410 背景笔数线——行集剔尘会重标定已立法臂），只把锚点换到非尘出口。
+      const _exitAllIdx = waveTicksAll.indexOf(_exitTick);
+      // CD405 捆绑收割搜索域：出口行起 BURST_SEG_SEARCH_SEC（全行——CD422 已注
+      // 「其『波窗』语义=流量簇组织性非 burst 判定，刻意不同口径」）
       const _zone = [];
-      for (let i = _lastGapIdx; i < waveTicksAll.length; i++) {
+      for (let i = _exitAllIdx; i < waveTicksAll.length; i++) {
         if (waveTicksAll[i].dt - _exitTick.dt > BURST_SEG_SEARCH_SEC) break;
         _zone.push(waveTicksAll[i]);
       }
-      // CD422 波窗=出口行起 BURST_WAVE_SEC 固定窗（_zone 保留——CD405 捆绑收割
-      // 两键仍消费出口后 60s 搜索域整体，其「波窗」语义=流量簇组织性非 burst
-      // 判定，刻意不同口径）
+      // CD422 波窗=出口行起 BURST_WAVE_SEC 固定窗；CD424 在剔尘埃行集上
+      // （尘埃不充当出口行、不进波额/波钱包——sbw 判定主链）
       const _win = [];
-      for (let i = _lastGapIdx; i < waveTicksAll.length; i++) {
-        if (waveTicksAll[i].dt - _exitTick.dt > BURST_WAVE_SEC) break;
-        _win.push(waveTicksAll[i]);
+      for (let i = _lastGapIdx; i < burstScan.length; i++) {
+        if (burstScan[i].dt - _exitTick.dt > BURST_WAVE_SEC) break;
+        _win.push(burstScan[i]);
       }
       if (_win.length >= 2) {
         burstExitWaveFromDt = _win[0].dt;
@@ -1388,7 +1422,7 @@ function computeDerived(snapshot, famousRoster) {
       // 60s 搜索域——与探针口径 bit 一致：MBF 出口→锚 58s、我靠 25s 全窗计入）；
       // 资金不滤 outlier（CD 全窗买卖口径同款）；出口行自身在场故 buy+sell>0
       // 恒成立，防御性 0 值 → sellPct=null（宁拦不冒充方向）
-      const _seg = waveTicksAll.slice(_lastGapIdx);
+      const _seg = waveTicksAll.slice(_exitAllIdx);
       let _segBuy = 0, _segSell = 0;
       for (const t of _seg) {
         if (t.side === 'BUY') _segBuy += t.bnb || 0; else _segSell += t.bnb || 0;
@@ -1407,7 +1441,7 @@ function computeDerived(snapshot, famousRoster) {
       // 簇内累加 buy/sell（资金不滤 outlier）；sellPct 同款防御性 0 值 → null。
       {
         let _bestBuy = 0, _bestSell = 0, _bestTotal = -1, _bestEndDt = null;
-        let _i = _lastGapIdx;
+        let _i = _exitAllIdx;
         while (_i < waveTicksAll.length) {
           let _cBuy = 0, _cSell = 0, _prev = null;
           let _j = _i;
@@ -1432,11 +1466,11 @@ function computeDerived(snapshot, famousRoster) {
       // T143-CD401 背景活跃度两键：背景窗=静默段起点（静默前最后一行=出口行
       // 前一行）往前 60s——「静默之前盘面是否本来就热」；Go Brrrrr 案 39s 喘息
       // 前 60s ~1.5 BNB/min 15 笔/min=连着的（高活跃背景，非沉积语境）。
-      if (_lastGapIdx > 0) {
-        const _preEnd = waveTicksAll[_lastGapIdx - 1].dt;
+      if (_exitAllIdx > 0) {
+        const _preEnd = waveTicksAll[_exitAllIdx - 1].dt;
         const _preStart = _preEnd - 60;
         let _pn = 0, _pb = 0;
-        for (let i = _lastGapIdx - 1; i >= 0; i--) {
+        for (let i = _exitAllIdx - 1; i >= 0; i--) {
           const t = waveTicksAll[i];
           if (t.dt < _preStart || t.dt > _preEnd) break;
           _pn++; _pb += t.bnb || 0;
