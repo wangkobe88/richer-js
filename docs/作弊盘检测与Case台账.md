@@ -187,6 +187,20 @@
 
 ## Case 倒序
 
+### CD423 sbw②要素量级线 0.3→0.29 净额口径——名义 0.3 级波回收（D3.80 题面-only；2026-11-20）
+
+**案源**：bt-v163-all-arms-48h-win1003（`7d60bc05-8c4e-4f0d-993c-6f2d02428ea7`，10-03~05 48h 热窗）`0xa79e736482f55c89e42000151e04af630f2b7777`（ZKind，flap）信号#1 买点 2026-10-04 12:15:19——用户看 signals 页质询「**这个为什么不是 burst**」。
+
+**锚窗事实**（42 行）：12:11:50-52 开盘 17 钱包涌入（W6 买 0.8404→1s 后卖 0.9380 快闪）→ 12:12:01-07 第二小波（四胞胎 0.099×4）→ 12:12:24-26 两波几乎全部卖出 → **12:12:33→12:15:18 gap 165s=最后 ≥30s 段** → 出口行=W2/W3 同块各买 0.1485（合计 0.297）→ 锚（距波 0s）。重放波族九键：`burstLastGapSec=165 / burstExitWaveBuyBnb=0.297 / Wallets=2 / SecSinceWaveEnd=0 / exitVs=+11 / 卖回 46.5%`——**四要素三项过（跨度/流向/位置参考），唯独量级线 0.297<0.3 差 0.003**，题面指令「不足 0.3 BNB 级即选 none 哪怕多钱包哪怕波紧贴沉积出口」=Jev 忠实执行判 none（非方差）。信号轨迹：factorCheck 全过 → AF1 `act=low ∧ sbw=none → reject_low` 拒。锚后从出口价 ~6.4e-9 冲到 2.13e-8（**约 3.3 倍**，25 分钟后仍高位）——该笔拒绝放走一张 3 倍票。
+
+**用户裁定**（原话「0.3 改为 0.29（其实扣除 gas 就是 0.3）」）：波买额（`bnb_amount`）是**链上扣费后净额**（flap 净额系数 0.98），名义 0.3 的常见档买单落地 0.29x（本案权威例：0.1485×2=0.297=名义 0.3×2 扣费净额）——CD402 的 0.3 线把真实「名义 0.3 级」波挡在门外。线值 0.3→0.29 即「净额 0.29 级=名义 0.3 级」。
+
+**改动**（题面-only，零代码零键零 snapshot 变化）：sbw 题②要素量级线三处 0.3→0.29（instructions+criteria none/burst）+净额口径括注「（波买额是链上扣费后净额——名义 0.3 的常见档买单落地约 0.29x，0.29 级即名义 0.3 级）」+本案入正例样本（0.297/2 钱包/距锚 0s——**贴线防退缩**，D3.63 M4GA sbw 贴线摆动案同族先例：贴线值必须样本锚定）。题集 D3.79→D3.80；AF1 版本锁仅锁三题组成不 bump（题面随构建产物传导）；grade G22 零改动。
+
+**定线依据不受扰动**：CD402 定线统计=「波 <0.3 的 13 票 cheat act 清一色 low」——0.29~0.3 带属名义 0.3 级的知情回收（本域恰是本案形状：真实 0.3 级买卖档波+紧贴锚），<0.29 域（尘埃堆/一两笔 0.1 级）拦截面不变。
+
+**验证**：单测 `_test_cheat_detection_lib` 645 断言全绿（版本断言 D3.80+案史/②要素 0.29 三处净额句/criteria 两桶/样本断言同步；教训=断言串手写要与题面 Edit 同字面——首版「波买入额是」多打一个「入」字挂过一次）；cheat 六件（grade/gate_engine/act_front/detection_service/signal_gate/market_reset）全绿。182 对拍=本案票重放 sbw 翻 burst（见 git 提交留痕）。
+
 ### CD422 sbw 波绑定收紧（D3.79）：波=断流出口行起 5 秒固定窗、出口行孤笔不成波——0xc71a 缝合误判 burst 案（2026-11-20）
 
 **案源**：bt-v162（`d29420e7-9d5a-48b4-9e72-0b3dfe00c22f`，10-03~05 48h sender 完备热窗）`0xc71a685b7ccb5dcd119ddc889f78f048e4e37777`（NATIVE Coin）信号#2 买点 2026-10-04 12:55:23——用户看 signals 页质询「**为何会被判为 burst**」。信号轨迹：#1（12:55:00）AF1 `act=low ∧ sbw=none → reject_low` 拒；#2（12:55:23）AF1 `act=low ∧ sbw=burst → burst_exempt` 跳过 cheat 直进 BP 放行买入（cheatCheck.status=skipped_by_act_front + levels.stallBurstWave=1 透传 BP burst 第五档），15s 后卖出。
@@ -2051,6 +2065,9 @@ CD42/CD45 残留 unhealthy 来自 D/F/G 既有 G2/G4 通道**独立落位**（fa
 ## 题集版本演进表
 
 | 版本 | 日期 | 触发 | 改动 |
+| D3.80 | 2026-11-20 | **CD423 sbw②要素量级线 0.3→0.29 净额口径**（题面-only 线值案；bt-v163 ZKind `0xa79e…7777` 波买 0.297 差 0.003 拒、锚后 3.3 倍；用户裁定「0.3 改为 0.29（其实扣除 gas 就是 0.3）」——波买额=链上扣费净额，名义 0.3 单落地 0.29x，0.29 级即名义 0.3 级） | ②要素三处 0.3→0.29（instructions+criteria 两桶）+净额口径括注+本案入正例样本（贴线防退缩 D3.63 同族）；零代码零键；grade G22 零改动；AF1 组成锁不 bump |
+| D3.79 | 2026-11-20 | **CD422 sbw 波绑定收紧**（0xc71a 缝合误判案；用户裁定「A/B 两个都做」） | 波=断流出口行起 5s 固定窗（波首=出口行）；出口行孤笔→波族九键 null；迟到流量不属波；BURST_SEG_SEARCH_SEC(60s) 仅 CD405 消费；题面「孤笔选 none/迟到流量不得自判」+state 渲染三分支；snapshot 波族键语义变化=旧档重放不兼容（qv 域隔离） |
+| D3.78 | 2026-11-18 | **CD421 act 题⑦密集臂段前背景反锚钱包轴口径修正**（0x9c69 长窗死票孤立脉冲案；用户裁定方案 A） | nearPre10Wallets 改=尾 10s 窗紧前 120s 背景段内非尘埃钱包数（≥0.02B）；历史钱包/尘埃卖家不计入；题面+criteria.high+state 三载体同步 |
 | D3.77 | 2026-11-17 | **CD419 abnormal_behavior_ratio 整题退役（配对 grade G21→G22；用户裁定原话「abnormal_behavior_ratio 是针对一些不普世的异常现象，也删除吧，分工问题，如果发现有一些异常现象在 cheat 的其它锚不好控，会增加因子过滤锚，这个比较泛的 cheat 锚就不保留了」）**：泛异常兜底题与 CD「每题锚定一个具象现象」的分工不符，不普世异常形状的承接载体=FP 因子门（T143 FP 族，纯代码零 Jev，发现新异常形状按此模式加锚）。 | 题整删（11→10）+ABNORMAL_BEHAVIOR_LEVELS 导出移除（题集+mapper 双侧）+`_abnormalBehavior` 读档函数/observation.abnormalBehavior 键移除（在场旧答案/旧键 real_participation 被读档层忽略）+G22 R 通道判定整段退役（`R_abnormal_dominant` 不再产出历史行留档）+CHEAT_LEVEL_SCORES.abnormal+levels/buckets abnormalBehavior 键移除+state「同块脉冲节拍」「单块买入集中度」两喂料行移除（「同档金额参考」行 D3.36 明保证留注明语境）；**判读原料锚照算照落纯观察**（D3.35 协同买入四键/D3.54 脉冲三键/创建者峰值——CD416/CD418 同款判定层退役非度量铲除）；FA cheatAbnormalBehaviorRatio/service digest abnormalBehavior 键恒 null 供存量兼容。黄金集 G22 重放 **28/42 零变化**（D3.26 存档无该题键=断代防线）；单测 lib 627/service 200/grade 120/gate 180/FP 118/BP 539+41 全绿。详档 Case 倒序区 CD419 段。 |
 | D3.76 | 2026-11-17 | **CD418 burst_spike_concentration 整题退役（配对 grade G20→G21；用户裁定原话「burst_spike_concentration 删除吧，这里有一个逻辑错误，burst 是豁免低活跃度的，也就是 burst 会直接走到下一层，所以没必要在这里再判一次」；abnormal_behavior_ratio 核实维持不动——次轮 CD419 再裁删除）**：sbw=burst 票经 CD397 sbw==1 豁免资格臂天然放行（E 通道 sbw=burst 跳过、cheat∧burst 豁免翻正），尖刺形状判 cheat（G15 拉黑级）与豁免链方向相抵=A 主判冗余——豁免翻正=白判烧配额、豁免被 denied=形状归 CD400/401/403/405/407 数值臂管辖。 | 题整删（12→11）+EXT_PHENOMENON_IDS 移除（旧档答案被清单忽略）+G21 MAIN_IDS 九→八主判（EXT filter 自动收缩）+A 降级豁免「spike+pump 双 strong 封堵」臂随题退役（pump 唯一 strong∧sbw=burst 照降级 unhealthy）+levelsFromObservation levels/buckets burstSpikeConcentration 键移除+state「burst 尖刺集中度」行移除；**尖刺两锚照算照落纯观察**（snapshot/service digest/anchors/FA cheatSpikeBuyPctInBurst+cheatSpikeHoldPctAll——CD416 famous 锚族同款判定层退役非度量铲除）；FA cheatBurstSpikeConcentration 键保留恒 null 供存量条件串兼容。黄金集 G21 重放 **28/42 零变化**（D3.26 存档无该题键=容缺断代防线）；单测 lib 641/service 200/grade 120/gate 180 全绿。详档 Case 倒序区 CD418 段。 |
 | D3.75 | 2026-11-17 | **CD417 act 题⑦密集臂段前背景反锚（题面立法案+snapshot 新两键；0xba67…7777 对倒盘尾段脉冲冒充高活跃案；用户裁定「A即可，等额簇在部分情况不是坏事」——B 案明裁不做）**：全窗 9 笔单钱包对倒+24s 静默+尾 1s 同块分仓脉冲，四臂密集臂三条件全过、D3.73 金额时间轴（加权分 1.42 vs 4.14 比值 0.65）与 CD401 背景腿（1.09 B/min>0.5）均被对倒大额托起——金额轴对「有量但无人」失明。 | snapshot 新 `nearPre10GapSec`（尾 10s 窗首行距上一行秒数=脉冲紧前纯静默；段前无行=null fail-open 归④极早窗管辖）+`nearPre10Wallets`（段前独立钱包数 sender||trader）→ service activity 域+state 活跃度数值行内嵌+BP activity 透传 25→27 键；act 题密集臂第三反锚「段前背景」：脉冲紧前纯静默（参考 ≥15s）∧ 段前独立钱包极少（参考 ≤2）＝孤立脉冲不给高档（至多中）——压出 high 即同时解除 CD379 豁免资格（['high']）。单测 lib 646+五件全绿；真实行重放 24s/1 精确命中；**首跑 criteria 漏同步 act=high 失灵→版本内返工 b2cada92（criteria.high+总结句）二跑 mid 3/3**；sweep 触发面 2/208 票（1 正 1 负）；回归 memes 豁免零变化。详档 Case 倒序区 CD417 段。 |
