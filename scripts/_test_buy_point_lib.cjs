@@ -2239,6 +2239,42 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
     ok(Math.abs(dMulti.oversellBnb - 0.65) < 1e-6 && dMulti.oversellerN === 2 && dMulti.anchorWalletN === 3,
       `V6 两户合计 0.65/2 户/3 钱包（实际 ${dMulti.oversellBnb}/${dMulti.oversellerN}/${dMulti.anchorWalletN}）`);
   }
+
+  // ═══ T198/FP30 arbBot 持筹垄断两键（注入制：snapshot 零 DB，service 预加载
+  // 静态快照注入；组净持筹÷Σ正净 D3.35 在场流通同域——流量轴外存量口径） ═══
+  console.log('W. T198 arbBot 持筹两键（arbBotHoldCircPct/arbBotHolderN——rowsA 手算）');
+  {
+    // rowsA 净持仓手算（ROUTER 伪钱包行剔、W_D 清仓净 0 不入正净）：
+    // CREATOR 3.2e8 / W_B 1.43e9 / W_C 3.105e8 / W_E 3.55e7 / W_F 3e8 /
+    // W_G 1.36e8 / W_H 6.4e7 → Σ正净 = 2.596e9
+    const s1 = buildBuyPointSnapshot(rowsA, metaA, { arbBotWallets: new Set([W_B]) }).buyDerived;
+    ok(s1.arbBotHoldCircPct === 55.08 && s1.arbBotHolderN === 1,
+      `W1 单址注入：W_B 1.43e9/2.596e9=55.08%（实际 ${s1.arbBotHoldCircPct}/${s1.arbBotHolderN}）`);
+    const s2 = buildBuyPointSnapshot(rowsA, metaA, { arbBotWallets: new Set([CREATOR, W_E]) }).buyDerived;
+    ok(s2.arbBotHoldCircPct === 13.69 && s2.arbBotHolderN === 2,
+      `W2 两址合计：(3.2e8+3.55e7)/2.596e9=13.69%（实际 ${s2.arbBotHoldCircPct}/${s2.arbBotHolderN}）`);
+    const s3 = buildBuyPointSnapshot(rowsA, metaA).buyDerived;
+    ok(s3.arbBotHoldCircPct === null && s3.arbBotHolderN === null,
+      'W3 未注入名单 → 全 null 容缺（宁漏不冒充——旧 runner/离线工具零行为）');
+    const s4 = buildBuyPointSnapshot(rowsA, metaA, { arbBotWallets: new Set() }).buyDerived;
+    ok(s4.arbBotHoldCircPct === 0 && s4.arbBotHolderN === 0,
+      'W4 空集=表空/查询失败 fail-open → 0 有证据零值（臂钝化恒放行）');
+    const s5 = buildBuyPointSnapshot(rowsA, metaA, { arbBotWallets: new Set([W_D]) }).buyDerived;
+    ok(s5.arbBotHoldCircPct === 0 && s5.arbBotHolderN === 0,
+      'W5 组员清仓（净恰 0）→ 0/0 有证据零值（不进正净分母也不算持有者）');
+    // 组净负：净卖超买 → 负 share 恒放行（清仓离场不坐庄——28ad 语义护栏）
+    const rowsNeg = [
+      row(5, 'BUY', W_C, 0.1, 1.0 * E9, 1e8),
+      row(10, 'BUY', W_B, 0.2, 1.0 * E9, 3e8),
+      row(20, 'SELL', W_B, 0.2, 1.1 * E9, 5e8),
+    ];
+    const s6 = buildBuyPointSnapshot(rowsNeg, metaA, { arbBotWallets: new Set([W_B]) }).buyDerived;
+    ok(s6.arbBotHoldCircPct === -200 && s6.arbBotHolderN === 0,
+      `W6 组净负：(3e8−5e8)/Σ正净1e8=−200%（实际 ${s6.arbBotHoldCircPct}/${s6.arbBotHolderN}）——负值 <30 恒放行`);
+    // 路由伪钱包（sender null）不进 wallets=不进组也不进分母（rowsA 行8 已隐含于手算）
+    ok(buildBuyPointSnapshot(rowsA, metaA, { arbBotWallets: new Set([ROUTER]) }).buyDerived.arbBotHoldCircPct === 0,
+      'W7 伪钱包址注入无效果（ROUTER 行被剔——不进组）');
+  }
 })().catch((e) => {
   console.error('\n❌ FAIL:', e && e.message);
   console.error(e);

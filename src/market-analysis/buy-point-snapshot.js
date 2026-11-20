@@ -160,9 +160,13 @@ function detectSwings(rel, thrPct) {
  * @param {Set<string>|undefined|null} [famousRoster] - 著名钱包名单注入（单测用；
  *   undefined=读 config 名单（loadFamousRoster），null=模拟名单缺失——famousTraces
  *   整体 null（轴不可评），与 cheatDerived famous 族 null 语义同向
+ * @param {Set<string>|undefined|null} [arbBotWallets] - T198/FP30 arbBot 钱包集注入
+ *   （GMGN 画像 arbitrager/sandwich_bot/wash_trader 标签并集；service 侧进程启动
+ *   预加载静态快照注入——**snapshot 侧零 DB**，undefined/null=未注入 → 键 null 容缺
+ *   （臂不触发宁漏不冒充）；空集=表空/查询失败 fail-open → 0 有证据零值恒放行）
  * @returns {Object} buyDerived（菜单见模块头注；win 嵌套 {30:{…},60:{…},120:{…}}）
  */
-function computeBuyPointDerived(snapshot, famousRoster) {
+function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
   const ticks = snapshot.ticks || [];
   const tEnd = bpTEndOf(ticks);
   const dts = ticks.map((t) => t.dt).filter((v) => v !== null && v !== undefined);
@@ -996,6 +1000,29 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     return { oversellBnb: +bnb.toFixed(4), oversellerN: n, anchorWalletN: ws.length };
   })();
 
+  // ── T198/FP30 arbBot 持筹垄断族（锚窗钱包级净持仓 × 注入 arbBot 钱包集：
+  //    「机器坐着筹码」的存量口径——流量轴看不见买完停止买入的坐庄机器，
+  //    0x788fd8a9 流量 11%/持筹 45% 类形状只有本口径可见。wallets 已剔聚合路由
+  //    伪钱包（aggregateWallets 同口径）；分母=Σ正净（D3.35 在场流通同域）──
+  //    arbBotHoldCircPct = 集净持仓合计（buyTok−sellTok，**可负**：组内机器清仓
+  //    离场 → 负值 <30 恒放行=方向安全，卖光的不坐庄）÷ Σ正净 ×100
+  //    arbBotHolderN     = 集内正净持有者数（留痕观察）
+  //    未注入名单（null/undefined）→ 全 null 容缺不拦〔宁漏不冒充〕；空集 →
+  //    0 有证据零值（表空/查询失败 fail-open 臂钝化）；wallets 空/Σ正净 ≤0 → null ──
+  const arbHold = (() => {
+    if (!arbBotWallets) return { arbBotHoldCircPct: null, arbBotHolderN: null };
+    const ws = snapshot.wallets || [];
+    if (!ws.length) return { arbBotHoldCircPct: null, arbBotHolderN: null };
+    let posTotal = 0, grpNet = 0, grpN = 0;
+    for (const e of ws) {
+      const net = (e.buyTok || 0) - (e.sellTok || 0);
+      if (net > 0) posTotal += net;
+      if (arbBotWallets.has(e.w)) { grpNet += net; if (net > 0) grpN++; }
+    }
+    if (posTotal <= 0) return { arbBotHoldCircPct: null, arbBotHolderN: null };
+    return { arbBotHoldCircPct: +((grpNet / posTotal) * 100).toFixed(2), arbBotHolderN: grpN };
+  })();
+
   // ── 开盘段结构族（BP18 盘面分类锚：判「强庄开盘进入 / 开盘狙击衰竭」的直接
   // 度量）：开盘段=dt < 30s；资金口径不滤 outlier；大额线 0.3 BNB 与 BP16 大户
   // 判据同线；截窗未覆盖开盘段（首行 dt > BP_LAUNCH_COVER_TOL 同款判据）全族
@@ -1539,6 +1566,11 @@ function computeBuyPointDerived(snapshot, famousRoster) {
     oversellBnb: oversell.oversellBnb,
     oversellerN: oversell.oversellerN,
     anchorWalletN: oversell.anchorWalletN,
+    // T198/FP30 arbBot 持筹垄断两键（组净持筹占在场流通%+组内正净持有者数——
+    // FP 门 arb_bot_holdings 臂原料；净额可负=机器清仓离场恒放行；判据史与
+    // 四窗验证见台账 T198）
+    arbBotHoldCircPct: arbHold.arbBotHoldCircPct,
+    arbBotHolderN: arbHold.arbBotHolderN,
     // 活跃度锚族透传（BP13：cheatDerived 同名单点照抄——判读归 Jev activity_level 题）
     activity,
     // 筹码结构锚族透传（BP14：famous 控盘+持仓集中分层+参与/持有分叉——famous 判读
@@ -1576,6 +1608,7 @@ function computeBuyPointDerived(snapshot, famousRoster) {
  * - cheatBurst：作弊门 burst 判定透传（BP67：{ source, sbw, maxGapSec,
  *   waveBuyBnb, waveWallets, exitVsLaunchPct }——cheat 侧 levels.stallBurstWave==1
  *   时引擎组装；null/缺=无 burst 证据，state 不渲染该行、act 照常判），可选
+ * - arbBotWallets：T198/FP30 arbBot 钱包集注入（service 预加载；缺=键 null 容缺）
  * @returns {Object} { tokenMeta, anchor, capped, dtBase, ticks, wallets,
  *   cheatDerived, buyDerived, signalInfo, cheatBurst }——cheatDerived=cheat 快照
  *   derived 原样（背景事实不重算）；buyDerived=computeBuyPointDerived 产物
@@ -1590,7 +1623,7 @@ function buildBuyPointSnapshot(rows, tokenMeta, options = {}) {
     ticks: base.ticks,
     wallets: base.wallets,
     cheatDerived: base.derived,
-    buyDerived: computeBuyPointDerived(base, options.famousRoster),
+    buyDerived: computeBuyPointDerived(base, options.famousRoster, options.arbBotWallets),
     signalInfo: options.signalInfo || null,
     cheatBurst: options.cheatBurst || null,
   };

@@ -48,12 +48,14 @@ const trow = (dt, side, bnb, price, o = {}) => ({
     tx_hash: '0x' + (1000 + dt), quote_token: o.quote ?? null,
 });
 
-/** supabase 风格链式 stub：from().select().eq().lte().order().limit() → {data,error}
+/** supabase 风格链式 stub：from().select().eq().lte().gt().order().limit() → {data,error}
  *  lte 语义过滤（anchorMs 截窗断言原料）：block_time ≤ 锚 的行才可见——服务侧由
- *  DB 截窗承担，桩侧同款实现（as-of 防前视） */
-function mkDb({ ticksAsc = [], events = [], insertOk = true } = {}) {
+ *  DB 截窗承担，桩侧同款实现（as-of 防前视）；gt=address keyset 游标（T198
+ *  arbBot 钱包集分页加载断言原料） */
+function mkDb({ ticksAsc = [], events = [], insertOk = true, profiles = [] } = {}) {
     const inserted = [];
     const lteCalls = []; // 全部 .lte(col, val) 传参记录
+    const profileQueries = []; // gmgn_wallet_profiles 查询记录（预加载恰一次锁）
     const mkChain = (data) => {
         const filters = [];
         return {
@@ -61,12 +63,16 @@ function mkDb({ ticksAsc = [], events = [], insertOk = true } = {}) {
             eq() { return this; },
             order() { return this; },
             lte(col, val) { filters.push([col, val]); lteCalls.push([col, val]); return this; },
+            gt(col, val) { filters.push([col, val]); return this; },
             limit() {
                 let out = data;
                 for (const [c, v] of filters) {
-                    if (c !== 'block_time') continue;
-                    const t = new Date(v).getTime();
-                    out = out.filter((r) => new Date(r.block_time).getTime() <= t);
+                    if (c === 'block_time') {
+                        const t = new Date(v).getTime();
+                        out = out.filter((r) => new Date(r.block_time).getTime() <= t);
+                    } else if (c === 'address') {
+                        out = out.filter((r) => String(r.address) > String(v));
+                    }
                 }
                 return Promise.resolve({ data: out, error: null });
             },
@@ -75,10 +81,15 @@ function mkDb({ ticksAsc = [], events = [], insertOk = true } = {}) {
     return {
         inserted,
         lteCalls,
+        profileQueries,
         from(table) {
             if (table === 'wss_price_ticks') {
                 const desc = ticksAsc.slice().reverse(); // 服务期望倒序 DB 形状
                 return mkChain(desc);
+            }
+            if (table === 'gmgn_wallet_profiles') {
+                profileQueries.push(Date.now()); // T198：预加载恰一次断言原料
+                return mkChain(profiles);
             }
             if (table === 'wss_events') return mkChain(events);
             if (table === 'buy_point_analyses') {
@@ -542,7 +553,7 @@ function mkSvc(config, db, llm, extraDeps = {}) {
             const s = mkSvc({ enabled: true, factorCheck: { enabled: true }, settleDelayMs: 0, minTicks: 8 }, db, llm);
             const r = await s.evaluateFactorPreBuy('0xtok3', {});
             assert.strictEqual(r.status, 'assessed');
-            assert.ok(r.version === 'FP29' && typeof r.pass === 'boolean' && r.pvp && r.activity && Array.isArray(r.arms) && Array.isArray(r.gates) && r.observe === null);
+            assert.ok(r.version === 'FP30' && typeof r.pass === 'boolean' && r.pvp && r.activity && Array.isArray(r.arms) && Array.isArray(r.gates) && r.observe === null);
             assert.strictEqual(llmTouched, 0); // 零 Jev
             assert.strictEqual(db.inserted.length, 0); // 零表写
         });
@@ -551,6 +562,32 @@ function mkSvc(config, db, llm, extraDeps = {}) {
             const s = mkSvc({ enabled: true, factorCheck: { enabled: true }, settleDelayMs: 0, minTicks: 8 }, db, mkLlm({}));
             await s.evaluateFactorPreBuy('0xtok4', {}, {}, { anchorMs: 1790000050000 });
             assert.ok(db.lteCalls.some(([, v]) => new Date(v).getTime() === 1790000050000), 'anchorMs 未透传 lte');
+        });
+        await check('FP5/T198 arbBot 钱包集预加载恰一次（ctor 预热+实例缓存——信号路径零查库，用户裁定 2026-11-20 锁）', async () => {
+            const profiles = [
+                { address: '0x' + 'ab'.repeat(20), tags: ['arbitrager'] },
+                { address: '0x' + 'cd'.repeat(20), tags: ['gmgn'] }, // 非 arb 标签剔
+                { address: '0x' + 'ef'.repeat(20), tags: ['wash_trader', 'gmgn'] },
+            ];
+            const db = mkDb({ ticksAsc: mkTicks(12, true), profiles });
+            const s = mkSvc({ enabled: true, factorCheck: { enabled: true }, settleDelayMs: 0, minTicks: 8 }, db, mkLlm({}));
+            const set = await s._loadArbBotWallets(); // 等 ctor 预热同一 promise（幂等）
+            assert.strictEqual(set.size, 2, `arbBot 集只含 arbitrator/wash_trader 并集（实际 ${set.size}）`);
+            await s.evaluateFactorPreBuy('0xtok5', {});
+            await s.evaluateFactorPreBuy('0xtok5b', {});
+            assert.strictEqual(db.profileQueries.length, 1, `profiles 表恰查一次·两次评估零重复查库（实际 ${db.profileQueries.length}）`);
+        });
+        await check('FP6/T198 直注钱包集（deps 零 DB 路径）：组净持筹 ≥30% → arb_bot_holdings 拒；空集=臂钝化', async () => {
+            const rows = mkTicks(12, true); // 12 址各净持 1e8 全买 → Σ正净 12e8
+            const s = mkSvc({ enabled: true, factorCheck: { enabled: true }, settleDelayMs: 0, minTicks: 8 }, mkDb({ ticksAsc: rows }), mkLlm({}),
+                { arbBotWallets: new Set(['0xw0', '0xw1', '0xw2', '0xw3']) }); // 4e8/12e8=33.33%
+            const r = await s.evaluateFactorPreBuy('0xtok6', {});
+            assert.strictEqual(r.status, 'assessed');
+            assert.ok(r.arms.includes('arb_bot_holdings'), JSON.stringify(r.arms));
+            const sEmpty = mkSvc({ enabled: true, factorCheck: { enabled: true }, settleDelayMs: 0, minTicks: 8 }, mkDb({ ticksAsc: rows }), mkLlm({}),
+                { arbBotWallets: new Set() });
+            const rEmpty = await sEmpty.evaluateFactorPreBuy('0xtok6b', {});
+            assert.ok(!rEmpty.arms.includes('arb_bot_holdings'), `空集钝化（实际 ${JSON.stringify(rEmpty.arms)}）`);
         });
     }
 

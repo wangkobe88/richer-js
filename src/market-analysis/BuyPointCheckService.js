@@ -68,6 +68,11 @@ const DEFAULTS = {
   settleFlushMs: 600,        // waitIdle 模式尾随等待（idle=回查清空≠DB 可见）
 };
 
+// T198/FP30 arbBot 钱包集（GMGN 画像标签并集——factor 门 arb_bot_holdings 臂原料；
+// 用户裁定：进程启动预加载进内存静态快照，**信号路径绝不逐次查库**；更新须重启
+// 进程=与 famous/smartBot 名单同语义；表缺失/查询失败 → 空集 fail-open 臂钝化）
+const ARB_BOT_TAGS = new Set(['arbitrager', 'sandwich_bot', 'wash_trader']);
+
 const TICK_SELECT_COLUMNS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
 
 /**
@@ -118,6 +123,16 @@ class BuyPointCheckService {
     this._logger = logger;
     this._deps = deps;
     this._dbClient = deps.dbClient || null;
+
+    // T198/FP30 arbBot 钱包集（deps.arbBotWallets 直注=单测路径零 DB）：ctor 预热
+    // fire-and-forget（一次分页拉全表 ~5k 行；完成前首信号拿空集=臂钝化该笔
+    // fail-open，加载毫秒级完成远早于首个买信号）；实例级缓存=每进程恰一次查询；
+    // BP 门（enabled）也消费 digest 键 → 两开关任一在即预热
+    this._arbBotWallets = deps.arbBotWallets instanceof Set ? deps.arbBotWallets : null;
+    this._arbBotWalletsPromise = null;
+    if ((this._factorEnabled || this._enabled) && !this._arbBotWallets) {
+      this._loadArbBotWallets().catch(() => {}); // 预加载（用户裁定）；失败已内吞
+    }
 
     // 进程内状态（重启即清；无粘滞/拉黑——BP 无终态可恢复）
     this._failUntil = new Map();     // token → 冷却截止 ts
@@ -195,6 +210,9 @@ class BuyPointCheckService {
         signalInfo: context.signalId
           ? { signalId: context.signalId, createdAt: context.signalCreatedAt || null, firePriceBnb: context.firePriceBnb ?? null, strategyName: context.strategyName || null }
           : null,
+        // T198/FP30：arbBot 钱包集注入（实例缓存已解析=零查库；未启用时预热
+        // 未完成 → 空集=键 0 有证据零值恒放行 fail-open）
+        arbBotWallets: await this._loadArbBotWallets(),
       });
       const verdict = evaluateFactorPreBuyJudge(snapshot);
       this.stats.factorAssessed++;
@@ -316,6 +334,8 @@ class BuyPointCheckService {
         // BP67：cheat 门 burst 判定输入（[ANCHOR] burst 判定行——activity_level
         // 采信上游 burst 桶不重复检测；null=无 burst 证据 act 照常判）
         cheatBurst: opts.cheatBurst || null,
+        // T198/FP30：arbBot 钱包集注入（BP 门 digest 同步带键留痕；零查库同上）
+        arbBotWallets: await this._loadArbBotWallets(),
       });
       const { state } = buildBuyPointState(snapshot);
 
@@ -419,6 +439,46 @@ class BuyPointCheckService {
     const { dbManager } = require('../services/dbManager');
     this._dbClient = dbManager.getClient();
     return this._dbClient;
+  }
+
+  /**
+   * T198/FP30 arbBot 钱包集加载（实例级缓存：**每进程恰一次**——ctor 预热 +
+   * 后续 await 命中已解析 Set，信号路径零查库；用户裁定 2026-11-20）。
+   * gmgn_wallet_profiles 全表分页（keyset address 游标，PostgREST 1000 行帽）
+   * → tags ∩ {arbitrager, sandwich_bot, wash_trader} 并集（小写）。
+   * 失败语义：查询异常 → 空集 + warn（fail-open 臂钝化，不阻塞门链）。
+   */
+  async _loadArbBotWallets() {
+    if (this._arbBotWallets) return this._arbBotWallets;
+    if (!this._arbBotWalletsPromise) {
+      this._arbBotWalletsPromise = (async () => {
+        const set = new Set();
+        try {
+          let after = null;
+          for (;;) {
+            let q = this._client().from('gmgn_wallet_profiles')
+              .select('address,tags').order('address').limit(1000);
+            if (after) q = q.gt('address', after);
+            const { data, error } = await q;
+            if (error) throw new Error(error.message);
+            if (!data || !data.length) break;
+            for (const r of data) {
+              if (Array.isArray(r.tags) && r.tags.some((t) => ARB_BOT_TAGS.has(t))) {
+                set.add(String(r.address || '').toLowerCase());
+              }
+            }
+            after = data[data.length - 1].address;
+            if (data.length < 1000) break;
+          }
+          this._log('info', `arbBot 钱包集预加载完成：${set.size} 址（FP30 臂原料，静态快照重启生效）`);
+        } catch (e) {
+          this._log('warn', `arbBot 钱包集加载失败（fail-open 空集=臂钝化） | ${e?.message || e}`);
+        }
+        this._arbBotWallets = set;
+        return set;
+      })();
+    }
+    return this._arbBotWalletsPromise;
   }
 
   /**

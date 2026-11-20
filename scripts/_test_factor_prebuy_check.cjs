@@ -193,7 +193,7 @@ console.log('DP. FP23 相邻双块捆绑砸盘尾承接（T190/0x2b63 ASCEND 案
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'dump_pair_low_absorption');
     assert.deepStrictEqual(r.arms, ['dump_pair_low_absorption']);
-    assert.strictEqual(r.version, 'FP29');
+    assert.strictEqual(r.version, 'FP30');
     const g = r.gates.find(x => x.id === 'dump_pair');
     assert.ok(g, 'gates 须含 dump_pair 门');
     assert.strictEqual(g.hit, true);
@@ -206,7 +206,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP29'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP30'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -317,7 +317,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP29');
+    assert.strictEqual(r.version, 'FP30');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -870,7 +870,7 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP17（T180 首两波大部队迁入；FP16=大周期 burst 残局）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP29'); // FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP30'); // FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
   });
 }
 
@@ -1104,7 +1104,7 @@ console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入�
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'launch_squad_dominance');
     assert.ok(r.arms.includes('launch_squad_dominance'));
-    assert.strictEqual(r.version, 'FP29');
+    assert.strictEqual(r.version, 'FP30');
   });
   check('T2 有机热门盘 wave≥8 但 dom<30 → 放（da405bd0 wave13 dom0 实证——占比轴保护赢家）', () => {
     const r = M.evaluateFactorPreBuy(LS(13, 0));
@@ -1199,7 +1199,7 @@ console.log('U. FP19 尾部接刀臂（T182）');
     assert.strictEqual(g2.hit, false);
   });
   check('U10 版本 FP22（T188 持仓均等作弊仓；FP21=T187 持有者打散臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP29');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP30');
   });
 }
 
@@ -1248,7 +1248,7 @@ console.log('V. T187/FP21 持有者打散臂（筹码结构维度：posH≥25 �
     assert.strictEqual(M.armHolderScatter(CH(29, 28, 50).buyDerived), true);
   });
   check('V10 版本 FP21（T187 持有者打散；豁免=top1≥45 ∨ 前2≥60）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP29');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP30');
   });
 }
 
@@ -1310,7 +1310,7 @@ console.log('W. T188/FP22 持仓均等作弊仓臂（HHI<0.10 团伙分仓指纹
     assert.ok(Math.abs(hhi([50, 25, 25]) - 0.375) < 1e-12);
   });
   check('W8 版本 FP22（T188 持仓均等作弊仓臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP29');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP30');
   });
 }
 
@@ -1372,7 +1372,7 @@ console.log('X. FP26/T193 尾段买力枯竭+卖压在场（bt-v158 因子分析
     assert.strictEqual(g2.hit, false);
   });
   check('X7 版本（T193 尾段买力枯竭+卖压在场，T194 后顺延 FP27）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP29');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP30');
   });
 }
 
@@ -1439,7 +1439,7 @@ console.log('Y. FP27/T194 大户静默卸货（未走完周期庄提前离场—
     assert.strictEqual(g2.hit, false);
   });
   check('Y8 版本（T194 大户静默卸货，T195 后顺延 FP28）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP29');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP30');
   });
 }
 
@@ -1520,7 +1520,7 @@ console.log('Z. FP28/T195 早窗启动失败死盘（bt-v162 热窗首测立法�
     assert.strictEqual(g2.hit, false);
   });
   check('Z9 版本 FP28（T195 早窗启动失败死盘）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP29');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP30');
   });
 }
 
@@ -1582,8 +1582,69 @@ console.log('AA. FP29/T197 分仓出货残局盘（CI/MOLLY 工厂盘取证立�
     const g2 = M.evaluateFactorPreBuy(Z29(0.3, 8)).gates.find((x) => x.id === 'oversell_residual');
     assert.strictEqual(g2.hit, false);
   });
-  check('AA7 版本 FP29（T197 分仓出货残局盘）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP29');
+  check('AA7 版本（T197 分仓出货残局盘，T198 后顺延 FP30）', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP30');
+  });
+}
+
+console.log('AB. FP30/T198 机器持筹垄断（arbBot 组净持筹占在场流通——存量口径，注入制键）');
+{
+  const Z30 = (pct, over) => SNAP(Object.assign({
+    wallets: [W(0.3, 0, 0.3, 10)],
+    buyDerived: {
+      bundledBlock: null,
+      win: { 30: { buyBnb: 0.5, buyN: 5 } },
+      bigHolderSellBnb60: null,
+      activity: { nearTail10BuyN: 3 },
+      arbBotHoldCircPct: pct,
+      arbBotHolderN: typeof pct === 'number' ? 2 : null,
+    },
+    cheatDerived: {},
+  }, over));
+  check('AB1 命中：持筹 ≥30 → 拒 arb_bot_holdings（案值 0x64ed2dab 流 9%/持 61%）', () => {
+    const r = M.evaluateFactorPreBuy(Z30(61));
+    assert.ok(r.arms.includes('arb_bot_holdings'), JSON.stringify(r.arms));
+    assert.strictEqual(r.reason, 'arb_bot_holdings');
+    assert.strictEqual(r.pass, false);
+  });
+  check('AB2 边界：29.99 放行 / 30 恰线拦（四窗校准线不带中间带）', () => {
+    assert.strictEqual(M.evaluateFactorPreBuy(Z30(29.99)).pass, true);
+    assert.strictEqual(M.evaluateFactorPreBuy(Z30(30)).reason, 'arb_bot_holdings');
+  });
+  check('AB3 null 容缺（钱包集未注入/wallets 空——宁漏不冒充）：不拦', () => {
+    assert.strictEqual(M.evaluateFactorPreBuy(Z30(null)).pass, true);
+    const rUndef = M.evaluateFactorPreBuy(Z30(undefined));
+    assert.strictEqual(rUndef.pass, true);
+  });
+  check('AB4 负值恒放行（组净卖超买=机器清仓离场——卖光的不坐庄，28ad 语义护栏）', () => {
+    const r = M.evaluateFactorPreBuy(Z30(-200));
+    assert.strictEqual(r.pass, true);
+    assert.ok(!r.arms.includes('arb_bot_holdings'));
+  });
+  check('AB5 独立 if 非互斥链（存量口径与流量/结构臂正交）：与 oversell 同场双码', () => {
+    const r = M.evaluateFactorPreBuy(Z30(45, {
+      buyDerived: {
+        bundledBlock: null,
+        win: { 30: { buyBnb: 0.5, buyN: 5 } },
+        bigHolderSellBnb60: null,
+        activity: { nearTail10BuyN: 3 },
+        oversellBnb: 1.1, oversellerN: 1, anchorWalletN: 8,
+        arbBotHoldCircPct: 45, arbBotHolderN: 2,
+      },
+    }));
+    assert.ok(r.arms.includes('arb_bot_holdings') && r.arms.includes('oversell_residual'), JSON.stringify(r.arms));
+  });
+  check('AB6 gates 门行在位（值含 持筹%/户数）', () => {
+    const r = M.evaluateFactorPreBuy(Z30(42));
+    const g = r.gates.find((x) => x.id === 'arb_bot_holdings');
+    assert.ok(g, 'arb_bot_holdings 门行缺失');
+    assert.strictEqual(g.hit, true);
+    assert.ok(g.value.includes('42') && g.value.includes('2'), g.value);
+    const g2 = M.evaluateFactorPreBuy(Z30(12)).gates.find((x) => x.id === 'arb_bot_holdings');
+    assert.strictEqual(g2.hit, false);
+  });
+  check('AB7 版本 FP30（T198 机器持筹垄断）', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP30');
   });
 }
 
