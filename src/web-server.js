@@ -653,7 +653,13 @@ class RicherJsWebServer {
           // ws 段覆盖；此前复制链路只透传 fourmemeWs——flap 段一直是脚本/手配路径）
           flapWs,
           // gangWs（2026-10-27 gang 接入：gang 单平台实验的 ws 段覆盖，同 flapWs 语义）
-          gangWs
+          gangWs,
+          // 断流/冷盘卖出（2026-11-20 用户需求「断流卖出机制作为实验配置项」）：
+          // 引擎级保命卖出双腿顶层段——stallClose（T104/T118/T170）与 burstCooldown
+          // （T189/T189b）。创建页有输入 UI（勾选=写段/不勾=段缺席），virtual/live/
+          // 回测三态同读（回测不剥离——引擎虚拟时钟同构实现）
+          stallClose,
+          burstCooldown
         } = req.body;
 
         // 构建实验配置（BSC-only：ankr WSS 事件驱动，无轮询收集/监控配置）
@@ -798,7 +804,7 @@ class RicherJsWebServer {
         // 复制链路经创建页暂存携带；形状校验 fail-fast（脏对象 400，不静默丢弃——
         // 静默丢=复制件行为大变）。tokenCycle 段已随 cycle 分桶路由机制删除
         // （2026-10-15）不再透传。live 分支已写 fourmemeWs/flapWs={live} 时合并不覆盖
-        const advancedSections = { stopLoss, tokenPositionAnalyzer, fourmemeWs, flapWs, gangWs };
+        const advancedSections = { stopLoss, tokenPositionAnalyzer, fourmemeWs, flapWs, gangWs, stallClose, burstCooldown };
         for (const [key, val] of Object.entries(advancedSections)) {
           if (val === undefined || val === null) continue;
           if (typeof val !== 'object' || Array.isArray(val)) {
@@ -933,6 +939,62 @@ class RicherJsWebServer {
             }
             if (sec.buySignalMaxPerToken !== undefined && !intInRange(sec.buySignalMaxPerToken, 0, 100)) {
               return res.status(400).json({ success: false, error: `${secKey}.buySignalMaxPerToken 须为整数 [0,100]（每 token 买信号发射上限，0=不限）` });
+            }
+          }
+        }
+
+        // stallClose / burstCooldown 形状校验（2026-11-20 创建页可配置化）：顶层段，
+        // 引擎直读键逐一校验（引擎侧 Number() 归一 + 缺省回退，脏值在此 400 先拦）。
+        // stallClose 语义：段在且 stallMs>0 才启用——stallMs 必填正整数；minTickBnb
+        // （足额门，0=关）；almostLaunchStallMs/breakdownStallMs（两档域延长，0=臂关，
+        // T170c 破发档缺省关）。burstCooldown 语义：段在场即启用（{}=全默认）——
+        // 五键全可选；check2Sec 必须大于 check1Sec（批2 观察段非空，否则快线/兜底
+        // 永不可达=死配置）
+        {
+          const intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+          const numInRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+          if (config.stallClose !== undefined) {
+            const sc = config.stallClose;
+            if (typeof sc !== 'object' || sc === null || Array.isArray(sc)) {
+              return res.status(400).json({ success: false, error: 'stallClose 段形状非法（须为对象）' });
+            }
+            if (!intInRange(sc.stallMs, 1000, 3600000)) {
+              return res.status(400).json({ success: false, error: 'stallClose.stallMs 须为整数 [1000,3600000]（断流毫秒门，段启用必填）' });
+            }
+            if (sc.minTickBnb !== undefined && !numInRange(sc.minTickBnb, 0, 1)) {
+              return res.status(400).json({ success: false, error: 'stallClose.minTickBnb 须为数值 [0,1]（足额门 BNB，0=关）' });
+            }
+            if (sc.almostLaunchStallMs !== undefined && !intInRange(sc.almostLaunchStallMs, 0, 3600000)) {
+              return res.status(400).json({ success: false, error: 'stallClose.almostLaunchStallMs 须为整数 [0,3600000]（almost_launch 域延长毫秒，0=臂关）' });
+            }
+            if (sc.breakdownStallMs !== undefined && !intInRange(sc.breakdownStallMs, 0, 3600000)) {
+              return res.status(400).json({ success: false, error: 'stallClose.breakdownStallMs 须为整数 [0,3600000]（破发域延长毫秒，0/缺省=臂关 T170c）' });
+            }
+          }
+          if (config.burstCooldown !== undefined) {
+            const bc = config.burstCooldown;
+            if (typeof bc !== 'object' || bc === null || Array.isArray(bc)) {
+              return res.status(400).json({ success: false, error: 'burstCooldown 段形状非法（须为对象；{}=全默认启用）' });
+            }
+            const c1 = bc.check1Sec !== undefined ? bc.check1Sec : 15;
+            const c2 = bc.check2Sec !== undefined ? bc.check2Sec : 30;
+            if (bc.check1Sec !== undefined && !intInRange(bc.check1Sec, 1, 600)) {
+              return res.status(400).json({ success: false, error: 'burstCooldown.check1Sec 须为整数 [1,600]（批1 检查点秒）' });
+            }
+            if (bc.check1MinAbsorbBnb !== undefined && !numInRange(bc.check1MinAbsorbBnb, 0, 100)) {
+              return res.status(400).json({ success: false, error: 'burstCooldown.check1MinAbsorbBnb 须为数值 [0,100]（批1 承接冷盘线 BNB）' });
+            }
+            if (bc.check2ConfirmSec !== undefined && !intInRange(bc.check2ConfirmSec, 1, 600)) {
+              return res.status(400).json({ success: false, error: 'burstCooldown.check2ConfirmSec 须为整数 [1,600]（批2 枯竭确认窗秒）' });
+            }
+            if (bc.check2Sec !== undefined && !intInRange(bc.check2Sec, 2, 3600)) {
+              return res.status(400).json({ success: false, error: 'burstCooldown.check2Sec 须为整数 [2,3600]（批2 兜底检查点秒）' });
+            }
+            if (bc.check2MinAbsorbBnb !== undefined && !numInRange(bc.check2MinAbsorbBnb, 0, 100)) {
+              return res.status(400).json({ success: false, error: 'burstCooldown.check2MinAbsorbBnb 须为数值 [0,100]（批2 承接冷盘线 BNB）' });
+            }
+            if (c2 <= c1) {
+              return res.status(400).json({ success: false, error: `burstCooldown.check2Sec(${c2}) 必须大于 check1Sec(${c1})——批2 观察段为空则快线/兜底永不可达` });
             }
           }
         }

@@ -943,6 +943,86 @@
                     </p>
                 </div>
 
+                <!-- 断流/冷盘卖出（2026-11-20 用户需求「断流卖出机制作为实验配置项」）：
+                     引擎级保命卖出双腿——stallClose（T104 流动性断流止损+T118 足额门+
+                     T170/T170b 两档域延长）与 burstCooldown（T189 burst 承接冷盘两批卖出，
+                     T189b sbw 确认资格线）。均为实验顶层 config 段（引擎直读，非 ws 段），
+                     virtual/live/backtest 三态同读。物化语义=「关=不写段」（引擎无缺省：
+                     段在且 stallMs>0 / 段在（burstCooldown 哪怕 {}）才启用）。此前创建页
+                     无 UI、web 复制链也不携带（只有 CLI clone-experiment.cjs 携带）——
+                     复制源带段时回填表单，提交侧显式重写（round-trip 完整） -->
+                <div class="border border-gray-200 rounded-lg p-3" id="stall-sell-section">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">🛑 断流/冷盘卖出（引擎级保命腿）</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                两条引擎级立即全清卖出：①断流止损=持仓票无<b>足额成交</b>超 stallMs 全清
+                                （bypass 不走确认窗）；②burst 承接冷盘=burst 买入成交后观测「非波成员承接」，
+                                批1/批2 承接不足全清（需 cheat 门 sbw=burst 确认才 arm）。virtual/live/回测
+                                三态同读；数值空=引擎默认
+                            </p>
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2">
+                        <input type="checkbox" id="sc-enabled" class="rounded">
+                        启用断流止损（stallClose；勾选=写段，断流毫秒门空则落默认 50000）
+                    </label>
+                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap ml-5">
+                        <span class="whitespace-nowrap">断流毫秒门</span>
+                        <input type="text" id="sc-stall-ms" placeholder="50000"
+                               class="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">足额门BNB(0=关)</span>
+                        <input type="text" id="sc-min-tick-bnb" placeholder="0.01"
+                               class="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">almost域延长ms</span>
+                        <input type="text" id="sc-almost-stall-ms" placeholder="90000"
+                               class="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">破发域延长ms(空/0=关)</span>
+                        <input type="text" id="sc-breakdown-stall-ms" placeholder=""
+                               class="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1 ml-5">
+                        断流门默认 50000（T170b 模板 50s）；足额门=微量成交不算流动性证据（水位切
+                        lastSubstantialTickAt）；almost 域延长=检测时 currentVsLaunchPct ≤ +10% 放宽到
+                        该毫秒（默认 90000）；破发域延长已撤回（T170c，缺省关，显式正值可恢复）
+                    </p>
+                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2 mt-3">
+                        <input type="checkbox" id="bc-enabled" class="rounded">
+                        启用 burst 承接冷盘（burstCooldown；勾选=写段，全空=全默认 15s/0.1B/8s/30s/0.05B）
+                    </label>
+                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap ml-5">
+                        <span class="whitespace-nowrap">批1秒</span>
+                        <input type="text" id="bc-check1-sec" placeholder="15"
+                               class="w-16 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">批1承接线BNB</span>
+                        <input type="text" id="bc-check1-absorb" placeholder="0.1"
+                               class="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">枯竭确认秒</span>
+                        <input type="text" id="bc-confirm-sec" placeholder="8"
+                               class="w-16 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">批2兜底秒</span>
+                        <input type="text" id="bc-check2-sec" placeholder="30"
+                               class="w-16 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                        <span class="whitespace-nowrap">批2承接线BNB</span>
+                        <input type="text" id="bc-check2-absorb" placeholder="0.05"
+                               class="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
+                               spellcheck="false">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1 ml-5">
+                        承接=非 burst 波成员钱包的买额（波窗=fire 前最密 5s 窗）：批1（fire+批1秒）承接
+                        &lt;线1 立即全清；批2 段内枯竭确认秒无承接且过批1+确认秒即卖（快线），段末
+                        （批2兜底秒）承接 &lt;线2 补卖、≥线2 解除。批2兜底秒须大于批1秒
+                    </p>
+                </div>
+
                 <!-- 卖出策略配置（同上：只读快照，仅库引用） -->
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
@@ -1375,6 +1455,41 @@
                     if (elCd && Number.isInteger(bsCd)) elCd.value = bsCd;
                     if (elTicks && Number.isInteger(bsTicks)) elTicks.value = bsTicks;
                     if (elMax && Number.isInteger(bsMax)) elMax.value = bsMax;
+                }
+
+                // 断流/冷盘卖出回填（2026-11-20 用户需求）：复制携带的 stallClose/
+                // burstCooldown 顶层段回填表单（此前 web 复制链不携带这两段=复制件静默
+                // 丢机制；CLI clone-experiment.cjs 一直携带）。物化语义「关=不写段」：
+                // 源段在场才勾选（burstCooldown 段哪怕 {} 也算启用）；数字键有值才回填
+                {
+                    if (copyData.stallClose) {
+                        const scCb = document.getElementById('sc-enabled');
+                        const scMs = document.getElementById('sc-stall-ms');
+                        const scMin = document.getElementById('sc-min-tick-bnb');
+                        const scAlmost = document.getElementById('sc-almost-stall-ms');
+                        const scBreak = document.getElementById('sc-breakdown-stall-ms');
+                        // 段在但 stallMs 未配/非正=引擎侧机制关（CLAUDE.md：段在+stallMs>0
+                        // 才启用）——如实展示为未勾，防「勾了却不生效」的假启用
+                        const scActive = typeof copyData.stallClose.stallMs === 'number' && copyData.stallClose.stallMs > 0;
+                        if (scCb) scCb.checked = scActive;
+                        if (scMs && Number.isFinite(copyData.stallClose.stallMs) && copyData.stallClose.stallMs > 0) scMs.value = copyData.stallClose.stallMs;
+                        if (scMin && Number.isFinite(copyData.stallClose.minTickBnb)) scMin.value = copyData.stallClose.minTickBnb;
+                        if (scAlmost && Number.isFinite(copyData.stallClose.almostLaunchStallMs)) scAlmost.value = copyData.stallClose.almostLaunchStallMs;
+                        if (scBreak && Number.isFinite(copyData.stallClose.breakdownStallMs)) scBreak.value = copyData.stallClose.breakdownStallMs;
+                    }
+                    if (copyData.burstCooldown) {
+                        const bcCb = document.getElementById('bc-enabled');
+                        if (bcCb) bcCb.checked = true; // 段在场即启用（{}=全默认）
+                        const bcMap = [
+                            ['bc-check1-sec', 'check1Sec'], ['bc-check1-absorb', 'check1MinAbsorbBnb'],
+                            ['bc-confirm-sec', 'check2ConfirmSec'], ['bc-check2-sec', 'check2Sec'],
+                            ['bc-check2-absorb', 'check2MinAbsorbBnb'],
+                        ];
+                        for (const [elId, k] of bcMap) {
+                            const el = document.getElementById(elId);
+                            if (el && Number.isFinite(copyData.burstCooldown[k])) el.value = copyData.burstCooldown[k];
+                        }
+                    }
                 }
 
                 // TPA 触发条件只读展示（2026-10-11）：复制携带段可视化（纯展示零数据面
@@ -2307,12 +2422,56 @@
                     delete adv[sec].buySignalMaxPerToken;
                 }
             }
+            // 断流/冷盘卖出收集（2026-11-20 用户需求）：顶层 config 段（引擎直读，
+            // virtual/live/回测三态同读——回测不剥离）。物化「关=不写段」：不勾=段
+            // 缺席（引擎无缺省=机制关）；复制携带段经回填→收集显式重写=round-trip。
+            // stallClose 勾选但断流门空/非法 → 落默认 50000（段在而 stallMs 未配=
+            // 引擎侧机制关——「勾了却不生效」的假启用比默认值更危险）
+            const stallSellCfg = {};
+            {
+                const intVal = (raw) => /^\d+$/.test((raw || '').trim()) ? parseInt(raw.trim(), 10) : null;
+                const numVal = (raw) => {
+                    const t = (raw || '').trim();
+                    if (!/^\d+(\.\d+)?$/.test(t)) return null;
+                    const v = parseFloat(t);
+                    return Number.isFinite(v) ? v : null;
+                };
+                if (document.getElementById('sc-enabled')?.checked) {
+                    const msVal = intVal(document.getElementById('sc-stall-ms')?.value);
+                    const scSec = { stallMs: (msVal != null && msVal > 0) ? msVal : 50000 };
+                    const minVal = numVal(document.getElementById('sc-min-tick-bnb')?.value);
+                    if (minVal != null) scSec.minTickBnb = minVal; // 0=关（引擎 null 同义）
+                    const almostVal = intVal(document.getElementById('sc-almost-stall-ms')?.value);
+                    if (almostVal != null) scSec.almostLaunchStallMs = almostVal;
+                    const breakVal = intVal(document.getElementById('sc-breakdown-stall-ms')?.value);
+                    if (breakVal != null) scSec.breakdownStallMs = breakVal; // 0/空=臂关（T170c）
+                    stallSellCfg.stallClose = scSec;
+                }
+                if (document.getElementById('bc-enabled')?.checked) {
+                    // 勾选=写段；全空={}（段在场即启用=引擎全默认 15/0.1/8/30/0.05）
+                    const bcSec = {};
+                    const c1 = intVal(document.getElementById('bc-check1-sec')?.value);
+                    const cf = intVal(document.getElementById('bc-confirm-sec')?.value);
+                    const c2 = intVal(document.getElementById('bc-check2-sec')?.value);
+                    const a1 = numVal(document.getElementById('bc-check1-absorb')?.value);
+                    const a2 = numVal(document.getElementById('bc-check2-absorb')?.value);
+                    if (c1 != null) bcSec.check1Sec = c1;
+                    if (cf != null) bcSec.check2ConfirmSec = cf;
+                    if (c2 != null) bcSec.check2Sec = c2;
+                    if (a1 != null) bcSec.check1MinAbsorbBnb = a1;
+                    if (a2 != null) bcSec.check2MinAbsorbBnb = a2;
+                    stallSellCfg.burstCooldown = bcSec;
+                }
+            }
             const config = {
                 experiment_name: formData.get('experiment_name'),
                 experiment_description: formData.get('experiment_description'),
                 trading_mode: tradingMode,
                 blockchain: formData.get('blockchain'),
                 ...adv,
+                // 断流/冷盘卖出（2026-11-20）：顶层段透传（服务端形状校验后写入 config）
+                ...(stallSellCfg.stallClose ? { stallClose: stallSellCfg.stallClose } : {}),
+                ...(stallSellCfg.burstCooldown ? { burstCooldown: stallSellCfg.burstCooldown } : {}),
                 // 平台多选 checkbox：勾两个 → 'both'（双平台实验），单勾 → 该平台
                 //（change 监听结构性保证至少一勾：取消最后一个勾选会被拒绝；
                 //  gang 互斥保证 length>=2 只可能是 fourmeme+flap，不会折入 gang）
