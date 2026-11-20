@@ -711,9 +711,12 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
     ABS.includes('_signalGatePerTickExcludedIds()') &&
     ABS.includes('this._sgPerTickExcludedIds = has ? new Set(ids) : null;'));
   ok('实时引擎 per-tick 挂点（命中即 clear debounce + 直调 _evaluateBuyPath）',
-    ENG.includes('const _sgPerTickExcl = this._signalGatePerTickExcludedIds();') &&
+    ENG.includes('const _sgPerTickExcl = this._signalGatePerTickEval ? this._signalGatePerTickExcludedIds() : null;') &&
     ENG.includes('this._buyDebouncer.clear(tokenAddress);') &&
     ENG.includes("{ evalExcludeIds: _sgPerTickExcl }"));
+  ok('per-tick 开关（2026-11-20 实盘对齐裁定：signalGatePerTickEval 缺省 true=存量零变化；' +
+    'false=触发腿统一 debounce 对齐回测 T154 形态——clone --mode live 标准段显式注入 false）',
+    ENG.includes('this._signalGatePerTickEval = this._wsConfig.signalGatePerTickEval !== false;'));
   ok('回测引擎 signalGate 腿统一走 debounce（T132 per-tick 已撤销 2026-11-17）',
     !BT.includes('this._buyDebouncer.clear(tick.token_address);') &&
     BT.includes('this._buyDebouncer.touch(tick.token_address, tick);'));

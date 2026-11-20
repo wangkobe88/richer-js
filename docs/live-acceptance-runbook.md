@@ -36,7 +36,7 @@ flap 收窄口径：**live 只买 BNB 计价盘**（非 BNB 盘 `swapExactInput`
 
 web UI（本地 `npm run web`，指向同一 Supabase）或直接 POST `/api/experiments`：
 
-- 交易模式：**实盘**；平台：**Four.meme**（单平台，双平台 live 会被 400 拒绝）
+- 交易模式：**实盘**；平台：**Four.meme**（验收建议单平台；双平台 both live 已于 2026-10-14 放开——单引擎 per-platform 双 trader 同一钱包，正式实验可用）
 - 钱包：**执行器下拉选择**（§1.2 建好的执行器；地址服务端回填，私钥不落实验 config）
 - 保留金额：`0.01`（执行器自带 `reserve_native` 时以实验配置为最高优先）
 - 单次买入金额：`0.001`（验收专用小额；**不配**每卡 BNB）
@@ -103,6 +103,37 @@ node main.js start-experiment ... 停止后状态自动置 stopped
 - [ ] 无「未预期的 revert」：所有失败都能在 trades/日志中归因到已知机制（拒单/熔断/现金门/毕业）
 - [ ] 实收与预期偏差在 gas 量级（<0.0005 BNB/笔）
 - 验收实验处置：**置 stopped 保留**，不删除。
+
+## 4b. 恢复实盘 checklist（2026-11-20 对齐审计立——上次实盘 2026-11-05 v74，其后改进全部只在回测验证）
+
+> 正式 live 实验建法：`node scripts/clone-experiment.cjs --src <引用库 v33 的回测基底> --name live-vNN-… --mode live --executor <executorId> [--dry]`
+> （copy-in 快照语义：**不能从旧实盘 v74 克隆**——那会永远停在十三腿旧库；--mode live 自动：剥 backtest 段/注入钱包+live 段/剥回测专用 settleDelayMs:0/Tier2 live 标准段全套，基准=docs/当前最优买卖策略.md 第四节）。
+
+**A. 182 代码与数据**
+- [ ] `git pull`（`git log -1` 确认落点）——roster 名单（cheat-crew-wallets G5 门/famous-copy-wallets/copy-wallet-roster/sybil）随 pull 更新，**重启实验进程才装载**
+- [ ] `data/kol-study/smartmoney-accum.json` 在场且新鲜（不进 git；182 采集器常跑应比本地新——若采集器已死修采集，**不要**从本地拷旧文件；缺席=T183 smartHold 卖过滤臂静默恒放行）
+- [ ] `config/.env`：ENCRYPTION_KEY + TELEGRAM_BOT_TOKEN/CHAT_ID（告警通道，缺变量静默禁用）
+- [ ] `node scripts/scan-unknown-factor-conditions.cjs` 退出码 0
+
+**B. 冒烟（强烈建议，live 前最后一道零资金验证）**
+- [ ] 同基底 `--mode virtual` 克隆（同腿同标准段）跑 1-2h：signals 页门链五层徽章顺序（触发→FP→AF1→cheat→BP）与拒因域、🛡 卖过滤拦截行、卖确认 5-tick 形态
+- [ ] 重点观察 docs 明言「未回测验证」三件首跑：T157 factorSellFilter / T161 famous-trim 两段减仓 / T163 famous-entry 2s 短窗
+
+**C. 启动与日志核对（grep 目标行；任一缺席=对应机制静默失效）**
+- [ ] `⛓ 门链配置 | cheat=on(awaitMs=60s,recheck=on) AF1=on FP=on BP=on(awaitMs=60s) maxPerToken=15 perTick=off 卖过滤=on`（2026-11-20 新增汇总行——四门全 on 才是对齐形态）
+- [ ] `加载做市/作弊团队名单: N 个（…cheat-crew-wallets.json`（G5 门，期望 N≥6；缺席行=cheatCrewBuyBnb 恒 0）
+- [ ] `加载聪明钱名单: N 个（…smartmoney-accum.json`（smartHold 臂；缺席=恒放行）
+- [ ] `加载极著名钱包名单: N 个（…famous-copy-wallets.json`（famous 因子源）
+- [ ] `因子卖出过滤门启用`（T157/T183/T186；缺席=factorSellFilter 段缺失=关）
+- [ ] `卖确认=3500ms/5tick/`（`/0tick`=丢 5-tick 双门）
+- [ ] `流动性止损已启用`+`断流`行（stallClose 50s）；`卡牌模式 perCardBNB=0.05`；`观察信号已启用`；`策略引擎初始化完成，加载了 32 个策略`（14 买+18 卖）
+- [ ] 初始 live 持仓恢复行（预期为空；非空先核对再继续）
+
+**D. 纪律**
+- [ ] 重启/启动前查持仓：链上 balanceOf 终裁（trades 行计数会误报，中国龙/Pingus/v35 三案教训）
+- [ ] 任意时刻至多一个 live 进程（single-experiment-per-stage）；启动用 `node main.js start-experiment -e <id>`（run-engine 拒 live）
+- [ ] 叙事 worker（nohup 常驻 2026-09-27 起）与 ladder 实盘实验**零依赖**（signalGate 纯盘面+OBSERVE 读进程内 FA）——重启=低优先级卫生项，顺手做
+- [ ] 常驻 both 虚拟采集实验择机滚动重启（吃新代码/新 roster；注意保 wss_price_ticks 连续）
 
 ## 5. 常见问题
 

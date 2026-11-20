@@ -37,7 +37,9 @@ const includes = (src, needle) => src.includes(needle);
   check('A3 init 重建调用', includes(eng, "this._observationService.init()"), true);
   check('A4 init 失败降级置 null', /catch[\s\S]{0,200}this\._observationService = null/.test(eng), true);
   // 挂载点在买腿分支：与 _scheduleDebouncedBuy 同分支且在叙事触发检查之后
-  const buyBranch = eng.match(/_walletProfilePrefetchCheck\(tokenAddress, factors, token\);[\s\S]{0,700}?_scheduleDebouncedBuy\(tokenAddress, tick\);/);
+  // （锚点 _walletProfilePrefetchCheck 已随 T71 画像预取退役→换 _narrativeTriggerCheck；
+  //  窗口 700→2600：分支内注释/机制块随演进增长（per-tick 开关注释后实测 2123），2026-11-20 修存量漂移）
+  const buyBranch = eng.match(/this\._narrativeTriggerCheck\(tokenAddress, factors, token\);[\s\S]{0,2600}?_scheduleDebouncedBuy\(tokenAddress, tick\);/);
   check('A5 挂载点在买腿分支内', buyBranch !== null, true);
   if (buyBranch) {
     check('A6 evaluate 同步直调（无 await）', includes(buyBranch[0], "this._observationService.evaluate(token, factors, tick.timestamp)"), true);
@@ -69,7 +71,7 @@ const includes = (src, needle) => src.includes(needle);
 {
   const ws = read('src/web-server.js');
   check('D1 校验块存在', includes(ws, 'observationSignals 段形状非法'), true);
-  check('D2 两 secKey 循环', includes(ws, "for (const secKey of ['fourmemeWs', 'flapWs']) {\n            const obs ="), true);
+  check('D2 三 secKey 循环（gang 接入后三键；2026-11-20 修存量漂移）', includes(ws, "for (const secKey of ['fourmemeWs', 'flapWs', 'gangWs'])") && includes(ws, "const obs = (config[secKey] || {}).observationSignals"), true);
   check('D3 四键校验文案', ['observationSignals.enabled 须为布尔', 'maxPerToken 须为整数 [1,10]',
     'intervalMs 须为整数 [5000,3600000]', 'marketCapThreshold 须为整数 [0,1000000]']
     .every(s => includes(ws, s)), true);
@@ -86,7 +88,7 @@ const includes = (src, needle) => src.includes(needle);
   check('E5 collect 回测剥离', /tradingMode === 'backtest'\) \{[\s\S]{0,200}delete adv\[k\]\.observationSignals/.test(html), true);
   check('E6 未勾删段（关=删段物化）', includes(html, 'delete adv[sec].observationSignals'), true);
   check('E7 勾选写段 enabled:true', includes(html, 'observationSignals: { ...(adv[sec]?.observationSignals || {}), enabled: true'), true);
-  check('E8 删另一段同键', includes(html, 'delete adv[other].observationSignals'), true);
+  check('E8 删另一段同键（k !== sec 形状；2026-11-20 修存量漂移）', includes(html, "if (k !== sec && adv[k]) delete adv[k].observationSignals"), true);
   const exp = read('src/web/static/js/experiments.js');
   check('E9 复制携带 flapWs', includes(exp, 'copyData.flapWs = config.flapWs'), true);
 }

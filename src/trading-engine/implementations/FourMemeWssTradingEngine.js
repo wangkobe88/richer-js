@@ -194,6 +194,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._wssDownThresholdMs = this._wsConfig.wssDownGuardMs ?? 15 * 60 * 1000;
     // 断流自愈阈值（消息静默 ≥ 此值每轮踢 forceReconnect；自 watcher 迁回实验进程，2026-10-09）
     this._wssSelfHealMs = this._wsConfig.downGuardSelfHealMs ?? 5 * 60 * 1000;
+    // T132 per-tick 评估开关（2026-11-20 实盘对齐裁定）：缺省 true=存量实验零变化；
+    // false=触发腿统一走 debounce（对齐回测——BacktestEngine 2026-11-17 T154 裁定
+    // 「debounce 是对的」已撤 per-tick，bt-v15x 验证效果均为无 per-tick 形态；
+    // live 实验经 clone-experiment.cjs --mode live 标准段显式注入 false）
+    this._signalGatePerTickEval = this._wsConfig.signalGatePerTickEval !== false;
 
     // live 执行层参数（实验级覆盖在 _initializeLiveTrader 中重读 trading 段）
     const liveConfig = this._wsConfig.live || {};
@@ -1572,6 +1577,22 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
 
     // 不阻塞：main.js 在 start() 返回后注册优雅退出；WSS 连接 + intervals 保活事件循环
+    // 门链开关汇总行（2026-11-20 实盘恢复审计立）：四门+节流帽+per-tick 全部缺省静默
+    // （v69 西红柿事故同族盲区——误关只能事后从零门轨迹发现），启动时一行打齐=部署
+    // checklist 核对锚点（docs/live-acceptance-runbook.md 恢复实盘 checklist）
+    {
+      const _m = this._mergedWsConfig();
+      const _cc = _m.cheatCheck || {};
+      const _bc = _m.buyPointCheck || {};
+      const _on = (b) => (b === true ? 'on' : 'OFF');
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        `⛓ 门链配置 | cheat=${_on(_cc.enabled)}(awaitMs=${Math.round(this._cheatGateAwaitMs / 1000)}s` +
+        `,recheck=${_cc.gate && _cc.gate.alwaysRecheck === true ? 'on' : 'off'})` +
+        ` AF1=${_on(_cc.actFrontGate && _cc.actFrontGate.enabled)} FP=${_on(_bc.factorCheck && _bc.factorCheck.enabled)}` +
+        ` BP=${_on(_bc.enabled)}(awaitMs=${Math.round(this._bpGateAwaitMs / 1000)}s)` +
+        ` maxPerToken=${_m.buySignalMaxPerToken ?? 5} perTick=${this._signalGatePerTickEval ? 'on' : 'off'}` +
+        ` 卖过滤=${_m.factorSellFilter && _m.factorSellFilter.enabled === true ? 'on' : 'OFF'}`);
+    }
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `🚀 事件循环已启动（debounce=${this._signalDebounceMs}ms maxWait=${this._signalDebounceMaxWaitMs}ms ` +
       `卖确认=${this._sellDebounceMs}ms/${this._sellDebounceMinTicks}tick/上限${this._sellDebounceMaxWaitMs / 1000}s ` +
@@ -1847,11 +1868,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // T132 signalGate 触发腿 per-tick 评估（绕 debounce burst 合并——单 tick 真窗
       // 形状：burst 末笔重读因子语义对 ea78 t0 案「真窗只存在于一笔 tick」结构性
       // 失明，实时/回测同形状同 miss；动机与语义详基类 _signalGatePerTickExcludedIds）。
+      // 2026-11-20 实盘对齐裁定：fourmemeWs.signalGatePerTickEval=false 时整段跳过
+      // （对齐回测 T154 统一 debounce 形态；缺省 true 存量零变化）。
       // 本 tick 因子直评触发腿（fire-and-forget；_evaluateBuyPath 入口同步
       // buyingTokens.add → 门链 await 期后续 tick 天然全跳过）；触发则 clear 该
       // token 的 debounce pending（burst 已由 per-tick 路径接管，防下次 advance
       // 重评）并跳过本 tick touch；未触发照旧 touch（legacy 腿 debounce 不动）
-      const _sgPerTickExcl = this._signalGatePerTickExcludedIds();
+      const _sgPerTickExcl = this._signalGatePerTickEval ? this._signalGatePerTickExcludedIds() : null;
       if (_sgPerTickExcl !== null) {
         const _exhausted = this._signalGateExcludedIds(tokenAddress);
         const _excl = _exhausted
