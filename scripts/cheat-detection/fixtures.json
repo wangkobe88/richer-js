@@ -5824,6 +5824,22 @@
       "addedAt": "2026-11-05",
       "expectSince": "2026-11-05",
       "expectBecause": "用户裁定（2026-11-05 v72 edbd5b38 第十批 review）CD371 币安人（唯一 fourmeme 票）「unhealthy」翻案（生产 healthy 放行锚后 -67.7%；今重析 unhealthy[E_low_weak_burst] 同向锚定）；其它 3 票无问题=认同"
+    },
+    {
+      "caseId": "CD422",
+      "symbol": "NATIVE",
+      "addr": "0xc71a685b7ccb5dcd119ddc889f78f048e4e37777",
+      "platform": "fourmeme",
+      "anchor": {
+        "tickCount": 15
+      },
+      "expect": {
+        "verdict": "unhealthy"
+      },
+      "note": "sbw 波绑定收紧主案：33s 断流出口行孤笔 0.1B+6s 后 0.33B/3w 流量被旧 60s 最密窗缝合误判 burst（AF1 burst_exempt 放行）；D3.79 新口径=出口行起 5s 固定窗→波族九键 null→期望 sbw=none+act=low→E 通道拒（B 阶段 3/3 达成）；对称保持面=0xfa8f0a62/0x74b62db4 出口即涌入 bit-identical 保持 burst",
+      "addedAt": "2026-11-20",
+      "expectSince": "2026-11-20",
+      "expectBecause": "CD422 裁定推论：出口行孤笔不成波→sbw=none；act=low→E 通道 unhealthy（B 阶段 3/3+回归 4/4 稳定）"
     }
   ]
 }
