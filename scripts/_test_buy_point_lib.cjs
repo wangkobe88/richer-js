@@ -2275,6 +2275,35 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
     ok(buildBuyPointSnapshot(rowsA, metaA, { arbBotWallets: new Set([ROUTER]) }).buyDerived.arbBotHoldCircPct === 0,
       'W7 伪钱包址注入无效果（ROUTER 行被剔——不进组）');
   }
+
+  // ═══ T200/FP31 famous 即时跟单额（slot 级窄定义：famous 群体首买 block 起
+  // 3 slot 内非 famous 买入合计——thin 豁免腿消费；block 差 0/1/2 计入、3+ 不计、
+  // famous 自买不计、首买前不计；首买 block 缺失 → null fail-closed）═══
+  console.log('X. T200 famousFollowBnb（同 slot+2 窄跟单——slot 口径锁）');
+  {
+    const W_FA = '0x' + 'fa'.repeat(20);
+    const rosterSl = new Set([W_FA]);
+    const rowsSl = [
+      row(9, 'BUY', W_B, 0.5, 1.0 * E9, 5e8),                    // 首买前不计
+      row(10, 'BUY', W_FA, 0.2, 1.0 * E9, 2e8),                   // famous 首买（block 1010）
+      row(10, 'BUY', W_C, 0.3, 1.0 * E9, 3e8, { li: 1 }),         // 同 slot 跟单（差 0）计入 0.3
+      row(11, 'BUY', W_B, 0.1, 1.0 * E9, 1e8, { li: 2 }),         // 差 1 计入 0.1
+      row(11, 'BUY', W_FA, 0.05, 1.0 * E9, 5e7, { li: 3 }),       // famous 自买不计（即使同窗）
+      row(12, 'BUY', W_C, 0.2, 1.0 * E9, 2e8, { li: 4 }),         // 差 2 计入 0.2
+      row(13, 'BUY', W_B, 0.4, 1.0 * E9, 4e8, { li: 5 }),         // 差 3 不计
+    ];
+    const ftSl = buildBuyPointSnapshot(rowsSl, metaA, { famousRoster: rosterSl }).buyDerived.famousTraces;
+    ok(ftSl.famousFollowBnb === 0.6,
+      `X1 窄跟单=同 slot 0.3+差1 0.1+差2 0.2=0.6（首买前/差3/famous 自买不计，实际 ${ftSl.famousFollowBnb}）`);
+    // famous 全部 BUY 行 block 缺失 → 首买 block 不可得 → null fail-closed
+    // （夹具 W_FA 两笔买：i=1 首买 + i=4 自买——须同时置 null，否则 famFirstBlock 从第二笔取得）
+    const rowsNoBlk = rowsSl.map((r, i) => ((i === 1 || i === 4) ? { ...r, block_number: null } : r));
+    const ftNb = buildBuyPointSnapshot(rowsNoBlk, metaA, { famousRoster: rosterSl }).buyDerived.famousTraces;
+    ok(ftNb.famousFollowBnb === null, 'X2 famous 首买 block 缺失 → null（豁免证据缺席不豁免）');
+    // 无 famous 命中 → famousTraces.wallets=[]（famousFollowBnb 仍可算？——famFirstBlock 无 → null）
+    const ftNone = buildBuyPointSnapshot(rowsSl, metaA, { famousRoster: new Set(['0x' + '77'.repeat(20)]) }).buyDerived.famousTraces;
+    ok(ftNone.famousFollowBnb === null, 'X3 无 famous 命中 → null（FP3 域外本就放行）');
+  }
 })().catch((e) => {
   console.error('\n❌ FAIL:', e && e.message);
   console.error(e);

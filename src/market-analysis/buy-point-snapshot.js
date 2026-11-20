@@ -1165,6 +1165,33 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
         if (t.wallet && rosterFt.has(String(t.wallet).toLowerCase())) { groupFirstBuyRank = rank; break; }
       }
     }
+    // ── T200/FP31 famous 即时跟单额（slot 级窄定义，用户裁定口径：同 slot+2）──
+    // famous 群体首买 block 起 3 个 slot（block 差 ∈[0,2]≈2.25s）内的**非 famous**
+    // 买入合计——归因严格：再远的买入不归因 famous（宽定义〔首买后全窗〕把远端独立
+    // 买入错归因：蚊脑 0x…案宽 3.39B 里窄跟单仅 0.002B）。四窗 U 型实证：中等带
+    // [0.05,0.2) win 71% 最好（有机热度）、零响应 <0.05 win 20% 与重跟单 ≥0.2
+    // win 31% 都差——FP3 thin 豁免腿消费。famous 首买 block 缺失（block 列 null）
+    // → null fail-closed（豁免证据缺席不豁免保持拦）。
+    let famousFollowBnb = null;
+    {
+      let famFirstBlock = null;
+      for (const t of ticks) {
+        if (t.side !== 'BUY' || t.block == null) continue;
+        if (!t.wallet || !rosterFt.has(String(t.wallet).toLowerCase())) continue;
+        if (famFirstBlock === null || t.block < famFirstBlock) famFirstBlock = t.block;
+      }
+      if (famFirstBlock !== null) {
+        let fb = 0;
+        for (const t of ticks) {
+          if (t.side !== 'BUY' || t.block == null) continue;
+          const dBlk = t.block - famFirstBlock;
+          if (dBlk < 0 || dBlk > 2) continue;
+          if (t.wallet && rosterFt.has(String(t.wallet).toLowerCase())) continue;
+          fb += t.bnb || 0;
+        }
+        famousFollowBnb = +fb.toFixed(4);
+      }
+    }
     // ── T167/FP10 famous 低价全清冷却臂原料（btv140 BP-T055/T056 案）──
     // 群体末笔卖（**可靠价行**：outlier/零价/dt 缺失跳过——退出价证据不冒充）时刻/价格/
     // 较地板发行价 %（launchPriceBnb=T134 地板锚，与 currentVsLaunchPct 同分母——「低价」
@@ -1235,6 +1262,8 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
       lastSellToAnchorSec: lastRelSell && tEndFt !== null && tEndFt !== undefined ? tEndFt - lastRelSell.dt : null,
       groupBuyBnb,
       groupBuyPct: cd.totalBuyBnb > 0 ? +((groupBuyBnb / cd.totalBuyBnb) * 100).toFixed(1) : null,
+      // T200/FP31 famous 即时跟单额（slot 级，同 slot+2——thin 豁免腿消费）
+      famousFollowBnb,
       // T167b/FP10 破发豁免直供（上段注释）：加权入场价 + 首买后盘面最低（可靠价域）
       groupEntryAvgBnb, postEntryMinBnb,
       // T167d/FP20 豁免换轨直供：末卖后在外流通谷值%（上段注释）
