@@ -167,28 +167,35 @@ function buildCheatState(snapshot) {
     //  移除（D3.76/CD418——sbw=burst 豁免链天然放行，A 主判冗余）；尖刺族
     //  数值锚 snapshot 照算、FA 投影/digest 纯观察留档）
     // D3.67/CD397 停滞突发波事实行（2026-11-11 用户四条裁定——跨度/尘埃/流向/
-    // 判定权归 Jev）：三锚单段绑定（最后 ≥30s 静默段（CD406 50→30）→ 出口价 →
-    // 出口后 60s 内最密 5s 波 → 波钱包全窗净值/卖回/户均/中位 → 波末距锚点秒数），
-    // 全部由代码按固定口径算好直供（Jev 心算滑窗/跨窗聚合不可靠——D3.29/D3.49/
-    // D3.51 先例），四判轴（是否紧跟出口/流量真实/买入方向/是否已是历史事件）的
-    // 判读全归 stall_burst_wave 题面单一载体；无 ≥30s 静默段不渲染行（无沉积=无
-    // burst 前提，缺席语义）。
+    // 判定权归 Jev；CD422 波绑定收紧）：三锚单段绑定（最后 ≥30s 静默段（CD406
+    // 50→30）→ 出口价 → **出口行起 5 秒固定窗波**（波首=出口行——出口与涌入是
+    // 同一连续事件；出口行孤笔不成波，波族键缺席）→ 波钱包全窗净值/卖回/户均/
+    // 中位 → 波末距锚点秒数），全部由代码按固定口径算好直供（Jev 心算滑窗/跨窗
+    // 聚合不可靠——D3.29/D3.49/D3.51 先例），四判轴（流量真实/买入方向/是否已是
+    // 历史事件——「紧跟出口」已由波首=出口行结构化保证）的判读全归
+    // stall_burst_wave 题面单一载体；无 ≥30s 静默段不渲染行（无沉积=无 burst
+    // 前提，缺席语义）。
     if (d.burstLastGapSec !== null && d.burstLastGapSec !== undefined) {
       const exitVs = d.burstExitVsLaunchPct === null || d.burstExitVsLaunchPct === undefined
         ? '（出口价位置锚缺失）' : `，出口价 ${d.burstExitVsLaunchPct >= 0 ? '+' : ''}${d.burstExitVsLaunchPct}% vs 发行价地板`;
       if (d.burstExitWaveBuyBnb !== null && d.burstExitWaveBuyBnb !== undefined && d.burstExitWaveBuyBnb > 0) {
-        const win = `出口后 60 秒内最密 5 秒波: t+${d.burstExitWaveFromDt}s~t+${d.burstExitWaveEndDt}s，波内买入 ${fmtBnb(d.burstExitWaveBuyBnb)} BNB、${d.burstExitWaveWallets} 个钱包（户均 ${d.burstWaveWalletAvgBnb} / 中位 ${d.burstWaveWalletMedianBnb} BNB）`;
+        const win = `出口行起 5 秒波（波首=断流出口行）: t+${d.burstExitWaveFromDt}s~t+${d.burstExitWaveEndDt}s，波内买入 ${fmtBnb(d.burstExitWaveBuyBnb)} BNB、${d.burstExitWaveWallets} 个钱包（户均 ${d.burstWaveWalletAvgBnb} / 中位 ${d.burstWaveWalletMedianBnb} BNB）`;
         const wnet = d.burstWaveNetBnb === null || d.burstWaveNetBnb === undefined ? '' :
           `；波窗自身净流 ${fmtBnb(d.burstWaveNetBnb)} BNB（窗内 Σ买−Σ卖，净负=该波由卖出带来）`;
         const flow = d.burstWaveWalletNetBnb === null || d.burstWaveWalletNetBnb === undefined ? '' :
           `；波钱包全窗净额 ${fmtBnb(d.burstWaveWalletNetBnb)} BNB（Σ买−Σ卖，可为负=已流出）/ 卖回率 ${d.burstWaveSellBackPct}%（Σ卖÷Σ买）`;
         const span = d.burstSecSinceWaveEnd === null || d.burstSecSinceWaveEnd === undefined ? '' :
           `；波末笔买入距锚点 ${d.burstSecSinceWaveEnd} 秒`;
-        lines.push(`停滞突发波事实: 最后一次 ≥30 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，${win}${wnet}${flow}${span}（口径：静默=相邻 tick 间隔 ≥30 秒；波=该静默段出口后 60 秒内最密的 5 秒滑窗；波窗自身净流=该 5 秒窗内全部买卖合计（买卖双方都计入）；波钱包全窗净额/卖回率=波窗买入钱包在整个窗口的买入卖出合计——「涌入的钱是否已反手流出」的度量。数值只是事实：波是否紧贴沉积出口、流量是否真实（尘埃单堆不出流量）、方向是买入还是卖出引发、波是否已距锚点太远成为历史事件，由你按 stall_burst_wave 题判读）`);
+        lines.push(`停滞突发波事实: 最后一次 ≥30 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，${win}${wnet}${flow}${span}（口径：静默=相邻 tick 间隔 ≥30 秒；波=断流出口行起的 5 秒固定窗（出口与涌入是同一连续事件——出口 5 秒外到达的流量不属本波，代码已绑定）；波窗自身净流=该 5 秒窗内全部买卖合计（买卖双方都计入）；波钱包全窗净额/卖回率=波窗买入钱包在整个窗口的买入卖出合计——「涌入的钱是否已反手流出」的度量。数值只是事实：流量是否真实（尘埃单堆不出流量）、方向是买入还是卖出引发、波是否已距锚点太远成为历史事件，由你按 stall_burst_wave 题判读）`);
       } else if (d.burstExitWaveBuyBnb === 0) {
         const wnet0 = d.burstWaveNetBnb === null || d.burstWaveNetBnb === undefined ? '' :
-          (d.burstWaveNetBnb < 0 ? `，但波窗自身净流 ${fmtBnb(d.burstWaveNetBnb)} BNB（最密 5 秒窗内只有卖出——沉积后被用于出货）` : '');
-        lines.push(`停滞突发波事实: 最后一次 ≥30 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，出口后 60 秒内零买入（无涌入波——沉积后没有流量跟进）${wnet0}`);
+          (d.burstWaveNetBnb < 0 ? `，但波窗自身净流 ${fmtBnb(d.burstWaveNetBnb)} BNB（出口 5 秒窗内只有卖出——沉积后被用于出货）` : '');
+        lines.push(`停滞突发波事实: 最后一次 ≥30 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，断流出口行起 5 秒窗内零买入（无涌入波——出口即涌入的窗内没有流量跟进）${wnet0}`);
+      } else {
+        // CD422：出口行孤笔（出口 5s 窗内无任何跟随行）→ 波族键 null——有沉积
+        // 但出口未被跟随，不成波（出口后才到的流量不属本波，不得扫 [TICKS] 把
+        // 迟到流量自判进 burst）
+        lines.push(`停滞突发波事实: 最后一次 ≥30 秒完全静默 ${d.burstLastGapSec} 秒${exitVs}，断流出口行孤笔（出口后 5 秒内无任何跟随行——出口行单独不成波；出口 5 秒外到达的流量不属本波，不构成「一朝释放」）`);
       }
     }
     // D3.52 锚窗买压行（CD159 强庄币锚立项——**观察期**：档位与买卖比只进 FA

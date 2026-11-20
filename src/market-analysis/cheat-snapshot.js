@@ -113,13 +113,13 @@ const BURST_WAVE_SEC = 5;
  */
 const BURST_STALL_GAP_SEC = 30;
 /**
- * burst 单段绑定波搜索窗宽度（D3.67/CD397，2026-11-11 用户裁定「burst 一般只是
- * 一个突然的流量涌入，快速+一定流量，那么 burst 的跨度不能太长」）：「快速」的
- * 操作化=涌入须**紧跟**最后 ≥BURST_STALL_GAP_SEC 静默段出口——单段波只在出口后
- * 此值秒内搜索（出口后拖了几分钟才来的流量不是「一朝」涌入）；跨度的「另一头」
- * （波结束距锚点太长=波已是历史事件）由 burstSecSinceWaveEnd 锚交给 Jev 判读，
- * 代码不设硬线（同裁定第三条「不要魔改，用 Jev 判断」）。量级对标
- * BURST_STALL_GAP_SEC（沉积线同族），非校准值——首版待票池分布复采样。
+ * burst 出口后搜索域宽度（D3.67/CD397；**CD422 起单段绑定波（sbw 主锚）不再
+ * 消费本窗**——波=出口行起 BURST_WAVE_SEC 固定窗，「紧跟出口」结构化，出口
+ * 与波之间夹间隙的缝合形状（0xc71a 案）退役）：现行消费者=CD405 burst 捆绑
+ * 收割两键的波窗（出口后此值秒内 per-block 捆绑计数——捆绑结构看整个涌入段，
+ * 与 sbw 判定口径刻意不同）。原 D3.67 语义（出口后 60s 内最密 5s 窗）的
+ * 「跨度另一头」（波结束距锚点太长=波已是历史事件）由 burstSecSinceWaveEnd
+ * 锚交给 Jev 判读，代码不设硬线（CD397 裁定第三条「不要魔改，用 Jev 判断」）。
  */
 const BURST_SEG_SEARCH_SEC = 60;
 /**
@@ -1152,13 +1152,17 @@ function computeDerived(snapshot, famousRoster) {
   let burstWaveBuyBnb = null, burstWaveWallets = null, burstWaveStartVsLaunchPct = null;
   let burstExitVsLaunchPct = null;
   // D3.67/CD397 单段绑定波族（2026-11-11 用户四条裁定——跨度/尘埃/流向/判定权
-  // 归 Jev；波=最后 ≥30s 静默段出口 BURST_SEG_SEARCH_SEC 内最密 5s 窗，旧全窗
-  // 波两键语义不动=strongbacker §七.5 统计口径保护）：
+  // 归 Jev；**CD422（2026-11-20）波绑定收紧：波=最后 ≥30s 静默段出口行起
+  // BURST_WAVE_SEC 固定窗**（波首=出口行——出口与涌入是同一连续事件，「紧跟
+  // 出口」结构化；旧「出口后 60s 内最密 5s 窗」允许出口与波之间夹任意间隙，
+  // 0xc71a685b…7777 案：出口孤笔 0.1B + 6s 后 0.33B/3 钱包独立流量窗被缝合
+  // 误判 burst——出口 5s 外到达的流量不属本波），旧全窗波两键语义不动=
+  // strongbacker §七.5 统计口径保护：
   //   burstLastGapSec        最后 ≥30s 静默段时长（≠全窗 maxGapSec：max 是最深、
   //                         last 是最近——沉积后又有更短间歇时两者分离）
   //   burstExitWaveFromDt/EndDt 波窗位置（首行 dt / 末笔买入 dt——供 [TICKS] 对照）
-  //   burstExitWaveBuyBnb/Wallets  单段波 Σ买入/独立买入钱包数（出口后 60s 内
-  //                         无任何买入=有证据零值 0/0，非 null）
+  //   burstExitWaveBuyBnb/Wallets  单段波 Σ买入/独立买入钱包数（窗内无任何买入
+  //                         =有证据零值 0/0，非 null）
   //   burstSecSinceWaveEnd   波末笔买入→锚点（窗末）秒数——「跨度不能太长」主锚
   //                         （idx19 案：波在下跌期、到锚点已是历史事件）
   //   burstWaveWalletNetBnb  波钱包全窗 Σ(买−卖)（可为负=已流出）
@@ -1168,7 +1172,9 @@ function computeDerived(snapshot, famousRoster) {
   //                         流量」主锚——idx81/96/170 户均 0.016~0.021 vs idx62/
   //                         63/179 0.050~0.066 硬线不可分=分布形状交 Jev）
   // 无 ≥30s 静默段全族 null（无沉积=无 burst 前提，fail-open 语义：Jev 按 [TICKS]
-  // 自行判 none）；dt 缺失全族 null（绝不冒充）。
+  // 自行判 none）；**出口行孤笔（出口 5s 窗内无任何跟随行）→ 波族九键 null**
+  // （CD422 用户裁定「出口行单独不成波时整族 null」——burstLastGapSec/
+  // burstExitVsLaunchPct 段事实保留）；dt 缺失全族 null（绝不冒充）。
   let burstLastGapSec = null, burstExitWaveFromDt = null, burstExitWaveEndDt = null;
   let burstExitWaveBuyBnb = null, burstExitWaveWallets = null, burstSecSinceWaveEnd = null;
   let burstWaveWalletNetBnb = null, burstWaveSellBackPct = null;
@@ -1306,11 +1312,12 @@ function computeDerived(snapshot, famousRoster) {
       burstWaveBuyBnb = +bestBuy.toFixed(4);
       burstWaveWallets = bestWalletN;
     }
-    // ── D3.67/CD397 单段绑定波（头注见 BURST_SEG_SEARCH_SEC 与本段变量声明注）：
-    // 绑定锚=「最近一次 ≥30s 沉积」的出口行（waveTicksAll[_lastGapIdx]）——三锚
-    // （gap/波/出口价）从各自独立测量（全窗最深 gap + 全窗最密波 + 最后段出口价
-    // 互不绑定，波与静默可相隔数分钟）收敛为单段绑定：波=出口后 60s 内最密 5s
-    // 窗（与全窗波同款双指针按笔数取最密，钱包精确去重）；波钱包全窗买卖净值/
+    // ── D3.67/CD397 单段绑定波（CD422 收紧，头注见变量声明区）：
+    // 绑定锚=「最近一次 ≥30s 沉积」的出口行（waveTicksAll[_lastGapIdx]）。波=
+    // **出口行起 BURST_WAVE_SEC 固定窗**（波首=出口行——「紧跟出口」结构化：
+    // 出口与涌入是同一连续事件，出口 5s 外到达的流量不属本波；旧「出口后 60s
+    // 内最密 5s 窗」允许出口与波间夹任意间隙=缝合误判源，0xc71a 案退役）；出口
+    // 行孤笔（窗内无跟随行）→ 波族九键 null（不成波）；波钱包全窗买卖净值/
     // 卖回率/户均/中位=「尘埃 vs 真实流量」「涌入 vs 流出」两判轴的原料。所有
     // 数值只是事实，跨度/尘埃/流向的判读全归 Jev（裁定第三条），代码零硬线。
     if (_lastGapIdx >= 1) {
@@ -1321,15 +1328,15 @@ function computeDerived(snapshot, famousRoster) {
         if (waveTicksAll[i].dt - _exitTick.dt > BURST_SEG_SEARCH_SEC) break;
         _zone.push(waveTicksAll[i]);
       }
-      let j = 0, curN = 0, bestN = 0, bestL = 0, bestR = -1;
-      for (let i = 0; i < _zone.length; i++) {
-        const t = _zone[i];
-        curN++;
-        while (t.dt - _zone[j].dt > BURST_WAVE_SEC) { curN--; j++; }
-        if (curN > bestN) { bestN = curN; bestL = j; bestR = i; }
+      // CD422 波窗=出口行起 BURST_WAVE_SEC 固定窗（_zone 保留——CD405 捆绑收割
+      // 两键仍消费出口后 60s 搜索域整体，其「波窗」语义=流量簇组织性非 burst
+      // 判定，刻意不同口径）
+      const _win = [];
+      for (let i = _lastGapIdx; i < waveTicksAll.length; i++) {
+        if (waveTicksAll[i].dt - _exitTick.dt > BURST_WAVE_SEC) break;
+        _win.push(waveTicksAll[i]);
       }
-      if (bestR >= 0) {
-        const _win = _zone.slice(bestL, bestR + 1);
+      if (_win.length >= 2) {
         burstExitWaveFromDt = _win[0].dt;
         // CD398 二修（2026-11-11 谷歌SI 对拍实锤）：波窗**自身**净流 Σ(买−卖)
         // （全行参与，不挑边）——「卖家发起的波」只有这个量看得见：波钱包全窗
@@ -1372,11 +1379,11 @@ function computeDerived(snapshot, famousRoster) {
             burstSecSinceWaveEnd = waveTicksAll[waveTicksAll.length - 1].dt - _lastBuyDt;
           }
         }
-      } else {
-        // 出口后 60s 内一行都没有（沉积是窗末段、锚=出口前）→ 波值零语义缺席
-        burstExitWaveBuyBnb = 0;
-        burstExitWaveWallets = 0;
       }
+      // CD422：出口行孤笔（_win.length<2）→ 波族九键保持 null（出口行单独不成波，
+      // 用户裁定「整族 null」）；burstLastGapSec/burstExitVsLaunchPct 段事实保留。
+      // 「窗内 ≥2 行但零 BUY」形状由上方赋值体出有证据零值（BuyBnb=0/净流可负），
+      // 与旧口径一致（纯卖窗=③流出形状交 Jev 判 none）。
       // CD401 出口段卖压（头注见变量声明区）：出口整窗=出口行→窗末全行（不限于
       // 60s 搜索域——与探针口径 bit 一致：MBF 出口→锚 58s、我靠 25s 全窗计入）；
       // 资金不滤 outlier（CD 全窗买卖口径同款）；出口行自身在场故 buy+sell>0
