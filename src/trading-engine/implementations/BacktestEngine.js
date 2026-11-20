@@ -176,6 +176,16 @@ function buildWindowCacheScopeKey(startMs, endMs) {
   return `win-${compact(startMs)}_${compact(endMs)}`;
 }
 
+/**
+ * Case 集合通道缓存 scope key（2026-11-20）：`case-<collectionId>`（uuid 小写）。
+ * 对 cache 是不透明目录名——同集合克隆/对照实验共用一份缓存（data/tick-cache/
+ * backtest/case-<uuid>/<platform>.jsonl.gz）；同集合补拉新数据后探针走 STALE
+ * 增量（case_ticks id=IDENTITY 插入序单调，DDL 头注裁定 1）。
+ */
+function buildCaseCacheScopeKey(collectionId) {
+  return `case-${String(collectionId).toLowerCase()}`;
+}
+
 function compareByChainOrder(a, b) {
   return (a.block_number - b.block_number) || (a.log_index - b.log_index) || (a.id - b.id);
 }
@@ -293,7 +303,47 @@ class BacktestEngine extends AbstractTradingEngine {
     // 起止必填 fail-fast；两口径皆缺=配置错误拒启。
     const backtestConfig = this._experiment.config?.backtest || {};
     this._sourceExperimentId = backtestConfig.sourceExperimentId;
-    if (!this._sourceExperimentId) {
+    // Case 集合通道（2026-11-20 Case 集合管理系统）：backtest.caseCollectionId
+    // 在场=代币宇宙取自集合成员快照（case_collection_tokens.token_meta），
+    // ticks 改读集合专属副本表 case_ticks（快照语义：原 wss_price_ticks 被清理/
+    // 删实验级联不影响 Case 资产）。与 sourceExperimentId 互斥 fail-fast（口径
+    // 歧义防呆）；startTime/endTime 为可选回放窗（缺省全量——_startTimeFilter/
+    // _endTimeFilter 与 _loadGraduationEvents 过滤均已 null-safe）。
+    this._caseCollectionId = backtestConfig.caseCollectionId || null;
+    this._casePlatforms = null;
+    if (this._caseCollectionId) {
+      if (this._sourceExperimentId) {
+        throw new Error('backtest.caseCollectionId 与 sourceExperimentId 互斥（Case 集合通道 vs 源实验通道，同时配置=口径歧义）');
+      }
+      const caseSupabase = this._getClient();
+      const { data: col, error: colErr } = await caseSupabase
+        .from('case_collections').select('id, name').eq('id', this._caseCollectionId).maybeSingle();
+      if (colErr) throw new Error(`读取 Case 集合失败: ${colErr.message}`);
+      if (!col) throw new Error(`Case 集合不存在: ${this._caseCollectionId}`);
+      const { data: members, error: mErr } = await caseSupabase
+        .from('case_collection_tokens')
+        .select('token_address, platform, sync_state')
+        .eq('collection_id', this._caseCollectionId)
+        .limit(1000);
+      if (mErr) throw new Error(`读取 Case 集合成员失败: ${mErr.message}`);
+      if (!members || !members.length) {
+        throw new Error(`Case 集合为空（集合是显式资产，空集=配置错误，区别于窗口通道空集合法形状）: ${col.name}`);
+      }
+      // 未 synced 成员=回测将缺数据（比窗口通道漏票更隐蔽——集合是用户显式圈定
+      // 的资产），显式豁免键放行（对齐 tokenAddresses 空数组 fail-fast 风格）
+      const notSynced = members.filter((m) => m.sync_state !== 'synced');
+      if (notSynced.length && backtestConfig.allowPartialCaseSync !== true) {
+        const sample = notSynced.slice(0, 5).map((m) => m.token_address).join(', ');
+        throw new Error(`Case 集合含 ${notSynced.length} 个未同步成员（${sample}${notSynced.length > 5 ? ' …' : ''}）——回测将缺该部分数据；确认接受请显式配 backtest.allowPartialCaseSync=true`);
+      }
+      // 平台并集覆盖 _platforms（免手动选错平台；代币级 platform 仍以行级/tick 级为权威）
+      this._casePlatforms = [...new Set(members.map((m) => m.platform))];
+      this._caseCollectionName = col.name;
+      this._tickCacheScopeKey = buildCaseCacheScopeKey(this._caseCollectionId);
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `📊 Case 集合通道: ${col.name}（${members.length} 票，平台并集=${this._casePlatforms.join(',')}，未同步=${notSynced.length}${backtestConfig.allowPartialCaseSync === true ? '（allowPartialCaseSync 豁免）' : ''}）`);
+    }
+    if (!this._sourceExperimentId && !this._caseCollectionId) {
       const startMs = backtestConfig.startTime ? new Date(backtestConfig.startTime).getTime() : null;
       const endMs = backtestConfig.endTime ? new Date(backtestConfig.endTime).getTime() : null;
       if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
@@ -359,7 +409,9 @@ class BacktestEngine extends AbstractTradingEngine {
     this._platform = this._experiment?.config?.platform || 'fourmeme';
     // 平台集合（'both' → 双平台并集）：ticks .in 过滤 + token 级 fallback 用；
     // wsSection 选择仍用标量（'both' → fourmemeWs，与实时双平台引擎口径一致；gang → gangWs）
-    this._platforms = resolvePlatforms(this._platform);
+    // Case 集合通道（2026-11-20）：集合并集覆盖（集合成员可能跨平台，免手动选错；
+    // 显式 config.platform 的 wsSection 语义不变——FA 键名恒 fourmemeWs）
+    this._platforms = this._casePlatforms || resolvePlatforms(this._platform);
     this.logger.info(this._experimentId, 'BacktestEngine', `回放平台口径 | platforms=${this._platforms.join(',')}`);
     const wsSection = this._platform === 'flap' ? 'flapWs'
       : this._platform === 'gang' ? 'gangWs'
@@ -1040,14 +1092,18 @@ class BacktestEngine extends AbstractTradingEngine {
 
   /**
    * token 宇宙元数据装载路由（FA registerToken / 落库 / totalSupply 用）。
-   * 双通道（2026-11-15）：sourceExperimentId 在场=旧通道 experiment_tokens；
-   * 否则=时间范围通道 wss_events token_create 派生。tokenAddresses 单票裁剪
-   * 在两通道汇合点统一生效（_tokenMeta 是 token 集合唯一真相源）。
+   * 三通道：sourceExperimentId 在场=旧通道 experiment_tokens；
+   * caseCollectionId 在场=Case 集合通道（2026-11-20，case_collection_tokens
+   * .token_meta 快照）；否则=时间范围通道 wss_events token_create 派生。
+   * tokenAddresses 单票裁剪在各通道汇合点统一生效（_tokenMeta 是 token 集合
+   * 唯一真相源；可与 Case 集合叠加=集合内再选子集）。
    */
   async _loadTokenMetadata() {
     const supabase = this._getClient();
     if (this._sourceExperimentId) {
       await this._loadTokenMetadataFromSourceExperiment(supabase);
+    } else if (this._caseCollectionId) {
+      await this._loadTokenMetadataFromCaseSet(supabase);
     } else {
       await this._loadTokenMetadataFromEvents(supabase);
     }
@@ -1166,26 +1222,11 @@ class BacktestEngine extends AbstractTradingEngine {
         await loadWindow(mid + 1, endMs);      // 右半 [mid+1, end]（gte）——ms 整数分割无重无漏
       };
       await loadWindow(this._startTimeFilter, this._endTimeFilter);
+      // 七键映射抽共享纯函数（2026-11-20 Case 集合通道 _loadTokenMetadataFromCaseSet
+      // 共用同一映射，防两通道漂移；此处为纯重构，形状与原内嵌实现逐键一致）
+      const { tokenMetaFromCreatePayload } = require('../core/token-create-meta');
       for (const [address, row] of collected) {
-        const payload = row.payload || {};
-        let totalSupply = Number(payload.totalSupply) || 0;
-        if (platform === 'flap') {
-          const { FLAP_TOTAL_SUPPLY } = require('../../collectors/flap-ankr-ws-collector');
-          totalSupply = FLAP_TOTAL_SUPPLY;
-        } else if (platform === 'gang') {
-          const { GANG_TOTAL_SUPPLY } = require('../../collectors/gang-ankr-ws-collector');
-          totalSupply = GANG_TOTAL_SUPPLY;
-        }
-        this._tokenMeta.set(address, {
-          symbol: payload.symbol || '',
-          name: payload.name || '',
-          platform: row.platform || 'fourmeme',
-          createdAtSec: row.block_time ? new Date(row.block_time).getTime() / 1000 : null,
-          totalSupply,
-          creator: payload.creator || null,
-          graduationThresholdBnb: Number(payload.gradAmtBnb) > 0
-            ? Number(payload.gradAmtBnb) : null,
-        });
+        this._tokenMeta.set(address, tokenMetaFromCreatePayload(row.platform, row.payload, row.block_time));
       }
       this.logger.info(this._experimentId, 'BacktestEngine',
         `时间范围通道 token 集 (${platform}): 窗口 token_create ${collected.size} 票`);
@@ -1194,6 +1235,42 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.warn(this._experimentId, 'BacktestEngine',
         `窗口内无 token_create 事件（${new Date(this._startTimeFilter).toISOString()} ~ ${new Date(this._endTimeFilter).toISOString()}）——空 token 集合法形状，回放将零信号`);
     }
+  }
+
+  /**
+   * Case 集合通道（2026-11-20 Case 集合管理系统）：case_collection_tokens
+   * .token_meta（wss_events token_create 原始 payload 冻结快照）→ 七键 _tokenMeta。
+   * 映射经 core/token-create-meta.js 共享纯函数——与窗口通道逐字节同映射（防两
+   * 通道漂移，快照不预映射）。count exact + 无序 limit 一次拉全对账（集合=人管理
+   * 量级远小于页上限；超限/失配 fail-loud 宁拒不漏，对齐窗口通道纪律）。
+   * 空集合已在 _initializeDataSources 拒启（集合是显式资产，空集=配置错误）。
+   */
+  async _loadTokenMetadataFromCaseSet(supabase) {
+    const CASE_MEMBER_LIMIT = 1000;
+    const { data: rows, count, error } = await supabase
+      .from('case_collection_tokens')
+      .select('token_address, platform, token_meta', { count: 'exact' })
+      .eq('collection_id', this._caseCollectionId)
+      .limit(CASE_MEMBER_LIMIT);
+    if (error) throw new Error(`读取 Case 集合成员元数据失败: ${error.message}`);
+    if (count != null && count > CASE_MEMBER_LIMIT) {
+      throw new Error(`Case 集合成员 ${count} 超页上限 ${CASE_MEMBER_LIMIT}（数据形状异常，宁拒不漏）`);
+    }
+    const list = rows || [];
+    if (list.length !== (count || 0)) {
+      throw new Error(`Case 集合成员对账失配（无序页 ${list.length} ≠ count ${count}）`);
+    }
+    const { tokenMetaFromCreatePayload } = require('../core/token-create-meta');
+    for (const row of list) {
+      const meta = row.token_meta || {};
+      this._tokenMeta.set(row.token_address, tokenMetaFromCreatePayload(
+        meta.platform || row.platform,
+        meta.payload || {},
+        meta.blockTimeIso || null,
+      ));
+    }
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `Case 集合通道 token 集: ${list.length} 票（${this._caseCollectionName || this._caseCollectionId}）`);
   }
 
   /**
@@ -1353,8 +1430,7 @@ class BacktestEngine extends AbstractTradingEngine {
     // 合一请求：count exact + 无序 limit（无 ORDER BY——planner 无 top-k 可贪）
     const countFetch = async (chunk) => {
       for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
-        const res = await supabase
-          .from('wss_price_ticks')
+        const res = await this._tickSourceQuery(supabase)
           .select(TICK_SELECT_COLUMNS, { count: 'exact' })
           .in('token_address', chunk)
           .eq('platform', platform)
@@ -1377,8 +1453,7 @@ class BacktestEngine extends AbstractTradingEngine {
         let data = null;
         let error = null;
         for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
-          const r = await supabase
-            .from('wss_price_ticks')
+          const r = await this._tickSourceQuery(supabase)
             .select(TICK_SELECT_COLUMNS)
             .eq('token_address', token)
             .eq('platform', platform)
@@ -1458,8 +1533,7 @@ class BacktestEngine extends AbstractTradingEngine {
    */
   async _fetchHeadTickId(supabase) {
     for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
-      const res = await supabase
-        .from('wss_price_ticks')
+      const res = await this._tickSourceQuery(supabase)
         .select('id')
         .order('id', { ascending: false })
         .limit(1);
@@ -1499,8 +1573,7 @@ class BacktestEngine extends AbstractTradingEngine {
     const probeChunk = async (chunk) => {
       let data = null;
       for (let attempt = 1; attempt <= PROBE_ATTEMPTS; attempt++) {
-        let q = supabase
-          .from('wss_price_ticks')
+        let q = this._tickSourceQuery(supabase)
           .select('id')
           .in('token_address', chunk)
           .eq('platform', platform);
@@ -1533,8 +1606,8 @@ class BacktestEngine extends AbstractTradingEngine {
    * 清表/删行回缩——gt 锚形状下「DB max < 锚」结构性探不到，回缩检测责任在此。
    */
   async _anchorRowExists(supabase, id) {
-    const { data, error } = await supabase
-      .from('wss_price_ticks')
+    // Case 通道必须带 collection_id（case_ticks id 全表不唯一，漏带会误验别集合锚行）
+    const { data, error } = await this._tickSourceQuery(supabase)
       .select('id')
       .eq('id', id)
       .limit(1);
@@ -1545,6 +1618,23 @@ class BacktestEngine extends AbstractTradingEngine {
   _getClient() {
     const { dbManager } = require('../../services/dbManager');
     return dbManager.getClient();
+  }
+
+  /**
+   * ticks 装载表源（2026-11-20 Case 集合通道）：Case 通道读集合专属副本表
+   * case_ticks（.eq(collection_id) 限定——case 表 id 全表不唯一，漏带会读到别
+   * 集合行），其余通道 wss_price_ticks 现状不变。装载五方法（countFetch/
+   * keysetFetchToken/_fetchHeadTickId/_probeIncrementalTickId/_anchorRowExists）
+   * 统一经此入口取表——形状论证（DDL 复合 PK (collection_id,id)+索引
+   * (collection_id,platform,token_address,id)）：headAnchor=单列等值+ORDER BY
+   * id DESC LIMIT 1=集合子树反向最右叶（非禁用形状「IN+过滤 top-k 贪心」）；
+   * probe=索引前缀等值无 ORDER BY；keyset=三前缀等值后索引供 id 序（唯一例外
+   * 形状）；anchorExists=复合 PK 单行。TICK_SELECT_COLUMNS 不变（case_ticks
+   * 同名列，id=case 自有 id——scopeKey case-<id> 隔离缓存目录无碰撞）。
+   */
+  _tickSourceQuery(supabase) {
+    if (!this._caseCollectionId) return supabase.from('wss_price_ticks');
+    return supabase.from('case_ticks').eq('collection_id', this._caseCollectionId);
   }
 
   /**
@@ -1918,8 +2008,12 @@ class BacktestEngine extends AbstractTradingEngine {
     const fetchGradBatch = async (batch) => {
       let data = null;
       for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
-        const res = await supabase
-          .from('wss_events')
+        // Case 集合通道（2026-11-20）读集合专属镜像 case_events（快照自包含，
+        // 防源表未来清理/裁剪）；行形状（token_address/payload/block_time）镜像一致
+        const gradQuery = this._caseCollectionId
+          ? supabase.from('case_events').eq('collection_id', this._caseCollectionId)
+          : supabase.from('wss_events');
+        const res = await gradQuery
           .select('token_address, payload, block_time')
           .eq('kind', 'graduation')
           .in('token_address', batch);
@@ -3788,4 +3882,4 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 }
 
-module.exports = { BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet, buildWindowCacheScopeKey, memPullTicksFromIndex };
+module.exports = { BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet, buildWindowCacheScopeKey, buildCaseCacheScopeKey, memPullTicksFromIndex };

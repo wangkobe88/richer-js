@@ -339,6 +339,28 @@ class ExperimentDetail {
       console.warn('⚠️ 源实验信息元素未找到');
     }
 
+    // 显示回测实验的 Case 集合来源（2026-11-20 Case 集合通道：代币宇宙=集合成员快照）
+    const caseInfoElement = document.getElementById('case-collection-info');
+    const caseLinkElement = document.getElementById('case-collection-link');
+    if (caseInfoElement && caseLinkElement) {
+      const btCfg = (this.experiment.config || {}).backtest || {};
+      const caseCollectionId = btCfg.caseCollectionId;
+      if (caseCollectionId) {
+        caseLinkElement.textContent = '加载中…';
+        caseLinkElement.href = `/case-collections?id=${caseCollectionId}`;
+        caseInfoElement.classList.remove('hidden');
+        fetch(`/api/case-collections/${caseCollectionId}`)
+          .then(r => r.json())
+          .then(j => {
+            if (j.success && j.data && j.data.name) caseLinkElement.textContent = j.data.name;
+            else caseLinkElement.textContent = caseCollectionId.substring(0, 8) + '…';
+          })
+          .catch(() => { caseLinkElement.textContent = caseCollectionId.substring(0, 8) + '…'; });
+      } else {
+        caseInfoElement.classList.add('hidden');
+      }
+    }
+
     // 更新页面标题
     document.title = `${this.experiment.experimentName ?? this.experiment.experiment_name ?? ''} - 实验详情 - 2025-2026 Become Rich Baby!`;
   }

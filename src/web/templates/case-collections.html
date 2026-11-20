@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richer 交易系统 - Case 集合</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link href="/static/css/main.css" rel="stylesheet">
+    <style>
+        .hidden { display: none; }
+        select option { background-color: #374151; color: white; }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .badge-synced { background: #dcfce7; color: #166534; }
+        .badge-pending { background: #fef9c3; color: #854d0e; }
+        .badge-syncing { background: #dbeafe; color: #1e40af; }
+        .badge-failed { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="min-h-screen">
+        <!-- 导航栏（复制 experiments.html，深色） -->
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-14">
+                    <div class="flex items-center space-x-1.5">
+                        <a href="/experiments" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">实验监控</a>
+                        <a href="/platform-tokens" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">平台代币</a>
+                        <a href="/token-holders" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">持有者</a>
+                        <a href="/monitor" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">事件监控</a>
+                        <a href="/model-metrics" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">Daily更新</a>
+                        <a href="/strategy-library" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">策略库</a>
+                        <a href="/case-collections" class="px-2 py-1.5 rounded-md text-xs font-medium text-blue-400 bg-gray-700">Case 集合</a>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <a href="/wallets" target="_blank" class="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-md text-xs font-medium text-white transition-colors">钱包</a>
+                        <a href="/wallet-analysis" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">钱包分析</a>
+                        <a href="/wallet-ave-query" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">AVE查询</a>
+                        <a href="/create-experiment" target="_blank" class="px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded-md text-xs font-medium text-white transition-colors">创建实验</a>
+                        <a href="/api-status" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">API 现状</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+            <!-- ═══════════ 列表视图 ═══════════ -->
+            <div id="list-view" class="space-y-6">
+                <div class="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">🗂 Case 集合管理</h1>
+                        <p class="text-sm text-gray-500 mt-1">
+                            各层面问题（Burst / 强庄 / Famous 参与盘…）的 Case 资产统一维护：代币入集合即自动复制
+                            ticks 与基础信息到集合专属持久表（原表清理/删实验不受影响）；回测可直接指定集合单独回放。
+                        </p>
+                    </div>
+                    <button type="button" id="btn-new"
+                            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
+                        + 新建集合
+                    </button>
+                </div>
+
+                <!-- 新建/编辑集合表单 -->
+                <div id="col-form-card" class="hidden bg-white border border-indigo-300 rounded-lg p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-base font-semibold text-gray-800" id="col-form-title">新建集合</h2>
+                        <button type="button" id="btn-cancel-col-form" class="text-gray-400 hover:text-gray-700 text-sm">✕ 关闭</button>
+                    </div>
+                    <input type="hidden" id="col-id">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">名称（唯一）</label>
+                            <input type="text" id="col-name" placeholder="如 burst-案例集 / 强庄模式-金狗"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">说明</label>
+                            <input type="text" id="col-description" placeholder="集合用途（可选）"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" id="btn-save-col"
+                                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">保存</button>
+                    </div>
+                </div>
+
+                <!-- 集合列表 -->
+                <div id="col-list" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+                <p id="col-list-empty" class="hidden text-sm text-gray-400 bg-white border border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    还没有集合——点「+ 新建集合」创建第一个。
+                </p>
+            </div>
+
+            <!-- ═══════════ 详情视图 ═══════════ -->
+            <div id="detail-view" class="hidden space-y-6">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <button type="button" id="btn-back" class="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 rounded-md text-sm font-medium">← 返回列表</button>
+                    <h1 class="text-xl font-bold text-gray-800" id="d-col-name"></h1>
+                    <span id="d-col-stats" class="text-sm text-gray-500"></span>
+                </div>
+                <p id="d-col-description" class="text-sm text-gray-500"></p>
+
+                <div class="flex items-center gap-2 flex-wrap">
+                    <a id="btn-create-backtest" href="/create-experiment"
+                       class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium">
+                        🧪 从该集合创建回测实验
+                    </a>
+                    <button type="button" id="btn-sync-all"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium">
+                        🔄 全量同步（pending/failed）
+                    </button>
+                    <button type="button" id="btn-edit-col"
+                            class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-sm font-medium">编辑信息</button>
+                </div>
+
+                <!-- 添加代币 -->
+                <div class="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                    <h2 class="text-base font-semibold text-gray-800">➕ 添加代币</h2>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <input type="text" id="add-token-address" placeholder="0x…（合约地址，须有 token_create 事件）"
+                               class="flex-1 min-w-[340px] px-3 py-2 border border-gray-300 rounded-md text-sm mono">
+                        <input type="text" id="add-token-note" placeholder="备注：为何入选（可选）"
+                               class="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        <button type="button" id="btn-add-token"
+                                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">添加</button>
+                    </div>
+                    <p class="text-xs text-gray-500">添加后自动开始后台复制 ticks（状态列实时刷新）；同一代币可加入多个集合（各集合独立副本）。</p>
+                </div>
+
+                <!-- 成员代币表 -->
+                <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-3 py-2 text-left font-medium text-gray-600">代币</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-600">平台</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-600">备注</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-600">同步</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-600">ticks</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-600">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="token-tbody" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+
+                <!-- 派生实验 -->
+                <div class="bg-white border border-gray-200 rounded-lg p-4 space-y-2">
+                    <h2 class="text-base font-semibold text-gray-800">🧪 派生回测实验</h2>
+                    <div id="derived-list" class="space-y-1 text-sm"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+<script>
+(function () {
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const API = '/api/case-collections';
+
+    function escapeHtml(v) {
+        return String(v == null ? '' : v)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    async function apiGet(url) {
+        const r = await fetch(url);
+        const j = await r.json().catch(() => ({ error: '响应解析失败' }));
+        if (!r.ok || !j.success) throw new Error(j.error || `HTTP ${r.status}`);
+        return j.data;
+    }
+    async function apiSend(url, method, body) {
+        const r = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: body === undefined ? undefined : JSON.stringify(body),
+        });
+        const j = await r.json().catch(() => ({ error: '响应解析失败' }));
+        if (!r.ok || !j.success) throw new Error(j.error || `HTTP ${r.status}`);
+        return j.data;
+    }
+
+    // ─────────────── 列表视图 ───────────────
+    let collections = [];
+
+    async function loadList() {
+        collections = await apiGet(API);
+        renderList();
+    }
+
+    function renderList() {
+        const box = $('col-list');
+        box.innerHTML = '';
+        $('col-list-empty').classList.toggle('hidden', collections.length > 0);
+        for (const col of collections) {
+            const card = document.createElement('div');
+            card.className = 'bg-white border border-gray-200 rounded-lg p-4 space-y-2 cursor-pointer hover:border-indigo-300 transition-colors';
+            const notSynced = col.tokenCount - col.synced;
+            card.innerHTML = `
+                <div class="flex items-center justify-between gap-2">
+                    <div class="font-semibold text-gray-800 text-base">🗂 ${escapeHtml(col.name)}</div>
+                    <div class="flex items-center gap-1">
+                        <button data-act="edit" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">编辑</button>
+                        <button data-act="del" class="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded text-xs">删除</button>
+                    </div>
+                </div>
+                <div class="text-sm text-gray-500">${escapeHtml(col.description || '—')}</div>
+                <div class="flex items-center gap-2 flex-wrap text-xs">
+                    <span class="px-2 py-0.5 bg-gray-100 rounded">${col.tokenCount} 票</span>
+                    <span class="px-2 py-0.5 bg-gray-100 rounded">${col.tickTotal.toLocaleString()} ticks</span>
+                    <span class="px-2 py-0.5 rounded ${notSynced > 0 ? 'badge-pending' : 'badge-synced'}">
+                        ${notSynced > 0 ? `${notSynced} 票未就绪` : '全部已同步'}
+                    </span>
+                    ${col.failed > 0 ? `<span class="px-2 py-0.5 badge-failed rounded">${col.failed} 失败</span>` : ''}
+                </div>`;
+            card.addEventListener('click', (ev) => {
+                const act = ev.target.getAttribute && ev.target.getAttribute('data-act');
+                if (act === 'del') { ev.stopPropagation(); deleteCollection(col); return; }
+                if (act === 'edit') { ev.stopPropagation(); openColForm(col); return; }
+                openDetail(col.id);
+            });
+            box.appendChild(card);
+        }
+    }
+
+    function openColForm(col) {
+        $('col-form-card').classList.remove('hidden');
+        $('col-form-title').textContent = col ? '编辑集合' : '新建集合';
+        $('col-id').value = col ? col.id : '';
+        $('col-name').value = col ? col.name : '';
+        $('col-description').value = col ? (col.description || '') : '';
+    }
+
+    async function saveCollection() {
+        const id = $('col-id').value;
+        const body = { name: $('col-name').value, description: $('col-description').value };
+        try {
+            if (id) await apiSend(`${API}/${id}`, 'PUT', body);
+            else await apiSend(API, 'POST', body);
+            $('col-form-card').classList.add('hidden');
+            await loadList();
+        } catch (err) { alert(err.message); }
+    }
+
+    async function deleteCollection(col) {
+        // 后端返回前先本地估算规模供 confirm（双保险：confirm 文案为准）
+        let scaleText = `集合「${col.name}」`;
+        if (!confirm(`${scaleText} 将被删除，连同其成员清单与已复制的 ticks/事件副本（${col.tokenCount} 票 · ${col.tickTotal.toLocaleString()} tick 行），不可恢复。确定删除？`)) return;
+        try {
+            const r = await apiSend(`${API}/${col.id}`, 'DELETE');
+            alert(`已删除：${r.removed.tokens} 票 / ${r.removed.ticks} tick 行 / ${r.removed.events} 事件行`);
+            await loadList();
+        } catch (err) { alert(err.message); }
+    }
+
+    // ─────────────── 详情视图 ───────────────
+    let detailId = null;
+    let pollTimer = null;
+
+    async function openDetail(id) {
+        detailId = id;
+        history.replaceState(null, '', `/case-collections?id=${id}`);
+        $('list-view').classList.add('hidden');
+        $('detail-view').classList.remove('hidden');
+        await refreshDetail();
+        startPolling();
+        loadDerived();
+    }
+
+    async function refreshDetail() {
+        const d = await apiGet(`${API}/${detailId}`);
+        $('d-col-name').textContent = `🗂 ${d.name}`;
+        $('d-col-description').textContent = d.description || '';
+        const notSynced = d.tokens.filter((t) => t.sync_state !== 'synced').length;
+        $('d-col-stats').innerHTML = `
+            <span class="px-2 py-0.5 bg-gray-100 rounded">${d.tokens.length} 票</span>
+            <span class="px-2 py-0.5 bg-gray-100 rounded">${d.tokens.reduce((s, t) => s + (Number(t.tick_count) || 0), 0).toLocaleString()} ticks</span>
+            <span class="px-2 py-0.5 rounded ${notSynced > 0 ? 'badge-pending' : 'badge-synced'}">${notSynced > 0 ? `${notSynced} 票未就绪` : '全部已同步'}</span>`;
+        $('btn-create-backtest').href = `/create-experiment?caseCollection=${detailId}`;
+        const tb = $('token-tbody');
+        tb.innerHTML = '';
+        for (const t of d.tokens) {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50';
+            const meta = (t.token_meta && t.token_meta.payload) || {};
+            const badge = {
+                synced: 'badge-synced', pending: 'badge-pending',
+                syncing: 'badge-syncing', failed: 'badge-failed',
+            }[t.sync_state] || 'badge-pending';
+            const stateText = {
+                synced: '✓ 已同步', pending: '… 待同步',
+                syncing: '⟳ 同步中', failed: '✗ 失败',
+            }[t.sync_state] || t.sync_state;
+            tr.innerHTML = `
+                <td class="px-3 py-2">
+                    <a href="/token-detail?address=${encodeURIComponent(t.token_address)}" target="_blank"
+                       class="mono text-blue-600 hover:underline text-xs">${escapeHtml(t.token_address)}</a>
+                    ${meta.symbol ? `<div class="text-xs text-gray-400">${escapeHtml(meta.symbol)}${meta.name ? ' · ' + escapeHtml(meta.name) : ''}</div>` : ''}
+                </td>
+                <td class="px-3 py-2 text-xs">${escapeHtml(t.platform)}</td>
+                <td class="px-3 py-2 text-xs">${escapeHtml(t.note || '')}</td>
+                <td class="px-3 py-2">
+                    <span class="px-2 py-0.5 rounded text-xs ${badge}">${stateText}</span>
+                    ${t.sync_state === 'failed' && t.sync_error ? `<div class="text-xs text-red-500 mt-1 max-w-[260px] break-all">${escapeHtml(t.sync_error)}</div>` : ''}
+                </td>
+                <td class="px-3 py-2 text-xs">${(Number(t.tick_count) || 0).toLocaleString()}</td>
+                <td class="px-3 py-2">
+                    <div class="flex items-center gap-1">
+                        <button data-act="sync" class="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-xs">同步/补拉</button>
+                        <button data-act="note" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs">备注</button>
+                        <button data-act="del" class="px-2 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded text-xs">移除</button>
+                    </div>
+                </td>`;
+            tr.addEventListener('click', (ev) => {
+                const act = ev.target.getAttribute && ev.target.getAttribute('data-act');
+                if (!act) return;
+                ev.stopPropagation();
+                if (act === 'sync') syncToken(t.token_address);
+                else if (act === 'note') editNote(t);
+                else if (act === 'del') removeToken(t);
+            });
+            tb.appendChild(tr);
+        }
+    }
+
+    async function addToken() {
+        const tokenAddress = $('add-token-address').value.trim();
+        const note = $('add-token-note').value.trim();
+        if (!tokenAddress) { alert('请输入代币地址'); return; }
+        try {
+            await apiSend(`${API}/${detailId}/tokens`, 'POST', { tokenAddress, note });
+            $('add-token-address').value = '';
+            $('add-token-note').value = '';
+            await refreshDetail();
+        } catch (err) { alert(err.message); }
+    }
+
+    async function syncToken(addr) {
+        try {
+            await apiSend(`${API}/${detailId}/tokens/${encodeURIComponent(addr)}/sync`, 'POST');
+            await refreshDetail();
+        } catch (err) { alert(err.message); }
+    }
+
+    async function editNote(t) {
+        const note = prompt('备注（为何入选该 Case）：', t.note || '');
+        if (note === null) return;
+        try {
+            await apiSend(`${API}/${detailId}/tokens/${encodeURIComponent(t.token_address)}`, 'PUT', { note });
+            await refreshDetail();
+        } catch (err) { alert(err.message); }
+    }
+
+    async function removeToken(t) {
+        const ticks = Number(t.tick_count) || 0;
+        if (!confirm(`移除 ${t.token_address}？将连带删除已复制的 ${ticks.toLocaleString()} tick 行与 ${Number(t.event_count) || 0} 事件行，不可恢复。`)) return;
+        try {
+            await apiSend(`${API}/${detailId}/tokens/${encodeURIComponent(t.token_address)}`, 'DELETE');
+            await refreshDetail();
+        } catch (err) { alert(err.message); }
+    }
+
+    async function syncAll() {
+        try {
+            const r = await apiSend(`${API}/${detailId}/sync`, 'POST');
+            alert(`已入队 ${r.queued} 个待同步代币（串行执行，状态自动刷新）`);
+            await refreshDetail();
+        } catch (err) { alert(err.message); }
+    }
+
+    async function loadDerived() {
+        try {
+            const list = await apiGet(`${API}/${detailId}/derived-experiments`);
+            const box = $('derived-list');
+            box.innerHTML = list.length ? '' : '<span class="text-gray-400">尚无以该集合为数据来源的回测实验。</span>';
+            for (const exp of list) {
+                const div = document.createElement('div');
+                div.innerHTML = `<a href="/experiment/${exp.id}" target="_blank" class="text-blue-600 hover:underline">${escapeHtml(exp.name || exp.id)}</a>
+                    <span class="text-gray-400 ml-2 text-xs">${escapeHtml(exp.status || '')} · ${escapeHtml((exp.created_at || '').replace('T', ' ').slice(0, 19))}</span>`;
+                box.appendChild(div);
+            }
+        } catch (err) {
+            $('derived-list').textContent = `派生实验加载失败: ${err.message}`;
+        }
+    }
+
+    function startPolling() {
+        stopPolling();
+        pollTimer = setInterval(async () => {
+            try {
+                const s = await apiGet(`${API}/${detailId}/sync-status`);
+                const active = s.summary.pending + s.summary.syncing + s.tokens.filter((t) => t.running).length;
+                if (active > 0) await refreshDetail();
+                else stopPolling();
+            } catch (err) { /* 轮询失败静默（网络抖动），下轮重试 */ }
+        }, 2500);
+    }
+    function stopPolling() {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    }
+
+    function backToList() {
+        stopPolling();
+        history.replaceState(null, '', '/case-collections');
+        $('detail-view').classList.add('hidden');
+        $('list-view').classList.remove('hidden');
+        loadList().catch((e) => alert(e.message));
+    }
+
+    // ─────────────── 绑定 ───────────────
+    $('btn-new').addEventListener('click', () => openColForm(null));
+    $('btn-cancel-col-form').addEventListener('click', () => $('col-form-card').classList.add('hidden'));
+    $('btn-save-col').addEventListener('click', saveCollection);
+    $('btn-back').addEventListener('click', backToList);
+    $('btn-add-token').addEventListener('click', addToken);
+    $('btn-sync-all').addEventListener('click', syncAll);
+    $('btn-edit-col').addEventListener('click', () => {
+        const col = collections.find((c) => c.id === detailId);
+        if (col) openColForm(col);
+    });
+    $('add-token-address').addEventListener('keydown', (ev) => { if (ev.key === 'Enter') addToken(); });
+
+    // 初始：?id= 直开详情
+    const qsId = new URLSearchParams(location.search).get('id');
+    if (qsId) openDetail(qsId).catch((e) => { alert(e.message); loadList(); });
+    else loadList().catch((e) => alert(e.message));
+})();
+</script>
+</body>
+</html>

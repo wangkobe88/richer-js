@@ -292,8 +292,10 @@ console.log('K. 旧通道仍在');
   ok(engineSrc.includes(".from('experiment_tokens')"), 'K1 experiment_tokens 查询保留');
   ok(/if \(this\._sourceExperimentId\) \{\s*\n\s*await this\._loadTokenMetadataFromSourceExperiment\(supabase\);/.test(engineSrc),
     'K2 路由分支：源 id 在场走旧通道');
-  ok(/module\.exports = \{ BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet, buildWindowCacheScopeKey \};/.test(engineSrc),
-    'K3 exports 五件');
+  // K3 快照锁（2026-11-20 更新：memPullTicksFromIndex 系 CD412 导出为既有事实；
+  // buildCaseCacheScopeKey 为 Case 集合通道导出——七件）
+  ok(/module\.exports = \{ BacktestEngine, compareByChainOrder, filterTokenMetaByAddresses, filterTickRowsByTokenSet, buildWindowCacheScopeKey, buildCaseCacheScopeKey, memPullTicksFromIndex \};/.test(engineSrc),
+    'K3 exports 七件');
 }
 
 console.log(`\n全部通过: ${n} 断言`);

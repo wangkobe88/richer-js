@@ -308,10 +308,26 @@ async function main() {
   const mode = conv.mode;
   for (const ch of conv.changes) changes.push(ch);
 
-  // trading_mode 陷阱断言（memory clone-script-trading-mode-trap）：仅未转换时按基底断言
+  // trading_mode 陷阱断言（memory clone-script-trading-mode-trap）：仅未转换时按基底断言。
+  // 三通道口径（2026-11-20 Case 集合通道接入）：sourceExperimentId / caseCollectionId /
+  // startTime+endTime 任一在场即过——旧版只认 startTime/endTime 曾把 sourceExperimentId-only
+  // 的旧通道克隆误拒（既有坑顺手修）；caseCollectionId 通道另校验集合存在（防克隆出拒启产物）
   if (!modeArg && mode === 'backtest') {
     if (!cfg.backtest) throw new Error('回测基底缺 backtest 段');
-    if (!cfg.backtest.startTime || !cfg.backtest.endTime) throw new Error('回测基底缺 startTime/endTime（缺一 fail-fast 拒启）');
+    const hasSource = !!cfg.backtest.sourceExperimentId;
+    const hasCase = !!cfg.backtest.caseCollectionId;
+    const hasWindow = !!cfg.backtest.startTime && !!cfg.backtest.endTime;
+    if (!hasSource && !hasCase && !hasWindow) {
+      throw new Error('回测基底缺 token 集口径：sourceExperimentId / caseCollectionId / startTime+endTime 三通道均缺席（fail-fast 拒启）');
+    }
+    if (hasCase) {
+      const { data: caseCol } = await c.from('case_collections')
+        .select('name').eq('id', cfg.backtest.caseCollectionId).maybeSingle();
+      if (!caseCol) {
+        throw new Error('产物 backtest.caseCollectionId 在 case_collections 无对应集合（可能已删）: ' + cfg.backtest.caseCollectionId);
+      }
+      changes.push('Case 集合来源: ' + caseCol.name);
+    }
   }
 
   // ── 引用包存在性/版本核对（打印解析；缺包 fail-fast）──

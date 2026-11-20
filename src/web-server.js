@@ -34,6 +34,10 @@ const executorsRoutes = require('./web/routes/executors.routes');
 const apiStatusRoutes = require('./web/routes/api-status.routes');
 const manualTradeRoutes = require('./web/routes/manual-trades.routes');
 const experimentHourlyStatsRoutes = require('./web/routes/experiment-hourly-stats.routes');
+// Case 集合管理（2026-11-20：多集合×多代币 CRUD + ticks/events 复制 + 按集合回测）
+const caseCollectionsRoutes = require('./web/routes/case-collections.routes');
+const { CaseCollectionService } = require('./web/services/CaseCollectionService');
+const caseCollectionService = new CaseCollectionService();
 
 // buildLLMAnalysis 是 ESM 模块，首次使用时动态导入并缓存
 let _buildLLMAnalysis = null;
@@ -330,6 +334,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/strategy-library.html'));
     });
 
+    // Case 集合管理页面（2026-11-20：集合/代币 CRUD + 数据复制同步 + 按集合创建回测）
+    this.app.get('/case-collections', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/case-collections.html'));
+    });
+
     // 新闻监控页面（news_monitor 项目收编，2026-09-30：小时报告 + 事件流 + 监控账号）
     this.app.get('/news-monitor', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/news-monitor.html'));
@@ -364,6 +373,9 @@ class RicherJsWebServer {
 
     // ============ API路由：策略库（策略库一期，2026-09-28）============
     this.app.use('/api/strategy-library', strategyLibraryRoutes);
+
+    // ============ API路由：Case 集合（2026-11-20：CRUD + 复制同步 + 派生实验）============
+    this.app.use('/api/case-collections', caseCollectionsRoutes);
 
     // ============ API路由：新闻监控（news_monitor 收编，2026-09-30）============
     this.app.use('/api/news', newsRoutes);
@@ -700,6 +712,37 @@ class RicherJsWebServer {
           };
           if (backtest?.sourceExperimentId) {
             backtestConfig.sourceExperimentId = backtest.sourceExperimentId;
+          } else if (backtest?.caseCollectionId) {
+            // Case 集合通道（2026-11-20 Case 集合管理系统）：代币宇宙=集合成员快照，
+            // ticks 读集合专属 case_ticks 副本表。引擎 _initializeDataSources 同款
+            // 校验双保险（此处 400 先拦给前端友好报错）；startTime/endTime=可选回放
+            // 窗（缺省全量）；平台并集由引擎侧覆盖，实验 platform 统一 both 免选错。
+            let caseDetail;
+            try {
+              caseDetail = await caseCollectionService.getDetail(backtest.caseCollectionId);
+            } catch (err) {
+              return res.status(400).json({ success: false, error: `Case 集合不可用: ${err.message}` });
+            }
+            if (!caseDetail.tokens || !caseDetail.tokens.length) {
+              return res.status(400).json({ success: false, error: 'Case 集合为空（先在集合页添加代币）' });
+            }
+            const notSynced = caseDetail.tokens.filter((t) => t.sync_state !== 'synced');
+            if (backtest.allowPartialCaseSync !== true && notSynced.length) {
+              const sample = notSynced.slice(0, 5).map((t) => t.token_address).join(', ');
+              return res.status(400).json({
+                success: false,
+                error: `Case 集合含 ${notSynced.length} 个未同步成员（${sample}${notSynced.length > 5 ? ' …' : ''}）——回测将缺该部分数据；确认接受请显式配 backtest.allowPartialCaseSync=true`,
+              });
+            }
+            backtestConfig.caseCollectionId = backtest.caseCollectionId;
+            const caseStartMs = backtest?.startTime ? new Date(backtest.startTime).getTime() : null;
+            const caseEndMs = backtest?.endTime ? new Date(backtest.endTime).getTime() : null;
+            if (Number.isFinite(caseStartMs)) backtestConfig.startTime = new Date(caseStartMs).toISOString();
+            if (Number.isFinite(caseEndMs)) backtestConfig.endTime = new Date(caseEndMs).toISOString();
+            if (backtestConfig.startTime && backtestConfig.endTime && caseStartMs >= caseEndMs) {
+              return res.status(400).json({ success: false, error: 'backtest.startTime 必须早于 endTime' });
+            }
+            config.platform = 'both';
           } else {
             const startMs = backtest?.startTime ? new Date(backtest.startTime).getTime() : NaN;
             const endMs = backtest?.endTime ? new Date(backtest.endTime).getTime() : NaN;

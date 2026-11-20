@@ -22,6 +22,7 @@
  * 用法：node scripts/_test_clone_experiment.cjs
  */
 'use strict';
+const path = require('path');
 const { LIVE_STD_WS, LIVE_STD_TOP, ensureLiveStandardSections, convertMode, stripPackOwnedKeys, applyPackReference } = require('./clone-experiment.cjs');
 
 let pass = 0, fail = 0;
@@ -226,6 +227,23 @@ console.log('J. applyPackReference（策略包引用转换）');
     applyPackReference(cfg, PACK_ID, changes);
     ok('换包落位+留痕', cfg.strategyId === PACK_ID && changes.some(c => c.includes('换包')));
   }
+}
+
+// K. 回测三通道断言（2026-11-20 Case 集合通道；断言在 main 流程 DB 路径——源码锁）
+{
+  console.log('K. trading_mode 断言三通道口径（源码锁）');
+  const fs = require('fs');
+  const src = fs.readFileSync(path.join(__dirname, 'clone-experiment.cjs'), 'utf8');
+  ok('K1 三通道任一在场即过（source/case/window）',
+    /hasSource = !!cfg\.backtest\.sourceExperimentId/.test(src)
+    && /hasCase = !!cfg\.backtest\.caseCollectionId/.test(src)
+    && /hasWindow = !!cfg\.backtest\.startTime && !!cfg\.backtest\.endTime/.test(src)
+    && /三通道均缺席/.test(src));
+  ok('K2 caseCollectionId 通道校验集合存在（防克隆出拒启产物）',
+    /case_collections/.test(src) && /无对应集合（可能已删）/.test(src));
+  ok('K3 case 来源留痕', /Case 集合来源: /.test(src));
+  // 旧版只认 startTime/endTime 曾误拒 sourceExperimentId-only 克隆——确认旧文案已退役
+  ok('K4 旧双通道文案退役', !/回测基底缺 startTime\/endTime（缺一 fail-fast 拒启）/.test(src));
 }
 
 console.log(`\n${'='.repeat(60)}`);
