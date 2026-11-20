@@ -46,6 +46,23 @@ function* checkLeg(scope, leg) {
     }
 }
 
+// 策略包 definition 两侧腿扫描（T202：条目=完整交易策略包；互斥检查同 loadStrategies 口径）
+function scanPackLegs(scope, pack, findings) {
+    const def = pack.definition || {};
+    for (const [side, list] of [['buy', def.buyLegs], ['sell', def.sellLegs]]) {
+        if (!Array.isArray(list)) continue;
+        list.forEach((leg, i) => {
+            for (const msg of checkLeg(`${scope} ${side}腿[${i}]`, leg)) {
+                findings.push(msg);
+            }
+            if (String(leg.narrativeTriggerCondition || '').trim() !== ''
+                && String(leg.narrativeCallCondition || '').trim() !== '') {
+                findings.push(`${scope} ${side}腿[${i}] narrativeTriggerCondition 与 narrativeCallCondition 互斥（更新将被 400）`);
+            }
+        });
+    }
+}
+
 async function main() {
     const { dbManager } = require('../src/services/dbManager');
     const db = dbManager.getClient();
@@ -56,7 +73,22 @@ async function main() {
         .select('id, experiment_name, status, config');
     if (e1) throw new Error('experiments 查询失败: ' + e1.message);
     console.log(`experiments: ${exps.length} 行`);
+    const { data: packs, error: eP } = await db.from('strategy_library')
+        .select('id, name, version, definition');
+    if (eP) throw new Error('strategy_library 查询失败: ' + eP.message);
+    const packById = new Map((packs || []).map((x) => [x.id, x]));
     for (const exp of exps) {
+        // T202 策略库二期：新形状实验只存 strategyId——腿在策略包 definition，经库扫描
+        //（包缺失=finding：重启即拒）；旧形状（strategiesConfig 内嵌腿）仍扫存量审计
+        if (exp.config?.strategyId) {
+            const pack = packById.get(exp.config.strategyId);
+            if (!pack) {
+                findings.push(`实验[${exp.experiment_name}] strategyId=${exp.config.strategyId} 在 strategy_library 无对应策略包（重启将被拒）`);
+                continue;
+            }
+            scanPackLegs(`实验[${exp.experiment_name}]→包[${pack.name}]`, pack, findings);
+            continue;
+        }
         const sc = exp.config?.strategiesConfig || {};
         for (const [side, list] of [['buy', sc.buyStrategies], ['sell', sc.sellStrategies]]) {
             if (!Array.isArray(list)) continue;
@@ -67,27 +99,16 @@ async function main() {
                 // C84 互斥（2026-10-17）：与 loadStrategies/validateLegs 同口径
                 if (String(leg.narrativeTriggerCondition || '').trim() !== ''
                     && String(leg.narrativeCallCondition || '').trim() !== '') {
-                    findings.push(`实验[${exp.experiment_name}] ${side}腿[${i}] narrativeTriggerCondition 与 narrativeCallCondition 互斥（重启将被拒）`);
+                    findings.push(`实验[${exp.experiment_name}] ${side}腿[${i}] narrativeTriggerCondition 与 narrativeCallCondition 互斥（T202 后属旧形状，重启将被拒）`);
                 }
             });
         }
         // 数据预取门已随 dataPrefetch 机制退役删除（C84 2026-10-17），段不再扫描
     }
 
-    const { data: libs, error: e2 } = await db.from('strategy_library')
-        .select('id, name, side, legs');
-    if (e2) throw new Error('strategy_library 查询失败: ' + e2.message);
-    console.log(`strategy_library: ${libs.length} 条目`);
-    for (const lib of libs) {
-        (lib.legs || []).forEach((leg, i) => {
-            for (const msg of checkLeg(`库[${lib.name}] 腿[${i}]`, leg)) {
-                findings.push(msg);
-            }
-            if (String(leg.narrativeTriggerCondition || '').trim() !== ''
-                && String(leg.narrativeCallCondition || '').trim() !== '') {
-                findings.push(`库[${lib.name}] 腿[${i}] narrativeTriggerCondition 与 narrativeCallCondition 互斥（更新将被 400）`);
-            }
-        });
+    console.log(`strategy_library: ${packs.length} 策略包`);
+    for (const lib of packs) {
+        scanPackLegs(`库[${lib.name}]`, lib, findings);
     }
 
     console.log('\n════════ 扫描结果 ════════');

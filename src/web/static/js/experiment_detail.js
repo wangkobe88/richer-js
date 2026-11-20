@@ -870,6 +870,13 @@ class ExperimentDetail {
 
     const config = this.parseConfig(this.experiment.config);
 
+    // T202 策略库二期：交易策略=策略包引用——渲染包信息卡（异步拉库详情展示腿全文；
+    // 库缺行/网络失败降级为引用信息+strategyResolved 审计）
+    if (config.strategyId) {
+      this.renderStrategyPack(container, config.strategyId, config.strategyResolved);
+      return;
+    }
+
     // 优先检查策略格式 (strategiesConfig)
     if (config.strategiesConfig) {
       this.renderCardStrategies(container, config.strategiesConfig);
@@ -936,6 +943,51 @@ class ExperimentDetail {
         ${strategies.map((strategy, index) => this.renderStrategyCard(strategy, index)).join('')}
       </div>
     `;
+  }
+
+  /**
+   * 渲染策略包引用卡（T202 策略库二期）：策略唯一来源=策略库——展示包名/版本/
+   * 解析审计（strategyResolved.modules 具体代码版本）+ 异步拉包 definition 腿全文
+   */
+  async renderStrategyPack(container, strategyId, strategyResolved) {
+    const modNames = { factorCheck: '因子过滤(FP)', cheatCheck: 'Jev作弊门', actFrontGate: 'AF1活跃度门', buyPointCheck: 'BP买点' };
+    const resolvedBits = strategyResolved?.modules
+      ? Object.entries(strategyResolved.modules).map(([k, v]) =>
+          `<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 border border-green-200 mr-1 mb-1">${modNames[k] || k}:${v}</span>`).join('')
+        : '';
+    container.innerHTML = `
+      <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+        <h4 class="text-lg font-semibold text-gray-900 mb-2 flex items-center">
+          <span class="mr-2">📦</span> 交易策略包
+        </h4>
+        <p class="text-sm text-gray-600 mb-2">引用：<code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${strategyId}</code></p>
+        ${strategyResolved ? `
+          <p class="text-sm text-gray-700 mb-1">
+            解析：<b>${strategyResolved.name || '?'}</b> v${strategyResolved.version ?? '?'}
+            <span class="text-xs text-gray-400">（${strategyResolved.resolvedAt || ''} 启动时取最新）</span>
+          </p>
+          ${resolvedBits ? `<div class="mb-1">${resolvedBits}</div>` : ''}` : ''}
+        <div id="pack-def-box" class="text-xs text-gray-500">加载包详情…</div>
+      </div>`;
+    try {
+      const res = await fetch(`/api/strategy-library/${strategyId}`);
+      const result = await res.json();
+      const box = document.getElementById('pack-def-box');
+      if (!result.success || !box) throw new Error(result.error || '加载失败');
+      const def = result.data.definition || {};
+      const mechBits = [];
+      mechBits.push(def.stallClose ? `断流卖出 on（${Math.round((def.stallClose.stallMs || 0) / 1000)}s）` : '断流卖出 off');
+      mechBits.push(def.burstCooldown != null ? '冷盘卖出 on' : '冷盘卖出 off');
+      box.innerHTML = `
+        <p class="mb-1">${mechBits.join(' ｜ ')}（当前库 v${result.data.version}${strategyResolved && result.data.version !== strategyResolved.version ? '，实验启动时解析的是 v' + strategyResolved.version : ''}）</p>
+        <details>
+          <summary class="cursor-pointer text-gray-500">包 definition 全文（买${(def.buyLegs || []).length}/卖${(def.sellLegs || []).length} 腿）</summary>
+          <pre class="mt-1 max-h-96 overflow-auto whitespace-pre-wrap">${JSON.stringify(def, null, 1).replace(/</g, '&lt;')}</pre>
+        </details>`;
+    } catch (e) {
+      const box = document.getElementById('pack-def-box');
+      if (box) box.textContent = `包详情加载失败: ${e.message}（引用与审计信息见上）`;
+    }
   }
 
   /**

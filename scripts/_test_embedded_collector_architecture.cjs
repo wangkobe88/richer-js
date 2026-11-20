@@ -109,15 +109,18 @@ async function makeEngine(platform, extraConfig = {}) {
         id: `arch-${platform}`,
         config: {
             platform,
-            strategiesConfig: {
-                buyStrategies: [{ priority: 1, condition: 'earlyReturn > 100 AND age < 10' }],
-                sellStrategies: [{ priority: 1, condition: 'profitPercent > 40' }],
-            },
             tradeAmount: 0.1,
             fourmemeWs: { corpusEnrich: { enabled: false } }, // 关语料补采（零网络）
             flapWs: { corpusEnrich: { enabled: false } },
             ...extraConfig,
         },
+    };
+    // T202 策略库二期：腿唯一来源=策略包（真引擎 initialize 经查库解析缓存到
+    // _strategyDefinition；测试直填缓存免 DB——形状与 strategy_library.definition 一致）
+    engine._strategyDefinition = {
+        buyLegs: [{ priority: 1, condition: 'earlyReturn > 100 AND age < 10' }],
+        sellLegs: [{ priority: 1, condition: 'profitPercent > 40' }],
+        modules: { cheatCheck: 'v1', actFrontGate: 'v1', buyPointCheck: 'v1', factorCheck: 'v1' },
     };
     engine._experimentId = `arch-${platform}`;
     engine.logger = silentLogger;
@@ -200,13 +203,14 @@ async function testA() {
         id: 'arch-flap',
         config: {
             platform: 'flap',
-            strategiesConfig: {
-                buyStrategies: [{ priority: 1, condition: 'earlyReturn > 100 AND age < 10' }],
-                sellStrategies: [{ priority: 1, condition: 'profitPercent > 40' }],
-            },
             tradeAmount: 0.1,
             flapWs: { corpusEnrich: { enabled: false } },
         },
+    };
+    e3._strategyDefinition = { // T202：腿来源=策略包（测试直填缓存免 DB）
+        buyLegs: [{ priority: 1, condition: 'earlyReturn > 100 AND age < 10' }],
+        sellLegs: [{ priority: 1, condition: 'profitPercent > 40' }],
+        modules: { cheatCheck: 'v1', actFrontGate: 'v1', buyPointCheck: 'v1', factorCheck: 'v1' },
     };
     e3._experimentId = 'arch-flap';
     e3.logger = silentLogger; e3._logger = silentLogger;
@@ -399,13 +403,14 @@ async function testE() {
         id: 'arch-flap2',
         config: {
             platform: 'flap',
-            strategiesConfig: {
-                buyStrategies: [{ priority: 1, condition: 'earlyReturn > 100 AND age < 10' }],
-                sellStrategies: [{ priority: 1, condition: 'profitPercent > 40' }],
-            },
             tradeAmount: 0.1,
             flapWs: { corpusEnrich: { enabled: false } },
         },
+    };
+    e3._strategyDefinition = { // T202：腿来源=策略包（测试直填缓存免 DB）
+        buyLegs: [{ priority: 1, condition: 'earlyReturn > 100 AND age < 10' }],
+        sellLegs: [{ priority: 1, condition: 'profitPercent > 40' }],
+        modules: { cheatCheck: 'v1', actFrontGate: 'v1', buyPointCheck: 'v1', factorCheck: 'v1' },
     };
     e3._experimentId = 'arch-flap2';
     e3.logger = silentLogger; e3._logger = silentLogger;

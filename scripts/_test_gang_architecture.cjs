@@ -65,15 +65,16 @@ async function main() {
             id: 'gang-arch',
             config: {
                 platform: 'gang',
-                strategiesConfig: {
-                    buyStrategies: [{ priority: 1, condition: 'earlyReturn > 100 AND age < 10' }],
-                    sellStrategies: [{ priority: 1, condition: 'profitPercent > 40' }],
-                },
                 tradeAmount: 0.1,
                 fourmemeWs: { corpusEnrich: { enabled: false } },
                 flapWs: { corpusEnrich: { enabled: false } },
                 gangWs: { corpusEnrich: { enabled: false } }, // 关语料补采（零网络）
             },
+        };
+        engine._strategyDefinition = { // T202：腿来源=策略包（测试直填缓存免 DB）
+            buyLegs: [{ priority: 1, condition: 'earlyReturn > 100 AND age < 10' }],
+            sellLegs: [{ priority: 1, condition: 'profitPercent > 40' }],
+            modules: { cheatCheck: 'v1', actFrontGate: 'v1', buyPointCheck: 'v1', factorCheck: 'v1' },
         };
         engine._experimentId = 'gang-arch';
         engine.logger = silentLogger;

@@ -750,23 +750,26 @@
                     </div>
                 </div>
 
-                <!-- 买入策略配置（2026-09-28 裁定：创建页=策略库选择器，只能从库引用，不可编辑策略） -->
-                <div class="border border-gray-200 rounded-lg p-3">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-lg font-semibold text-gray-800">📈 买入策略</h2>
-                        <div class="flex items-center gap-2">
-                            <button type="button" onclick="openLibraryPicker('buy')"
-                                    class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
-                                📚 从库引用
-                            </button>
+                <!-- 交易策略包（T202 策略库二期，2026-11-20）：实验只存策略 ID——
+                     策略包=买/卖腿+断流/冷盘卖出+四检测模块版本（因子过滤/cheat/
+                     AF1/BP），从策略库选择；卡牌张数在包腿上、每卡 BNB 额度=实验层
+                     （下方卡牌仓位输入）。调整包内容到策略库页 -->
+                <div class="border border-gray-200 rounded-lg p-3" id="strategy-pack-section">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">📦 交易策略包</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                策略唯一来源=策略库（实验只存策略 ID，引擎启动解析当前版本）。
+                                包含买/卖腿、断流/冷盘卖出、检测模块版本；调整包内容请到
+                                <a href="/strategy-library" target="_blank" class="text-indigo-600 underline">策略库页</a>
+                            </p>
                         </div>
                     </div>
-                    <div id="buy-strategies-container"></div>
-                    <div id="buy-empty-hint" class="empty-hint hidden">
-                        暂无买入策略——点「📚 从库引用」从策略库添加。
-                        创建页不可编辑策略（腿只读快照），调整腿请到
-                        <a href="/strategy-library" target="_blank" class="text-indigo-600 underline">策略库页</a>
-                    </div>
+                    <select id="strategy-pack-select"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-2">
+                        <option value="">加载策略包列表…</option>
+                    </select>
+                    <div id="strategy-pack-info" class="text-sm text-gray-700"></div>
                 </div>
 
                 <!-- TPA 触发条件（2026-10-11 只读展示）：tokenPositionAnalyzer 是实验级配置
@@ -875,28 +878,20 @@
                     </p>
                 </div>
 
-                <!-- 作弊盘检测（CD1，2026-11-01 G1 起含分级门）：Jev 驱动买点盘面检测。
-                     双开关=主开关检测层（enabled）+ 分级门（gate.enabled）——只开主开关=观察
-                     模式（fire-and-forget 不影响买决策）；分级门=cheat/unhealthy/healthy 三级
-                     买点硬门（cheat 拉黑不再交易+持仓清仓；unhealthy 拒买可重判；healthy 放行
-                     叙事/GMGN 门照走）。物化语义=观察信号同款「关=删段」；回测整段剥离 -->
+                <!-- 作弊盘检测 ops（T202 策略库二期起 enabled 归策略包 modules.cheatCheck，
+                     实验层只承载等待上限等 ops 旋钮）；回测整段剥离 -->
                 <div class="border border-gray-200 rounded-lg p-3" id="cheat-check-section">
                     <div class="flex items-center justify-between mb-2">
                         <div>
-                            <h2 class="text-lg font-semibold text-gray-800">🚨 作弊盘检测（CD158 买信号驱动门）</h2>
+                            <h2 class="text-lg font-semibold text-gray-800">🚨 作弊盘检测（ops 旋钮）</h2>
                             <p class="text-xs text-gray-500 mt-0.5">
-                                买信号驱动的盘面健康门（Jev 观测+分级）。门条件在<b>买腿</b>上配置
-                                （策略库腿字段「作弊盘检查条件」）：cheat → 拉黑不再交易+持仓立即清仓；
-                                healthy → 保持判定（同版本粘滞）；unhealthy → 拒买、下个买信号自动重判。
-                                仅虚拟/实盘；回测门不生效（放行）
+                                启停与版本已归<b>策略包 modules.cheatCheck</b>（T202 策略库二期）——
+                                包带该模块才走门，本区只配实验层旋钮。门条件在包买腿
+                                cheatCheckCondition 上：cheat → 拉黑+清仓；unhealthy → 拒买可重判
                             </p>
                         </div>
                     </div>
-                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2">
-                        <input type="checkbox" id="cd-enabled" class="rounded">
-                        启用检测服务（买腿带「作弊盘检查条件」才实际走门；不带=零交互）
-                    </label>
-                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap ml-5">
+                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap">
                         <span class="whitespace-nowrap">买点等待上限(ms)</span>
                         <input type="text" id="cd-await-ms" placeholder="15000"
                                class="w-28 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
@@ -943,104 +938,8 @@
                     </p>
                 </div>
 
-                <!-- 断流/冷盘卖出（2026-11-20 用户需求「断流卖出机制作为实验配置项」）：
-                     引擎级保命卖出双腿——stallClose（T104 流动性断流止损+T118 足额门+
-                     T170/T170b 两档域延长）与 burstCooldown（T189 burst 承接冷盘两批卖出，
-                     T189b sbw 确认资格线）。均为实验顶层 config 段（引擎直读，非 ws 段），
-                     virtual/live/backtest 三态同读。物化语义=「关=不写段」（引擎无缺省：
-                     段在且 stallMs>0 / 段在（burstCooldown 哪怕 {}）才启用）。此前创建页
-                     无 UI、web 复制链也不携带（只有 CLI clone-experiment.cjs 携带）——
-                     复制源带段时回填表单，提交侧显式重写（round-trip 完整） -->
-                <div class="border border-gray-200 rounded-lg p-3" id="stall-sell-section">
-                    <div class="flex items-center justify-between mb-2">
-                        <div>
-                            <h2 class="text-lg font-semibold text-gray-800">🛑 断流/冷盘卖出（引擎级保命腿）</h2>
-                            <p class="text-xs text-gray-500 mt-0.5">
-                                两条引擎级立即全清卖出：①断流止损=持仓票无<b>足额成交</b>超 stallMs 全清
-                                （bypass 不走确认窗）；②burst 承接冷盘=burst 买入成交后观测「非波成员承接」，
-                                批1/批2 承接不足全清（需 cheat 门 sbw=burst 确认才 arm）。virtual/live/回测
-                                三态同读；数值空=引擎默认
-                            </p>
-                        </div>
-                    </div>
-                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2">
-                        <input type="checkbox" id="sc-enabled" class="rounded">
-                        启用断流止损（stallClose；勾选=写段，断流毫秒门空则落默认 50000）
-                    </label>
-                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap ml-5">
-                        <span class="whitespace-nowrap">断流毫秒门</span>
-                        <input type="text" id="sc-stall-ms" placeholder="50000"
-                               class="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                               spellcheck="false">
-                        <span class="whitespace-nowrap">足额门BNB(0=关)</span>
-                        <input type="text" id="sc-min-tick-bnb" placeholder="0.01"
-                               class="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                               spellcheck="false">
-                        <span class="whitespace-nowrap">almost域延长ms</span>
-                        <input type="text" id="sc-almost-stall-ms" placeholder="90000"
-                               class="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                               spellcheck="false">
-                        <span class="whitespace-nowrap">破发域延长ms(空/0=关)</span>
-                        <input type="text" id="sc-breakdown-stall-ms" placeholder=""
-                               class="w-24 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                               spellcheck="false">
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1 ml-5">
-                        断流门默认 50000（T170b 模板 50s）；足额门=微量成交不算流动性证据（水位切
-                        lastSubstantialTickAt）；almost 域延长=检测时 currentVsLaunchPct ≤ +10% 放宽到
-                        该毫秒（默认 90000）；破发域延长已撤回（T170c，缺省关，显式正值可恢复）
-                    </p>
-                    <label class="flex items-center gap-2 text-sm text-gray-700 mb-2 mt-3">
-                        <input type="checkbox" id="bc-enabled" class="rounded">
-                        启用 burst 承接冷盘（burstCooldown；勾选=写段，全空=全默认 15s/0.1B/8s/30s/0.05B）
-                    </label>
-                    <div class="flex items-center gap-2 text-sm text-gray-700 mb-2 flex-wrap ml-5">
-                        <span class="whitespace-nowrap">批1秒</span>
-                        <input type="text" id="bc-check1-sec" placeholder="15"
-                               class="w-16 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                               spellcheck="false">
-                        <span class="whitespace-nowrap">批1承接线BNB</span>
-                        <input type="text" id="bc-check1-absorb" placeholder="0.1"
-                               class="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                               spellcheck="false">
-                        <span class="whitespace-nowrap">枯竭确认秒</span>
-                        <input type="text" id="bc-confirm-sec" placeholder="8"
-                               class="w-16 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                               spellcheck="false">
-                        <span class="whitespace-nowrap">批2兜底秒</span>
-                        <input type="text" id="bc-check2-sec" placeholder="30"
-                               class="w-16 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                               spellcheck="false">
-                        <span class="whitespace-nowrap">批2承接线BNB</span>
-                        <input type="text" id="bc-check2-absorb" placeholder="0.05"
-                               class="w-20 px-3 py-2 border border-gray-300 rounded-md text-sm font-mono"
-                               spellcheck="false">
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1 ml-5">
-                        承接=非 burst 波成员钱包的买额（波窗=fire 前最密 5s 窗）：批1（fire+批1秒）承接
-                        &lt;线1 立即全清；批2 段内枯竭确认秒无承接且过批1+确认秒即卖（快线），段末
-                        （批2兜底秒）承接 &lt;线2 补卖、≥线2 解除。批2兜底秒须大于批1秒
-                    </p>
-                </div>
-
-                <!-- 卖出策略配置（同上：只读快照，仅库引用） -->
-                <div class="border border-gray-200 rounded-lg p-3">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-lg font-semibold text-gray-800">📉 卖出策略</h2>
-                        <div class="flex items-center gap-2">
-                            <button type="button" onclick="openLibraryPicker('sell')"
-                                    class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
-                                📚 从库引用
-                            </button>
-                        </div>
-                    </div>
-                    <div id="sell-strategies-container"></div>
-                    <div id="sell-empty-hint" class="empty-hint hidden">
-                        暂无卖出策略——点「📚 从库引用」从策略库添加。
-                        创建页不可编辑策略（腿只读快照），调整腿请到
-                        <a href="/strategy-library" target="_blank" class="text-indigo-600 underline">策略库页</a>
-                    </div>
-                </div>
+                <!-- 断流/冷盘卖出已随 T202 策略库二期归策略包 definition（stallClose/burstCooldown
+                     在所选包内配置，包信息卡可见启用状态）；实验层不再承载这两段 -->
 
                 <!-- 条件表达式帮助器 -->
                 <div class="border border-blue-200 bg-blue-50 rounded-lg p-3">
@@ -1168,71 +1067,20 @@
         </div>
     </div>
 
-    <!-- 策略卡片模板（只读快照：2026-09-28 裁定创建页不可编辑策略，腿来自库/源实验整包展示） -->
-    <template id="buy-strategy-template">
-        <div class="strategy-card" data-action="buy" data-index="{INDEX}">
-            <div class="card-header">
-                <span class="strategy-name">买入策略 #{INDEX}</span>
-                <button type="button" onclick="removeStrategy(this)" class="btn-remove">删除</button>
-            </div>
-            <div class="card-body">
-                <div class="leg-condition"></div>
-                <div class="leg-badges"></div>
-                <div class="leg-subconds"></div>
-                <div class="leg-advanced"></div>
-            </div>
-        </div>
-    </template>
-
-    <template id="sell-strategy-template">
-        <div class="strategy-card" data-action="sell" data-index="{INDEX}">
-            <div class="card-header">
-                <span class="strategy-name">卖出策略 #{INDEX}</span>
-                <button type="button" onclick="removeStrategy(this)" class="btn-remove">删除</button>
-            </div>
-            <div class="card-body">
-                <div class="leg-condition"></div>
-                <div class="leg-badges"></div>
-                <div class="leg-subconds"></div>
-                <div class="leg-advanced"></div>
-            </div>
-        </div>
-    </template>
-
-    <!-- 策略库引用浮层（策略库一期，2026-09-28）：展开库腿进表单（copy-in 快照） -->
-    <div id="library-picker-overlay" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-         onclick="closeLibraryPicker()">
-        <div class="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-y-auto p-5"
-             onclick="event.stopPropagation()">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-semibold text-gray-800">📚 从策略库引用（<span id="library-picker-side"></span>）</h3>
-                <button type="button" onclick="closeLibraryPicker()"
-                        class="px-2 py-1 text-gray-500 hover:text-gray-800 text-xl leading-none">×</button>
-            </div>
-            <p class="text-xs text-gray-500 mb-3">
-                引用 = 展开库内腿进下方表单（只读快照卡，调整腿请到策略库页）；实验与库从此独立（快照语义）。
-            </p>
-            <div id="library-picker-list" class="space-y-3"></div>
-        </div>
-    </div>
 
     <script>
-        // 全局变量
-        let buyStrategyCount = 0;
-        let sellStrategyCount = 0;
-        // 策略库引用 provenance（策略库一期）：从库引用展开时记录
-        // {libId, name, side, version, legCount, snapshotAt}，提交随载荷上报（服务端纯记录）
-        let libraryRefs = [];
+        // 全局变量（T202 策略库二期）：交易策略=策略库策略包，实验只存 strategyId
+        let strategyPackList = [];       // GET /api/strategy-library 结果缓存
+        let selectedPack = null;         // 当前选中包完整行（含 definition）
+        // 复制链路暂存（旧形状源实验无 strategyId → 留空要求手选包）
+        window._copyStrategyId = null;
+        window._copyPermanentBlock = null;
 
         // DOM 元素
         const form = document.getElementById('experiment-form');
         const submitBtn = document.getElementById('submit-btn');
         const resultMessage = document.getElementById('result-message');
         const resultContent = document.getElementById('result-content');
-        const buyContainer = document.getElementById('buy-strategies-container');
-        const sellContainer = document.getElementById('sell-strategies-container');
-        const buyTemplate = document.getElementById('buy-strategy-template');
-        const sellTemplate = document.getElementById('sell-strategy-template');
 
         // === 多链多平台配置（BSC-only：four.meme / flap 内盘） ===
         // 区块链和平台映射配置（须声明在下方复制模式 IIFE 之前——loadCopiedExperimentData
@@ -1257,11 +1105,6 @@
         const BLOCKCHAIN_NATIVE_CURRENCY = {
             bsc: 'BNB'
         };
-
-        // 验证模板已加载
-        if (!buyTemplate || !sellTemplate) {
-            console.error('❌ 策略模板未找到！');
-        }
 
         // 叙事分析：发现新币立即提交 - UI 联动
         function updateNarrativeSubmitImmediatelyUI() {
@@ -1386,7 +1229,7 @@
                 // collectFormData 提交时顶层透传（服务端形状校验后写入 config）。
                 // 不带则复制件行为大变——无止损双腿、TPA 买腿 TPAPre_* 恒 null fail-closed、
                 // OPB 不采集。（tokenCycle 段已随 cycle 分桶路由机制删除，2026-10-15，
-                // 复制链路不再携带）
+                // 复制链路不再携带；stallClose/burstCooldown 已随 T202 归策略包，不携带）
                 window._copyAdvancedConfig = {
                     ...(copyData.stopLoss ? { stopLoss: copyData.stopLoss } : {}),
                     ...(copyData.tokenPositionAnalyzer ? { tokenPositionAnalyzer: copyData.tokenPositionAnalyzer } : {}),
@@ -1395,6 +1238,15 @@
                     // （引擎 _wsConfigSectionName 分段读），与 fourmemeWs 同款整段保真
                     ...(copyData.flapWs ? { flapWs: copyData.flapWs } : {}),
                 };
+
+                // T202 策略库二期：复制链携带策略包引用（源实验新形状=预选其包；
+                // 旧形状无 strategyId → 留空要求手选包并提示）。permanentBlockCondition
+                // 引擎读 strategiesConfig 顶层，复制直接携带（不再挂首买腿）
+                window._copyStrategyId = copyData.strategyId || null;
+                window._copyPermanentBlock = copyData.permanentBlockCondition || null;
+                if (!copyData.strategyId) {
+                    showCopyModeNotice('⚠️ 源实验为旧内嵌腿形状（T202 前创建）——交易策略需手动选择策略包');
+                }
 
                 // dataPrefetch 回填已随机制退役删除（C84 2026-10-17）：表单元素不
                 // 存在；复制携带的残留段在提交侧无条件 delete
@@ -1431,15 +1283,11 @@
                     }
                 }
 
-                // 作弊盘检测回填（CD158 形状）：物化语义同观察信号「关=删段」——
-                // 源段 enabled===true 才显示为开（缺段=关）；awaitMs 数字有值才回填
-                //（退役键 gate.enabled/unhealthyReanalyses/prefetch/reanalyze 忽略）
+                // 作弊盘检测 ops 回填（T202 起 enabled 归策略包，实验层只回填 awaitMs）
                 {
                     const cd = copyData.fourmemeWs?.cheatCheck || copyData.flapWs?.cheatCheck;
                     if (cd) {
-                        const cdCb = document.getElementById('cd-enabled');
                         const cdMs = document.getElementById('cd-await-ms');
-                        if (cdCb) cdCb.checked = cd.enabled === true;
                         if (cdMs && Number.isInteger(cd.gate?.awaitMs)) cdMs.value = cd.gate.awaitMs;
                     }
                 }
@@ -1457,40 +1305,8 @@
                     if (elMax && Number.isInteger(bsMax)) elMax.value = bsMax;
                 }
 
-                // 断流/冷盘卖出回填（2026-11-20 用户需求）：复制携带的 stallClose/
-                // burstCooldown 顶层段回填表单（此前 web 复制链不携带这两段=复制件静默
-                // 丢机制；CLI clone-experiment.cjs 一直携带）。物化语义「关=不写段」：
-                // 源段在场才勾选（burstCooldown 段哪怕 {} 也算启用）；数字键有值才回填
-                {
-                    if (copyData.stallClose) {
-                        const scCb = document.getElementById('sc-enabled');
-                        const scMs = document.getElementById('sc-stall-ms');
-                        const scMin = document.getElementById('sc-min-tick-bnb');
-                        const scAlmost = document.getElementById('sc-almost-stall-ms');
-                        const scBreak = document.getElementById('sc-breakdown-stall-ms');
-                        // 段在但 stallMs 未配/非正=引擎侧机制关（CLAUDE.md：段在+stallMs>0
-                        // 才启用）——如实展示为未勾，防「勾了却不生效」的假启用
-                        const scActive = typeof copyData.stallClose.stallMs === 'number' && copyData.stallClose.stallMs > 0;
-                        if (scCb) scCb.checked = scActive;
-                        if (scMs && Number.isFinite(copyData.stallClose.stallMs) && copyData.stallClose.stallMs > 0) scMs.value = copyData.stallClose.stallMs;
-                        if (scMin && Number.isFinite(copyData.stallClose.minTickBnb)) scMin.value = copyData.stallClose.minTickBnb;
-                        if (scAlmost && Number.isFinite(copyData.stallClose.almostLaunchStallMs)) scAlmost.value = copyData.stallClose.almostLaunchStallMs;
-                        if (scBreak && Number.isFinite(copyData.stallClose.breakdownStallMs)) scBreak.value = copyData.stallClose.breakdownStallMs;
-                    }
-                    if (copyData.burstCooldown) {
-                        const bcCb = document.getElementById('bc-enabled');
-                        if (bcCb) bcCb.checked = true; // 段在场即启用（{}=全默认）
-                        const bcMap = [
-                            ['bc-check1-sec', 'check1Sec'], ['bc-check1-absorb', 'check1MinAbsorbBnb'],
-                            ['bc-confirm-sec', 'check2ConfirmSec'], ['bc-check2-sec', 'check2Sec'],
-                            ['bc-check2-absorb', 'check2MinAbsorbBnb'],
-                        ];
-                        for (const [elId, k] of bcMap) {
-                            const el = document.getElementById(elId);
-                            if (el && Number.isFinite(copyData.burstCooldown[k])) el.value = copyData.burstCooldown[k];
-                        }
-                    }
-                }
+                // 断流/冷盘卖出回填已随 T202 策略库二期退役（两段归策略包 definition，
+                // 复制链不携带；包信息卡展示所选包的断流/冷盘配置）
 
                 // TPA 触发条件只读展示（2026-10-11）：复制携带段可视化（纯展示零数据面
                 // 改动——提交仍走上方 _copyAdvancedConfig 整包透传；源实验无 TPA 段则
@@ -1570,67 +1386,10 @@
                     }
                 }
 
-                // 填充策略配置
-                // 清除默认预设策略
-                buyContainer.innerHTML = '';
-                sellContainer.innerHTML = '';
-                buyStrategyCount = 0;
-                sellStrategyCount = 0;
-
-                console.log('📋 开始处理策略配置...');
-                console.log('  buyStrategies:', copyData.buyStrategies);
-                console.log('  sellStrategies:', copyData.sellStrategies);
-
-                // 新格式：分离的 buyStrategies 和 sellStrategies
-                // 整包透传 strategy（不再白名单挑字段）——addXxxStrategy 存 rawConfig
-                // 整包，collectFormData 合并表单白名单外的键，复制链路不丢机制字段
-                //（bypassDebounce/sellPercentage/cards/cooldownSec 等）
-                if (copyData.buyStrategies && Array.isArray(copyData.buyStrategies)) {
-                    console.log(`✅ 找到 ${copyData.buyStrategies.length} 个买入策略`);
-                    copyData.buyStrategies.forEach((strategy, idx) => {
-                        console.log(`  添加买入策略 #${idx + 1}:`, strategy);
-                        addBuyStrategy({
-                            ...strategy,
-                            permanentBlockCondition: idx === 0 ? (copyData.permanentBlockCondition || strategy.permanentBlockCondition) : undefined,
-                        });
-                    });
-                } else {
-                    console.log('⚠️ 没有找到 buyStrategies 或不是数组');
-                }
-
-                if (copyData.sellStrategies && Array.isArray(copyData.sellStrategies)) {
-                    console.log(`✅ 找到 ${copyData.sellStrategies.length} 个卖出策略`);
-                    copyData.sellStrategies.forEach((strategy, idx) => {
-                        console.log(`  添加卖出策略 #${idx + 1}:`, strategy);
-                        addSellStrategy(strategy);
-                    });
-                } else {
-                    console.log('⚠️ 没有找到 sellStrategies 或不是数组');
-                }
-
-                // 兼容旧格式：strategies 数组（带 action 字段）
-                if (copyData.strategies && Array.isArray(copyData.strategies) && !copyData.buyStrategies) {
-                    copyData.strategies.forEach(strategy => {
-                        if (strategy.action === 'buy') {
-                            addBuyStrategy(strategy);
-                        } else if (strategy.action === 'sell') {
-                            addSellStrategy(strategy);
-                        }
-                    });
-                }
-
-                // 如果没有找到任何策略配置，添加默认策略
-                const buyStrategiesCount = buyContainer.querySelectorAll('.strategy-card').length;
-                const sellStrategiesCount = sellContainer.querySelectorAll('.strategy-card').length;
-
-                console.log(`策略添加完成: 买入${buyStrategiesCount}个, 卖出${sellStrategiesCount}个`);
-                console.log('买入容器内容:', buyContainer.innerHTML);
-                console.log('卖出容器内容:', sellContainer.innerHTML);
-
-                if (buyStrategiesCount === 0 && sellStrategiesCount === 0) {
-                    console.warn('⚠️ 没有找到任何策略配置（空态提示已显示，从库引用添加）');
-                }
-                updateEmptyHints();
+                // T202 策略库二期：腿回填退役——复制链只预选源实验的策略包
+                //（window._copyStrategyId 在上方 _copyAdvancedConfig 段已捕获；
+                // loadStrategyPacks() 拉列表后据此预选。旧形状源实验无包 → 留空手选）
+                console.log('📋 复制链策略包引用:', window._copyStrategyId || '(旧形状，需手选)');
 
                 // 显示复制模式通知
                 showCopyModeNotice('✅ 已加载复制的实验配置，您可以修改后创建新实验');
@@ -2048,226 +1807,93 @@
             document.getElementById('tpa-raw-json').textContent = JSON.stringify(tpa, null, 2);
         }
 
-        // 卡片 = 库条目/源实验腿的只读快照；rawConfig 整包存储，提交时零损取回。
-        // 调整腿参数一律到 /strategy-library 页
-        function renderLegReadonly(card, cfg) {
-            card.querySelector('.leg-condition').textContent = cfg.condition || '(无 condition)';
-            const badges = [];
-            if (cfg.priority != null) badges.push(`P${cfg.priority}`);
-            // T100 首买/再买分臂：轮次标记紧跟 P 徽章（两条 P1 腿仅凭徽章即可区分，
-            // 否则复制/引用后首买臂与再买臂在卡面上无差别）
-            if (cfg.buyPhase === 'first') badges.push('首买轮');
-            if (cfg.buyPhase === 'repeat') badges.push('再买轮');
-            badges.push(cfg.maxExecutions != null ? `执行≤${cfg.maxExecutions}` : '不限次数');
-            if (cfg.cards != null) badges.push(`🃏${cfg.cards}`);
-            if (cfg.cooldownSec != null) badges.push(`⏱️${cfg.cooldownSec}s`);
-            if (cfg.bypassDebounce) badges.push('旁路去抖');
-            // T117 信号源门链徽章：标识门链腿 + 触发帽（触发即消耗）
-            if (cfg.signalGate) {
-                badges.push(cfg.signalGate.maxTriggers != null
-                    ? `⚡信号源门·触发≤${cfg.signalGate.maxTriggers}` : '⚡信号源门');
-            }
-            // T109 卖确认去抖覆盖段（仅卖腿）：逐键徽章，配了哪个键显示哪个
-            if (cfg.sellDebounce) {
-                if (cfg.sellDebounce.minTicks != null) badges.push(`卖确认≥${cfg.sellDebounce.minTicks}tick`);
-                if (cfg.sellDebounce.debounceMs != null) badges.push(`确认窗${cfg.sellDebounce.debounceMs}ms`);
-                if (cfg.sellDebounce.maxWaitMs != null) badges.push(`确认帽${cfg.sellDebounce.maxWaitMs}ms`);
-            }
-            card.querySelector('.leg-badges').innerHTML =
-                badges.map(b => `<span class="badge">${b}</span>`).join('');
-            // 子条件块：执行语义字段与主条件同等视觉地位（2026-10-01，
-            // 平铺小字被 200 字描述淹没、用户两轮反馈「没展示」的根治）
-            const subConds = [];
-            if (cfg.preBuyCheckCondition) subConds.push(['预检查', cfg.preBuyCheckCondition]);
-            if (cfg.repeatBuyCheckCondition) subConds.push(['复购检查', cfg.repeatBuyCheckCondition]);
-            if (cfg.gmgnCheckCondition) subConds.push(['GMGN 检查（买前实时调）', cfg.gmgnCheckCondition]);
-            // CD381（2026-11-08）作弊重判因子表达式：signalGate 腿的 cheat 门重判条件
-            // （真=该信号真调重检，如 preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1）
-            if (cfg.signalGate && cfg.signalGate.recheckCondition) {
-                subConds.push(['作弊重判（信号源门链，CD381 表达式）', cfg.signalGate.recheckCondition]);
-            }
-            if (cfg.cheatCheckCondition) subConds.push(['作弊盘检查（GMGN 前最后一层，CD158）', cfg.cheatCheckCondition]);
-            if (cfg.narrativeTriggerCondition) subConds.push(['叙事发起（后台分析轮，C84 新链）', cfg.narrativeTriggerCondition]);
-            if (cfg.narrativeCallCondition) subConds.push(['叙事直调（legacy：fire 同步直调）', cfg.narrativeCallCondition]);
-            if (cfg.permanentBlockCondition) subConds.push(['永久阻断', cfg.permanentBlockCondition]);
-            const subBox = card.querySelector('.leg-subconds');
-            if (subConds.length) {
-                subBox.innerHTML = subConds.map(([label]) =>
-                    `<div class="leg-subcond"><div class="sc-label">${label}</div><div class="sc-expr"></div></div>`).join('');
-                subBox.querySelectorAll('.leg-subcond').forEach((el, i) => {
-                    el.querySelector('.sc-expr').textContent = subConds[i][1];
-                });
-            } else {
-                subBox.innerHTML = '';
-            }
-            const adv = [];
-            if (cfg.description) adv.push(`📝 ${cfg.description}`);
-            const advBox = card.querySelector('.leg-advanced');
-            if (adv.length) {
-                // 平铺常驻（2026-10-01 裁定「不要折叠」）：预检查/叙事直调等执行语义
-                // 字段藏 details 里发现性差（preBuyCheckCondition 误判没带上的案源）
-                advBox.innerHTML = `<div class="space-y-0.5">${adv.map(() => `<div class="adv-line"></div>`).join('')}</div>`;
-                advBox.querySelectorAll('.adv-line').forEach((el, i) => { el.textContent = adv[i]; });
-            } else {
-                advBox.innerHTML = '';
-            }
-        }
-
-        function updateEmptyHints() {
-            const bh = document.getElementById('buy-empty-hint');
-            const sh = document.getElementById('sell-empty-hint');
-            if (bh) bh.classList.toggle('hidden',
-                document.querySelectorAll('#buy-strategies-container .strategy-card').length > 0);
-            if (sh) sh.classList.toggle('hidden',
-                document.querySelectorAll('#sell-strategies-container .strategy-card').length > 0);
-        }
-
-        // 添加买入策略（只读卡：库引用 importLibraryItem / 复制链路回填调用）
-        function addBuyStrategy(config = {}) {
-            const index = buyStrategyCount++;
-            const html = buyTemplate.innerHTML.replace(/\{INDEX\}/g, index);
-            buyContainer.insertAdjacentHTML('beforeend', html);
-            const card = buyContainer.lastElementChild;
-            card.dataset.rawConfig = JSON.stringify(config || {});
-            renderLegReadonly(card, config || {});
-            updateEmptyHints();
-        }
-
-        // 添加卖出策略（卖腿平铺展示——cycle 桶分组已随机制删除 2026-10-15，
-        // DOM 序即插入序，提交腿序直接按 DOM 序平铺，与买侧同款）
-        function addSellStrategy(config = {}) {
-            const index = sellStrategyCount++;
-            const html = sellTemplate.innerHTML.replace(/\{INDEX\}/g, index);
-            sellContainer.insertAdjacentHTML('beforeend', html);
-            const card = sellContainer.lastElementChild;
-            card.dataset.rawConfig = JSON.stringify(config || {});
-            renderLegReadonly(card, config || {});
-            updateEmptyHints();
-        }
-
-        // === 策略库引用（策略库一期，2026-09-28）===
-        // 浮层拉取库条目 → 逐腿 addXxxStrategy 展开进表单（rawConfig 整包保真，机制字段自动携带）
-        async function openLibraryPicker(side) {
-            const overlay = document.getElementById('library-picker-overlay');
-            document.getElementById('library-picker-side').textContent = side === 'buy' ? '买侧' : '卖侧';
-            const list = document.getElementById('library-picker-list');
-            list.innerHTML = '<p class="text-gray-500 text-sm">加载中…</p>';
-            overlay.classList.remove('hidden');
+        // === T202 策略包选择器（2026-11-20 策略库二期）===
+        // 拉策略库包列表填充下拉；复制模式带 _copyStrategyId 时预选源实验的包。
+        // 包信息卡展示：版本/描述/买N卖M腿/四模块版本键/断流·冷盘启用状态
+        async function loadStrategyPacks() {
+            const sel = document.getElementById('strategy-pack-select');
+            const info = document.getElementById('strategy-pack-info');
             try {
-                const res = await fetch(`/api/strategy-library?side=${side}`);
+                const res = await fetch('/api/strategy-library');
                 const result = await res.json();
                 if (!result.success) throw new Error(result.error || '接口返回失败');
-                if (!result.data.length) {
-                    list.innerHTML = `<p class="text-gray-500 text-sm">库中暂无${side === 'buy' ? '买' : '卖'}侧条目——去
-                        <a href="/strategy-library" target="_blank" class="text-indigo-600 underline">策略库页</a> 创建或从实验导入</p>`;
-                    return;
+                strategyPackList = result.data || [];
+                sel.innerHTML = '<option value="">— 选择交易策略包 —</option>';
+                for (const pack of strategyPackList) {
+                    const opt = document.createElement('option');
+                    opt.value = pack.id;
+                    opt.textContent = `${pack.name}（v${pack.version} · 买${pack.buyLegCount}/卖${pack.sellLegCount} · 被${pack.usageCount}实验引用）`;
+                    sel.appendChild(opt);
                 }
-                list.innerHTML = '';
-                for (const item of result.data) {
-                    const legLines = (item.legs || []).map(l => {
-                        // T100：buy-v2（首买）与 buy-v2-repeat（再买）主条件同串，须凭轮次标记区分
-                        const bits = [];
-                        if (l.buyPhase === 'first') bits.push('首买');
-                        if (l.buyPhase === 'repeat') bits.push('再买');
-                        if (l.signalGate) bits.push('⚡信号源门'); // T117 门链腿标识（recheckCondition 全文在引用后的腿卡展示）
-                        if (l.sellDebounce && l.sellDebounce.minTicks != null) bits.push(`卖确认≥${l.sellDebounce.minTicks}tick`);
-                        bits.push(`P${l.priority ?? '-'}`, l.condition || '');
-                        return bits.join(' ');
-                    }).map(t => `<div class="text-xs text-gray-600 truncate" title="${t.replace(/"/g, '&quot;')}">${t}</div>`).join('');
-                    const card = document.createElement('div');
-                    card.className = 'border border-gray-200 rounded-lg p-3';
-                    card.innerHTML = `
-                        <div class="flex items-center justify-between gap-3">
-                            <div class="min-w-0">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-medium text-gray-800">${item.name}</span>
-                                    <span class="px-1.5 py-0.5 rounded text-xs font-medium ${item.side === 'buy' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${item.side === 'buy' ? '买' : '卖'}</span>
-                                    <span class="text-xs text-gray-500">${item.legs.length} 腿 · v${item.version} · 被 ${item.usageCount} 实验引用</span>
-                                </div>
-                                ${item.description ? `<div class="text-xs text-gray-500 mt-0.5">${item.description}</div>` : ''}
-                                <div class="mt-1 space-y-0.5">${legLines}</div>
-                            </div>
-                            <button type="button" class="shrink-0 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
-                                引用 ${item.legs.length} 腿
-                            </button>
-                        </div>`;
-                    card.querySelector('button').addEventListener('click', () => importLibraryItem(item));
-                    list.appendChild(card);
+                if (window._copyStrategyId && strategyPackList.some(x => x.id === window._copyStrategyId)) {
+                    sel.value = window._copyStrategyId;
+                    await onPackSelect();
+                } else if (!strategyPackList.length) {
+                    info.innerHTML = '<span class="text-red-500">策略库为空——请先到 <a href="/strategy-library" target="_blank" class="text-indigo-600 underline">策略库页</a> 创建或从实验导入策略包</span>';
                 }
             } catch (e) {
-                list.innerHTML = `<p class="text-red-500 text-sm">加载失败: ${e.message}</p>`;
+                info.innerHTML = `<span class="text-red-500">策略包列表加载失败: ${e.message}</span>`;
             }
         }
 
-        function importLibraryItem(item) {
-            const add = item.side === 'buy' ? addBuyStrategy : addSellStrategy;
-            for (const leg of item.legs) add({ ...leg });
-            if (!libraryRefs.some(r => r.libId === item.id)) {
-                libraryRefs.push({
-                    libId: item.id, name: item.name, side: item.side,
-                    version: item.version, legCount: item.legs.length,
-                    snapshotAt: new Date().toISOString(),
-                });
+        async function onPackSelect() {
+            const sel = document.getElementById('strategy-pack-select');
+            const info = document.getElementById('strategy-pack-info');
+            selectedPack = null;
+            const id = sel.value;
+            if (!id) { info.innerHTML = ''; return; }
+            try {
+                const res = await fetch(`/api/strategy-library/${id}`);
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error || '接口返回失败');
+                selectedPack = result.data;
+                renderPackInfo(selectedPack);
+            } catch (e) {
+                info.innerHTML = `<span class="text-red-500">策略包详情加载失败: ${e.message}</span>`;
             }
-            closeLibraryPicker();
         }
 
-        function closeLibraryPicker() {
-            document.getElementById('library-picker-overlay').classList.add('hidden');
+        function renderPackInfo(pack) {
+            const info = document.getElementById('strategy-pack-info');
+            const def = pack.definition || {};
+            const mods = def.modules || {};
+            const modNames = { factorCheck: '因子过滤(FP)', cheatCheck: 'Jev作弊门', actFrontGate: 'AF1活跃度门', buyPointCheck: 'BP买点' };
+            const modBadges = Object.keys(modNames).map((k) => mods[k]
+                ? `<span class="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 mr-1 mb-1">${modNames[k]}:${mods[k]}</span>`
+                : `<span class="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-400 mr-1 mb-1">${modNames[k]}:关</span>`).join('');
+            const mechBits = [];
+            if (def.stallClose) mechBits.push(`断流卖出 on（${Math.round((def.stallClose.stallMs || 0) / 1000)}s${def.stallClose.minTickBnb != null ? `·足额≥${def.stallClose.minTickBnb}B` : ''}）`);
+            else mechBits.push('断流卖出 off');
+            mechBits.push(def.burstCooldown != null ? '冷盘卖出 on' : '冷盘卖出 off');
+            info.innerHTML = `
+                <div class="border border-gray-200 rounded-md p-2 bg-gray-50">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <span class="font-medium">${pack.name} <span class="text-xs text-gray-500">v${pack.version}</span></span>
+                        <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">买${(def.buyLegs || []).length}腿</span>
+                        <span class="px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">卖${(def.sellLegs || []).length}腿</span>
+                    </div>
+                    ${pack.description ? `<div class="text-xs text-gray-500 mb-1">${pack.description}</div>` : ''}
+                    <div class="mb-1">${modBadges}</div>
+                    <div class="text-xs text-gray-600">${mechBits.join(' ｜ ')}</div>
+                    <details class="mt-1">
+                        <summary class="text-xs text-gray-500 cursor-pointer">包腿全文（只读）</summary>
+                        <pre class="text-xs text-gray-600 mt-1 max-h-64 overflow-auto whitespace-pre-wrap">${JSON.stringify(def, null, 1).replace(/</g, '&lt;')}</pre>
+                    </details>
+                </div>`;
         }
 
-        // 删除策略（只读卡无输入框：重编号仅更新序号标签与 dataset.index；
-        // 买/卖两侧均平铺重编号——cycle 桶分组已随机制删除 2026-10-15）
-        function removeStrategy(button) {
-            const card = button.closest('.strategy-card');
-            const action = card.dataset.action;
+        document.getElementById('strategy-pack-select')?.addEventListener('change', onPackSelect);
 
-            card.remove();
-
-            const container = action === 'buy' ? buyContainer : sellContainer;
-            container.querySelectorAll('.strategy-card').forEach((c, i) => {
-                c.dataset.index = i;
-                c.querySelector('.strategy-name').textContent =
-                    (action === 'buy' ? '买入策略 #' : '卖出策略 #') + (i + 1);
-            });
-
-            if (action === 'buy') {
-                buyStrategyCount = container.querySelectorAll('.strategy-card').length;
-            } else {
-                sellStrategyCount = container.querySelectorAll('.strategy-card').length;
-            }
-            updateEmptyHints();
-        }
 
         // 收集表单数据
         function collectFormData() {
             const formData = new FormData(form);
             const tradingMode = formData.get('trading_mode');
 
-            // 收集策略腿（只读化重构 2026-09-28：创建页零编辑——腿=库条目/源实验
-            // 快照整包取回，机制字段（bypassDebounce/sellPercentage/description 等）
-            // 零损失；调整腿一律在策略库页）
-            const buyStrategies = [];
-            document.querySelectorAll('#buy-strategies-container .strategy-card').forEach(card => {
-                let raw = {};
-                try { raw = JSON.parse(card.dataset.rawConfig || '{}'); } catch (e) { /* 损坏即忽略 */ }
-                buyStrategies.push(raw);
-            });
-
-            const sellStrategies = [];
-            document.querySelectorAll('#sell-strategies-container .strategy-card').forEach(card => {
-                let raw = {};
-                try { raw = JSON.parse(card.dataset.rawConfig || '{}'); } catch (e) { /* 损坏即忽略 */ }
-                sellStrategies.push(raw);
-            });
-
-            // 永久阻断条件：引擎读 strategiesConfig 顶层（FourMemeWssTradingEngine），
-            // 从首买腿快照提取（复制链路把它挂在首买腿上），提取后从腿上移除保持旧提交形状
-            let permanentBlockCondition = null;
-            if (buyStrategies.length && buyStrategies[0].permanentBlockCondition) {
-                permanentBlockCondition = buyStrategies[0].permanentBlockCondition;
-                delete buyStrategies[0].permanentBlockCondition;
-            }
+            // T202 策略库二期：交易策略=所选策略包（strategyId）；腿不再进实验 config。
+            // 永久阻断条件从复制链暂存读取（引擎读 strategiesConfig 顶层）
+            const strategyId = selectedPack?.id || null;
+            const permanentBlockCondition = window._copyPermanentBlock || null;
 
             // 构建配置数据
             // 复制携带的引擎级高级段（stopLoss/tokenPositionAnalyzer/fourmemeWs）：
@@ -2358,18 +1984,34 @@
                     }
                 }
             }
-            // 作弊盘检测收集（CD158 形状）：观察信号同款物化「关=删段」——勾主开关
-            // 才写 {enabled:true, gate:{awaitMs?}}（门激活=买腿携带 cheatCheckCondition，
-            // 不再有观察/分级双开关）；不勾=删段（含清掉复制携带段防静默开——退役键
-            // gate.enabled/unhealthyReanalyses/prefetch/reanalyze 随重存自然剥离）；
-            // 回测整段剥离（回测门零接线）
+            // 作弊盘检测 ops 收集（T202 起 enabled 归策略包——本段只承载 ops 旋钮）：
+            // awaitMs 有输入=写 gate.awaitMs；复制携带段保留其余 ops 键（alwaysRecheck/
+            // activityExemptLevels/memSource）但**剥离已归包的 enabled/actFrontGate 键**
+            //（服务端携带即 400，剥离防复制旧实验撞墙）；回测整段剥离（回测门零接线）。
+            // 同步剥离 buyPointCheck.enabled/.factorCheck.enabled 与顶层 stallClose/
+            // burstCooldown（T202 归包四防线的复制链侧）
             {
-                const cdCb = document.getElementById('cd-enabled');
                 const cdMs = /^\d+$/.test((document.getElementById('cd-await-ms')?.value || '').trim())
                     ? parseInt(document.getElementById('cd-await-ms').value.trim(), 10) : null;
                 for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
                     if (adv[k]) adv[k] = { ...(adv[k] || {}) };
+                    for (const kk of ['cheatCheck', 'buyPointCheck']) {
+                        if (adv[k][kk]) {
+                            adv[k][kk] = { ...(adv[k][kk]) };
+                            delete adv[k][kk].enabled;
+                            if (kk === 'cheatCheck') delete adv[k][kk].actFrontGate;
+                            if (kk === 'buyPointCheck' && adv[k][kk].factorCheck) {
+                                adv[k][kk].factorCheck = { ...(adv[k][kk].factorCheck) };
+                                delete adv[k][kk].factorCheck.enabled;
+                                if (Object.keys(adv[k][kk].factorCheck).length === 0) delete adv[k][kk].factorCheck;
+                            }
+                            if (Object.keys(adv[k][kk]).length === 0) delete adv[k][kk];
+                        }
+                    }
                 }
+                // 顶层 stallClose/burstCooldown 剥离（T202 归包；复制源旧形状携带防撞墙）
+                delete adv.stallClose;
+                delete adv.burstCooldown;
                 if (tradingMode === 'backtest') {
                     for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
                         if (adv[k]) delete adv[k].cheatCheck;
@@ -2380,13 +2022,9 @@
                     for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
                         if (k !== sec && adv[k]) delete adv[k].cheatCheck;
                     }
-                    if (cdCb?.checked) {
-                        // 只写现行键（enabled/gate.awaitMs）——复制源携带的退役键
-                        //（gate.enabled/unhealthyReanalyses/prefetch/reanalyze）不 spread 进来
-                        const merged = { enabled: true, ...(cdMs !== null ? { gate: { awaitMs: cdMs } } : {}) };
+                    if (cdMs !== null) {
+                        const merged = { ...(adv[sec]?.cheatCheck || {}), gate: { ...(adv[sec]?.cheatCheck?.gate || {}), awaitMs: cdMs } };
                         adv[sec] = { ...(adv[sec] || {}), cheatCheck: merged };
-                    } else if (adv[sec]) {
-                        delete adv[sec].cheatCheck;
                     }
                 }
             }
@@ -2422,56 +2060,14 @@
                     delete adv[sec].buySignalMaxPerToken;
                 }
             }
-            // 断流/冷盘卖出收集（2026-11-20 用户需求）：顶层 config 段（引擎直读，
-            // virtual/live/回测三态同读——回测不剥离）。物化「关=不写段」：不勾=段
-            // 缺席（引擎无缺省=机制关）；复制携带段经回填→收集显式重写=round-trip。
-            // stallClose 勾选但断流门空/非法 → 落默认 50000（段在而 stallMs 未配=
-            // 引擎侧机制关——「勾了却不生效」的假启用比默认值更危险）
-            const stallSellCfg = {};
-            {
-                const intVal = (raw) => /^\d+$/.test((raw || '').trim()) ? parseInt(raw.trim(), 10) : null;
-                const numVal = (raw) => {
-                    const t = (raw || '').trim();
-                    if (!/^\d+(\.\d+)?$/.test(t)) return null;
-                    const v = parseFloat(t);
-                    return Number.isFinite(v) ? v : null;
-                };
-                if (document.getElementById('sc-enabled')?.checked) {
-                    const msVal = intVal(document.getElementById('sc-stall-ms')?.value);
-                    const scSec = { stallMs: (msVal != null && msVal > 0) ? msVal : 50000 };
-                    const minVal = numVal(document.getElementById('sc-min-tick-bnb')?.value);
-                    if (minVal != null) scSec.minTickBnb = minVal; // 0=关（引擎 null 同义）
-                    const almostVal = intVal(document.getElementById('sc-almost-stall-ms')?.value);
-                    if (almostVal != null) scSec.almostLaunchStallMs = almostVal;
-                    const breakVal = intVal(document.getElementById('sc-breakdown-stall-ms')?.value);
-                    if (breakVal != null) scSec.breakdownStallMs = breakVal; // 0/空=臂关（T170c）
-                    stallSellCfg.stallClose = scSec;
-                }
-                if (document.getElementById('bc-enabled')?.checked) {
-                    // 勾选=写段；全空={}（段在场即启用=引擎全默认 15/0.1/8/30/0.05）
-                    const bcSec = {};
-                    const c1 = intVal(document.getElementById('bc-check1-sec')?.value);
-                    const cf = intVal(document.getElementById('bc-confirm-sec')?.value);
-                    const c2 = intVal(document.getElementById('bc-check2-sec')?.value);
-                    const a1 = numVal(document.getElementById('bc-check1-absorb')?.value);
-                    const a2 = numVal(document.getElementById('bc-check2-absorb')?.value);
-                    if (c1 != null) bcSec.check1Sec = c1;
-                    if (cf != null) bcSec.check2ConfirmSec = cf;
-                    if (c2 != null) bcSec.check2Sec = c2;
-                    if (a1 != null) bcSec.check1MinAbsorbBnb = a1;
-                    if (a2 != null) bcSec.check2MinAbsorbBnb = a2;
-                    stallSellCfg.burstCooldown = bcSec;
-                }
-            }
+            // 断流/冷盘卖出收集已随 T202 策略库二期退役（两段归策略包 definition）
+
             const config = {
                 experiment_name: formData.get('experiment_name'),
                 experiment_description: formData.get('experiment_description'),
                 trading_mode: tradingMode,
                 blockchain: formData.get('blockchain'),
                 ...adv,
-                // 断流/冷盘卖出（2026-11-20）：顶层段透传（服务端形状校验后写入 config）
-                ...(stallSellCfg.stallClose ? { stallClose: stallSellCfg.stallClose } : {}),
-                ...(stallSellCfg.burstCooldown ? { burstCooldown: stallSellCfg.burstCooldown } : {}),
                 // 平台多选 checkbox：勾两个 → 'both'（双平台实验），单勾 → 该平台
                 //（change 监听结构性保证至少一勾：取消最后一个勾选会被拒绝；
                 //  gang 互斥保证 length>=2 只可能是 fourmeme+flap，不会折入 gang）
@@ -2479,11 +2075,9 @@
                 initial_balance: parseFloat(formData.get('initial_balance')),
                 // 策略配置
                 strategy: {
-                    buyStrategies: buyStrategies,
-                    sellStrategies: sellStrategies,
-                    // 策略库引用 provenance（纯记录，服务端形状校验后透传；无引用时省略）
-                    ...(libraryRefs.length > 0 ? { libraryRefs } : {}),
-                    // 永久阻断条件（从首买腿快照提取，见上方收集段）
+                    // T202 策略库二期：交易策略=策略包引用（服务端校验存在+definition 形状）
+                    strategyId,
+                    // 永久阻断条件（复制链暂存；引擎读 strategiesConfig 顶层）
                     permanentBlockCondition,
                     // 交易金额配置
                     tradeAmount: parseFloat(formData.get('trade_amount')) || 0.5,
@@ -2570,9 +2164,7 @@
             console.log('📝 表单提交事件触发');
             e.preventDefault();
 
-            // 验证
-            const buyStrategies = document.querySelectorAll('#buy-strategies-container .strategy-card');
-            const sellStrategies = document.querySelectorAll('#sell-strategies-container .strategy-card');
+            // 验证（T202：腿校验已换策略包必选——见下方 collectFormData 后的校验段）
             const tradingMode = document.getElementById('trading_mode').value;
 
             // gang 单平台防线（第二道，change 监听互斥为第一道）：gang 与
@@ -2584,16 +2176,12 @@
                 return;
             }
 
-            console.log(`📝 策略验证: 买入策略${buyStrategies.length}个, 卖出策略${sellStrategies.length}个`);
+            const _packId = selectedPack?.id || null;
+            console.log(`📝 策略验证: 策略包=${_packId || '(未选)'}`);
 
-            if (buyStrategies.length === 0) {
-                console.error('❌ 验证失败: 没有买入策略');
-                alert('请从策略库引用至少一个买入策略（创建页不可手写策略）');
-                return;
-            }
-            if (sellStrategies.length === 0) {
-                console.error('❌ 验证失败: 没有卖出策略');
-                alert('请从策略库引用至少一个卖出策略（创建页不可手写策略）');
+            if (!_packId) {
+                console.error('❌ 验证失败: 未选择交易策略包');
+                alert('请选择交易策略包（T202：交易策略唯一来源=策略库；库为空请先到策略库页创建）');
                 return;
             }
 
@@ -2720,8 +2308,8 @@
             }
         });
 
-        // 初始化空态提示（2026-09-28 只读化：无默认策略，从库引用添加）
-        updateEmptyHints();
+        // 初始化策略包选择器（T202：拉策略库列表；复制模式带 _copyStrategyId 预选）
+        loadStrategyPacks();
 
         // 初始化区块链和平台（重建 checkbox 组 + 默认勾选第一个平台）
         handleBlockchainChange();

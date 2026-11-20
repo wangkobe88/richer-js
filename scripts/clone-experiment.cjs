@@ -1,56 +1,59 @@
 #!/usr/bin/env node
-// 正式克隆工具（2026-11-19 立，T167c 会话用户裁定「标准克隆模板默认带上 factorCheck」）：
-// 整包复制基底实验 config + 门链标准段确保（factorCheck/cheatCheck/actFrontGate/buyPointCheck
-// 缺则补 enabled:true——FP 族/CD/AF1/BP 四门在克隆产物永远在位）+ signalGate 买腿 cards:4
-// 自动补（bt-v149 作废教训）+ stallClose.stallMs→50000 标准化（T170b 模板默认 50s——
-// 2026-11-19 用户发现该裁定只落了文档没落工具，克隆链一直原样携带 40s；仅当 stallClose
-// 段在场且 stallMs 已配=机制开着时改值，段缺席/stallMs 未配=机制关不强制开）+
-// trading_mode 陷阱断言（克隆脚本 trading-mode-trap memory）。
-// 只建行不启动（启动走 182 main.js start-experiment）；--dry 打印注入计划不写库。
+// 正式克隆工具（2026-11-19 立；T202 策略库二期 2026-11-20 重写）：
+// 整包复制基底实验 config + 策略包引用转换。交易策略（买/卖腿+断流/冷盘卖出+
+// 四检测模块版本）唯一来源=策略库策略包——克隆产物 config 只携带顶层 strategyId，
+// 引擎启动查库解析（启动时取最新 version）。
 //
-// ── 2026-11-20 实盘恢复对齐扩展 ──
-// --mode live：从回测基底克隆出实盘实验（copy-in 快照语义决定不能从旧实盘克隆——
-//   会永远停在旧库腿；正确路径=从引用最新库 v33 的 bt 基底转换）。转换链：
-//   剥 backtest/virtual 段 → 钱包注入（--executor/--reuse-wallet 两源，绝不接受明文
-//   私钥参数）→ live 执行段（缺省同 config/default.json [sec].live）→ 剥回测专用
-//   settleDelayMs:0（live 携 0 会跳过 settle 致 sender 未定值/wallet 口径退化，剥键
-//   回落 4000 waitIdle 帽）→ Tier2 live 标准段全套确保（docs/当前最优买卖策略.md
-//   L151-168 基准 + 2026-11-20 用户裁定 burstCooldown:{} 启用 / signalGatePerTickEval:
-//   false 对齐回测 T154 debounce 形态）。
+// ── T202 后语义 ──
+// * Tier1 门链注入/cards:4 自动补/stallClose.stallMs 标准化 全部退役（策略包拥有
+//   门链启停与机制段；--no-gates 参数同步废弃，传入即报错防误用）
+// * --pack <name|id>：基底为旧内嵌腿形状（strategiesConfig.buy/sellStrategies）
+//   时必须给（按名/uuid 取库最新版，产物 config.strategyId=包 id，剥旧腿/
+//   libraryRefs/strategyResolved）；基底已是新形状时缺省沿用其 strategyId，
+//   显式 --pack=换包（对拍工作流：clone bt-v163 --pack other-pack）
+// * 基底携带的 T202 已归包键一律剥离留痕：ws 段四 enabled 键
+//   （cheatCheck.enabled/cheatCheck.actFrontGate/buyPointCheck.enabled/
+//   buyPointCheck.factorCheck.enabled）+ 顶层 stallClose/burstCooldown
+// * strategiesConfig 的 stats/eventRecording/permanentBlockCondition 保留（实验层）
+//
+// ── 2026-11-20 实盘恢复对齐扩展（保留）──
+// --mode live：从回测基底克隆出实盘实验。转换链：剥 backtest/virtual 段 →
+//   钱包注入（--executor/--reuse-wallet 两源，绝不接受明文私钥参数）→ live
+//   执行段（缺省同 config/default.json [sec].live）→ 剥回测专用 settleDelayMs:0
+//   （live 携 0 会跳过 settle 致 sender 未定值/wallet 口径退化，剥键回落 4000
+//   waitIdle 帽）→ Tier2 live ops 标准段（buySignalMaxPerToken/卖确认 5-tick/
+//   gate awaitMs+alwaysRecheck+activityExemptLevels/factorSellFilter 等——
+//   门链 enabled 不在此，归策略包）。
 // --mode virtual：同链剥回测段+加 virtual 段（开启实盘前同 config 冒烟用）。
-// 库腿版本 WARN：基底 libraryRefs 版本 ≠ strategy_library 现版本时醒目提示
-//   （copy-in 不回溯，换基底解决；--refresh-legs 刻意不做——混合腿风险>收益）。
-// Tier1（4 布尔+cards+stallMs）全模式不变=回测克隆 bit 一致；Tier2 仅 live 产物生效。
+// trading_mode 陷阱断言（memory clone-script-trading-mode-trap）。
+// 只建行不启动（启动走 182 main.js start-experiment）；--dry 打印注入计划不写库。
 //
 // 用法：
 //   node scripts/clone-experiment.cjs --src <expId> --name <新实验名> [--desc "..."] [--dry]
-//                                     [--no-gates]（跳过门链注入，纯整包复制）
+//                                     [--pack <策略包名|uuid>]（旧形状基底必填；新形状=换包）
 //                                     [--mode live|virtual]（缺省=继承基底模式）
 //                                     [--executor <executorId>] | [--reuse-wallet <expId>]（mode=live 必择一）
 //                                     [--reserve-native 0.01] [--slippage 20] [--max-gas 10] [--max-position-tokens 0]
 // 示例：
-//   node scripts/clone-experiment.cjs --src c73b62be-... --name bt-v155-xxx-36h-win1012 --dry
-//   node scripts/clone-experiment.cjs --src <bt-v15x> --name live-v75-ladder-v33 --mode live --executor <id> --dry
+//   node scripts/clone-experiment.cjs --src c73b62be-... --name bt-v164-xxx-36h --dry
+//   node scripts/clone-experiment.cjs --src <旧bt> --name bt-v164 --pack trading-standard-v1 --dry
+//   node scripts/clone-experiment.cjs --src <bt> --name live-v75 --pack trading-standard-v1 --mode live --executor <id> --dry
 // （dbManager 懒 require 在 main 内——单测 require 本模块纯函数零 DB 零副作用）
 
-// ══ Tier2 live 标准段（docs/当前最优买卖策略.md「四、机制与实验配置」基准 +
-// 2026-11-20 用户裁定：burstCooldown 启用、per-tick 撤销）——唯一基准是 docs 文档，
-// 改这里必须同步 docs。注入语义=段级一层深 merge（绝不单布尔顶段——浅合并陷阱：
-// 引擎 _mergedWsConfig 嵌套对象整块替换，单布尔注入会顶掉 gate/memSource 子键）。══
+// ══ Tier2 live ops 标准段（docs/当前最优买卖策略.md「四、机制与实验配置」基准的
+// 实验层部分；门链 enabled 已归策略包不在列）——唯一基准是 docs 文档，改这里必须
+// 同步 docs。注入语义=段级一层深 merge（绝不单布尔顶段——浅合并陷阱：引擎
+// _mergedWsConfig 嵌套对象整块替换，单布尔注入会顶掉 gate/memSource 子键）。══
 const LIVE_STD_WS = {
-  buySignalMaxPerToken: 15,        // docs L37：T110 默认帽 5 会截断 15 信号阶梯
+  buySignalMaxPerToken: 15,        // docs：T110 默认帽 5 会截断 15 信号阶梯
   sellDebounceMinTicks: 5,         // 引擎缺省 0=纯时间门；丢 5-tick 双门=行为回退
   cheatCheck: {
-    enabled: true,
     gate: { awaitMs: 60000, alwaysRecheck: true, activityExemptLevels: ['high'] },
     memSource: { enabled: false },
-    actFrontGate: { enabled: true },
   },
   buyPointCheck: {
-    enabled: true,
     gate: { awaitMs: 60000 },
     memSource: { enabled: false },
-    factorCheck: { enabled: true },
   },
   factorSellFilter: { enabled: true },  // 缺段=关=T157/T183/T186 卖保护全丢（docs 明言行为回退）
   factorParams: { netBuyWinTrades: 12 }, // 引擎内建 20；回测最优验证口径 12（单键 merge 保留基底其余键）
@@ -59,9 +62,7 @@ const LIVE_STD_WS = {
   signalGatePerTickEval: false,    // 2026-11-20 裁定：对齐回测 T154「debounce 是对的」形态
 };
 const LIVE_STD_TOP = {
-  positionManagement: { perCardBNB: 0.05 },  // +买腿 cards:4（Tier1 已确保）=0.2 BNB/笔四卡
-  stallClose: { stallMs: 50000, minTickBnb: 0.01 },  // merge 保留 almostLaunchStallMs 等延长档
-  burstCooldown: {},              // 2026-11-20 裁定启用：段在场=全默认（15s/30s 两批承接检查）
+  positionManagement: { perCardBNB: 0.05 },  // 张数在包腿上（cards:4）=0.2 BNB/笔四卡
 };
 
 function arg(k) {
@@ -69,8 +70,57 @@ function arg(k) {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
-/** ws 段标准注入：LIVE_STD_WS 深一层 merge 进 cfg[sec]（gate/memSource/actFrontGate/
- * factorCheck/observationSignals 等嵌套段单独 merge 保基底其余键），逐键留痕。纯函数（单测覆盖）。 */
+/** T202 已归包键剥离（纯函数，单测覆盖）：ws 段四 enabled 键 + 顶层 stallClose/
+ * burstCooldown。克隆基底（旧形状实验）携带时剥除留痕——引擎读包不看这些键，
+ * 剥离防混读与后续 web 层 400。 */
+function stripPackOwnedKeys(cfg, changes) {
+  for (const sec of ['fourmemeWs', 'flapWs', 'gangWs']) {
+    const ws = cfg[sec];
+    if (!ws || typeof ws !== 'object') continue;
+    for (const seg of ['cheatCheck', 'buyPointCheck']) {
+      const section = ws[seg];
+      if (!section || typeof section !== 'object') continue;
+      if ('enabled' in section) { delete section.enabled; changes.push('剥 ' + sec + '.' + seg + '.enabled（T202 归策略包）'); }
+      if (seg === 'cheatCheck' && 'actFrontGate' in section) { delete section.actFrontGate; changes.push('剥 ' + sec + '.cheatCheck.actFrontGate（T202 归策略包）'); }
+      if (seg === 'buyPointCheck' && section.factorCheck && typeof section.factorCheck === 'object'
+        && 'enabled' in section.factorCheck) {
+        delete section.factorCheck.enabled;
+        changes.push('剥 ' + sec + '.buyPointCheck.factorCheck.enabled（T202 归策略包）');
+      }
+    }
+  }
+  if ('stallClose' in cfg) { delete cfg.stallClose; changes.push('剥顶层 stallClose（T202 归策略包 definition）'); }
+  if ('burstCooldown' in cfg) { delete cfg.burstCooldown; changes.push('剥顶层 burstCooldown（T202 归策略包 definition）'); }
+}
+
+/** 策略包引用转换（纯函数，单测覆盖）：
+ *  - base 有 strategyId 且未换包 → 保留（剥 strategyResolved 陈旧审计）
+ *  - 换包/旧形状 → cfg.strategyId=packId，剥旧腿形状（buy/sellStrategies/libraryRefs）
+ *  - stats/eventRecording/permanentBlockCondition 恒保留（实验层）
+ * 返回 { strategyId, isLegacy } 供 main 打印。 */
+function applyPackReference(cfg, packId, changes) {
+  const legacy = !!(cfg.strategiesConfig
+    && (Array.isArray(cfg.strategiesConfig.buyStrategies) || Array.isArray(cfg.strategiesConfig.sellStrategies)));
+  if (cfg.strategyId) delete cfg.strategyResolved;
+  if (packId) {
+    cfg.strategyId = packId;
+    changes.push('config.strategyId=' + packId + (legacy ? '（旧腿形状转换）' : '（换包）'));
+  } else if (!cfg.strategyId) {
+    throw new Error('基底为旧内嵌腿形状（strategiesConfig.buy/sellStrategies）——T202 后克隆必须 --pack <策略包名|uuid> 转换（旧腿不迁移不复制）');
+  }
+  if (legacy) {
+    const sc = cfg.strategiesConfig;
+    const n = (sc.buyStrategies || []).length + (sc.sellStrategies || []).length;
+    delete sc.buyStrategies;
+    delete sc.sellStrategies;
+    if (Array.isArray(sc.libraryRefs)) delete sc.libraryRefs;
+    changes.push('剥旧内嵌腿 ' + n + ' 条+libraryRefs（T202：腿唯一来源=策略包）');
+  }
+  return { strategyId: cfg.strategyId, isLegacy: legacy };
+}
+
+/** ws 段标准注入：LIVE_STD_WS 深一层 merge 进 cfg[sec]（gate/memSource/
+ * observationSignals 等嵌套段单独 merge 保基底其余键），逐键留痕。纯函数（单测覆盖）。 */
 function ensureLiveStandardSections(cfg, sec, changes) {
   cfg[sec] = cfg[sec] || {};
   const ws = cfg[sec];
@@ -78,7 +128,7 @@ function ensureLiveStandardSections(cfg, sec, changes) {
     if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
       const base = ws[k] || {};
       const merged = { ...base, ...v };
-      // 二层嵌套段（gate/memSource/actFrontGate/factorCheck）再 merge 一层保基底其余键
+      // 二层嵌套段（gate/memSource）再 merge 一层保基底其余键
       for (const [k2, v2] of Object.entries(v)) {
         if (v2 !== null && typeof v2 === 'object' && !Array.isArray(v2)) {
           merged[k2] = { ...(base[k2] || {}), ...v2 };
@@ -108,7 +158,7 @@ function ensureLiveStandardSections(cfg, sec, changes) {
   }
 }
 
-/** 模式转换链（纯函数，单测覆盖）：baseMode→targetMode 的段剥离/Tier2 标准段/live 段注入。
+/** 模式转换链（纯函数，单测覆盖）：baseMode→targetMode 的段剥离/Tier2 ops 标准段/live 段注入。
  * wallet/liveParams 由 main() 异步解析后传入（DB 查表在 main）。
  * 返回 { cfg, mode, changes }。 */
 function convertMode(cfg, baseMode, targetMode, opts) {
@@ -124,7 +174,7 @@ function convertMode(cfg, baseMode, targetMode, opts) {
     const sec = plat === 'flap' ? 'flapWs' : plat === 'gang' ? 'gangWs' : 'fourmemeWs';
     cfg[sec] = cfg[sec] || {};
     // 回测专用 settleDelayMs:0 必须剥（live 携 0=跳过 settle→sender 未定值→wallet 口径
-    // 退化；剥键回落引擎 4000 waitIdle 帽=同语义不同实现，docs L172 生产/回测差异注记）
+    // 退化；剥键回落引擎 4000 waitIdle 帽=同语义不同实现，docs 生产/回测差异注记）
     for (const seg of ['cheatCheck', 'buyPointCheck']) {
       if (cfg[sec][seg] && 'settleDelayMs' in cfg[sec][seg]) {
         delete cfg[sec][seg].settleDelayMs;
@@ -147,7 +197,7 @@ function convertMode(cfg, baseMode, targetMode, opts) {
   return { cfg, mode, changes };
 }
 
-module.exports = { LIVE_STD_WS, LIVE_STD_TOP, ensureLiveStandardSections, convertMode };
+module.exports = { LIVE_STD_WS, LIVE_STD_TOP, ensureLiveStandardSections, convertMode, stripPackOwnedKeys, applyPackReference };
 
 async function main() {
   const { dbManager } = require('../src/services/dbManager');
@@ -155,13 +205,18 @@ async function main() {
   const name = arg('name');
   const desc = arg('desc');
   const dry = process.argv.includes('--dry');
-  const noGates = process.argv.includes('--no-gates');
+  const packArg = arg('pack');
   const modeArg = arg('mode');
   const executorId = arg('executor');
   const reuseWalletExp = arg('reuse-wallet');
+  if (process.argv.includes('--no-gates')) {
+    console.error('FATAL --no-gates 已随 T202 策略库二期废弃（门链启停归策略包 modules，克隆不再注入）');
+    process.exit(1);
+  }
   if (!src || !name) {
-    console.error('用法: --src <expId> --name <名> [--desc ..] [--dry] [--no-gates] [--mode live|virtual]\n' +
-      '                       [--executor <executorId> | --reuse-wallet <expId>] [--reserve-native N] [--slippage N] [--max-gas N] [--max-position-tokens N]');
+    console.error('用法: --src <expId> --name <名> [--desc ..] [--dry] [--pack <策略包名|uuid>]\n' +
+      '                       [--mode live|virtual] [--executor <executorId> | --reuse-wallet <expId>]\n' +
+      '                       [--reserve-native N] [--slippage N] [--max-gas N] [--max-position-tokens N]');
     process.exit(1);
   }
   if (modeArg && modeArg !== 'live' && modeArg !== 'virtual') {
@@ -184,6 +239,30 @@ async function main() {
     console.log('⚠ 未指定 --mode：产物=回测克隆（trading_mode 原样继承基底）');
   }
 
+  // ── 策略包解析（--pack <name|uuid> → 最新版行；缺省沿用基底 strategyId）──
+  let packId = null;
+  if (packArg) {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const packQuery = c.from('strategy_library').select('id, name, version, definition').limit(1);
+    const { data: packRows } = UUID_RE.test(packArg)
+      ? await packQuery.eq('id', packArg)
+      : await packQuery.eq('name', packArg);
+    const row = (packRows || [])[0];
+    if (!row) throw new Error('策略包不存在: ' + packArg + '（--pack 须为库内 name 或 uuid）');
+    packId = row.id;
+    const def = row.definition || {};
+    const mods = Object.entries(def.modules || {}).map(([k, v]) => k + ':' + v).join(' ') || '无（四门全关）';
+    console.log('策略包: ' + row.name + ' v' + row.version + ' | 买' + ((def.buyLegs || []).length) + '/卖' + ((def.sellLegs || []).length) + ' 腿' +
+      ' | stallClose=' + (def.stallClose ? 'on' : 'off') + ' burstCooldown=' + (def.burstCooldown != null ? 'on' : 'off') +
+      ' | modules=' + mods);
+  }
+
+  const changes = [];
+
+  // ── T202 归包键剥离 + 策略包引用转换（旧形状必须 --pack，纯函数抛错 fail-fast）──
+  stripPackOwnedKeys(cfg, changes);
+  const packRef = applyPackReference(cfg, packId, changes);
+
   // ── 钱包/live 参数解析（DB/文件读取在 main；形状照抄 web-server live 创建段）──
   let wallet = null;
   if (targetMode === 'live' && targetMode !== baseMode) {
@@ -200,7 +279,7 @@ async function main() {
       const sw = (srcExp[0].config || {}).wallet;
       if (!sw || !sw.address) throw new Error('源实验 ' + reuseWalletExp + ' 无钱包配置，无法复用');
       // 两形态：executorId 引用（v74 系实际形态，私钥单一真相源在 executors 表=拷引用不挪密钥）
-      // / privateKey 密文（web-server L745 同款直拷）
+      // / privateKey 密文（web-server 同款直拷）
       wallet = sw.executorId
         ? { executorId: sw.executorId, address: sw.address }
         : { address: sw.address, ...(sw.privateKey ? { privateKey: sw.privateKey } : {}) };
@@ -224,41 +303,7 @@ async function main() {
     };
   }
 
-  const changes = [];
-
-  if (!noGates) {
-    // 门链标准段（Tier1，全模式不变）：注入到平台主段（both/fourmeme→fourmemeWs；flap→flapWs；gang→gangWs）
-    const plat = cfg.platform || 'fourmeme';
-    const sec = plat === 'flap' ? 'flapWs' : plat === 'gang' ? 'gangWs' : 'fourmemeWs';
-    cfg[sec] = cfg[sec] || {};
-    // ① FP 因子门（T143/T167c——用户裁定「factorCheck 一直都需要打开」）
-    cfg[sec].buyPointCheck = cfg[sec].buyPointCheck || {};
-    if (cfg[sec].buyPointCheck.enabled !== true) { cfg[sec].buyPointCheck.enabled = true; changes.push(sec + '.buyPointCheck.enabled=true'); }
-    cfg[sec].buyPointCheck.factorCheck = cfg[sec].buyPointCheck.factorCheck || {};
-    if (cfg[sec].buyPointCheck.factorCheck.enabled !== true) { cfg[sec].buyPointCheck.factorCheck.enabled = true; changes.push(sec + '.buyPointCheck.factorCheck.enabled=true'); }
-    // ② cheat 门 + AF1 前置门（灰度布尔显式开——缺省 false 防回归）
-    cfg[sec].cheatCheck = cfg[sec].cheatCheck || {};
-    if (cfg[sec].cheatCheck.enabled !== true) { cfg[sec].cheatCheck.enabled = true; changes.push(sec + '.cheatCheck.enabled=true'); }
-    cfg[sec].cheatCheck.actFrontGate = cfg[sec].cheatCheck.actFrontGate || {};
-    if (cfg[sec].cheatCheck.actFrontGate.enabled !== true) { cfg[sec].cheatCheck.actFrontGate.enabled = true; changes.push(sec + '.cheatCheck.actFrontGate.enabled=true'); }
-    // ③ signalGate 买腿 cards:4 自动补（bt-v149 作废教训：换库腿漏 cards=卡牌阶梯退化）
-    const sc = cfg.strategiesConfig || cfg.strategy || {};
-    for (const l of (sc.buyStrategies || [])) {
-      if (l.signalGate && l.cards !== 4) { l.cards = 4; changes.push('买腿[' + (l.name || 'leg') + '] cards→4'); }
-    }
-    // ④ 断流卖出时长标准化（T170b 模板默认 50s，2026-11-19 用户裁定实装）：
-    //    stallClose 段在场且 stallMs 已配（=机制开着）→ 改值 50000 并留痕；
-    //    段缺席 / stallMs 未配（=机制关）不强制开机制，保持克隆语义。
-    //    对拍实验需保留其它值时走 --no-gates 纯整包复制，或建行后手改 config。
-    if (cfg.stallClose && typeof cfg.stallClose.stallMs === 'number' && cfg.stallClose.stallMs > 0) {
-      if (cfg.stallClose.stallMs !== 50000) {
-        changes.push('stallClose.stallMs ' + cfg.stallClose.stallMs + '→50000（T170b 模板默认 50s）');
-        cfg.stallClose.stallMs = 50000;
-      }
-    }
-  }
-
-  // ── 模式转换（Tier2 在内；--no-gates 跳过 Tier1 但转换链不跳——mode 显式指定即用户意图）──
+  // ── 模式转换（Tier2 ops 标准段在内）──
   const conv = convertMode(cfg, baseMode, modeArg || null, { wallet, liveParams });
   const mode = conv.mode;
   for (const ch of conv.changes) changes.push(ch);
@@ -269,37 +314,29 @@ async function main() {
     if (!cfg.backtest.startTime || !cfg.backtest.endTime) throw new Error('回测基底缺 startTime/endTime（缺一 fail-fast 拒启）');
   }
 
-  // ── 库腿版本 WARN（copy-in 不回溯：基底引用旧版库=产物永远停在旧门形状）──
-  const libRefs = (cfg.strategiesConfig || cfg.strategy || {}).libraryRefs;
-  if (Array.isArray(libRefs) && libRefs.length) {
-    for (const ref of libRefs) {
-      if (!ref || !ref.libId) continue;
-      const { data: lib } = await c.from('strategy_library')
-        .select('name, side, version').eq('id', ref.libId).single();
-      if (!lib) { console.log('⚠ libraryRef ' + (ref.name || ref.libId) + ' 在 strategy_library 无对应条目（可能已删）'); continue; }
-      if (String(ref.version) !== String(lib.version)) {
-        console.log('⚠⚠ 库腿快照过期: ' + ref.name + ' 基底 v' + ref.version + ' ≠ 库最新 v' + lib.version +
-          '——copy-in 不回溯，产物腿=旧版门形状；请换引用最新版的基底克隆');
-      } else {
-        console.log('库腿版本一致: ' + ref.name + ' v' + lib.version + '（最新）');
-      }
-    }
-  } else {
-    console.log('⚠ 基底无 strategiesConfig.libraryRefs（手工载体实验——腿快照来源不明确，人工核对）');
+  // ── 引用包存在性/版本核对（打印解析；缺包 fail-fast）──
+  {
+    const { data: lib } = await c.from('strategy_library')
+      .select('name, version, definition').eq('id', cfg.strategyId).single();
+    if (!lib) throw new Error('产物 config.strategyId 在 strategy_library 无对应策略包（可能已删）: ' + cfg.strategyId);
+    const def = lib.definition || {};
+    const mods = Object.entries(def.modules || {}).map(([k, v]) => k + ':' + v).join(' ') || '无（四门全关）';
+    console.log('引用策略包: ' + lib.name + ' v' + lib.version + ' | 买' + ((def.buyLegs || []).length) + '/卖' + ((def.sellLegs || []).length) + ' 腿' +
+      ' | stallClose=' + (def.stallClose ? 'on' : 'off') + ' burstCooldown=' + (def.burstCooldown != null ? 'on' : 'off') +
+      ' | modules=' + mods);
   }
 
   console.log('基底:', e.experiment_name, '| mode:', baseMode + (modeArg ? ' → ' + mode : ''), '| platform:', cfg.platform);
   console.log('窗口:', cfg.backtest ? cfg.backtest.startTime + ' ~ ' + cfg.backtest.endTime : '(非回测)');
-  const sc2 = cfg.strategiesConfig || cfg.strategy || {};
-  console.log('腿: buy=' + ((sc2.buyStrategies || []).length) + ' sell=' + ((sc2.sellStrategies || []).length));
-  console.log('注入/修正 ' + changes.length + ' 处' + (changes.length ? '：\n  - ' + changes.join('\n  - ') : '（基底已全在位零改动）'));
+  console.log('策略: strategyId=' + cfg.strategyId + (packRef.isLegacy ? '（旧形状转换）' : ''));
+  console.log('修正 ' + changes.length + ' 处' + (changes.length ? '：\n  - ' + changes.join('\n  - ') : '（零改动）'));
 
   if (mode === 'live') {
     console.log('\n━━ 启动前 checklist（docs/live-acceptance-runbook.md）━━');
     console.log('  1. 查持仓：历史 live 钱包链上 balanceOf 终裁，残余先处置（live-restart-positions-check 纪律）');
     console.log('  2. 0.001 BNB 验收闭环（新钱包/执行器时必做，runbook §2）');
     console.log('  3. 启动（182 screen）: node main.js start-experiment -e <新id>（run-engine 拒 live）');
-    console.log('  4. 启动日志核对「⛓ 门链配置」汇总行 + 名单装载行（cheat-crew/famous/smartmoney）');
+    console.log('  4. 启动日志核对「📦 策略包解析」+「⛓ 门链配置」汇总行 + 名单装载行（cheat-crew/famous/smartmoney）');
   }
   if (dry) {
     if (mode === 'live') {
@@ -308,11 +345,10 @@ async function main() {
       console.log('\n===CONFIG_JSON===');
       console.log(JSON.stringify({
         trading_mode: mode,
+        strategyId: cfg.strategyId || null,
         wallet: cfg.wallet ? { address: cfg.wallet.address, executorId: cfg.wallet.executorId || null } : null,
         [sec]: cfg[sec],
-        stallClose: cfg.stallClose || null,
         positionManagement: cfg.positionManagement || null,
-        burstCooldown: cfg.burstCooldown || null,
       }, null, 2));
     }
     console.log('[dry] 未写库'); process.exit(0);
@@ -320,7 +356,7 @@ async function main() {
   const row = {
     id: crypto.randomUUID(),
     experiment_name: name,
-    experiment_description: desc || ('克隆自 ' + e.experiment_name + '（' + src + '），门链标准段经 clone-experiment.cjs 确保' + (changes.length ? '：' + changes.join('；') : '（基底已全在位）')),
+    experiment_description: desc || ('克隆自 ' + e.experiment_name + '（' + src + '），策略包引用/归包键剥离经 clone-experiment.cjs' + (changes.length ? '：' + changes.join('；') : '（零改动）')),
     trading_mode: mode,
     strategy_type: e.strategy_type,
     blockchain: e.blockchain,

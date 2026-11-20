@@ -11,14 +11,16 @@
 // 三模式（182 跑；本地只允许 dry-run create / report 小查询）：
 //   1) create（缺省 dry）:
 //      node scripts/backtest-token-case.cjs --src <基底expId> --token <addr> \
-//        [--lib signal-source-ladder-v1] [--pre-min 15] [--post-min 30] \
+//        [--pack trading-standard-v1] [--pre-min 15] [--post-min 30] \
 //        [--start ISO] [--end ISO] [--name <名>] [--commit]
 //      - 窗口缺省 = token_create（wss_events 最早行）前 pre-min / 后 post-min；
 //        --start/--end 显式覆盖
-//      - 买腿 = --lib 现行最新版快照 copy-in（每腿注入 cards:4——卡牌形状裁定）；
-//        buySignalMaxPerToken 自动抬到 ≥ 腿数；卖腿/引擎段/双门段整包保留基底
-//      - 防呆：基底须 backtest.signalGateReal===true + cheatCheck.enabled +
-//        buyPointCheck.enabled（单票门链回测的前提，缺一拒绝）
+//      - 交易策略 = --pack 策略包整包换（T202 策略库二期：cfg.strategyId=包 id，
+//        买/卖腿+stallClose/burstCooldown+门链 modules 全随包；「基底卖腿×库买腿」
+//        混搭对拍=先在库里建混搭包条目再 --pack 引用）；buySignalMaxPerToken 自动
+//        抬到 ≥ 包买腿数；引擎 ops 段整包保留基底
+//      - 防呆：基底须 backtest.signalGateReal===true + cfg.strategyId 在场 + 包
+//        modules 带 cheatCheck 与 buyPointCheck（单票门链回测的前提，缺一拒绝）
 //   2) run:    node scripts/backtest-token-case.cjs --run <expId> [--timeout-min 40]
 //      - setsid 后台 node src/run-engine.js，轮询 experiments.status 至终态
 //   3) report: node scripts/backtest-token-case.cjs --report <expId> \
@@ -36,7 +38,7 @@ const argInt = (k, d) => { const v = argVal(k); return v === null ? d : Number(v
 
 const SRC = argVal('--src');
 const TOKEN = (argVal('--token') || '').toLowerCase();
-const LIB = argVal('--lib') || 'signal-source-ladder-v1';
+const PACK = argVal('--pack') || 'trading-standard-v1';
 const PRE_MIN = argInt('--pre-min', 15);
 const POST_MIN = argInt('--post-min', 30);
 const START = argVal('--start');
@@ -69,10 +71,9 @@ async function create() {
   if (!expRows || !expRows.length) throw new Error('基底实验不存在: ' + SRC);
   const cfg = JSON.parse(JSON.stringify(expRows[0].config));
 
-  // 防呆：门链回测前提三段
+  // 防呆：门链回测前提（T202 后形状）——signalGateReal + 策略包引用在基底在场
   if (cfg.backtest?.signalGateReal !== true) throw new Error('基底 backtest.signalGateReal !== true——不是门链回测形状，拒绝克隆');
-  if (cfg.fourmemeWs?.cheatCheck?.enabled !== true) throw new Error('基底 fourmemeWs.cheatCheck.enabled 未开——拒绝克隆');
-  if (cfg.fourmemeWs?.buyPointCheck?.enabled !== true) throw new Error('基底 fourmemeWs.buyPointCheck.enabled 未开——拒绝克隆');
+  if (!cfg.strategyId) throw new Error('基底无 config.strategyId（T202 前旧形状）——请先用 clone-experiment.cjs --pack 转换基底再作 case 源');
 
   // 2) token_create 锚定窗口
   const { data: evRows, error: e2 } = await db.from('wss_events')
@@ -84,19 +85,22 @@ async function create() {
   const startIso = START || new Date(createdAt.getTime() - PRE_MIN * 60000).toISOString();
   const endIso = END || new Date(createdAt.getTime() + POST_MIN * 60000).toISOString();
 
-  // 3) 现行库快照
-  const { data: libRows, error: e3 } = await db.from('strategy_library')
-    .select('id,name,side,version,legs,updated_at')
-    .eq('name', LIB).eq('side', 'buy')
-    .order('version', { ascending: false }).limit(1);
+  // 3) 策略包整包换（T202：--pack 名/uuid → 库最新版；腿不可内联——策略唯一来源不变式）
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const packBase = db.from('strategy_library').select('id,name,version,definition,updated_at').limit(1);
+  const { data: packRows, error: e3 } = UUID_RE.test(PACK)
+    ? await packBase.eq('id', PACK)
+    : await packBase.eq('name', PACK);
   if (e3) throw new Error(e3.message);
-  if (!libRows || !libRows.length) throw new Error('库条目不存在: ' + LIB + '/buy');
-  const lib = libRows[0];
-  if (!Array.isArray(lib.legs) || !lib.legs.length) throw new Error('库条目 legs 为空');
-  const buyLegs = JSON.parse(JSON.stringify(lib.legs)).map((l) => {
-    if (l.cards === undefined) l.cards = 4; // 卡牌形状裁定（2026-11-07）：缺省 1 卡=阶梯退化
-    return l;
-  });
+  if (!packRows || !packRows.length) throw new Error('策略包不存在: ' + PACK);
+  const lib = packRows[0];
+  const def = lib.definition || {};
+  if (!Array.isArray(def.buyLegs) || !def.buyLegs.length
+    || !Array.isArray(def.sellLegs) || !def.sellLegs.length) throw new Error('策略包 definition 腿不全（买/卖均须非空）');
+  if (!def.modules || !def.modules.cheatCheck || !def.modules.buyPointCheck) {
+    throw new Error('策略包 modules 缺 cheatCheck/buyPointCheck——单票门链回测要求门链在包内启用');
+  }
+  const buyLegs = def.buyLegs;
 
   // 4) 组装 cfg
   // tokenAddresses 单票限定（2026-11-08 m4ga-v12 案用户裁定「只回测一个代币，只取
@@ -104,32 +108,30 @@ async function create() {
   // bp46 谱系基底数百票，45min 窗口一筛 80 票同跑（Jev 配额浪费+资金池争抢污染
   // 目标票成交）。引擎 _loadTokenMetadata 单点裁剪（缺省 null=宽窗口实验不变）
   cfg.backtest = { ...cfg.backtest, startTime: startIso, endTime: endIso, tokenAddresses: [TOKEN] };
-  cfg.strategiesConfig = { ...cfg.strategiesConfig, buyStrategies: buyLegs };
-  const refs = Array.isArray(cfg.strategiesConfig.libraryRefs) ? [...cfg.strategiesConfig.libraryRefs] : [];
-  const snapAt = new Date().toISOString();
-  const refIdx = refs.findIndex((r) => r.name === LIB && r.side === 'buy');
-  const ref = { name: LIB, side: 'buy', libId: lib.id, version: lib.version, legCount: buyLegs.length, snapshotAt: snapAt };
-  if (refIdx >= 0) refs[refIdx] = ref; else refs.push(ref);
-  cfg.strategiesConfig.libraryRefs = refs;
+  cfg.strategyId = lib.id; // 整包换（T202：启动时取最新；旧内嵌腿/libraryRefs/strategyResolved 剥净）
+  delete cfg.strategyResolved;
+  if (cfg.strategiesConfig) {
+    delete cfg.strategiesConfig.buyStrategies;
+    delete cfg.strategiesConfig.sellStrategies;
+    delete cfg.strategiesConfig.libraryRefs;
+  }
   const fm = { ...cfg.fourmemeWs };
   const cur = Number(fm.buySignalMaxPerToken || 0);
-  if (cur < buyLegs.length) fm.buySignalMaxPerToken = buyLegs.length; // 帽 ≥ 腿数（T123/T124 惯例）
+  if (cur < buyLegs.length) fm.buySignalMaxPerToken = buyLegs.length; // 帽 ≥ 包买腿数（T123/T124 惯例）
   cfg.fourmemeWs = fm;
-  const baseLegN = (expRows[0].config.strategiesConfig?.buyStrategies || []).length;
-  cfg.name = NAME || `bt-case-${TOKEN.slice(0, 8)}-${LIB}-v${lib.version}门链`;
-  cfg.description = `单 case 门链回测（backtest-token-case.cjs）：基底 ${SRC.slice(0, 8)} ${expRows[0].experiment_name}；token ${TOKEN}；买腿=${LIB} v${lib.version}（${buyLegs.length} 腿，基底 ${baseLegN} 腿）；窗口 ${startIso} → ${endIso}`;
+  cfg.name = NAME || `bt-case-${TOKEN.slice(0, 8)}-${lib.name}-v${lib.version}门链`;
+  cfg.description = `单 case 门链回测（backtest-token-case.cjs）：基底 ${SRC.slice(0, 8)} ${expRows[0].experiment_name}；token ${TOKEN}；策略包=${lib.name} v${lib.version}（买${buyLegs.length}/卖${(def.sellLegs || []).length} 腿，modules=${Object.keys(def.modules || {}).join('+')}）；窗口 ${startIso} → ${endIso}`;
 
   // 5) dry-run 打印
-  const sells = cfg.strategiesConfig?.sellStrategies || [];
   console.log('== 基底 ==', expRows[0].experiment_name, `(${SRC.slice(0, 8)})`);
   console.log('== token ==', TOKEN, '| 创建锚', createdAt.toISOString());
   console.log('== 窗口 ==', startIso, '→', endIso, `（前 ${PRE_MIN}min/后 ${POST_MIN}min${START || END ? ' 显式覆盖' : ''}）`);
   console.log('== token 集限定 == backtest.tokenAddresses = [' + TOKEN + ']（源实验 token 表裁剪到单票）');
-  console.log('== 买腿 ==', `${LIB} v${lib.version}（${buyLegs.length} 腿，copy-in ${snapAt}）：`);
-  for (const l of buyLegs) console.log(`   p${l.priority} ${l.condition}${l.cards ? ` [cards:${l.cards}]` : ''}`);
-  console.log('== 卖腿 ==', sells.length + ' 条（整包保留基底）');
+  console.log('== 策略包 ==', `${lib.name} v${lib.version}（买${buyLegs.length}/卖${(def.sellLegs || []).length} 腿，modules=${Object.entries(def.modules || {}).map(([k, v]) => k + ':' + v).join(' ')}）`);
+  for (const l of buyLegs) console.log(`   p${l.priority} ${String(l.condition).slice(0, 90)}${l.cards ? ` [cards:${l.cards}]` : ''}`);
+  console.log('== 机制 == stallClose=' + JSON.stringify(def.stallClose || null) + ' | burstCooldown=' + JSON.stringify(def.burstCooldown ?? null));
   console.log('== 帽 == buySignalMaxPerToken =', fm.buySignalMaxPerToken, '| signalGateReal =', cfg.backtest.signalGateReal,
-    '| cheat/BP 双门 =', fm.cheatCheck?.enabled, '/', fm.buyPointCheck?.enabled);
+    '| 门链=策略包 modules（cheat/BP=' + !!(def.modules.cheatCheck) + '/' + !!(def.modules.buyPointCheck) + '）');
   console.log('== 新名 ==', cfg.name);
 
   if (!COMMIT) { console.log('\n[dry-run] 未建实验；加 --commit 真建'); return; }

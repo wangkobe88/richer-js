@@ -691,17 +691,9 @@ class ExperimentMonitor {
       // 构建复制数据
       const config = experiment.config || {};
 
-      // 处理策略配置
-      let buyStrategies = [];
-      let sellStrategies = [];
-
-      // 从 strategiesConfig 获取策略
-      if (config.strategiesConfig) {
-        buyStrategies = config.strategiesConfig.buyStrategies || [];
-        sellStrategies = config.strategiesConfig.sellStrategies || [];
-        console.log(`📋 从 strategiesConfig 加载: ${buyStrategies.length} 买入策略, ${sellStrategies.length} 卖出策略`);
-      }
-
+      // T202 策略库二期：交易策略=策略包引用（strategyId），腿不再内嵌复制——
+      // 新形状实验直接预选其包；旧形状（strategiesConfig 腿）strategyId 缺席，
+      // 创建页会提示手选包（stallClose/burstCooldown 同理归包不复制）
       const copyData = {
         // 基本信息
         experiment_name: (experiment.experimentName || experiment.experiment_name || '') + ' - 副本',
@@ -712,9 +704,8 @@ class ExperimentMonitor {
         blockchain: experiment.blockchain || experiment.blockchain || 'bsc',
         kline_type: experiment.klineType || experiment.kline_type || '1m',
 
-        // 策略配置 - 使用统一格式
-        buyStrategies: buyStrategies,
-        sellStrategies: sellStrategies,
+        // 策略包引用（T202：唯一策略载体；旧形状缺席 → 创建页要求手选）
+        strategyId: config.strategyId || null,
 
         // 回测配置
         backtest: config.backtest || config.backtestConfig,
@@ -728,7 +719,7 @@ class ExperimentMonitor {
         // 交易金额
         tradeAmount: config.tradeAmount,
 
-        // 卡牌仓位模式（迁自 rich-js）
+        // 卡牌仓位模式（迁自 rich-js；T202 起张数在包腿上、每卡 BNB 留实验层）
         positionManagement: config.positionManagement || null
       };
 

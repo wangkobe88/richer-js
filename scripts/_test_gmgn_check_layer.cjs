@@ -303,6 +303,9 @@ async function main() {
         _buyingTokens: new Set(),
         _narrativeBlockedTokens: new Set(),
         _shouldBlockOnNarrative: () => false,
+        // T110 买信号节流桩（本测试聚焦 GMGN 层，节流恒放行——存量缺桩自 T110
+        // 回测接线起致 C 段全段不可达，2026-11-20 顺手修复）
+        _buySignalThrottle: { admit: () => ({ ok: true }) },
         _strategyEngine: {
           evaluate: () => opts.strategy,
           evaluateCondition: () => true,

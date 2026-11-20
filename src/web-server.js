@@ -26,6 +26,9 @@ const { buildPriceSeries } = require('./web/services/price-series');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 const narrativeRoutes = require('./web/routes/narrative.routes');
 const strategyLibraryRoutes = require('./web/routes/strategy-library.routes');
+// T202 策略库二期：创建实验时校验 strategyId 对应策略包存在且 definition 合法
+const { StrategyLibraryService, validatePack } = require('./web/services/StrategyLibraryService');
+const strategyLibraryService = new StrategyLibraryService();
 const newsRoutes = require('./web/routes/news.routes');
 const executorsRoutes = require('./web/routes/executors.routes');
 const apiStatusRoutes = require('./web/routes/api-status.routes');
@@ -797,6 +800,16 @@ class RicherJsWebServer {
           };
         }
 
+        // T202 策略库二期（2026-11-20）：stallClose/burstCooldown 归策略包
+        // definition（断流/冷盘卖出=交易策略本体）——实验层不再接受这两段，
+        // 携带即 400（静默忽略=复制旧实验后行为大变，fail-fast 纪律）
+        if (stallClose !== undefined || burstCooldown !== undefined) {
+          return res.status(400).json({
+            success: false,
+            error: 'stallClose/burstCooldown 已归策略包（T202 策略库二期：策略包 definition 携带断流/冷盘卖出），实验层不再接受这两段'
+          });
+        }
+
         // 引擎级高级段透传（2026-09-28 复制保真）：stopLoss（止损双腿）/
         // tokenPositionAnalyzer（TPA，买腿 TPAPre_* 因子源）/ fourmemeWs（onlineProfile
         // 等实验级 ws 段）/ flapWs（flap 单平台实验的对应段）/ gangWs（gang 单平台实验
@@ -804,7 +817,7 @@ class RicherJsWebServer {
         // 复制链路经创建页暂存携带；形状校验 fail-fast（脏对象 400，不静默丢弃——
         // 静默丢=复制件行为大变）。tokenCycle 段已随 cycle 分桶路由机制删除
         // （2026-10-15）不再透传。live 分支已写 fourmemeWs/flapWs={live} 时合并不覆盖
-        const advancedSections = { stopLoss, tokenPositionAnalyzer, fourmemeWs, flapWs, gangWs, stallClose, burstCooldown };
+        const advancedSections = { stopLoss, tokenPositionAnalyzer, fourmemeWs, flapWs, gangWs };
         for (const [key, val] of Object.entries(advancedSections)) {
           if (val === undefined || val === null) continue;
           if (typeof val !== 'object' || Array.isArray(val)) {
@@ -885,13 +898,14 @@ class RicherJsWebServer {
           }
         }
 
-        // cheatCheck 形状校验（CD158 2026-11-03 买信号驱动重构后）：enabled 布尔 +
-        // gate.awaitMs∈[1000,120000] 整数（买点 await 竞速）。**退役键容忍忽略**
+        // cheatCheck/buyPointCheck ops 键校验（T202 策略库二期后两段只承载 ops
+        // 旋钮）：cheatCheck.gate.awaitMs∈[1000,120000] / gate.alwaysRecheck 布尔；
+        // **四 enabled 键已归策略包 modules——携带即 400**（cheatCheck.enabled /
+        // cheatCheck.actFrontGate / buyPointCheck.enabled / buyPointCheck.factorCheck.enabled，
+        // 静默忽略=用户以为门开着实际没开，fail-fast 纪律）。**退役键容忍忽略**
         //（gate.enabled/unhealthyReanalyses/prefetchCondition/reanalyzeCondition 随
-        // 预触发通道/顶帽/升级拉黑退役——克隆存量实验携带不断链，引擎/服务侧不再
-        // 消费）；门激活=买腿携带 cheatCheckCondition（FA 因子域校验走 validateLegs
-        // /loadStrategies 三防线，本段不重复）。both/fourmeme 配 fourmemeWs 段、
-        // flap 单平台配 flapWs 段（引擎 _mergedWsConfig 同键）
+        // 预触发通道/顶帽/升级拉黑退役——克隆存量实验携带不断链）。
+        // both/fourmeme 配 fourmemeWs 段、flap 单平台配 flapWs 段（_mergedWsConfig 同键）
         {
           const intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
           for (const secKey of ['fourmemeWs', 'flapWs', 'gangWs']) {
@@ -900,8 +914,11 @@ class RicherJsWebServer {
             if (typeof cd !== 'object' || Array.isArray(cd)) {
               return res.status(400).json({ success: false, error: `${secKey}.cheatCheck 段形状非法（须为对象）` });
             }
-            if (cd.enabled !== undefined && typeof cd.enabled !== 'boolean') {
-              return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.enabled 须为布尔` });
+            if (cd.enabled !== undefined) {
+              return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.enabled 已归策略包 modules.cheatCheck（T202）——实验层不再接受该键` });
+            }
+            if (cd.actFrontGate !== undefined && cd.actFrontGate !== null) {
+              return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.actFrontGate 已归策略包 modules.actFrontGate（T202）——实验层不再接受该段` });
             }
             if (cd.gate !== undefined && cd.gate !== null) {
               if (typeof cd.gate !== 'object' || Array.isArray(cd.gate)) {
@@ -914,17 +931,6 @@ class RicherJsWebServer {
               // bootstrap 复检）全绕过恒真调 Jev；缺省 false 生产零变化
               if (cd.gate.alwaysRecheck !== undefined && typeof cd.gate.alwaysRecheck !== 'boolean') {
                 return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.gate.alwaysRecheck 须为布尔（CD389 每信号重判）` });
-              }
-            }
-            // T175/AF1 前置活跃度门灰度布尔（cheatCheck.actFrontGate.enabled 缺省
-            // false=现行 FP→cheat→BP 全链 bit 不变；开=FP 后按 act 档分流——
-            // low/ultra∧非burst 拒、burst 豁免/high 跳过 cheat、mid 照走全链）
-            if (cd.actFrontGate !== undefined && cd.actFrontGate !== null) {
-              if (typeof cd.actFrontGate !== 'object' || Array.isArray(cd.actFrontGate)) {
-                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.actFrontGate 段形状非法（须为对象）` });
-              }
-              if (cd.actFrontGate.enabled !== undefined && typeof cd.actFrontGate.enabled !== 'boolean') {
-                return res.status(400).json({ success: false, error: `${secKey}.cheatCheck.actFrontGate.enabled 须为布尔（AF1 前置门灰度）` });
               }
             }
             // 买信号发射节流（T110 2026-11-03「全局买信号机制」，回测同步生效）：
@@ -940,114 +946,62 @@ class RicherJsWebServer {
             if (sec.buySignalMaxPerToken !== undefined && !intInRange(sec.buySignalMaxPerToken, 0, 100)) {
               return res.status(400).json({ success: false, error: `${secKey}.buySignalMaxPerToken 须为整数 [0,100]（每 token 买信号发射上限，0=不限）` });
             }
-          }
-        }
-
-        // stallClose / burstCooldown 形状校验（2026-11-20 创建页可配置化）：顶层段，
-        // 引擎直读键逐一校验（引擎侧 Number() 归一 + 缺省回退，脏值在此 400 先拦）。
-        // stallClose 语义：段在且 stallMs>0 才启用——stallMs 必填正整数；minTickBnb
-        // （足额门，0=关）；almostLaunchStallMs/breakdownStallMs（两档域延长，0=臂关，
-        // T170c 破发档缺省关）。burstCooldown 语义：段在场即启用（{}=全默认）——
-        // 五键全可选；check2Sec 必须大于 check1Sec（批2 观察段非空，否则快线/兜底
-        // 永不可达=死配置）
-        {
-          const intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
-          const numInRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
-          if (config.stallClose !== undefined) {
-            const sc = config.stallClose;
-            if (typeof sc !== 'object' || sc === null || Array.isArray(sc)) {
-              return res.status(400).json({ success: false, error: 'stallClose 段形状非法（须为对象）' });
-            }
-            if (!intInRange(sc.stallMs, 1000, 3600000)) {
-              return res.status(400).json({ success: false, error: 'stallClose.stallMs 须为整数 [1000,3600000]（断流毫秒门，段启用必填）' });
-            }
-            if (sc.minTickBnb !== undefined && !numInRange(sc.minTickBnb, 0, 1)) {
-              return res.status(400).json({ success: false, error: 'stallClose.minTickBnb 须为数值 [0,1]（足额门 BNB，0=关）' });
-            }
-            if (sc.almostLaunchStallMs !== undefined && !intInRange(sc.almostLaunchStallMs, 0, 3600000)) {
-              return res.status(400).json({ success: false, error: 'stallClose.almostLaunchStallMs 须为整数 [0,3600000]（almost_launch 域延长毫秒，0=臂关）' });
-            }
-            if (sc.breakdownStallMs !== undefined && !intInRange(sc.breakdownStallMs, 0, 3600000)) {
-              return res.status(400).json({ success: false, error: 'stallClose.breakdownStallMs 须为整数 [0,3600000]（破发域延长毫秒，0/缺省=臂关 T170c）' });
-            }
-          }
-          if (config.burstCooldown !== undefined) {
-            const bc = config.burstCooldown;
-            if (typeof bc !== 'object' || bc === null || Array.isArray(bc)) {
-              return res.status(400).json({ success: false, error: 'burstCooldown 段形状非法（须为对象；{}=全默认启用）' });
-            }
-            const c1 = bc.check1Sec !== undefined ? bc.check1Sec : 15;
-            const c2 = bc.check2Sec !== undefined ? bc.check2Sec : 30;
-            if (bc.check1Sec !== undefined && !intInRange(bc.check1Sec, 1, 600)) {
-              return res.status(400).json({ success: false, error: 'burstCooldown.check1Sec 须为整数 [1,600]（批1 检查点秒）' });
-            }
-            if (bc.check1MinAbsorbBnb !== undefined && !numInRange(bc.check1MinAbsorbBnb, 0, 100)) {
-              return res.status(400).json({ success: false, error: 'burstCooldown.check1MinAbsorbBnb 须为数值 [0,100]（批1 承接冷盘线 BNB）' });
-            }
-            if (bc.check2ConfirmSec !== undefined && !intInRange(bc.check2ConfirmSec, 1, 600)) {
-              return res.status(400).json({ success: false, error: 'burstCooldown.check2ConfirmSec 须为整数 [1,600]（批2 枯竭确认窗秒）' });
-            }
-            if (bc.check2Sec !== undefined && !intInRange(bc.check2Sec, 2, 3600)) {
-              return res.status(400).json({ success: false, error: 'burstCooldown.check2Sec 须为整数 [2,3600]（批2 兜底检查点秒）' });
-            }
-            if (bc.check2MinAbsorbBnb !== undefined && !numInRange(bc.check2MinAbsorbBnb, 0, 100)) {
-              return res.status(400).json({ success: false, error: 'burstCooldown.check2MinAbsorbBnb 须为数值 [0,100]（批2 承接冷盘线 BNB）' });
-            }
-            if (c2 <= c1) {
-              return res.status(400).json({ success: false, error: `burstCooldown.check2Sec(${c2}) 必须大于 check1Sec(${c1})——批2 观察段为空则快线/兜底永不可达` });
-            }
-          }
-        }
-
-        // 如果提供了策略参数，添加到配置中
-        if (strategy) {
-          // 策略系统
-          if (strategy.buyStrategies || strategy.sellStrategies) {
-            config.strategiesConfig = {
-              buyStrategies: strategy.buyStrategies || [],
-              sellStrategies: strategy.sellStrategies || []
-            };
-
-            // C84 互斥（2026-10-17）：narrativeTriggerCondition（新链：触发轮后台分析+
-            // 单一买条件）与 narrativeCallCondition（legacy：fire 同步直调）同腿并存
-            // 行为未定义——创建时 400（与 loadStrategies 拒启/validateLegs 入库同口径）
-            const clashLeg = (config.strategiesConfig.buyStrategies || []).find(leg =>
-              String(leg?.narrativeTriggerCondition || '').trim() !== ''
-              && String(leg?.narrativeCallCondition || '').trim() !== '');
-            if (clashLeg) {
-              return res.status(400).json({
-                success: false,
-                error: '买腿同时携带 narrativeTriggerCondition 与 narrativeCallCondition（C84 互斥：触发轮后台分析新链 vs fire 同步直调旧链）'
-              });
-            }
-
-            // 策略库引用元数据（策略库一期，2026-09-28）：前端「从库引用」展开腿后
-            // 随载荷上报的 provenance（libId/name/side/version/legCount/snapshotAt）。
-            // 纯记录语义——运行链零消费（快照 copy-in：腿已展开进数组，不依赖库表）；
-            // 形状校验后透传，缺 libraryRefs 的旧载荷零影响
-            if (Array.isArray(strategy.libraryRefs) && strategy.libraryRefs.length > 0) {
-              const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-              const validRefs = strategy.libraryRefs.every(r =>
-                r && typeof r === 'object'
-                && typeof r.libId === 'string' && UUID_RE.test(r.libId)
-                && Number.isInteger(r.legCount) && r.legCount > 0);
-              if (!validRefs) {
-                return res.status(400).json({
-                  success: false,
-                  error: 'libraryRefs 形状非法（每项需 libId(uuid) + legCount 正整数）'
-                });
+            // BP 段 ops 键（gate.awaitMs/memSource/settleDelayMs/participantProfile
+            // 透传不校验细节）；两个 enabled 键归包——携带即 400
+            const bp = (config[secKey] || {}).buyPointCheck;
+            if (bp !== undefined && bp !== null && typeof bp === 'object' && !Array.isArray(bp)) {
+              if (bp.enabled !== undefined) {
+                return res.status(400).json({ success: false, error: `${secKey}.buyPointCheck.enabled 已归策略包 modules.buyPointCheck（T202）——实验层不再接受该键` });
               }
-              config.strategiesConfig.libraryRefs = strategy.libraryRefs;
+              if (bp.factorCheck !== undefined && bp.factorCheck !== null
+                && typeof bp.factorCheck === 'object' && bp.factorCheck.enabled !== undefined) {
+                return res.status(400).json({ success: false, error: `${secKey}.buyPointCheck.factorCheck.enabled 已归策略包 modules.factorCheck（T202）——实验层不再接受该键` });
+              }
             }
           }
+        }
+
+        // stallClose/burstCooldown 形状校验已随 T202 策略库二期迁入
+        // StrategyLibraryService.validatePack（两段归策略包 definition，实验层
+        // 携带即 400——见上方 advancedSections 前的拒收分支）
+
+        // T202 策略库二期（2026-11-20）：交易策略唯一来源=策略库策略包——实验
+        // config 只存顶层 strategyId（引擎启动查库解析，启动时取最新 version）。
+        // 旧内嵌腿形状不前向兼容（用户裁定）：携带即 400 指引换包
+        if (strategy && (strategy.buyStrategies || strategy.sellStrategies || Array.isArray(strategy.libraryRefs))) {
+          return res.status(400).json({
+            success: false,
+            error: '旧内嵌策略腿形状（buyStrategies/sellStrategies/libraryRefs）已退役（T202 策略库二期）：交易策略请在策略库建/选策略包，创建页提交 strategyId'
+          });
+        }
+        if (strategy) {
+          // 策略引用：strategyId 必填（uuid）+ 库存在性 + definition 形状校验
+          //（引擎启动解析同款 fail-fast，此处 400 给前端友好报错双保险）
+          const strategyId = strategy.strategyId;
+          const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          if (typeof strategyId !== 'string' || !UUID_RE.test(strategyId)) {
+            return res.status(400).json({ success: false, error: 'strategy.strategyId 必填（策略库交易策略包 id，uuid）' });
+          }
+          let packRow;
+          try {
+            packRow = await strategyLibraryService.getById(strategyId);
+          } catch (e) {
+            return res.status(400).json({ success: false, error: `strategyId 对应策略包不存在或不可读: ${e.message}` });
+          }
+          const packCheck = validatePack(packRow.definition);
+          if (!packCheck.valid) {
+            return res.status(400).json({ success: false, error: `策略包 ${packRow.name} definition 非法: ${packCheck.errors.join('; ')}` });
+          }
+          config.strategyId = strategyId;
 
           // 交易金额配置
           if (strategy.tradeAmount) {
             config.tradeAmount = strategy.tradeAmount;
           }
 
-          // 卡牌仓位机制（迁自 rich-js）：perCardBNB 存在且 >0 才写入（引擎据此开关
-          // 卡牌模式：买入金额=perCardBNB×本腿张数、卖腿按卡数比例卖余仓）
+          // 卡牌仓位机制（T202 起张数在包腿上、每卡 BNB 额度留实验层）：perCardBNB
+          // 存在且 >0 才写入（引擎据此开关卡牌模式：买入金额=perCardBNB×本腿张数、
+          // 卖腿按卡数比例卖余仓）
           if (strategy.positionManagement) {
             const _perCard = parseFloat(strategy.positionManagement.perCardBNB);
             if (Number.isFinite(_perCard) && _perCard > 0) {
@@ -1078,19 +1032,10 @@ class RicherJsWebServer {
             config.strategiesConfig = config.strategiesConfig || {};
             config.strategiesConfig.permanentBlockCondition = strategy.permanentBlockCondition;
           }
-
-          // 兼容旧格式的简单策略参数（用于 fourmeme_earlyreturn）
-          // 如果没有提供新格式的策略，使用默认值
-          if (!strategy.buyStrategies && !strategy.sellStrategies) {
-            config.strategy = {
-              buyTimeMinutes: strategy.buyTimeMinutes !== undefined ? parseFloat(strategy.buyTimeMinutes) : 1.33,
-              takeProfit1: strategy.takeProfit1 !== undefined ? parseInt(strategy.takeProfit1) : 30,
-              takeProfit1Sell: strategy.takeProfit1Sell !== undefined ? parseFloat(strategy.takeProfit1Sell) : 0.5,
-              takeProfit2: strategy.takeProfit2 !== undefined ? parseInt(strategy.takeProfit2) : 50,
-              takeProfit2Sell: strategy.takeProfit2Sell !== undefined ? parseFloat(strategy.takeProfit2Sell) : 1.0,
-              stopLossMinutes: strategy.stopLossMinutes !== undefined ? parseInt(strategy.stopLossMinutes) : 5
-            };
-          }
+        } else {
+          // strategy 载荷整缺 → 同样拒（策略引用是必填项；旧 config.strategy
+          // 简单策略参数回退已随 T202 退役）
+          return res.status(400).json({ success: false, error: '缺少 strategy 载荷（strategy.strategyId 必填——策略库交易策略包）' });
         }
 
         const experiment = await this.experimentFactory.createFromConfig(config, trading_mode);

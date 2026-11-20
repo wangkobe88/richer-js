@@ -120,7 +120,8 @@ node main.js start-experiment ... 停止后状态自动置 stopped
 - [ ] 重点观察 docs 明言「未回测验证」三件首跑：T157 factorSellFilter / T161 famous-trim 两段减仓 / T163 famous-entry 2s 短窗
 
 **C. 启动与日志核对（grep 目标行；任一缺席=对应机制静默失效）**
-- [ ] `⛓ 门链配置 | cheat=on(awaitMs=60s,recheck=on) AF1=on FP=on BP=on(awaitMs=60s) maxPerToken=15 perTick=off 卖过滤=on`（2026-11-20 新增汇总行——四门全 on 才是对齐形态）
+- [ ] `📦 策略包解析 | trading-standard-v1 v<版> | 买14/卖18 腿 | stallClose=on burstCooldown=on | modules=…`（T202 策略库二期新增——live 启动即查库解析当前包版本并写回 strategyResolved；缺席/报错=策略包链路断裂拒启）
+- [ ] `⛓ 门链配置 | cheat=on(FPxx)(awaitMs=60s,recheck=on) AF1=on(FPxx) FP=on(FPxx) BP=on(FPxx)(awaitMs=60s) maxPerToken=15 perTick=off 卖过滤=on`（T202 起四门 on/off+括号内具体代码版本均来自策略包 modules——四门全 on 才是对齐形态；实验 config 携带四 enabled 键会被创建/克隆层拒收）
 - [ ] `加载做市/作弊团队名单: N 个（…cheat-crew-wallets.json`（G5 门，期望 N≥6；缺席行=cheatCrewBuyBnb 恒 0）
 - [ ] `加载聪明钱名单: N 个（…smartmoney-accum.json`（smartHold 臂；缺席=恒放行）
 - [ ] `加载极著名钱包名单: N 个（…famous-copy-wallets.json`（famous 因子源）

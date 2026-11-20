@@ -1137,7 +1137,7 @@ console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入�
   });
   check('T8 ladder 迁出锁：deploy 脚本无 WAVE_DOM_VETO_GATE（v33 尾门回 G1~G5），臂在本模块', () => {
     const fs = require('fs');
-    const deploy = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
+    const deploy = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'deploy-trading-strategy.cjs'), 'utf8');
     assert.ok(!deploy.includes('WAVE_DOM_VETO_GATE'), 'ladder 仍带 G6 门串——迁移未完成');
     assert.ok(!deploy.includes('l.condition += WAVE_DOM_VETO_GATE'), 'G6 仍在拼腿');
     const self = fs.readFileSync(path.join(__dirname, '..', 'src', 'market-analysis', 'factor-pre-buy-check.js'), 'utf8');

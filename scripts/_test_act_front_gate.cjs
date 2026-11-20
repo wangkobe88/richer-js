@@ -261,9 +261,9 @@ async function main() {
     '两引擎门链段 AF 调用点在场');
   ok(FM_SRC.includes('skipped_by_act_front') && BT_SRC.includes('skipped_by_act_front'),
     '跳过路径 cheatCheck.info=skipped_by_act_front 留痕在场');
-  ok(FM_SRC.includes("actFrontGate && _cheatCfg.actFrontGate.enabled === true")
-      && BT_SRC.includes("actFrontGate?.enabled === true"),
-    '灰度键装载=cheatCheck.actFrontGate.enabled（两引擎）');
+  ok(FM_SRC.includes("_packMod('actFrontGate')")
+      && BT_SRC.includes("_packMod('actFrontGate')"),
+    '装载=策略包 modules.actFrontGate（T202 两引擎；旧 config 灰度旗已退役）');
   {
     // 灰度关：service 零调用、skipCheat=false（现行 bit 一致）
     const calls = { n: 0 };
@@ -317,7 +317,7 @@ async function main() {
 
   // ═══════════════ E. FP N 升格臂证伪撤回（对拍 2026-11-18 同日）═══════════════
   console.log('E. FP N 通道升格臂撤回（对拍证伪）');
-  ok(FACTOR_PREBUY_VERSION === 'FP30', `FP 版本=FP28（T195 后现行；断言随版本演进同步——2026-11-20 修存量漂移 FP15）（实际 ${FACTOR_PREBUY_VERSION}）`);
+  ok(FACTOR_PREBUY_VERSION === 'FP32', `FP 版本=FP32（T201 后现行；断言随版本演进同步——2026-11-20 修存量漂移 FP28）（实际 ${FACTOR_PREBUY_VERSION}）`);
   {
     // 最小 snapshot 直调：N 臂无条件拦会误伤 A_strong∧high 豁免票（萨摩耶 N=6.3
     // −0.014/我画地为牢 N=0.0 +0.0875/PAYAI N=9.5 +0.0762，净 −0.15 > FFFF

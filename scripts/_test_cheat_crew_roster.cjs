@@ -239,11 +239,9 @@ async function main() {
             assert.ok(read(f).includes('loadCheatCrewWallets'), `${f} 缺 loader 接线`);
         }
     });
-    check('ladder G5 门串在位（deploy 脚本；版本锁随 T180 v33 迁移同步——G5 在 v31 引入沿用，v33=T180 G6 迁出回 G1~G5）', () => {
-        const src = read('scripts/deploy-signal-source-strategies.cjs');
-        assert.ok(src.includes("CREW_VETO_GATE = ' AND cheatCrewBuyBnb == 0'"), 'G5 门串缺失');
-        assert.ok(src.includes('l.condition += CREW_VETO_GATE'), 'G5 未拼进腿');
-        assert.ok(src.includes('信号源阶梯 v33'), '版本号未至 v33（T180 迁移）');
+    check('ladder G5 门串在位（deploy 脚本；T202 策略库二期起断言烘焙条件全文——G5 在 v31 引入沿用）', () => {
+        const src = read('scripts/deploy-trading-strategy.cjs');
+        assert.ok(src.includes('cheatCrewBuyBnb == 0'), 'G5 门串缺失（烘焙条件应含 cheatCrewBuyBnb == 0）');
     });
 
     FourMemeFactorAggregator.setCheatCrewWalletsForTest(null);

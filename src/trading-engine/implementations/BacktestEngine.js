@@ -569,18 +569,23 @@ class BacktestEngine extends AbstractTradingEngine {
           const _anchorIso = a ? new Date(a).toISOString() : 'null';
           console.error(`[MEM-MISS-DEBUG] idxSize=${_idx?.size ?? 'NULL'} token=${t} has=${_idx?.has(_tok)} anchor=${a} anchorIso=${_anchorIso} firstBT=${_rows?.[0]?.block_time ?? 'N/A'} lastBT=${_rows?.[_rows.length-1]?.block_time ?? 'N/A'} rowCount=${_rows?.length ?? 0}`);
         } } return _r; };
+      // T202 策略库二期：四门 enabled 归策略包 modules（键在场=启用）；ops 旋钮
+      // （gate.awaitMs 等）仍读实验 config.fourmemeWs
+      const _packMod = (m) => this._strategyDefinition?.modules?.[m] != null;
       this._cheatCheckService = new CheatCheckService(
-        { ...(_wsCfg.cheatCheck || {}), persist: false, settleDelayMs: 0 }, this.logger, _memDeps);
+        { ...(_wsCfg.cheatCheck || {}), persist: false, settleDelayMs: 0, enabled: _packMod('cheatCheck') }, this.logger, _memDeps);
       this._buyPointCheckService = new BuyPointCheckService(
-        { ...(_wsCfg.buyPointCheck || {}), persist: false, settleDelayMs: 0 }, this.logger, _memDeps);
+        { ...(_wsCfg.buyPointCheck || {}), persist: false, settleDelayMs: 0,
+          enabled: _packMod('buyPointCheck'),
+          factorCheck: { ...(_wsCfg.buyPointCheck?.factorCheck || {}), enabled: _packMod('factorCheck') } }, this.logger, _memDeps);
       const _cgAw = _wsCfg.cheatCheck?.gate?.awaitMs;
       const _bpAw = _wsCfg.buyPointCheck?.gate?.awaitMs;
       this._cheatGateAwaitMs = Number.isFinite(_cgAw) && _cgAw > 0 ? _cgAw : 15000;
       this._bpGateAwaitMs = Number.isFinite(_bpAw) && _bpAw > 0 ? _bpAw : 15000;
-      // T175/AF1 前置活跃度门灰度（cheatCheck.actFrontGate.enabled 缺省 false）
-      this._actFrontGateEnabled = _wsCfg.cheatCheck?.actFrontGate?.enabled === true;
+      // T175/AF1 前置活跃度门（T202 起 enabled 归策略包 modules.actFrontGate）
+      this._actFrontGateEnabled = _packMod('actFrontGate');
       this.logger.info(this._experimentId, 'BacktestEngine',
-        `🚪 signalGateReal 门链真调已启用：cheat awaitMs=${this._cheatGateAwaitMs} / BP awaitMs=${this._bpGateAwaitMs}${this._actFrontGateEnabled ? ' / AF1 前置门=开' : ''}（persist:false 隔离+anchorMs 截窗）`);
+        `🚪 signalGateReal 门链真调已启用：cheat awaitMs=${this._cheatGateAwaitMs} / BP awaitMs=${this._bpGateAwaitMs}${this._actFrontGateEnabled ? ' / AF1 前置门=开' : ''}（persist:false 隔离+anchorMs 截窗；四门 enabled=策略包 modules）`);
     }
 
     // 累亏闩锁阈值：取卖腿 cumulativeLossLockPct 最大值（多腿并存最严者先锁，fail-closed 方向）；
@@ -738,7 +743,9 @@ class BacktestEngine extends AbstractTradingEngine {
     //     下一 tick 到达为时钟推进点，feed 后 lastTickAt 已推进会漏检自己的空窗；
     //     全市场静默期时钟冻结，任何 token 的下一 tick 都是检测点（回放可达的最好
     //     等价）。不配段 = 关闭（存量回测实验零变化）。
-    const _sc = experimentConfig.stallClose || {};
+    // T202 策略库二期：stallClose/burstCooldown 归策略包 definition（与实时引擎
+    // 同源 this._strategyDefinition——parity 红线天然一致）；实验 config 顶层段不再消费
+    const _sc = (this._strategyDefinition && this._strategyDefinition.stallClose) || {};
     const _scMs = Number(_sc.stallMs);
     this._stallCloseMs = Number.isFinite(_scMs) && _scMs > 0 ? _scMs : null;
     // T118 断流足额门（与实时引擎同配置同判据，回测 parity 红线）：微量成交不算
@@ -760,7 +767,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
     // 6.9b T189 burst 承接冷盘（与实时引擎同配置同判据，回测 parity 红线；虚拟时钟
     //     版挂主循环 stallClose 同位 1s 节流——ring 由 FA processTick 统一记录）
-    const _bcCfg = experimentConfig.burstCooldown;
+    const _bcCfg = this._strategyDefinition ? this._strategyDefinition.burstCooldown : undefined;
     this._burstCooldown = _bcCfg ? {
       check1Sec: Number.isFinite(Number(_bcCfg.check1Sec)) ? Number(_bcCfg.check1Sec) : BURST_COOLDOWN_DEFAULTS.check1Sec,
       check1MinAbsorbBnb: Number.isFinite(Number(_bcCfg.check1MinAbsorbBnb)) ? Number(_bcCfg.check1MinAbsorbBnb) : BURST_COOLDOWN_DEFAULTS.check1MinAbsorbBnb,

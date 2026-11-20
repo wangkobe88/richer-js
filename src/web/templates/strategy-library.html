@@ -44,80 +44,57 @@
             <!-- 标题 + 操作条 -->
             <div class="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-800">📚 策略库</h1>
+                    <h1 class="text-2xl font-bold text-gray-800">📚 策略库（交易策略包）</h1>
                     <p class="text-sm text-gray-500 mt-1">
-                        条目 = 一组同侧腿（「热桶卖侧 9 腿」「V2 买门」各成条目）。创建实验页「从库引用」展开进表单；
-                        快照语义——已建实验与库独立，改库/删库不影响运行。
+                        条目 = 完整交易策略包（T202 策略库二期）：买/卖腿 + 断流/冷盘卖出（stallClose/burstCooldown）+
+                        四检测模块版本（因子过滤/cheat/AF1/BP）。实验只存策略 ID 引用本库，引擎启动取最新版本——
+                        改库重启实验即生效；对比实验=换一个包。
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="button" id="btn-toggle-import"
                             class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-sm font-medium">
-                        📥 从实验导入
+                        📥 从旧实验导入（迁移）
                     </button>
                     <button type="button" id="btn-new"
                             class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
-                        + 新建条目
+                        + 新建策略包
                     </button>
                 </div>
             </div>
 
-            <!-- 从实验导入面板 -->
+            <!-- 从旧实验导入面板（迁移路径：读旧实验内嵌腿+机制段+门链旗 → 组包） -->
             <div id="import-panel" class="hidden bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-                <h2 class="text-base font-semibold text-gray-800">📥 从实验导入</h2>
+                <h2 class="text-base font-semibold text-gray-800">📥 从旧实验导入（T202 前旧形状 → 策略包）</h2>
                 <div class="flex items-center gap-3 flex-wrap">
                     <select id="import-experiment-select" class="px-3 py-2 border border-gray-300 rounded-md text-sm min-w-[320px]">
                         <option value="">— 选择实验 —</option>
                     </select>
                     <button type="button" id="btn-load-experiment-legs"
                             class="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm font-medium">
-                        加载该实验策略腿
+                        组包进表单
                     </button>
                 </div>
-                <div id="import-legs-area" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <div class="border border-green-200 rounded-lg p-3">
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-sm font-semibold text-green-800">📈 买入腿</h3>
-                            <button type="button" id="btn-import-buy"
-                                    class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-xs font-medium">
-                                导入选中腿进表单
-                            </button>
-                        </div>
-                        <div id="import-buy-legs" class="space-y-1.5 text-sm"></div>
-                    </div>
-                    <div class="border border-red-200 rounded-lg p-3">
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-sm font-semibold text-red-800">📉 卖出腿</h3>
-                            <button type="button" id="btn-import-sell"
-                                    class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-medium">
-                                导入选中腿进表单
-                            </button>
-                        </div>
-                        <div id="import-sell-legs" class="space-y-1.5 text-sm"></div>
-                    </div>
-                </div>
+                <p class="text-xs text-gray-500">
+                    读旧实验 config：strategiesConfig 腿 → buyLegs/sellLegs；顶层 stallClose/burstCooldown → 机制段；
+                    fourmemeWs 门链旗（cheatCheck.enabled/actFrontGate.enabled/buyPointCheck.enabled+factorCheck.enabled）
+                    → modules（勾过的模块落 v1）。确认后保存成策略包条目。
+                </p>
             </div>
 
             <!-- 编辑/新建表单 -->
             <div id="lib-form-card" class="hidden bg-white border border-indigo-300 rounded-lg p-4 space-y-4">
                 <div class="flex items-center justify-between">
-                    <h2 class="text-base font-semibold text-gray-800" id="lib-form-title">新建条目</h2>
+                    <h2 class="text-base font-semibold text-gray-800" id="lib-form-title">新建策略包</h2>
                     <button type="button" id="btn-cancel-form" class="text-gray-400 hover:text-gray-700 text-sm">✕ 关闭</button>
                 </div>
                 <input type="hidden" id="lib-id">
                 <input type="hidden" id="lib-expected-version">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">名称（唯一）</label>
-                        <input type="text" id="lib-name" placeholder="如 sell-hot-v1"
+                        <input type="text" id="lib-name" placeholder="如 trading-standard-v1"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">侧（创建后锁死）</label>
-                        <select id="lib-side" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
-                            <option value="buy">buy（买侧）</option>
-                            <option value="sell">sell（卖侧）</option>
-                        </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">说明</label>
@@ -126,21 +103,79 @@
                     </div>
                 </div>
 
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <h3 class="text-sm font-semibold text-gray-700">腿集合（<span id="lib-leg-count">0</span>）</h3>
-                        <button type="button" id="btn-add-leg"
-                                class="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-xs font-medium">
-                            + 添加腿
-                        </button>
+                <!-- 检测模块（键在场=启用；版本键经代码注册表解析） -->
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-2">检测模块（勾选=启用；版本=代码代次）</h3>
+                    <div id="lib-modules" class="grid grid-cols-2 md:grid-cols-4 gap-2"></div>
+                    <p class="text-xs text-gray-500 mt-1">四个都不勾=全关（纯盘面裸跑）；版本清单来自代码注册表（/module-versions）</p>
+                </div>
+
+                <!-- 断流/冷盘卖出（归包） -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <div class="border border-gray-200 rounded-lg p-3">
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                            <input type="checkbox" id="lib-sc-enabled" class="rounded">
+                            🛑 断流卖出（stallClose）
+                        </label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="block text-xs text-gray-600 mb-0.5">断流毫秒门（必填）</label>
+                                <input type="number" id="lib-sc-stall-ms" placeholder="50000" min="1000" max="3600000" step="500"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
+                            <div><label class="block text-xs text-gray-600 mb-0.5">足额门 BNB（0=关）</label>
+                                <input type="text" id="lib-sc-min-tick-bnb" placeholder="0.02"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
+                            <div><label class="block text-xs text-gray-600 mb-0.5">almost 域延长 ms</label>
+                                <input type="number" id="lib-sc-almost" placeholder="90000" min="0" max="3600000" step="500"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
+                            <div><label class="block text-xs text-gray-600 mb-0.5">破发域延长 ms（0/空=关）</label>
+                                <input type="number" id="lib-sc-breakdown" placeholder="" min="0" max="3600000" step="500"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
+                        </div>
                     </div>
-                    <div id="lib-legs" class="space-y-2"></div>
+                    <div class="border border-gray-200 rounded-lg p-3">
+                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                            <input type="checkbox" id="lib-bc-enabled" class="rounded">
+                            ❄️ 冷盘卖出（burstCooldown；勾选全空=全默认）
+                        </label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div><label class="block text-xs text-gray-600 mb-0.5">批1秒</label>
+                                <input type="number" id="lib-bc-c1" placeholder="15" class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
+                            <div><label class="block text-xs text-gray-600 mb-0.5">批1承接线BNB</label>
+                                <input type="text" id="lib-bc-a1" placeholder="0.1" class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
+                            <div><label class="block text-xs text-gray-600 mb-0.5">枯竭确认秒</label>
+                                <input type="number" id="lib-bc-cf" placeholder="8" class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
+                            <div><label class="block text-xs text-gray-600 mb-0.5">批2兜底秒</label>
+                                <input type="number" id="lib-bc-c2" placeholder="30" class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
+                            <div><label class="block text-xs text-gray-600 mb-0.5">批2承接线BNB</label>
+                                <input type="text" id="lib-bc-a2" placeholder="0.05" class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 买腿 / 卖腿（复用同款腿行编辑器） -->
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <div class="border border-green-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-semibold text-green-800">📈 买入腿（<span id="lib-buy-count">0</span>）</h3>
+                            <button type="button" id="btn-add-buy-leg"
+                                    class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-xs font-medium">+ 添加买腿</button>
+                        </div>
+                        <div id="lib-buy-legs" class="space-y-2"></div>
+                    </div>
+                    <div class="border border-red-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-semibold text-red-800">📉 卖出腿（<span id="lib-sell-count">0</span>）</h3>
+                            <button type="button" id="btn-add-sell-leg"
+                                    class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-medium">+ 添加卖腿</button>
+                        </div>
+                        <div id="lib-sell-legs" class="space-y-2"></div>
+                    </div>
                 </div>
 
                 <div class="flex items-center gap-3">
                     <button type="button" id="btn-save"
                             class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium">
-                        保存条目
+                        保存策略包
                     </button>
                     <span id="lib-form-msg" class="text-sm"></span>
                 </div>
@@ -158,8 +193,11 @@
         'use strict';
 
         // ============ 状态 ============
-        let allItems = [];          // 列表缓存（编辑回填用）
-        let formLegs = [];          // 表单腿原始 JSON（保真基底，表单字段覆盖）
+        let allItems = [];              // 列表缓存（编辑回填用）
+        let formBuyLegs = [];           // 买腿原始 JSON（保真基底，表单字段覆盖）
+        let formSellLegs = [];          // 卖腿原始 JSON
+        let moduleVersions = {};        // GET /module-versions（{模块名:[版本键]}}）
+        const MODULE_LABELS = { factorCheck: '因子过滤(FP)', cheatCheck: 'Jev作弊门', actFrontGate: 'AF1活跃度门', buyPointCheck: 'BP买点' };
 
         const $ = (id) => document.getElementById(id);
 
@@ -178,24 +216,47 @@
             }
         }
 
+        async function loadModuleVersions() {
+            try {
+                const res = await fetch('/api/strategy-library/module-versions');
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error || '接口返回失败');
+                moduleVersions = result.data || {};
+                renderModuleRows({});
+            } catch (e) {
+                $('lib-modules').innerHTML = `<p class="text-xs text-red-500">版本清单加载失败: ${e.message}</p>`;
+            }
+        }
+
+        function legLine(l) {
+            const bits = [];
+            if (l.buyPhase === 'first') bits.push('首买');
+            if (l.buyPhase === 'repeat') bits.push('再买');
+            if (l.signalGate) bits.push(l.signalGate.maxTriggers != null ? `⚡门≤${l.signalGate.maxTriggers}` : '⚡门');
+            if (l.cards != null) bits.push(`🃏${l.cards}`);
+            if (l.sellDebounce && l.sellDebounce.minTicks != null) bits.push(`卖确认≥${l.sellDebounce.minTicks}tick`);
+            bits.push(`P${l.priority ?? '-'}`, l.condition || '(无 condition)');
+            return bits.join(' ');
+        }
+
         function renderList() {
             $('lib-list-loading').classList.add('hidden');
             const list = $('lib-list');
             list.innerHTML = '';
             if (!allItems.length) {
-                list.innerHTML = '<p class="text-sm text-gray-500">库为空——点右上「新建条目」或「从实验导入」。</p>';
+                list.innerHTML = '<p class="text-sm text-gray-500">库为空——点右上「新建策略包」，或「从旧实验导入」把 T202 前实验的内嵌策略迁移成包。</p>';
                 return;
             }
             for (const item of allItems) {
-                const legLines = (item.legs || []).map(l => {
-                    // T100：首买/再买分臂条目主条件同串，凭轮次标记区分
-                    const bits = [];
-                    if (l.buyPhase === 'first') bits.push('首买');
-                    if (l.buyPhase === 'repeat') bits.push('再买');
-                    if (l.sellDebounce && l.sellDebounce.minTicks != null) bits.push(`卖确认≥${l.sellDebounce.minTicks}tick`);
-                    bits.push(`P${l.priority ?? '-'}`, l.condition || '(无 condition)');
-                    return bits.join(' ');
-                }).map(t => `<div class="text-xs text-gray-600 truncate" title="${escapeAttr(t)}">${escapeHtml(t)}</div>`).join('');
+                const def = item.definition || {};
+                const buyLegs = def.buyLegs || [];
+                const sellLegs = def.sellLegs || [];
+                const modBadges = Object.keys(MODULE_LABELS).map((k) => (def.modules || {})[k]
+                    ? `<span class="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">${MODULE_LABELS[k]}:${def.modules[k]}</span>`
+                    : `<span class="px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-400">${MODULE_LABELS[k]}:关</span>`).join(' ');
+                const mechBits = [];
+                mechBits.push(def.stallClose ? `断流 on(${Math.round((def.stallClose.stallMs || 0) / 1000)}s)` : '断流 off');
+                mechBits.push(def.burstCooldown != null ? '冷盘 on' : '冷盘 off');
                 const card = document.createElement('div');
                 card.className = 'bg-white border border-gray-200 rounded-lg p-4';
                 card.innerHTML = `
@@ -203,11 +264,18 @@
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="font-semibold text-gray-800">${escapeHtml(item.name)}</span>
-                                <span class="px-1.5 py-0.5 rounded text-xs font-medium ${item.side === 'buy' ? 'side-badge-buy' : 'side-badge-sell'}">${item.side === 'buy' ? '买' : '卖'}</span>
-                                <span class="text-xs text-gray-500">${item.legCount} 腿 · v${item.version} · 被 ${item.usageCount} 个实验引用 · 更新 ${new Date(item.updated_at).toLocaleString()}</span>
+                                <span class="px-1.5 py-0.5 rounded text-xs font-medium side-badge-buy">买${buyLegs.length}</span>
+                                <span class="px-1.5 py-0.5 rounded text-xs font-medium side-badge-sell">卖${sellLegs.length}</span>
+                                <span class="text-xs text-gray-500">v${item.version} · 被 ${item.usageCount} 个实验引用 · 更新 ${new Date(item.updated_at).toLocaleString()}</span>
                             </div>
                             ${item.description ? `<div class="text-sm text-gray-500 mt-1">${escapeHtml(item.description)}</div>` : ''}
-                            <div class="mt-2 space-y-0.5">${legLines}</div>
+                            <div class="mt-1.5 flex items-center gap-1 flex-wrap">${modBadges}
+                                <span class="text-xs text-gray-500 ml-1">${mechBits.join(' ｜ ')}</span></div>
+                            <details class="mt-2">
+                                <summary class="text-xs text-gray-500 cursor-pointer">包腿全文</summary>
+                                <div class="mt-1 space-y-0.5">${buyLegs.map(l => `<div class="text-xs text-green-800 break-all">📈 ${escapeHtml(legLine(l))}</div>`).join('')}
+                                ${sellLegs.map(l => `<div class="text-xs text-red-800 break-all">📉 ${escapeHtml(legLine(l))}</div>`).join('')}</div>
+                            </details>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
                             <button type="button" data-act="edit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-xs font-medium">编辑</button>
@@ -233,41 +301,134 @@
             $('lib-expected-version').value = '';
             $('lib-name').value = '';
             $('lib-description').value = '';
-            $('lib-side').value = 'sell';
-            $('lib-side').disabled = false;
-            formLegs = [];
-            renderFormLegs();
-            showForm('新建条目');
+            formBuyLegs = [];
+            formSellLegs = [];
+            renderFormLegs('lib-buy-legs', formBuyLegs, 'buy');
+            renderFormLegs('lib-sell-legs', formSellLegs, 'sell');
+            renderModuleRows({});
+            resetMechForm();
+            showForm('新建策略包');
         }
 
         async function startEdit(item) {
-            // 编辑用 getById 全量（列表已含 legs，直接用列表缓存项即可——同一形状）
-            $('lib-id').value = item.id;
-            $('lib-expected-version').value = item.version;
-            $('lib-name').value = item.name;
-            $('lib-description').value = item.description || '';
-            $('lib-side').value = item.side;
-            $('lib-side').disabled = true; // side 创建后锁死
-            formLegs = (item.legs || []).map(l => ({ ...l }));
-            renderFormLegs();
-            showForm(`编辑：${item.name}（v${item.version}）`);
+            // 编辑用 getById 全量（definition 完整）
+            let full = item;
+            try {
+                const res = await fetch(`/api/strategy-library/${item.id}`);
+                const result = await res.json();
+                if (result.success) full = result.data;
+            } catch (e) { /* 列表缓存兜底 */ }
+            const def = full.definition || {};
+            $('lib-id').value = full.id;
+            $('lib-expected-version').value = full.version;
+            $('lib-name').value = full.name;
+            $('lib-description').value = full.description || '';
+            formBuyLegs = (def.buyLegs || []).map(l => ({ ...l }));
+            formSellLegs = (def.sellLegs || []).map(l => ({ ...l }));
+            renderFormLegs('lib-buy-legs', formBuyLegs, 'buy');
+            renderFormLegs('lib-sell-legs', formSellLegs, 'sell');
+            renderModuleRows(def.modules || {});
+            fillMechForm(def);
+            showForm(`编辑：${full.name}（v${full.version}）`);
         }
 
-        function addFormLeg(leg = {}) {
-            formLegs.push({ ...leg });
-            renderFormLegs();
+        function resetMechForm() {
+            $('lib-sc-enabled').checked = false;
+            for (const id of ['lib-sc-stall-ms', 'lib-sc-min-tick-bnb', 'lib-sc-almost', 'lib-sc-breakdown',
+                'lib-bc-c1', 'lib-bc-a1', 'lib-bc-cf', 'lib-bc-c2', 'lib-bc-a2']) $(id).value = '';
+            $('lib-bc-enabled').checked = false;
         }
 
-        function removeFormLeg(i) {
-            formLegs.splice(i, 1);
-            renderFormLegs();
+        function fillMechForm(def) {
+            resetMechForm();
+            const sc = def.stallClose;
+            if (sc) {
+                const active = typeof sc.stallMs === 'number' && sc.stallMs > 0;
+                $('lib-sc-enabled').checked = active;
+                if (Number.isFinite(sc.stallMs) && sc.stallMs > 0) $('lib-sc-stall-ms').value = sc.stallMs;
+                if (Number.isFinite(sc.minTickBnb)) $('lib-sc-min-tick-bnb').value = sc.minTickBnb;
+                if (Number.isFinite(sc.almostLaunchStallMs)) $('lib-sc-almost').value = sc.almostLaunchStallMs;
+                if (Number.isFinite(sc.breakdownStallMs)) $('lib-sc-breakdown').value = sc.breakdownStallMs;
+            }
+            if (def.burstCooldown != null) {
+                $('lib-bc-enabled').checked = true;
+                const map = [['lib-bc-c1', 'check1Sec'], ['lib-bc-a1', 'check1MinAbsorbBnb'],
+                    ['lib-bc-cf', 'check2ConfirmSec'], ['lib-bc-c2', 'check2Sec'], ['lib-bc-a2', 'check2MinAbsorbBnb']];
+                for (const [elId, k] of map) if (Number.isFinite(def.burstCooldown[k])) $(elId).value = def.burstCooldown[k];
+            }
         }
 
-        function renderFormLegs() {
-            const box = $('lib-legs');
+        function renderModuleRows(selected) {
+            const box = $('lib-modules');
             box.innerHTML = '';
-            $('lib-leg-count').textContent = formLegs.length;
-            formLegs.forEach((leg, i) => {
+            for (const [name, versions] of Object.entries(moduleVersions)) {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-2';
+                const sel = selected[name] || '';
+                div.innerHTML = `
+                    <label class="flex items-center gap-1.5 text-xs text-gray-700 min-w-0">
+                        <input type="checkbox" data-mod="${name}" ${sel ? 'checked' : ''} class="w-4 h-4 rounded">
+                        ${MODULE_LABELS[name] || name}
+                    </label>
+                    <select data-modver="${name}" class="ml-auto px-1.5 py-1 border border-gray-300 rounded-md text-xs">
+                        ${(versions || ['v1']).map(v => `<option value="${v}" ${v === sel ? 'selected' : ''}>${v}</option>`).join('')}
+                    </select>`;
+                box.appendChild(div);
+            }
+        }
+
+        function collectModules() {
+            const out = {};
+            for (const cb of document.querySelectorAll('#lib-modules input[data-mod]')) {
+                if (!cb.checked) continue;
+                const name = cb.dataset.mod;
+                const sel = document.querySelector(`#lib-modules select[data-modver="${name}"]`);
+                out[name] = sel ? sel.value : 'v1';
+            }
+            return out;
+        }
+
+        function collectMechSections() {
+            const def = {};
+            if ($('lib-sc-enabled').checked) {
+                const ms = parseInt($('lib-sc-stall-ms').value);
+                if (!Number.isFinite(ms) || ms <= 0) throw new Error('stallClose 勾选但断流毫秒门未填/非法（段在而 stallMs 未配=机制关，假启用比默认值更危险）');
+                const sc = { stallMs: ms };
+                const minVal = parseFloat($('lib-sc-min-tick-bnb').value);
+                if (Number.isFinite(minVal)) sc.minTickBnb = minVal;
+                const almost = parseInt($('lib-sc-almost').value);
+                if (Number.isFinite(almost)) sc.almostLaunchStallMs = almost;
+                const brk = parseInt($('lib-sc-breakdown').value);
+                if (Number.isFinite(brk)) sc.breakdownStallMs = brk;
+                def.stallClose = sc;
+            }
+            if ($('lib-bc-enabled').checked) {
+                const bc = {};
+                const c1 = parseInt($('lib-bc-c1').value); if (Number.isFinite(c1)) bc.check1Sec = c1;
+                const a1 = parseFloat($('lib-bc-a1').value); if (Number.isFinite(a1)) bc.check1MinAbsorbBnb = a1;
+                const cf = parseInt($('lib-bc-cf').value); if (Number.isFinite(cf)) bc.check2ConfirmSec = cf;
+                const c2 = parseInt($('lib-bc-c2').value); if (Number.isFinite(c2)) bc.check2Sec = c2;
+                const a2 = parseFloat($('lib-bc-a2').value); if (Number.isFinite(a2)) bc.check2MinAbsorbBnb = a2;
+                def.burstCooldown = bc;
+            }
+            return def;
+        }
+
+        // ============ 腿行编辑器（买/卖共用；side 决定 buyPhase 等字段可用性） ============
+        function addFormLeg(side, leg = {}) {
+            (side === 'buy' ? formBuyLegs : formSellLegs).push({ ...leg });
+            renderFormLegs(side === 'buy' ? 'lib-buy-legs' : 'lib-sell-legs', side === 'buy' ? formBuyLegs : formSellLegs, side);
+        }
+
+        function renderFormLegs(containerId, legs, side) {
+            const box = $(containerId);
+            box.innerHTML = '';
+            $(side === 'buy' ? 'lib-buy-count' : 'lib-sell-count').textContent = legs.length;
+            if (!legs.length) {
+                box.innerHTML = `<p class="text-xs text-gray-500">暂无${side === 'buy' ? '买' : '卖'}腿（${side === 'buy' ? '策略包必须至少一条买腿' : '策略包必须至少一条卖腿'}）</p>`;
+                return;
+            }
+            legs.forEach((leg, i) => {
                 const row = document.createElement('div');
                 row.className = 'border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2';
                 row.innerHTML = `
@@ -278,7 +439,7 @@
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-0.5">触发条件（必填，因子同创建页）</label>
                         <input type="text" data-k="condition" value="${escapeAttr(leg.condition || '')}"
-                               placeholder="例如: profitPercent >= 30 AND holdDuration > 0"
+                               placeholder="${side === 'buy' ? '例如: tradeCount >= 6 AND buyVolumeBnb >= 1' : '例如: profitPercent >= 30 AND holdDuration > 0'}"
                                class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -293,7 +454,7 @@
                                    class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                         </div>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-0.5">🃏 卡牌张数</label>
+                            <label class="block text-xs font-medium text-gray-600 mb-0.5">🃏 卡牌张数${side === 'sell' ? '（必填：正整数或 all）' : ''}</label>
                             <input type="text" data-k="cards" value="${escapeAttr(leg.cards ?? '')}" placeholder="正整数或 all"
                                    class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                         </div>
@@ -310,16 +471,24 @@
                                 去抖旁路（bypassDebounce）
                             </label>
                         </div>
+                        ${side === 'buy' ? `
                         <div class="flex items-end">
                             <label class="block w-full text-xs font-medium text-gray-600 pb-1.5">
-                                轮次（T100 buyPhase，仅买腿）
+                                轮次（T100 buyPhase）
                                 <select data-k="buyPhase" class="mt-0.5 w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                                     <option value="">不限（首买/再买两轮可见）</option>
                                     <option value="first" ${leg.buyPhase === 'first' ? 'selected' : ''}>首买轮（仅首买可见，issuer 等门保留）</option>
                                     <option value="repeat" ${leg.buyPhase === 'repeat' ? 'selected' : ''}>再买轮（仅全清后再买可见）</option>
                                 </select>
                             </label>
-                        </div>
+                        </div>` : `
+                        <div class="flex items-end">
+                            <label class="block w-full text-xs font-medium text-gray-600 pb-1.5">
+                                ⚡ signalGate（仅买腿可配；卖腿留空）
+                                <input type="text" data-k="signalGateJson" value="${escapeAttr(leg.signalGate ? JSON.stringify(leg.signalGate) : '')}" placeholder="留空（买腿信号源门链 JSON）"
+                                       class="mt-0.5 w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs font-mono">
+                            </label>
+                        </div>`}
                     </div>
                     <details class="text-xs">
                         <summary class="cursor-pointer text-gray-500">卖确认去抖覆盖（T109，仅卖腿；空=用实验引擎级缺省 sellDebounce*）</summary>
@@ -342,7 +511,7 @@
                         </div>
                     </details>
                     <details class="text-xs">
-                        <summary class="cursor-pointer text-gray-500">高级条件（买腿预检/叙事直调/叙事发起/再检/GMGN 门；展开编辑）</summary>
+                        <summary class="cursor-pointer text-gray-500">高级条件（预检/叙事直调/叙事发起/GMGN 门/作弊盘检查；展开编辑）</summary>
                         <div class="grid grid-cols-1 gap-2 mt-2">
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-0.5">首次购买检查条件</label>
@@ -360,37 +529,38 @@
                                        class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-0.5">叙事分析发起条件（C84 新链：满足即后台发起分析，含账号型重试轮；携带此字段的腿=单一买条件模型）</label>
-                                <input type="text" data-k="narrativeTriggerCondition" value="${escapeAttr(leg.narrativeTriggerCondition || '')}" placeholder="留空=legacy 链；如 buyVolumeBnb >= 0.5 OR narrativeRetryDue == 1"
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">叙事分析发起条件（C84 新链：满足即后台发起分析；携带此字段的腿=单一买条件模型）</label>
+                                <input type="text" data-k="narrativeTriggerCondition" value="${escapeAttr(leg.narrativeTriggerCondition || '')}" placeholder="留空=legacy 链"
                                        class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-0.5">GMGN 检查条件（第三层：前两层全过、下单前实时调 GMGN；调不到数据=拒买）</label>
-                                <input type="text" data-k="gmgnCheckCondition" value="${escapeAttr(leg.gmgnCheckCondition || '')}" placeholder="留空=不检查；可用因子 gmgnBundlerWalletRatio / gmgnIssuerTokenCount / gmgnRiskCovered"
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">GMGN 检查条件（第三层：前两层全过、下单前实时调 GMGN）</label>
+                                <input type="text" data-k="gmgnCheckCondition" value="${escapeAttr(leg.gmgnCheckCondition || '')}" placeholder="留空=不检查"
                                        class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-0.5">作弊盘检查条件（CD158：GMGN 前最后一层买条件；判定投影后按此表达式拒/放，检测层故障=放行）</label>
-                                <input type="text" data-k="cheatCheckCondition" value="${escapeAttr(leg.cheatCheckCondition || '')}" placeholder="留空=不走作弊门；如 cheatGrade IS NULL OR cheatGrade == 0"
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">作弊盘检查条件（CD158：GMGN 前最后一层买条件）</label>
+                                <input type="text" data-k="cheatCheckCondition" value="${escapeAttr(leg.cheatCheckCondition || '')}" placeholder="留空=不走作弊门"
                                        class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                             </div>
                         </div>
                     </details>`;
-                row.querySelector('button').addEventListener('click', () => removeFormLeg(i));
+                row.querySelector('button').addEventListener('click', () => {
+                    const arr = side === 'buy' ? formBuyLegs : formSellLegs;
+                    arr.splice(i, 1);
+                    renderFormLegs(containerId, arr, side);
+                });
                 box.appendChild(row);
             });
         }
 
         /**
-         * 表单腿收集：以原始 JSON 为基底（保真 bypassDebounce 等任意机制字段），
-         * 表单字段覆盖；空值键删除（空字符串不落库）。
-         * 表单字段读写错配（如买腿填卖比例）服务端放行（引擎携带不生效）。
+         * 腿收集：以原始 JSON 为基底（保真 signalGate/任意机制字段），表单字段覆盖；
+         * 空值键删除。cycle/groups 剥离（2026-10-15 机制删除）。
          */
-        function collectFormLegs() {
-            return [...$('lib-legs').children].map((row, i) => {
-                const merged = { ...formLegs[i] };
-                // cycle 分桶路由已删（2026-10-15）：legacy groups/cycle 字段保存时
-                // 剥离——存量库条目重存一次即净，引用侧引擎 fail-fast 不会命中
+        function collectFormLegs(containerId, legs) {
+            return [...$(containerId).children].map((row, i) => {
+                const merged = { ...legs[i] };
                 delete merged.cycle;
                 delete merged.groups;
                 const get = (k) => row.querySelector(`[data-k="${k}"]`);
@@ -412,17 +582,24 @@
                     if (v === '') delete merged[k]; else merged[k] = parseFloat(v);
                 }
 
-                merged.bypassDebounce = get('bypassDebounce').checked; // 勾选才落 true
+                merged.bypassDebounce = get('bypassDebounce').checked;
                 if (!merged.bypassDebounce) delete merged.bypassDebounce;
 
-                // T100 buyPhase：空=不限（显式删——spread 基底会保留原值，不删则 UI 改不回不限）；
-                // 值域与服务端 validateLegs 同款（'first'|'repeat'，非买腿携带会被 400）
-                const bp = get('buyPhase').value;
-                if (bp === 'first' || bp === 'repeat') merged.buyPhase = bp;
-                else delete merged.buyPhase;
+                const bp = get('buyPhase');
+                if (bp) {
+                    if (bp.value === 'first' || bp.value === 'repeat') merged.buyPhase = bp.value;
+                    else delete merged.buyPhase;
+                }
+                const sgJson = get('signalGateJson');
+                if (sgJson) {
+                    const v = sgJson.value.trim();
+                    if (v === '') delete merged.signalGate;
+                    else {
+                        try { merged.signalGate = JSON.parse(v); }
+                        catch (e) { throw new Error(`卖腿 #${i + 1} signalGate JSON 解析失败: ${e.message}（signalGate 仅买腿可配——卖腿请留空）`); }
+                    }
+                }
 
-                // T109 sellDebounce：三键任意有值组装覆盖段（与 spread 基底原有段合并——
-                // 只覆盖 UI 有值的键）；全空显式删（防基底残留，改不回「不覆盖」）
                 const sd = {};
                 for (const [uiKey, jsonKey] of [['sdMinTicks', 'minTicks'], ['sdDebounceMs', 'debounceMs'], ['sdMaxWaitMs', 'maxWaitMs']]) {
                     const el = get(uiKey);
@@ -437,7 +614,9 @@
                 }
 
                 for (const k of ['preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativeCallCondition', 'narrativeTriggerCondition', 'gmgnCheckCondition', 'cheatCheckCondition']) {
-                    const v = get(k).value.trim();
+                    const el = get(k);
+                    if (!el) continue;
+                    const v = el.value.trim();
                     if (v === '') delete merged[k]; else merged[k] = v;
                 }
                 return merged;
@@ -449,10 +628,23 @@
             msg.className = 'text-sm text-gray-500';
             msg.textContent = '保存中…';
             const id = $('lib-id').value;
+            let definition;
+            try {
+                definition = {
+                    buyLegs: collectFormLegs('lib-buy-legs', formBuyLegs),
+                    sellLegs: collectFormLegs('lib-sell-legs', formSellLegs),
+                    ...collectMechSections(),
+                    modules: collectModules(),
+                };
+            } catch (e) {
+                msg.className = 'text-sm text-red-600';
+                msg.textContent = e.message;
+                return;
+            }
             const payload = {
                 name: $('lib-name').value.trim(),
                 description: $('lib-description').value.trim(),
-                legs: collectFormLegs(),
+                definition,
             };
             if (!payload.name) { msg.className = 'text-sm text-red-600'; msg.textContent = '名称必填'; return; }
             try {
@@ -464,7 +656,6 @@
                         body: JSON.stringify({ ...payload, expectedVersion: parseInt($('lib-expected-version').value) }),
                     });
                 } else {
-                    payload.side = $('lib-side').value;
                     res = await fetch('/api/strategy-library', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -474,7 +665,7 @@
                 const result = await res.json();
                 if (!result.success) throw new Error(result.error || `HTTP ${res.status}`);
                 msg.className = 'text-sm text-green-600';
-                msg.textContent = `✅ 已保存（v${result.data.version}）`;
+                msg.textContent = `✅ 已保存（v${result.data.version}）——引用实验下次启动生效`;
                 $('lib-form-card').classList.add('hidden');
                 await loadList();
             } catch (e) {
@@ -484,8 +675,7 @@
         }
 
         async function removeItem(item) {
-            let usage = item.usageCount;
-            const ok = confirm(`删除条目「${item.name}」？\n\n快照语义：已建实验的腿是引用时的快照，删除不影响其运行；仅被引用统计不再计数。\n当前被 ${usage} 个实验引用。`);
+            const ok = confirm(`删除策略包「${item.name}」？\n\n「启动时取最新」语义：删除只影响下次启动的实验（运行中/已启动实验不受影响）；新实验将无法再引用。\n当前被 ${item.usageCount} 个实验引用。`);
             if (!ok) return;
             try {
                 const res = await fetch(`/api/strategy-library/${item.id}`, { method: 'DELETE' });
@@ -497,7 +687,7 @@
             }
         }
 
-        // ============ 从实验导入 ============
+        // ============ 从旧实验导入（迁移路径） ============
         async function loadExperimentOptions() {
             try {
                 const res = await fetch('/api/experiments?limit=200');
@@ -508,7 +698,6 @@
                 for (const exp of result.data) {
                     const opt = document.createElement('option');
                     opt.value = exp.id;
-                    // GET /api/experiments 返回 camelCase（experimentName/tradingMode）
                     opt.textContent = `${exp.experimentName || exp.id}（${exp.tradingMode || '?'} / ${exp.status}）`;
                     select.appendChild(opt);
                 }
@@ -517,74 +706,49 @@
             }
         }
 
-        // 实验腿缓存（renderImportLegs 纯渲染，importSelectedLegs 从缓存取勾选腿）
-        const importLegCache = { buy: [], sell: [] };
-
-        async function loadExperimentLegs() {
+        async function importExperimentAsPack() {
             const expId = $('import-experiment-select').value;
             if (!expId) { alert('请先选择实验'); return; }
-            $('import-legs-area').classList.remove('hidden');
-            $('import-buy-legs').innerHTML = '<p class="text-xs text-gray-500">加载中…</p>';
-            $('import-sell-legs').innerHTML = '';
             try {
                 const res = await fetch(`/api/experiment/${expId}`);
                 const result = await res.json();
                 if (!result.success) throw new Error(result.error || '接口返回失败');
-                const cfg = result.data.config?.strategiesConfig || {};
-                importLegCache.buy = cfg.buyStrategies || [];
-                importLegCache.sell = cfg.sellStrategies || [];
-                renderImportLegs('import-buy-legs', importLegCache.buy, 'buy');
-                renderImportLegs('import-sell-legs', importLegCache.sell, 'sell');
+                const config = result.data.config || {};
+                if (config.strategyId) {
+                    throw new Error('该实验已是新形状（strategyId 引用）——直接编辑其引用的策略包即可');
+                }
+                const sc = config.strategiesConfig || {};
+                const buyLegs = (sc.buyStrategies || []).map(stripLegacy);
+                const sellLegs = (sc.sellStrategies || []).map(stripLegacy);
+                if (!buyLegs.length || !sellLegs.length) throw new Error(`该实验腿不全（买${buyLegs.length}/卖${sellLegs.length}）——策略包要求两侧非空`);
+                // 机制段直迁；门链旗 → modules（勾过=启用 v1）
+                const ws = config.fourmemeWs || config.flapWs || config.gangWs || {};
+                const modules = {};
+                if (ws.cheatCheck?.enabled === true) modules.cheatCheck = 'v1';
+                if (ws.cheatCheck?.actFrontGate?.enabled === true) modules.actFrontGate = 'v1';
+                if (ws.buyPointCheck?.enabled === true) modules.buyPointCheck = 'v1';
+                if (ws.buyPointCheck?.factorCheck?.enabled === true) modules.factorCheck = 'v1';
+                // 填表单
+                $('lib-id').value = '';
+                $('lib-expected-version').value = '';
+                const expName = $('import-experiment-select').selectedOptions[0]?.textContent?.split('（')[0] || expId.slice(0, 8);
+                $('lib-name').value = `${expName}-pack`;
+                $('lib-description').value = `从旧实验 ${expId} 迁移（买${buyLegs.length}/卖${sellLegs.length} 腿）`;
+                formBuyLegs = buyLegs;
+                formSellLegs = sellLegs;
+                renderFormLegs('lib-buy-legs', formBuyLegs, 'buy');
+                renderFormLegs('lib-sell-legs', formSellLegs, 'sell');
+                renderModuleRows(modules);
+                fillMechForm({ stallClose: config.stallClose, burstCooldown: config.burstCooldown });
+                showForm(`从旧实验迁移（确认后保存成策略包）`);
             } catch (e) {
-                $('import-buy-legs').innerHTML = `<p class="text-xs text-red-500">加载失败: ${e.message}</p>`;
+                alert(`组包失败: ${e.message}`);
             }
         }
 
-        function renderImportLegs(containerId, legs, side) {
-            const box = $(containerId);
-            box.innerHTML = '';
-            if (!legs.length) {
-                box.innerHTML = `<p class="text-xs text-gray-500">该实验无${side === 'buy' ? '买' : '卖'}腿</p>`;
-                return;
-            }
-            legs.forEach((leg, i) => {
-                // T100：源实验买腿可能带 buyPhase（首买/再买分臂），导入列表同步可见
-                const bits = [];
-                if (leg.buyPhase === 'first') bits.push('首买');
-                if (leg.buyPhase === 'repeat') bits.push('再买');
-                bits.push(`P${leg.priority ?? '-'}`, leg.condition || '(无 condition)');
-                const label = document.createElement('label');
-                label.className = 'flex items-start gap-2 p-1.5 rounded hover:bg-gray-50 cursor-pointer';
-                label.innerHTML = `
-                    <input type="checkbox" data-i="${i}" checked class="w-4 h-4 mt-0.5 shrink-0">
-                    <span class="text-xs text-gray-700 break-all">${escapeHtml(bits.join(' '))}</span>`;
-                box.appendChild(label);
-            });
-        }
-
-        function importSelectedLegs(side) {
-            const box = $(side === 'buy' ? 'import-buy-legs' : 'import-sell-legs');
-            const expId = $('import-experiment-select').value;
-            const legs = importLegCache[side] || [];
-            const picked = [...box.querySelectorAll('input[type="checkbox"]:checked')].map(cb => legs[parseInt(cb.dataset.i)]);
-            if (!picked.length) { alert('请至少勾选一条腿'); return; }
-            // cycle 分桶路由已删（2026-10-15）：导入时剥离 legacy groups/cycle 字段
-            // （源实验存量腿可能仍携带；带着入库/入引用会让引擎 fail-fast 拒启）
-            const converted = picked.map(l => {
-                const { cycle, groups, ...rest } = l;
-                return rest;
-            });
-            // 填充表单（覆盖式：导入即整组换入）
-            $('lib-id').value = '';
-            $('lib-expected-version').value = '';
-            $('lib-side').value = side;
-            $('lib-side').disabled = false;
-            const expName = $('import-experiment-select').selectedOptions[0]?.textContent?.split('（')[0] || expId.slice(0, 8);
-            $('lib-name').value = `${expName}-${side === 'buy' ? 'buy' : 'sell'}`;
-            $('lib-description').value = `从实验 ${expId} 导入（${converted.length} 腿）`;
-            formLegs = converted;
-            renderFormLegs();
-            showForm(`从实验导入（${side === 'buy' ? '买' : '卖'}侧 ${converted.length} 腿，确认后保存）`);
+        function stripLegacy(l) {
+            const { cycle, groups, ...rest } = l || {};
+            return rest;
         }
 
         // ============ 工具 ============
@@ -598,7 +762,8 @@
         // ============ 事件绑定 + 启动 ============
         $('btn-new').addEventListener('click', startNew);
         $('btn-cancel-form').addEventListener('click', () => $('lib-form-card').classList.add('hidden'));
-        $('btn-add-leg').addEventListener('click', () => addFormLeg({}));
+        $('btn-add-buy-leg').addEventListener('click', () => addFormLeg('buy', {}));
+        $('btn-add-sell-leg').addEventListener('click', () => addFormLeg('sell', {}));
         $('btn-save').addEventListener('click', saveItem);
         $('btn-toggle-import').addEventListener('click', () => {
             const panel = $('import-panel');
@@ -607,10 +772,9 @@
                 loadExperimentOptions();
             }
         });
-        $('btn-load-experiment-legs').addEventListener('click', () => loadExperimentLegs());
-        $('btn-import-buy').addEventListener('click', () => importSelectedLegs('buy'));
-        $('btn-import-sell').addEventListener('click', () => importSelectedLegs('sell'));
+        $('btn-load-experiment-legs').addEventListener('click', importExperimentAsPack);
 
+        loadModuleVersions();
         loadList();
     </script>
 </body>

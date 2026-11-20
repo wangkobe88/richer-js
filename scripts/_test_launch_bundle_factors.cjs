@@ -646,12 +646,10 @@ console.log('U. v24 门串求值（T149 二修：年龄放行臂=(tokenAgeSec>60
     assert.strictEqual(ev.evaluate(gate, {
       launchBundleClusterSize: 3, launchFirstBlockWallets: 1, launchFirstWaveWallets: 1,
       tokenAgeSec: 22, sinceFirstTradeSec: 22, launchMinVsFloorPct: -8.75 }), false));
-  check('U7 deploy 脚本门串与本段逐字一致（防漂移）', () => {
-    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
-    const m = deploySrc.match(/const CLUSTER_GATE = '((?:[^'\\]|\\.)*)'/);
-    assert.ok(m, 'CLUSTER_GATE 常量缺失');
-    const deployGate = m[1].replace(/^ AND \(/, '').replace(/\)$/, '');
-    assert.strictEqual(deployGate, gate);
+  check('U7 deploy 脚本门串与本段逐字一致（防漂移；T202 起断言烘焙条件全文——v34 形含 T201 推迟臂与深破豁免）', () => {
+    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-trading-strategy.cjs'), 'utf8');
+    assert.ok(deploySrc.includes('((launchBundleClusterSize < 3 AND launchFirstBlockWallets < 2 AND launchFirstWaveWallets < 3) OR (tokenAgeSec > 60 AND sinceFirstTradeSec > 45) OR launchMinVsFloorPct < -10)'),
+      'CLUSTER_GATE 烘焙门串缺失或形状漂移');
   });
 }
 
@@ -831,7 +829,7 @@ console.log('W. T151 launchBigBuyBnb（前期买入太多载体）+ 推迟门（
     assert.strictEqual(armBigBuyDefer({ launchDefer: { bigBuyBnb: 1.4, sinceFirstTradeSec: 30, minVsFloorPct: null } }), true, 'floor null=豁免证据缺席照拦（FA null 语义同向）');
   });
   check('W5 v34/T201 迁出锁：deploy 无 DELAY_GATE 残留；FP32 臂在位；条件串不再引用 launchBigBuyBnb', () => {
-    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
+    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-trading-strategy.cjs'), 'utf8');
     assert.ok(!deploySrc.includes('DELAY_GATE'), 'DELAY_GATE 残留——迁移未完成（T180/WAVE_DOM_VETO_GATE 同款删净）');
     assert.ok(!/"condition":[^"]*launchBigBuyBnb/.test(deploySrc), '条件串仍引用 launchBigBuyBnb');
     const fpSrc = fs.readFileSync(path.join(ROOT, 'src', 'market-analysis', 'factor-pre-buy-check.js'), 'utf8');
@@ -1058,9 +1056,9 @@ console.log('Y. T177 同块卖出簇 + ≥10 捆绑绝对 veto（0x6510…7777 �
 
   // Y10 deploy 脚本 v30 门串逐字一致（防漂移；U7 同款）
   check('Y10 deploy 脚本 BUNDLE_VETO_GATE 与本段一致', () => {
-    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
-    const m = deploySrc.match(/const BUNDLE_VETO_GATE = ' AND (launchBundleClusterSize < 10 AND launchSellBundleClusterSize < 10)'/);
-    assert.ok(m, 'BUNDLE_VETO_GATE 常量缺失或形状漂移');
+    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-trading-strategy.cjs'), 'utf8');
+    assert.ok(deploySrc.includes('launchBundleClusterSize < 10 AND launchSellBundleClusterSize < 10'),
+      'BUNDLE_VETO_GATE 烘焙门串缺失或形状漂移');
   });
 
   // Y11 FactorBuilder 快照透传 + 探针收键（不落库即丢防线）
@@ -1213,9 +1211,9 @@ console.log('Z. T178 两波捆绑买入波数 + G4 绝对 veto（0xa025…7777 �
 
   // Z9 deploy 脚本 v31 门串逐字一致（防漂移；Y10 同款）
   check('Z9 deploy 脚本 TWO_WAVE_VETO_GATE 与本段一致', () => {
-    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
-    const m = deploySrc.match(/const TWO_WAVE_VETO_GATE = ' AND \(launchBuyBundleWaves < 2 OR launchBuyBundleDominancePct < 30\)'/);
-    assert.ok(m, 'TWO_WAVE_VETO_GATE 常量缺失或形状漂移');
+    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-trading-strategy.cjs'), 'utf8');
+    assert.ok(deploySrc.includes('launchBuyBundleWaves < 2 OR launchBuyBundleDominancePct < 30'),
+      'TWO_WAVE_VETO_GATE 烘焙门串缺失或形状漂移');
   });
 
   // Z10 FactorBuilder 快照透传 + 探针收键（不落库即丢防线）
@@ -1271,7 +1269,7 @@ console.log('AA. T180 首两波大部队×高占比（0x17b0…7777 案 FA 键�
 
   // AA2 迁出锁：ladder deploy 无 G6 门串，判定在 FP17（T180 二修同日迁移）
   check('AA2 迁出锁：deploy 脚本不含 WAVE_DOM_VETO_GATE（ladder 尾门回 G1~G5）；FP17 臂在位', () => {
-    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-signal-source-strategies.cjs'), 'utf8');
+    const deploySrc = fs.readFileSync(path.join(ROOT, 'scripts', 'deploy-trading-strategy.cjs'), 'utf8');
     assert.ok(!deploySrc.includes('WAVE_DOM_VETO_GATE'), 'ladder 仍带 G6 门串——迁移未完成');
     assert.ok(!deploySrc.includes('l.condition += WAVE_DOM_VETO_GATE'), 'G6 仍在拼腿');
     const fpSrc = fs.readFileSync(path.join(ROOT, 'src', 'market-analysis', 'factor-pre-buy-check.js'), 'utf8');

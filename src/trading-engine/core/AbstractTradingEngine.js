@@ -179,6 +179,14 @@ class AbstractTradingEngine extends ITradingEngine {
     // 调试：输出 config 内容
     this._logger.info('实验 config 内容', { config: this._experiment.config });
 
+    // T202 策略库二期（2026-11-20）：实验只存 config.strategyId，启动时从库解析
+    // 策略包（买/卖腿+stallClose/burstCooldown+四检测模块版本键，取最新 version
+    // ——用户裁定）；解析结果写回 config.strategyResolved 审计。旧内嵌腿形状
+    // （strategiesConfig.buy/sellStrategies）不前向兼容=此处拒启。必须在
+    // _initializeDataSources 之前完成：门链构造/策略组装/stall/burst 读点全消费
+    // this._strategyDefinition
+    await this._resolveStrategyPack();
+
     // 通知子类更新组件的 logger（如果有）
     if (typeof this._updateComponentLoggers === 'function') {
       await this._updateComponentLoggers();
@@ -408,48 +416,97 @@ class AbstractTradingEngine extends ITradingEngine {
   // ==================== 策略构建方法（共同逻辑）====================
 
   /**
-   * 构建策略配置
+   * 解析策略包（T202 策略库二期，2026-11-20）：config.strategyId →
+   * strategy_library.definition，缓存 this._strategyDefinition（腿+机制段+
+   * modules 版本键）与 this._strategyResolved（审计）。启动时取最新 version
+   * （用户裁定——改库重启实验即生效，库是交易策略唯一真相源）。
+   *
+   * fail-fast 三分支：库缺行/definition 非法/modules 未知版本键 → throw 拒启；
+   * 旧内嵌腿形状（strategiesConfig.buy/sellStrategies）→ throw（不前向兼容，
+   * 2026-11-20 用户裁定；克隆脚本 --pack 承担旧基底转换）。
+   * strategyResolved 写回 best-effort：失败仅 warn 不阻塞启动（丢审计不丢交易）。
    * @protected
-   * @returns {Object} 策略配置
+   */
+  async _resolveStrategyPack() {
+    const cfg = this._experiment.config || {};
+    const legacyLegs = cfg.strategiesConfig
+      && (Array.isArray(cfg.strategiesConfig.buyStrategies) || Array.isArray(cfg.strategiesConfig.sellStrategies));
+    if (!cfg.strategyId) {
+      if (legacyLegs) {
+        throw new Error(
+          `[T202] 实验 ${this._experimentId} 携带旧内嵌策略腿（strategiesConfig.buy/sellStrategies）——已不前向兼容。` +
+          `请在策略库建/选交易策略包，并把实验 config 换为顶层 strategyId` +
+          `（克隆脚本 clone-experiment.cjs --pack <包名> 可转换；存量实验行不迁移不删除）`);
+      }
+      return; // 无 strategyId 且无旧腿 → 留给 _buildStrategyConfig 报「没有配置交易策略」
+    }
+    const supabase = dbManager.getClient();
+    const { data, error } = await supabase
+      .from('strategy_library')
+      .select('id, name, version, definition')
+      .eq('id', cfg.strategyId)
+      .single();
+    if (error || !data) {
+      throw new Error(`[T202] 策略包解析失败（strategyId=${cfg.strategyId}）: ${error?.message || '未找到'}`);
+    }
+    const def = data.definition;
+    if (!def || typeof def !== 'object' || !Array.isArray(def.buyLegs) || def.buyLegs.length === 0
+      || !Array.isArray(def.sellLegs) || def.sellLegs.length === 0) {
+      throw new Error(`[T202] 策略包 ${data.name} definition 非法（buyLegs/sellLegs 须为非空数组）`);
+    }
+    // modules 版本键 → 具体代码版本（未知模块名/版本键 throw 拒启——绝不静默跑错代次）
+    const { resolveModules } = require('../../market-analysis/module-registry');
+    const modulesResolved = await resolveModules(def.modules);
+    this._strategyDefinition = def;
+    this._strategyResolved = {
+      id: data.id,
+      name: data.name,
+      version: data.version,
+      resolvedAt: new Date().toISOString(),
+      modules: modulesResolved,
+    };
+    this._logger.info(this._experimentId, this.constructor.name,
+      `📦 策略包解析 | ${data.name} v${data.version} | 买${def.buyLegs.length}/卖${def.sellLegs.length} 腿` +
+      ` | stallClose=${def.stallClose ? 'on' : 'off'} burstCooldown=${def.burstCooldown != null ? 'on' : 'off'}` +
+      ` | modules=${Object.entries(modulesResolved).map(([k, v]) => `${k}:${v}`).join(' ') || '无（四门全关）'}`);
+    // 审计写回（best-effort）：整 config 替换，竞态窗口=启动瞬间 web 端同改 config
+    // （实际不存在）；失败方向=丢审计不丢交易
+    try {
+      const merged = { ...cfg, strategyResolved: this._strategyResolved };
+      const { ExperimentFactory } = require('../factories/ExperimentFactory');
+      const result = await ExperimentFactory.getInstance().updateConfig(this._experimentId, merged);
+      if (result && result.success === false) {
+        this._logger.warn(this._experimentId, this.constructor.name,
+          `strategyResolved 审计写回失败（不影响启动）: ${result.error || '未知错误'}`);
+      } else {
+        this._experiment.config = merged;
+      }
+    } catch (e) {
+      this._logger.warn(this._experimentId, this.constructor.name,
+        `strategyResolved 审计写回异常（不影响启动）: ${e.message}`);
+    }
+  }
+
+  /**
+   * 构建策略配置（T202 起薄读 _resolveStrategyPack 的缓存——腿唯一来源是
+   * 策略库包，两引擎组装点（FourMemeWss:709 / Backtest:459）零改动）
+   * @protected
+   * @returns {Object} 策略配置 {buyStrategies, sellStrategies}
    * @throws {Error} 如果实验没有配置交易策略
    */
   _buildStrategyConfig() {
-    // 策略配置可能在 config.strategiesConfig 或直接在 experiment 上
-    const strategiesConfig = this._experiment.config?.strategiesConfig || this._experiment.strategiesConfig;
-    if (strategiesConfig && Object.keys(strategiesConfig).length > 0) {
-      return strategiesConfig;
+    if (this._strategyDefinition) {
+      return {
+        buyStrategies: this._strategyDefinition.buyLegs,
+        sellStrategies: this._strategyDefinition.sellLegs,
+      };
     }
 
     // 不允许使用硬编码策略，必须明确配置
     throw new Error(
       `实验 ${this._experimentId} 没有配置交易策略。` +
-      `请在实验配置中设置 config.strategiesConfig，` +
-      `包含 buyStrategies 和 sellStrategies 数组。`
+      `请在实验配置中设置顶层 config.strategyId（策略库交易策略包）。`
     );
-  }
-
-  /**
-   * 从配置构建策略
-   * @protected
-   * @param {Object} strategiesConfig - 策略配置对象
-   * @returns {Array} 策略数组
-   */
-  _buildStrategiesFromConfig(strategiesConfig) {
-    const strategies = [];
-
-    for (const [strategyName, config] of Object.entries(strategiesConfig)) {
-      const strategy = this._strategyEngine.getStrategy(strategyName);
-      if (strategy) {
-        strategies.push({
-          name: strategyName,
-          strategy,
-          config: config || {},
-          enabled: config.enabled !== false
-        });
-      }
-    }
-
-    return strategies;
   }
 
   // ==================== 信号处理方法（共同逻辑）====================
@@ -1533,10 +1590,10 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   async _cheatGateEvaluateBinary(tokenAddress, token, faState, signalId, signalGate, ctx = {}) {
     if (!this._cheatCheckService || !this._cheatCheckService.enabled) {
-      // 配置矛盾（门链腿在跑但 cheatCheck.enabled=false）——检测层不可用不拦买点
-      // fail-open 放行进 BP（cheatCheckCondition 版 skipped 同向；warn 留痕）
+      // 配置矛盾（signalGate 腿在跑但策略包 modules.cheatCheck 缺席）——检测层
+      // 不可用不拦买点，fail-open 放行进 BP（cheatCheckCondition 版 skipped 同向；warn 留痕）
       this.logger.warn(this._experimentId, 'SignalGate',
-        `信号源门链腿在跑但 cheatCheck.enabled=false（作弊门跳过放行进 BP） | ${token.symbol || tokenAddress.slice(0, 10)}`);
+        `信号源门链腿在跑但策略包 modules.cheatCheck 缺席（作弊门跳过放行进 BP） | ${token.symbol || tokenAddress.slice(0, 10)}`);
       return { pass: true, info: { status: 'skipped', reason: 'service_disabled' } };
     }
     const meta = {
@@ -1658,12 +1715,12 @@ class AbstractTradingEngine extends ITradingEngine {
     let pass = false;
     if (!this._buyPointCheckService || !this._buyPointCheckService.enabled) {
       this.logger.warn(this._experimentId, 'SignalGate',
-        `⚠️ 信号源门链腿在跑但 buyPointCheck.enabled=false（BP 门不可用=配置矛盾，fail-closed 拒） | ${token.symbol || tokenAddress.slice(0, 10)}`);
+        `⚠️ 信号源门链腿在跑但策略包 modules.buyPointCheck 缺席（BP 门不可用=配置矛盾，fail-closed 拒） | ${token.symbol || tokenAddress.slice(0, 10)}`);
       info = { status: 'disabled', reason: 'service_disabled' };
       // signal 已落库，拒买须打终态 failed 可归因（与其余全拒分支同构——不打=
       // 行滞留 pending 状态页不可归因）
       await this._updateSignalStatus(signalId, 'failed',
-        { message: 'BP 门不可用（buyPointCheck.enabled=false 配置矛盾），fail-closed 拒', reason: 'bp_gate_disabled' });
+        { message: 'BP 门不可用（策略包 modules.buyPointCheck 缺席，配置矛盾），fail-closed 拒', reason: 'bp_gate_disabled' });
     } else {
       const meta = {
         address: token.token,

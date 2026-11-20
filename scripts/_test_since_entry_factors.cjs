@@ -428,13 +428,11 @@ console.log('J. T133 famous near_launch 计数（2026-11-10 用户立法「买�
                     assert.ok(src.includes('sinceEntryFamousNearLaunchBuyBnb: null,'));
                     assert.ok(src.includes('sinceEntryFamousNearLaunchBuyBnb: positionFactors.sinceEntryFamousNearLaunchBuyBnb ?? null,'));
                 });
-                const dep = read('scripts/deploy-signal-source-strategies.cjs');
-                const i = dep.indexOf("name: 'famous-entry-exit'");
-                check('J8i 库条目 v2 金额门源码锁：>= 0.5（计数门 v1 已替换）', () => {
-                    assert.ok(i > 0, '条目缺失');
-                    const seg = dep.slice(i, i + 900);
-                    assert.ok(seg.includes('sinceEntryFamousNearLaunchBuyBnb >= 0.5'), 'v2 金额门缺失');
-                    assert.ok(!seg.includes("'sinceEntryFamousNearLaunchBuys >= 1'"), 'v1 计数门残留');
+                const dep = read('scripts/deploy-trading-strategy.cjs');
+                const i = dep.indexOf('sinceEntryFamousNearLaunchBuyBnb >= 0.5');
+                check('J8i 策略包卖腿 v2 金额门源码锁：>= 0.5（计数门 v1 已替换；T202 起烘焙条件全文）', () => {
+                    assert.ok(i > 0, 'famous-entry-exit 卖腿缺失');
+                    assert.ok(!dep.includes('sinceEntryFamousNearLaunchBuys >= 1'), 'v1 计数门残留');
                 });
             }
         }

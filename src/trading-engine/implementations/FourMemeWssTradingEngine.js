@@ -360,6 +360,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 本类；门字段回测 fail-open 放行，cheat 因子回测恒 null）
     const { CheatCheckService } = require('../../market-analysis/CheatCheckService');
     const _cheatCfg = this._mergedWsConfig().cheatCheck || {};
+    // T202 策略库二期（2026-11-20）：门链 enabled 不再读实验 config——策略包
+    // modules 键在场=启用（版本键经 module-registry 解析；ops 旋钮 gate.awaitMs/
+    // alwaysRecheck/activityExemptLevels/memSource/settleDelayMs 仍走实验 ws 段）
+    const _packMod = (m) => this._strategyDefinition?.modules?.[m] != null;
     // ①+② mem 源注入（2026-11-04 settle 提速）：waitIdle 恒注入（事件驱动 settle——
     // resolver per-token watermark 清空即出窗，帽=service settleDelayMs 与固定等待
     // 现状同延迟上界；resolver 未启用=无回查零延迟立即 true）；pullTicks 仅
@@ -370,7 +374,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       ? _cheatCfg.settleDelayMs : 4000;
     this._cheatMemEnabled = _cheatMemCfg.enabled === true;
     this._cheatCheckService = new CheatCheckService(
-      this._mergedWsConfig().cheatCheck || {}, this.logger,
+      { ..._cheatCfg, enabled: _packMod('cheatCheck') }, this.logger,
       {
         waitIdle: (token) => (this._senderResolver
           ? this._senderResolver.waitTokenIdle(token, _cheatSettleCap + 1000)
@@ -379,9 +383,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       });
     this._cheatGateAwaitMs = Number.isFinite(_cheatCfg.gate && _cheatCfg.gate.awaitMs)
       && _cheatCfg.gate.awaitMs > 0 ? _cheatCfg.gate.awaitMs : 15000;
-    // T175/AF1 前置活跃度门灰度（cheatCheck.actFrontGate.enabled 缺省 false=
-    // 零行为：不开=现行 FP→cheat→BP 全链 bit 不变；开=FP 后按 act 档分流）
-    this._actFrontGateEnabled = _cheatCfg.actFrontGate && _cheatCfg.actFrontGate.enabled === true;
+    // T175/AF1 前置活跃度门（T202 起 enabled 归策略包 modules.actFrontGate——
+    // 键在场=启用；开=FP 后按 act 档分流 low/ultra∧非burst 拒、burst 豁免/
+    // high 跳过 cheat、mid 照走全链）
+    this._actFrontGateEnabled = _packMod('actFrontGate');
     this._cheatBlockedTokens = new Set();   // 拉黑（仅 cheat；与 service._gateBlocked 双保险，引擎短路更早省整条链）
     this._cheatProjectedTokens = new Set(); // FA cheat 投影过的 token（stop 逐 token 清）
     // 门条件评估上下文的 cheat 键集（_cheatGateEvaluate 惰性派生：FA getFactorKeys
@@ -402,8 +407,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const _bpSettleCap = Number.isFinite(_bpCfg.settleDelayMs) && _bpCfg.settleDelayMs > 0
       ? _bpCfg.settleDelayMs : 4000;
     this._bpMemEnabled = _bpMemCfg.enabled === true;
+    // T202：BP 门与 FP 因子门 enabled 均归策略包 modules（ops 键 participantProfile/
+    // gate.awaitMs/memSource/settleDelayMs 仍走实验 ws 段透传）
     this._buyPointCheckService = new BuyPointCheckService(
-      this._mergedWsConfig().buyPointCheck || {}, this.logger,
+      { ..._bpCfg,
+        enabled: _packMod('buyPointCheck'),
+        factorCheck: { ...(_bpCfg.factorCheck || {}), enabled: _packMod('factorCheck') } }, this.logger,
       {
         waitIdle: (token) => (this._senderResolver
           ? this._senderResolver.waitTokenIdle(token, _bpSettleCap + 1000)
@@ -924,7 +933,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     //     接回面另测）。不配 stallClose 段 = 机制关闭（存量实验零变化）。
     //     必须走 bypass 立即路径：空窗期零 tick 到达，卖确认窗 5-tick 门永远凑不齐；
     //     lockTokenAfterSell=false 放行再买臂（清仓≠拉黑）。
-    const _sc = experimentConfig.stallClose || {};
+    // T202 策略库二期：stallClose/burstCooldown 归策略包 definition（断流/冷盘
+    // 卖出=交易策略本体）——实验 config 顶层段不再消费
+    const _sc = (this._strategyDefinition && this._strategyDefinition.stallClose) || {};
     const _scMs = Number(_sc.stallMs);
     this._stallCloseMs = Number.isFinite(_scMs) && _scMs > 0 ? _scMs : null;
     // T118 断流足额门（0x48ce 案 2026-11-05 用户指令「这个级别的交易就给忽略掉吧，
@@ -955,7 +966,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     //     补卖；30s 承接在场解除。与 stallClose 互补（管「有成交但无新钱包承接」，
     //     577c/583a 死时全是卖单 tick=stallClose 盲区）。段在场即启用（{}=全默认）；
     //     不配段=机制关闭零变化。详见 core/burst-cooldown-exit.js 头注。
-    const _bcCfg = experimentConfig.burstCooldown;
+    const _bcCfg = this._strategyDefinition ? this._strategyDefinition.burstCooldown : undefined;
     this._burstCooldown = _bcCfg ? {
       check1Sec: Number.isFinite(Number(_bcCfg.check1Sec)) ? Number(_bcCfg.check1Sec) : BURST_COOLDOWN_DEFAULTS.check1Sec,
       check1MinAbsorbBnb: Number.isFinite(Number(_bcCfg.check1MinAbsorbBnb)) ? Number(_bcCfg.check1MinAbsorbBnb) : BURST_COOLDOWN_DEFAULTS.check1MinAbsorbBnb,
@@ -1577,19 +1588,20 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
 
     // 不阻塞：main.js 在 start() 返回后注册优雅退出；WSS 连接 + intervals 保活事件循环
-    // 门链开关汇总行（2026-11-20 实盘恢复审计立）：四门+节流帽+per-tick 全部缺省静默
-    // （v69 西红柿事故同族盲区——误关只能事后从零门轨迹发现），启动时一行打齐=部署
-    // checklist 核对锚点（docs/live-acceptance-runbook.md 恢复实盘 checklist）
+    // 门链开关汇总行（2026-11-20 实盘恢复审计立；T202 起四门 enabled 归策略包
+    // modules——键在场=on）：四门+节流帽+per-tick 全部缺省静默（v69 西红柿事故
+    // 同族盲区——误关只能事后从零门轨迹发现），启动时一行打齐=部署 checklist
+    // 核对锚点（docs/live-acceptance-runbook.md 恢复实盘 checklist）
     {
       const _m = this._mergedWsConfig();
       const _cc = _m.cheatCheck || {};
-      const _bc = _m.buyPointCheck || {};
-      const _on = (b) => (b === true ? 'on' : 'OFF');
+      const _mods = this._strategyResolved?.modules || {};
+      const _on = (k) => (this._strategyDefinition?.modules?.[k] != null ? `on(${_mods[k] || '?'})` : 'OFF');
       this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
-        `⛓ 门链配置 | cheat=${_on(_cc.enabled)}(awaitMs=${Math.round(this._cheatGateAwaitMs / 1000)}s` +
+        `⛓ 门链配置 | cheat=${_on('cheatCheck')}(awaitMs=${Math.round(this._cheatGateAwaitMs / 1000)}s` +
         `,recheck=${_cc.gate && _cc.gate.alwaysRecheck === true ? 'on' : 'off'})` +
-        ` AF1=${_on(_cc.actFrontGate && _cc.actFrontGate.enabled)} FP=${_on(_bc.factorCheck && _bc.factorCheck.enabled)}` +
-        ` BP=${_on(_bc.enabled)}(awaitMs=${Math.round(this._bpGateAwaitMs / 1000)}s)` +
+        ` AF1=${_on('actFrontGate')} FP=${_on('factorCheck')}` +
+        ` BP=${_on('buyPointCheck')}(awaitMs=${Math.round(this._bpGateAwaitMs / 1000)}s)` +
         ` maxPerToken=${_m.buySignalMaxPerToken ?? 5} perTick=${this._signalGatePerTickEval ? 'on' : 'off'}` +
         ` 卖过滤=${_m.factorSellFilter && _m.factorSellFilter.enabled === true ? 'on' : 'OFF'}`);
     }
@@ -2745,11 +2757,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           if (!gate.pass) return { success: false, reason: gate.reason };
           cheatCheckInfo = gate.info;
         } else {
-          // 腿配了门但 service 未启用（cheatCheck.enabled 缺 false）——配置矛盾
+          // 腿配了门但 service 未启用（策略包 modules.cheatCheck 缺席）——配置矛盾
           // 缺口：fail-open 放行+warn 留痕（GMGN fail-open 同向；loadStrategies
           // 不校验 config 运行态，此处是唯一暴露点）
           this.logger.warn(this._experimentId, 'BuyEval',
-            `买腿携带 cheatCheckCondition 但 cheatCheck.enabled=false（门跳过放行） | ${token.symbol}`);
+            `买腿携带 cheatCheckCondition 但策略包 modules.cheatCheck 缺席（门跳过放行） | ${token.symbol}`);
           cheatCheckInfo = { status: 'skipped', reason: 'service_disabled' };
         }
       }
