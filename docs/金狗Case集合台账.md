@@ -193,3 +193,7 @@
 **降级影响（超出显示，两臂知情）**：symbol/name=''（显示层）；**creator=null**（扁平键名 `creatorAddress` 不被读）→ FA creatorAddress=null → `signalGateReal:true` 真调门链的 cheat 快照 creator 三域匹配锚降级；**createdAtSec=null** → `_registerToken` 回退**首 tick 时刻** → tokenAgeSec 口径漂移；flap totalSupply 撞常量反而正确（112 票全 flap）。**两臂共享同一降级输入 → FP33 A/B 差值内部自洽**；绝对保真度受损。受波及已跑臂：`bt-v167-jg6-fp33-exempt`（d56643bb）+ `bt-v166b-jg6-fp33-ctrl-r2`（6f08daf1，T203b 重建臂）。
 
 **修复**：`tmp-jg6-fix-tokenmeta.cjs` 按官方 addToken 同口径（wss_events token_create 无序 limit+count 对账、多行取最早 block_time、CASE_PLATFORMS 校验）重建 112 行 wrapper 形状；只动 token_meta 不碰 sync_state/水位（112 票全 synced，ticks 副本无关）。预验=装载侧同款映射七键 112/112 全恢复（symbol/creator/createdAt 零缺失，symbol 与旧扁平值零差异），修复后新回测全恢复。**用户裁定**：只修集合数据——已跑两臂不补 display 字段（signal-stats symbol 仍空属预期）、不重跑、装载器不加 fail-fast 校验。**防再犯留档**：任何直写 `case_collection_tokens.token_meta` 的脚本必须经 `buildTokenMetaSnapshot`（形状契约=payload 原样+blockTimeIso+溯源键，快照不预映射）。
+
+## JG-10 0x00ee…7777 移除出金狗集合：前期行为太怪异（2026-11-21；用户裁定，集合 30→29）
+
+**用户裁定（原话）**：「前期行为太怪异，没办法参与」——移出 `大金狗-尽量保证买入`（a8414632）。该票=第二批金狗（bt-v164 >500% 人工筛选，flap），集合内副本 ticks=997/events=3 已随成员行级联删除（只删集合副本，wss_price_ticks/wss_events 全局行不动）；删除前核查无运行中实验引用该集合。**口径影响**：集合现 29 票；此前以 30 票口径产出的统计（JG-7/8/9 金狗家族扫描含此票）为历史快照不重跑。执行=`scripts/tmp-jg-remove-00ee.cjs`（用后可删）。
