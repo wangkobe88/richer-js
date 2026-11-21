@@ -154,6 +154,8 @@ class ExperimentSignals {
 
     // 🔥 实验配置（用于获取预检查条件）
     this.experimentConfig = null;
+    // T202 策略库形状：包在启动后被改版时的版本漂移注记（空串=无漂移）
+    this._packVersionNote = '';
 
     this.init();
   }
@@ -381,6 +383,8 @@ class ExperimentSignals {
       if (experimentResponse.data) {
         this._experimentData = experimentResponse.data; // 叙事触发条件串等配置供详情面板消费
         this.updateExperimentHeader(experimentResponse.data);
+        // T202 策略库形状：拉包物化腿供条件表达式/因子 chips 展示（旧内嵌腿形状零改动）
+        await this._loadStrategyPackLegs();
 
         // 🔥 如果是回测实验，异步获取源实验的区块链信息（用于生成GMGN链接）
         if (this._isBacktest && this._sourceExperimentId) {
@@ -3648,6 +3652,7 @@ class ExperimentSignals {
               <div class="text-xs mb-1">
                 <span class="font-semibold text-amber-200">📋 买入条件配置:</span>
                 <code class="ml-2 px-2 py-0.5 bg-gray-900 rounded text-xs text-amber-200 break-all">${this._escapeHtml(buyCondition)}</code>
+                ${this._packVersionNote ? `<span class="text-yellow-600">${this._escapeHtml(this._packVersionNote)}</span>` : ''}
                 ${this._renderConditionFactorChips(buyCondition, metadata)}
               </div>
             ` : ''}
@@ -4028,6 +4033,7 @@ class ExperimentSignals {
             <div class="text-xs">
               <span class="font-semibold text-blue-900">📋 卖出条件配置:</span>
               <code class="ml-2 px-2 py-0.5 bg-blue-200 rounded text-xs text-blue-900 break-all">${this._escapeHtml(sellCondition)}</code>
+              ${this._packVersionNote ? `<span class="text-yellow-700">${this._escapeHtml(this._packVersionNote)}</span>` : ''}
               ${this._renderConditionFactorChips(sellCondition, metadata)}
             </div>
           </div>
@@ -4483,6 +4489,55 @@ class ExperimentSignals {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * T202 策略库形状（2026-11-21）：实验 config 只存顶层 strategyId，腿定义在
+   * strategy_library 包 definition 里——信号卡片「条件表达式+因子值 chips」与叙事
+   * 面板触发条件串都消费 strategiesConfig.buyStrategies/sellStrategies（旧内嵌腿
+   * 形状），拿不到腿 = 表达式与因子值静默消失。这里拉取策略包并把
+   * definition.buyLegs/sellLegs 物化进 strategiesConfig 双数组；腿 id 形状由消费点
+   * enrichment（`buy_${idx}_${priority}`）与引擎组装点同构补齐，信号 metadata.strategyId
+   * 命中不变。旧形状（内嵌腿在场）原样跳过零改动；拉取失败仅 console.warn 降级
+   * （页面其余功能不受影响，条件区不渲染——与无腿配置的展示行为一致）。
+   * 版本漂移：包在实验启动后被改版 → strategyResolved.version（启动解析版）≠ 库
+   * 当前 version，条件展示为当前库版并注记（库不存历史版，无法回放启动版腿）。
+   * @private
+   */
+  async _loadStrategyPackLegs() {
+    const cfg = this.experimentConfig || {};
+    const sc = cfg.strategiesConfig || {};
+    if (Array.isArray(sc.buyStrategies) || Array.isArray(sc.sellStrategies)) {
+      return; // 旧内嵌腿形状（T202 前实验）——腿已在 config 里
+    }
+    if (!cfg.strategyId) return;
+    try {
+      const resp = await fetch(`/api/strategy-library/${cfg.strategyId}`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const json = await resp.json();
+      const def = json && json.data && json.data.definition;
+      if (!def || !Array.isArray(def.buyLegs) || !Array.isArray(def.sellLegs)) {
+        throw new Error('definition 形状非法（buyLegs/sellLegs 缺失）');
+      }
+      this.experimentConfig.strategiesConfig = {
+        ...sc,
+        buyStrategies: def.buyLegs,
+        sellStrategies: def.sellLegs,
+      };
+      // 叙事面板触发条件串读 _experimentData.config.strategiesConfig——同一物化双写
+      if (this._experimentData && this._experimentData.config
+          && typeof this._experimentData.config === 'object') {
+        this._experimentData.config.strategiesConfig = this.experimentConfig.strategiesConfig;
+      }
+      const resolvedV = cfg.strategyResolved && cfg.strategyResolved.version;
+      const libV = json.data.version;
+      this._packVersionNote = (Number.isInteger(resolvedV) && libV !== resolvedV)
+        ? `（库 v${libV} ≠ 启动解析 v${resolvedV}，展示为当前库版）`
+        : '';
+      console.log(`[ExperimentSignals] 策略包腿已物化: ${json.data.name} v${libV} | 买${def.buyLegs.length}/卖${def.sellLegs.length} 腿${this._packVersionNote}`);
+    } catch (e) {
+      console.warn('[ExperimentSignals] 策略包腿拉取失败（条件表达式/因子 chips 将不展示）:', e);
+    }
   }
 
   /**

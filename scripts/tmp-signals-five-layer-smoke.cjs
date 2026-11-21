@@ -166,5 +166,49 @@ function render(md, extra) {
   ok(h.includes('fail-open 放行进④作弊门全链'), 'F: 故障说明文案');
 }
 
-console.log(`\n${failed === 0 ? '✅' : '❌'} 五层展示冒烟：${passed} 通过 / ${failed} 失败`);
-process.exit(failed === 0 ? 0 : 1);
+// ── 形状 G：T202 策略库形状——包腿物化后条件表达式+因子 chips 恢复展示（异步）──
+(async () => {
+  const _fetch = global.fetch;
+  const packResp = () => ({ ok: true, status: 200, json: async () => ({ success: true, data: {
+    id: 'pk1', name: 'trading-standard-v1', version: 3,
+    definition: {
+      buyLegs: [{ priority: 1, condition: 'tradeCount >= 6 AND currentVsLaunchPct <= 28.5', signalGate: {} }],
+      sellLegs: [{ priority: 2, condition: 'profitPercent >= 100' }],
+    },
+  } }) });
+  // G1 物化成功：id enrichment 与引擎组装点同构（buy_0_1 命中），叙事面板源双写
+  global.fetch = async (url) => String(url).includes('/api/strategy-library/') ? packResp() : _fetch(url);
+  inst.experimentConfig = { strategyId: 'pk1', strategiesConfig: { stats: {} }, strategyResolved: { version: 1 } };
+  inst._experimentData = { config: inst.experimentConfig };
+  inst._packVersionNote = '';
+  await inst._loadStrategyPackLegs();
+  const g1buy = inst._getBuyCondition('buy', 'buy_0_1');
+  ok(g1buy === 'tradeCount >= 6 AND currentVsLaunchPct <= 28.5', 'G1: 物化后 buy_0_1 命中腿条件');
+  ok(inst._getBuyCondition('sell', 'sell_0_2') === 'profitPercent >= 100', 'G1: sell_0_2 命中卖腿条件');
+  ok(Array.isArray(inst._experimentData.config.strategiesConfig.buyStrategies), 'G1: 叙事面板源（_experimentData）双写物化');
+  ok(inst._packVersionNote.includes('库 v3 ≠ 启动解析 v1'), 'G1: 版本漂移注记（库 v3 ≠ 启动解析 v1）');
+  const gh = render({ trendFactors: { tradeCount: 7, currentVsLaunchPct: 10 } });
+  ok(gh.includes('买入条件配置'), 'G1: 卡片渲染含买入条件配置行');
+  ok(gh.includes('tradeCount = 7.00 >= 6 ✓'), 'G1: 因子 chip 命中（tradeCount=7 过门）');
+  ok(gh.includes('currentVsLaunchPct = 10.00 <= 28.5 ✓'), 'G1: 因子 chip 命中（curVs=10 过门）');
+  ok(gh.includes('库 v3 ≠ 启动解析 v1'), 'G1: 卡片含版本漂移注记');
+
+  // G2 版本一致：strategyResolved.version 与库同版 → 无漂移注记
+  inst.experimentConfig = { strategyId: 'pk1', strategiesConfig: {}, strategyResolved: { version: 3 } };
+  inst._packVersionNote = '';
+  await inst._loadStrategyPackLegs();
+  ok(inst._packVersionNote === '', 'G2: 版本一致无漂移注记');
+
+  // G3 拉取失败降级：不物化不炸、条件区不渲染（页面其余功能不受影响）
+  global.fetch = async () => ({ ok: false, status: 500, json: async () => ({}) });
+  inst.experimentConfig = { strategyId: 'pk2', strategiesConfig: {} };
+  inst._packVersionNote = '';
+  await inst._loadStrategyPackLegs();
+  ok(!Array.isArray(inst.experimentConfig.strategiesConfig.buyStrategies), 'G3: 失败不物化');
+  const g3h = render({ trendFactors: { tradeCount: 7 } });
+  ok(!g3h.includes('买入条件配置'), 'G3: 条件配置行不渲染');
+  global.fetch = _fetch;
+
+  console.log(`\n${failed === 0 ? '✅' : '❌'} 五层展示冒烟：${passed} 通过 / ${failed} 失败`);
+  process.exit(failed === 0 ? 0 : 1);
+})();
