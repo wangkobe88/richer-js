@@ -58,7 +58,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G22', '版本常量 G22（改规则必须 bump+同步台账+跑黄金集；G22=G21−R 通道（2026-11-17 CD419/D3.77 用户裁定原话「abnormal_behavior_ratio 是针对一些不普世的异常现象，也删除吧，分工问题，如果发现有一些异常现象在 cheat 的其它锚不好控，会增加因子过滤锚，这个比较泛的 cheat 锚就不保留了」：泛异常兜底题与分工不符——不普世异常形状的承接载体=FP 因子门（T143 FP 族纯代码零 Jev）而非泛 cheat 题；题随 D3.77 整题删除（11→10）、R_abnormal_dominant 通道随题退役不再产出（历史行留档）、levels/buckets abnormalBehavior 键移除、FA cheatAbnormalBehaviorRatio 键恒 null；判读原料锚（D3.35 四键/D3.54 脉冲三键/创建者峰值）照算纯观察、state 两喂料行移除；黄金集 D3.26 存档无该题答案→重放零变化）；G21=G20−A 主判 burst_spike_concentration（CD418/D3.76——sbw=burst 豁免链天然放行 A 主判冗余：题整删+EXT 清单移除+MAIN_IDS 九→八主判+spike+pump 双 strong 封堵降级豁免臂随题退役，尖刺两锚照算纯观察）；G20=−D 通道（CD416 famous 锚删除——CD379 活跃度豁免下实际拦截为零，famous 拦截载体=BP ③桶+卖侧 T133/T136/T161/T137 臂）；G19=−J_holdings_strong 臂（btv140 食蟹猴二案）+D3.72 slow_grind_pump 合力反锚第二通道；G18=−G8 弱 burst 代码臂（CD397）；G17=N 通道（CD374）；G16=D 邻界联立臂（CD323，已随 G20 整体退役）；G15=burst_spike 入 EXT（→G21 出列）；G14=M 通道 ultra；G12/G13=R 通道立/改制（→G22 随题退役）')
+  ok(CHEAT_GRADE_RULES_VERSION === 'G23', '版本常量 G23（改规则必须 bump+同步台账+跑黄金集；G23=T205 E 通道阶段前提（2026-11-21 金狗 GWC 0xb71209cb…7777 案）：E_low_activity 加阶段腿——灰度 extras.enableActStageCold ∧ extras.stageAthVsLaunchPct（锚窗最高可靠价较地板发行价，cheat snapshot 新键）<80 未火过 → E 不产 unhealthy（cheat 门放行进 BP）——低活跃票最终守门员（FP act 臂/AF1 reject_low 同原则贯通 act-stage.js 共享线，不落本腿则上游放行 low 票死在 E）；ultra/M 通道刻意不动；ath null=照拦；灰度关=零行为黄金集 bit 不变；台账金狗 JG-15+交易 T205）；G22=G21−R 通道（2026-11-17 CD419/D3.77 用户裁定原话「abnormal_behavior_ratio 是针对一些不普世的异常现象，也删除吧，分工问题，如果发现有一些异常现象在 cheat 的其它锚不好控，会增加因子过滤锚，这个比较泛的 cheat 锚就不保留了」：泛异常兜底题与分工不符——不普世异常形状的承接载体=FP 因子门（T143 FP 族纯代码零 Jev）而非泛 cheat 题；题随 D3.77 整题删除（11→10）、R_abnormal_dominant 通道随题退役不再产出（历史行留档）、levels/buckets abnormalBehavior 键移除、FA cheatAbnormalBehaviorRatio 键恒 null；判读原料锚（D3.35 四键/D3.54 脉冲三键/创建者峰值）照算纯观察、state 两喂料行移除；黄金集 D3.26 存档无该题答案→重放零变化）；G21=G20−A 主判 burst_spike_concentration（CD418/D3.76——sbw=burst 豁免链天然放行 A 主判冗余：题整删+EXT 清单移除+MAIN_IDS 九→八主判+spike+pump 双 strong 封堵降级豁免臂随题退役，尖刺两锚照算纯观察）；G20=−D 通道（CD416 famous 锚删除——CD379 活跃度豁免下实际拦截为零，famous 拦截载体=BP ③桶+卖侧 T133/T136/T161/T137 臂）；G19=−J_holdings_strong 臂（btv140 食蟹猴二案）+D3.72 slow_grind_pump 合力反锚第二通道；G18=−G8 弱 burst 代码臂（CD397）；G17=N 通道（CD374）；G16=D 邻界联立臂（CD323，已随 G20 整体退役）；G15=burst_spike 入 EXT（→G21 出列）；G14=M 通道 ultra；G12/G13=R 通道立/改制（→G22 随题退役）')
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance')
     && !MAIN_IDS.includes('burst_spike_concentration') && !MAIN_IDS.includes('strong_backer_pressure'),
@@ -732,6 +732,36 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
     const g0 = gradeObservation({ phenomena: {}, extLevels: {}, anchors: {} }, {});
     ok(g0.grade === 'healthy' && g0.version === CHEAT_GRADE_RULES_VERSION,
       'SB1 观察臂零门效应（gradeObservation 不消费强庄形状——G15 版本不变）');
+  }
+
+  // ═════ T205/G23 E 通道阶段前提（金狗 GWC 0xb71209cb…7777 复活拉回案） ═════
+  // 灰度 extras.enableActStageCold（CheatCheckService gate.actStageColdExempt）∧
+  // extras.stageAthVsLaunchPct<80（未火过）→ E_low_activity 不产 unhealthy——低活跃
+  // 票最终守门员（FP act 臂/AF1 reject_low 同原则贯通 act-stage.js 共享线）；
+  // ath null=照拦；灰度关=零行为。
+  {
+    const mkLow = () => { const o = baseObs(); o.activityLevel.bucket = 'low'; o.anchors.top1HoldCircPct = 10; return o; };
+    const gCold = grade(mkLow(), { anchorSellCount: 1, enableActStageCold: true, stageAthVsLaunchPct: 43.5 });
+    ok(gCold.grade === 'healthy' && !gCold.reasons.some((x) => x.code === 'E_low_activity'),
+      'G23：灰度开∧未火过（ath=43.5 GWC 案值）→ E 不产 unhealthy（cheat 门放行进 BP）');
+    const gEdge = grade(mkLow(), { anchorSellCount: 1, enableActStageCold: true, stageAthVsLaunchPct: 79.9 });
+    ok(gEdge.grade === 'healthy', 'G23 边界：ath=79.9 让位');
+    const gHot = grade(mkLow(), { anchorSellCount: 1, enableActStageCold: true, stageAthVsLaunchPct: 80 });
+    ok(gHot.grade === 'unhealthy' && gHot.reasons.some((x) => x.code === 'E_low_activity'),
+      'G23 边界：ath=80 恰照拦（火过线 80=FP27 同线严格 <）');
+    const gNull = grade(mkLow(), { anchorSellCount: 1, enableActStageCold: true, stageAthVsLaunchPct: null });
+    ok(gNull.grade === 'unhealthy', 'G23：ath null=照拦（放行方向证据缺席不释放）');
+    const gOff = grade(mkLow(), { anchorSellCount: 1, stageAthVsLaunchPct: 43.5 });
+    ok(gOff.grade === 'unhealthy', 'G23：灰度关（缺省）→ 照拦（零行为）');
+    // ultra（M 通道）刻意不受阶段影响：activity ultra 照 unhealthy
+    const mkUltra = () => { const o = baseObs(); o.activityLevel.bucket = 'ultra'; return o; };
+    const gU = grade(mkUltra(), { enableActStageCold: true, stageAthVsLaunchPct: 10 });
+    ok(gU.grade === 'unhealthy' && gU.reasons.some((x) => x.code === 'M_hyper_activity'),
+      'G23：ultra/M 通道不受阶段前提影响（协同出货=当下事实）');
+    // burst 豁免优先级不动
+    const oB = mkLow(); withExt(oB, 'stall_burst_wave', 'burst');
+    ok(grade(oB, { enableActStageCold: true, stageAthVsLaunchPct: 10 }).grade === 'healthy',
+      'G23：sbw=burst 豁免照常（与阶段前提正交）');
   }
 
   console.log(`\n✅ _test_cheat_grade 全过（${passed} 断言）`);

@@ -313,8 +313,9 @@
  */
 
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
+const { isColdStage, ACT_STAGE_HOT_MIN_ATH_VS_PCT } = require('./act-stage'); // T205/fix① 共享线（零依赖叶子）
 
-const CHEAT_GRADE_RULES_VERSION = 'G22';
+const CHEAT_GRADE_RULES_VERSION = 'G23'; // G23=T205 E 通道阶段前提（2026-11-21 金狗 GWC 0xb71209cb…7777 复活拉回误杀案，用户原则「活跃度拦截的价值在火过一段时间后的流动性失去，前期不重要」）：E_low_activity 加阶段腿——**未火过**（extras.stageAthVsLaunchPct 锚窗最高可靠价较地板发行价 <80，act-stage.js 共享线 FP27 同线）∧灰度 extras.enableActStageCold（CheatCheckService gate.actStageColdExempt）→ E 不产 unhealthy（cheat 门放行进 BP）——低活跃票的最终守门员（FP act 臂/AF1 reject_low 同原则贯通，不落本腿则上游放行的 low 票死在 E）；ultra（M 通道）刻意不动=协同出货当下事实非静默语义；ath null=照拦（放行方向证据缺席不释放）；A/D/J/L 通道不受影响。版本 bump=规则域变化（灰度关时零行为，黄金集 42 票对拍锁 bit 不变）；台账金狗 JG-15+交易 T205+作弊台账 G23 段
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -626,7 +627,11 @@ function gradeObservation(observation, extras = {}) {
   // sbw=burst 豁免挡住的全是自己人（14 票 Jev act 已判 low）——退役后该防线
   // 由 D3.67 题面四判轴接棒，E_low_activity_weak_burst 码随臂退役（历史行留档）
   if (act === 'low' && sbw !== 'burst') {
-    reasons.push({ level: 'unhealthy', code: 'E_low_activity' });
+    // T205/G23 阶段前提（金狗 GWC 案，灰度 enableActStageCold）：未火过
+    // （锚前 ATH<80）的票 low 不产 unhealthy——「前期活跃度检测不重要，火过
+    // 一段时间后 low=流动性失去才拦」；ath 缺席 null=照拦（isColdStage false）
+    const _stageCold = ex.enableActStageCold === true && isColdStage(ex.stageAthVsLaunchPct);
+    if (!_stageCold) reasons.push({ level: 'unhealthy', code: 'E_low_activity' });
   }
 
   // G：（G11 整体退役，2026-11-02 CD133 用户裁定——sb∪eq 并集圈定吞 GMGN 前端

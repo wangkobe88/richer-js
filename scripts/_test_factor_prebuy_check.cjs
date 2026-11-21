@@ -193,7 +193,7 @@ console.log('DP. FP23 相邻双块捆绑砸盘尾承接（T190/0x2b63 ASCEND 案
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'dump_pair_low_absorption');
     assert.deepStrictEqual(r.arms, ['dump_pair_low_absorption']);
-    assert.strictEqual(r.version, 'FP34');
+    assert.strictEqual(r.version, 'FP35');
     const g = r.gates.find(x => x.id === 'dump_pair');
     assert.ok(g, 'gates 须含 dump_pair 门');
     assert.strictEqual(g.hit, true);
@@ -206,7 +206,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP34'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP35'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -317,7 +317,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP34');
+    assert.strictEqual(r.version, 'FP35');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -870,7 +870,7 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP17（T180 首两波大部队迁入；FP16=大周期 burst 残局）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP34'); // FP32=T201 大户推迟臂迁入（ladder v34 G2）；FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP35'); // FP32=T201 大户推迟臂迁入（ladder v34 G2）；FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
   });
 }
 
@@ -1104,7 +1104,7 @@ console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入�
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'launch_squad_dominance');
     assert.ok(r.arms.includes('launch_squad_dominance'));
-    assert.strictEqual(r.version, 'FP34');
+    assert.strictEqual(r.version, 'FP35');
   });
   check('T2 有机热门盘 wave≥8 但 dom<30 → 放（da405bd0 wave13 dom0 实证——占比轴保护赢家）', () => {
     const r = M.evaluateFactorPreBuy(LS(13, 0));
@@ -1199,7 +1199,7 @@ console.log('U. FP19 尾部接刀臂（T182）');
     assert.strictEqual(g2.hit, false);
   });
   check('U10 版本 FP22（T188 持仓均等作弊仓；FP21=T187 持有者打散臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP34');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP35');
   });
 }
 
@@ -1248,7 +1248,7 @@ console.log('V. T187/FP21 持有者打散臂（筹码结构维度：posH≥25 �
     assert.strictEqual(M.armHolderScatter(CH(29, 28, 50).buyDerived), true);
   });
   check('V10 版本 FP21（T187 持有者打散；豁免=top1≥45 ∨ 前2≥60）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP34');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP35');
   });
 }
 
@@ -1310,7 +1310,7 @@ console.log('W. T188/FP22 持仓均等作弊仓臂（HHI<0.10 团伙分仓指纹
     assert.ok(Math.abs(hhi([50, 25, 25]) - 0.375) < 1e-12);
   });
   check('W8 版本 FP22（T188 持仓均等作弊仓臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP34');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP35');
   });
 }
 
@@ -1372,7 +1372,7 @@ console.log('X. FP26/T193 尾段买力枯竭+卖压在场（bt-v158 因子分析
     assert.strictEqual(g2.hit, false);
   });
   check('X7 版本（T193 尾段买力枯竭+卖压在场，T194 后顺延 FP27）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP34');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP35');
   });
 }
 
@@ -1439,7 +1439,7 @@ console.log('Y. FP27/T194 大户静默卸货（未走完周期庄提前离场—
     assert.strictEqual(g2.hit, false);
   });
   check('Y8 版本（T194 大户静默卸货，T195 后顺延 FP28）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP34');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP35');
   });
 }
 
@@ -1520,7 +1520,7 @@ console.log('Z. FP28/T195 早窗启动失败死盘（bt-v162 热窗首测立法�
     assert.strictEqual(g2.hit, false);
   });
   check('Z9 版本 FP28（T195 早窗启动失败死盘）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP34');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP35');
   });
 }
 
@@ -1583,7 +1583,7 @@ console.log('AA. FP29/T197 分仓出货残局盘（CI/MOLLY 工厂盘取证立�
     assert.strictEqual(g2.hit, false);
   });
   check('AA7 版本（T197 分仓出货残局盘，T198 后顺延 FP30）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP34');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP35');
   });
 }
 
@@ -1644,7 +1644,7 @@ console.log('AB. FP30/T198 机器持筹垄断（arbBot 组净持筹占在场流�
     assert.strictEqual(g2.hit, false);
   });
   check('AB7 版本（T198 机器持筹垄断，T200 后顺延 FP31）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP34');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP35');
   });
 }
 
@@ -1692,7 +1692,7 @@ console.log('AC. FP31/T200 fam_holding_thin 中等跟单豁免（slot 级 U 型�
     assert.strictEqual(M.FAM_THIN_FOLLOW_EXEMPT_MAX_BNB, 0.2);
   });
   check('AC6 版本 FP31（T200 中等跟单豁免）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP34');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP35');
   });
 }
 
@@ -1740,7 +1740,7 @@ console.log('AD. FP32/T201 大户买入推迟（ladder v34 G2 迁入——행복
     assert.ok(r.arms.includes('big_buy_defer'));
   });
   check('AD7 版本 FP33（JG6 tail_dip 有机盘豁免；FP32 大户推迟线不变）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP34');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP35');
     assert.strictEqual(M.BIG_BUY_DEFER_TIER079_BNB, 0.79);
     assert.strictEqual(M.BIG_BUY_DEFER_TIER1_BNB, 1);
     assert.strictEqual(M.BIG_BUY_DEFER_SEC_TIER079, 45);
@@ -1881,6 +1881,115 @@ console.log('AE. FP33/JG6 tail_dip 有机盘豁免（金狗 쿠우타 0xc0e896dd
     assert.strictEqual(r.reason, 'lifecycle_sell_residual');
     assert.strictEqual(r.tailDipExempt, undefined);
     assert.strictEqual(r.tailNoBuyerExempt, undefined);
+  });
+}
+
+// ═════ AG. T205/FP35 act low 阶段前提 + tail_dip 量腿（金狗 GWC 0xb71209cb…7777 复活拉回案） ═════
+// 案源反证锚：bt-v164 2026-10-03 23:54:36 唯一 BUY 信号 metadata——arms=['tail_dip_knife',
+// 'act_low']、reason='factor_gate_act_low'、gate 值 ath43.5/curVs26.3/chg5-6.01/chg30-6.01/
+// 静默98.9%吞吐0.05B/min；锚前 30s=4 笔尘埃卖共 0.164B（chg5=chg10=chg30 全等=30s 窗内
+// 唯一变价组）；锚后 +932% 毕业。用户两原则=fix① 未火过（ATH<80）act low 让位 /
+// fix② 量极少的跌不是从高点下来的（卖30s≥0.3B 才拦）。
+console.log('AG. T205 阶段前提+量腿（GWC 复活拉回案）');
+{
+  // ── fix② 量腿：GWC 全形状夹具（双臂现场值）──
+  const GWC = (sellBnb30, sellN30 = 4) => SNAP({
+    wallets: [W(0.3, 0, 0.3), W(0.25, 0, 0.25)], // pvp big_buyers_present（0.2级×2 在场）
+    buyDerived: { athVsLaunchPct: 43.5, currentVsLaunchPct: 26.3, chg5Pct: -6.01, chg30Pct: -6.01,
+      bundledBlock: null, win: { 30: { buyBnb: 0, buyN: 0, sellBnb: sellBnb30, sellN: sellN30 } },
+      activity: { idlePct: 98.9, ticksPerMin: 0.3, buyMedianBnb: 0, throughputBnbPerMin: 0.05, spanSec: 400, tickCount: 12 } },
+  });
+  check('AG1 案源反证：灰度全关（缺省）→ 照拦，arms/tally 与生产行 bit 一致（tail_dip_knife+act_low 双命中、reason=act_low 优先级）', () => {
+    const r = M.evaluateFactorPreBuy(GWC(0.164));
+    assert.strictEqual(r.pass, false);
+    assert.strictEqual(r.reason, 'act_low');
+    assert.deepStrictEqual(r.arms, ['tail_dip_knife', 'act_low']);
+  });
+  check('AG2 量腿开：GWC 尘埃漂移 0.164B → tail_dip 不拦', () => {
+    const r = M.evaluateFactorPreBuy(GWC(0.164), { enableTailDipVolumeLeg: true });
+    assert.ok(!r.arms.includes('tail_dip_knife'));
+  });
+  check('AG3 量腿边界：0.299 不拦 / 0.3 恰拦（严格 <）', () => {
+    assert.ok(!M.evaluateFactorPreBuy(GWC(0.299), { enableTailDipVolumeLeg: true }).arms.includes('tail_dip_knife'));
+    assert.ok(M.evaluateFactorPreBuy(GWC(0.3), { enableTailDipVolumeLeg: true }).arms.includes('tail_dip_knife'));
+  });
+  check('AG4 量腿 win30 卖额缺席 → 臂不触发（null 容缺同哲学）', () => {
+    const snap = SNAP({
+      wallets: [W(0.3, 0, 0.3), W(0.25, 0, 0.25)],
+      buyDerived: { athVsLaunchPct: 43.5, currentVsLaunchPct: 26.3, chg5Pct: -6.01, chg30Pct: -6.01,
+        bundledBlock: null, win: { 30: { buyBnb: 0, buyN: 0 } }, activity: { nearTail10BuyN: 3 } },
+    });
+    assert.ok(!M.evaluateFactorPreBuy(snap, { enableTailDipVolumeLeg: true }).arms.includes('tail_dip_knife'));
+  });
+  check('AG5 量腿开：有量崩塌（卖30s=0.5B/8笔）→ 照拦（量少豁的是空簿漂移非崩塌本体）', () => {
+    assert.ok(M.evaluateFactorPreBuy(GWC(0.5, 8), { enableTailDipVolumeLeg: true }).arms.includes('tail_dip_knife'));
+  });
+
+  // ── fix① 阶段前提：judgeActivityLevel opts ──
+  const STAGE = (ath, activity = { idlePct: 98.9, ticksPerMin: 0.3, buyMedianBnb: 0, throughputBnbPerMin: 0.05, spanSec: 400, tickCount: 12 }) => ({
+    ticks: [{ dt: 400 }], wallets: [],
+    buyDerived: Object.assign({ activity }, ath == null ? {} : { athVsLaunchPct: ath }),
+    cheatDerived: {},
+  });
+  check('AG10 未火过 ath=43.5 灰度开 → low 五臂整体让位（level null / branch=act_stage_cold / trace 留痕 stageAth+stageCold）', () => {
+    const r = M.judgeActivityLevel(STAGE(43.5), { enableActStageCold: true });
+    assert.strictEqual(r.level, null);
+    assert.strictEqual(r.branch, 'act_stage_cold');
+    assert.strictEqual(r.trace.stageAth, 43.5);
+    assert.strictEqual(r.trace.stageCold, true);
+  });
+  check('AG11 边界：ath=79.9 让位 / ath=80 恰照拦（火过线 80=FP27 同线）', () => {
+    assert.strictEqual(M.judgeActivityLevel(STAGE(79.9), { enableActStageCold: true }).level, null);
+    const r = M.judgeActivityLevel(STAGE(80), { enableActStageCold: true });
+    assert.strictEqual(r.level, 'low');
+    assert.strictEqual(r.branch, 'act_low_idle');
+  });
+  check('AG12 ath null=照拦（放行方向证据缺席不释放）', () => {
+    const r = M.judgeActivityLevel(STAGE(null), { enableActStageCold: true });
+    assert.strictEqual(r.level, 'low');
+    assert.strictEqual(r.trace.stageCold, false);
+  });
+  check('AG13 灰度关（缺省）→ ath=43.5 照拦 low（FP34 行为 bit 不变）', () => {
+    const r = M.judgeActivityLevel(STAGE(43.5));
+    assert.strictEqual(r.level, 'low');
+    assert.strictEqual(r.branch, 'act_low_idle');
+  });
+  check('AG14 ultra 刻意不受阶段前提影响（协同出货=当下事实非静默语义）', () => {
+    const snap = {
+      ticks: [{ dt: 400 }], wallets: [],
+      buyDerived: { athVsLaunchPct: 43.5, activity: { nearTail10SellWallets: 12, nearTail10BuyN: 0, nearTail10BuyBnb: 0, idlePct: 2, ticksPerMin: 200 } },
+      cheatDerived: {},
+    };
+    const r = M.judgeActivityLevel(snap, { enableActStageCold: true });
+    assert.strictEqual(r.level, 'ultra');
+    assert.strictEqual(r.branch, 'act_ultra_coordinated_selling');
+  });
+  check('AG15 端到端：GWC 全形状双灰度全开 → 双臂全让位 pass（复活拉回收官）', () => {
+    const r = M.evaluateFactorPreBuy(GWC(0.164), { enableTailDipVolumeLeg: true, enableActStageCold: true });
+    assert.strictEqual(r.pass, true);
+    assert.strictEqual(r.reason, null);
+    assert.deepStrictEqual(r.arms, []);
+  });
+  check('AG16 端到端：只开量腿（阶段关）→ 仍被 act_low 拦（单修不救案源——同源误读双出口）', () => {
+    const r = M.evaluateFactorPreBuy(GWC(0.164), { enableTailDipVolumeLeg: true });
+    assert.strictEqual(r.reason, 'act_low');
+  });
+  check('AG17 端到端：只开阶段（量腿关）→ 仍被 tail_dip 拦（ath43.5≥40 域内）', () => {
+    const r = M.evaluateFactorPreBuy(GWC(0.164), { enableActStageCold: true });
+    assert.strictEqual(r.reason, 'tail_dip_knife');
+  });
+  check('AG18 火过票灰度全开 → 双臂照拦（ATH≥80 死盘不受保护）', () => {
+    const r = M.evaluateFactorPreBuy(GWC(0.5, 8), { enableTailDipVolumeLeg: true, enableActStageCold: true });
+    // GWC 夹具换 ath 需重建——用 armTailDipKnife 直测火过域 + act 端到端
+    assert.ok(M.armTailDipKnife({ athVsLaunchPct: 120, currentVsLaunchPct: 20, chg5Pct: -10, chg30Pct: -20, win: { 30: { sellBnb: 0.6 } } }, { enableTailDipVolumeLeg: true }));
+    const r2 = M.evaluateFactorPreBuy(SNAP({
+      wallets: [W(0.3, 0, 0.3), W(0.25, 0, 0.25)],
+      buyDerived: { athVsLaunchPct: 120, currentVsLaunchPct: 20, chg5Pct: -10, chg30Pct: -20,
+        bundledBlock: null, win: { 30: { buyBnb: 0, buyN: 0, sellBnb: 0.6, sellN: 8 } },
+        activity: { idlePct: 98.9, ticksPerMin: 0.3, buyMedianBnb: 0, throughputBnbPerMin: 0.05, spanSec: 400, tickCount: 12 } },
+    }), { enableTailDipVolumeLeg: true, enableActStageCold: true });
+    assert.strictEqual(r.pass, false);
+    assert.deepStrictEqual(r2.arms, ['tail_dip_knife', 'act_low']);
   });
 }
 

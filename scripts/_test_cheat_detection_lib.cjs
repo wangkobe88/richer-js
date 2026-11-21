@@ -3167,5 +3167,37 @@ console.log('I. 著名钱包单极控盘锚（cheat 门消费已退役，锚族=
     ok(d4.burstSecSinceSegEnd === null, 'T192 无静默段簇锚 null 同族容缺');
   }
 
+  // ═════ T205 阶段前提锚 athVsLaunchPct（GWC 0xb71209cb…7777 案——AF1 coldStage/
+  // cheat E 通道消费）：地板锚口径=min(平台常量, 窗内最低可靠价) 分母、priceArc.ath
+  // 分子（outlier 天价不打飞）；与 FA `_minRelPriceBnb`/BP snapshot launchAnchor 同源 ═════
+  {
+    // 既有 micro 夹具（flap）：可靠价 1e-9~2.0e-9（outlier 9.9e-7 不算）→
+    // launch=min(FLAP 5.546e-9, 1e-9)=1e-9、ATH=2.0e-9 → +100.0（火过）
+    ok(md.athVsLaunchPct === 100, `micro 夹具（flap 地板锚）：athVsLaunchPct=100.0（实际 ${md.athVsLaunchPct}）`);
+    // GWC 案形状（flap）：窗内最低 3.94e-9（<常量 5.546e-9 拖低 launch）∧ 最高 5.6e-9
+    // → +42.1（生产行 ath43.5 同口径窗差异容许，断言锁公式非锁案值）
+    const gwcRows = [
+      mkRow(10, 100, 1, 'buy', 0.2, 5.6e-9),
+      mkRow(20, 101, 1, 'sell', 0.1, 3.94e-9),
+      mkRow(30, 102, 1, 'buy', 0.1, 4.9e-9),
+      mkRow(40, 103, 1, 'sell', 0.16, 4.5e-9),
+    ];
+    const gd = buildSnapshotFromRows(gwcRows, microMeta).derived;
+    ok(gd.athVsLaunchPct === 42.1, `GWC 形状：launch=3.94e-9 拖低锚 → ath +42.1（实际 ${gd.athVsLaunchPct}）`);
+    // 无常量平台（gang/未知）→ null（阶段不可判，消费侧照拦 fail-closed）
+    const gangMeta = { ...microMeta, platform: 'gang' };
+    ok(buildSnapshotFromRows(gwcRows, gangMeta).derived.athVsLaunchPct === null,
+      'gang/未知平台 → null（无常量锚）');
+    // 全 outlier（无可靠价）→ null
+    const outRows = [mkRow(10, 100, 1, 'sell', 0.1, 9e-9, { outlier: true })];
+    ok(buildSnapshotFromRows(outRows, microMeta).derived.athVsLaunchPct === null,
+      '全 outlier → null（无可靠价不冒充）');
+    // 平价热票（fourmeme，价 1e-8 > 常量 4.496e-9）→ launch=常量 → +122.4
+    const hotRows = [mkRow(10, 100, 1, 'buy', 0.2, 1e-8), mkRow(20, 101, 1, 'buy', 0.1, 1e-8)];
+    const hotMeta = { ...microMeta, platform: 'fourmeme' };
+    const hd = buildSnapshotFromRows(hotRows, hotMeta).derived;
+    ok(hd.athVsLaunchPct === 122.4, `fourmeme 常量锚（窗内 min>常量）：+122.4（实际 ${hd.athVsLaunchPct}）`);
+  }
+
   console.log(`\n✅ _test_cheat_detection_lib 全过（${passed} 断言）`);
 })().catch((e) => { console.error(`\n❌ ${e?.stack || e}`); process.exit(1); });

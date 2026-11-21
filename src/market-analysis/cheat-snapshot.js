@@ -1900,6 +1900,28 @@ function computeDerived(snapshot, famousRoster) {
     last = t.priceBnb;
   }
 
+  // ── T205 阶段前提锚（fix①「未火过票活跃度让位」，GWC 案）：锚窗最高可靠价较
+  //    地板发行价 %。launch=min(平台常量, 窗内最低可靠价)（floorLaunchPriceBnb
+  //    T134 滚动地板——与 FA `_minRelPriceBnb`/BP snapshot launchAnchor 三点同源；
+  //    本文件 burstExitVsLaunchPct 同块的 _launch 为波扫描域局部量，刻意不复用
+  //    ——本键全窗口径）。消费点=AF1 coldStage 分流+cheat 分级门 E 通道阶段前提
+  //    （CheatCheckService）；无可靠价/无常量平台（gang/未知）→ null=阶段不可判
+  //    （消费侧 isColdStage false=照拦，放行方向 fail-closed）──
+  let athVsLaunchPct = null;
+  {
+    let _minRelStage = 0;
+    for (const t of ticks) {
+      if (!t.outlier && t.priceBnb > 0 && (_minRelStage === 0 || t.priceBnb < _minRelStage)) _minRelStage = t.priceBnb;
+    }
+    const _constStage = resolveLaunchPriceBnb(
+      snapshot.tokenMeta ? snapshot.tokenMeta.platform : null, null);
+    const _launchStage = _constStage !== null && _constStage > 0
+      ? floorLaunchPriceBnb(_constStage, _minRelStage) : null;
+    if (_launchStage !== null && _launchStage > 0 && ath !== null && ath > 0) {
+      athVsLaunchPct = +(((ath / _launchStage) - 1) * 100).toFixed(1);
+    }
+  }
+
   // ── pump 数值锚族（D3.57，头注见 PUMP_STABLE_R2）：锚窗可靠价序列的最长稳定
   // 斜率子段（log 价回归 R²≥0.95 取 span 最长）+ log 涨幅÷总买 + 卖笔占比。
   // O(n²) 枚举连续子段（起点 i 固定向右增量扩展，sxy/sxx/syy O(1) 更新——与探针
@@ -2107,6 +2129,8 @@ function computeDerived(snapshot, famousRoster) {
     creatorBuyBnb, creatorBuyN, creatorSellBnb, creatorSellN,
     activityLevel, activityCv, activityUneven,
     priceArc: first !== null ? { first, ath, athDt, last } : null,
+    // T205 阶段前提锚（AF1 coldStage/E 通道阶段前提消费；地板锚口径见上方块注）
+    athVsLaunchPct,
   };
 }
 

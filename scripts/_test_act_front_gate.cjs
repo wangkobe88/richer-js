@@ -317,7 +317,7 @@ async function main() {
 
   // ═══════════════ E. FP N 升格臂证伪撤回（对拍 2026-11-18 同日）═══════════════
   console.log('E. FP N 通道升格臂撤回（对拍证伪）');
-  ok(FACTOR_PREBUY_VERSION === 'FP32', `FP 版本=FP32（T201 后现行；断言随版本演进同步——2026-11-20 修存量漂移 FP28）（实际 ${FACTOR_PREBUY_VERSION}）`);
+  ok(FACTOR_PREBUY_VERSION === 'FP35', `FP 版本=FP35（T205 阶段前提+量腿后现行；断言随版本演进同步——2026-11-20 修存量漂移 FP28、2026-11-21 同步 FP35）（实际 ${FACTOR_PREBUY_VERSION}）`);
   {
     // 最小 snapshot 直调：N 臂无条件拦会误伤 A_strong∧high 豁免票（萨摩耶 N=6.3
     // −0.014/我画地为牢 N=0.0 +0.0875/PAYAI N=9.5 +0.0762，净 −0.15 > FFFF
@@ -329,6 +329,51 @@ async function main() {
     const FP_SRC = fs.readFileSync(path.join(__dirname, '../src/market-analysis/factor-pre-buy-check.js'), 'utf8');
     ok(!FP_SRC.includes('NO_RETAIL_ENTRY_PCT') && FP_SRC.includes('对拍证伪撤回'),
       'FP 源码：N 臂常量绝迹+证伪撤回注释在场');
+  }
+
+  // ═══════════════ F. T205/fix① 阶段前提（金狗 GWC 0xb71209cb…7777 案） ═══════════════
+  // 灰度 cheatCheck.gate.actStageColdExempt（缺省 false=零行为）：未火过（锚前
+  // ATH<80，cheat snapshot 新键 athVsLaunchPct 地板锚）票 act=low 由 reject_low
+  // 改走 mid_full（照走 cheat 全链）；burst 豁免/ultra/wash/high 路由不动。
+  console.log('F. T205 AF1 阶段前提（未火过 low 让位）');
+  {
+    // F1 纯函数（第 4 参）
+    ok(actFrontRoute('low', false, 'none', true) === 'mid_full', 'coldStage：low∧¬burst → mid_full（让位走全链）');
+    ok(actFrontRoute('low', false, 'none', false) === 'reject_low', '非 cold（火过/灰度关）→ reject_low（旧语义）');
+    ok(actFrontRoute('low', true, 'none', true) === 'burst_exempt', 'coldStage：burst 豁免优先级不动');
+    ok(actFrontRoute('ultra', false, 'none', true) === 'reject_ultra', 'coldStage：ultra 照拒（协同出货=当下事实）');
+    ok(actFrontRoute('mid', false, 'none', true) === 'mid_full', 'coldStage 与 mid 无交互');
+
+    // F2 全路径：冷票（平价 1e-9=锚窗 ATH 0% vs 地板 launch 1e-9——cheat snapshot
+    // 地板锚=min(平台常量, 窗内最低可靠价)）灰度开 → mid_full + stageCold 留痕
+    const coldSvc = makeSvc(makeDb({ ticks: genTicks(10) }), makeLlm({ answers: afAnswers('low') }),
+      { gate: { actStageColdExempt: true } });
+    const rCold = await coldSvc.evaluateActFront('0xtok', META, {}, {});
+    ok(rCold.status === 'assessed' && rCold.path === 'mid_full',
+      `全路径冷票 low 灰度开 → mid_full（实际 ${rCold.path}）`);
+    ok(rCold.stageCold === true && rCold.athVsLaunchPct === 0,
+      `stageCold/athVsLaunchPct 留痕（实际 ${rCold.stageCold}/${rCold.athVsLaunchPct}）`);
+
+    // F3 灰度关（缺省）→ reject_low（FP34 前行为 bit 不变）
+    const offSvc = makeSvc(makeDb({ ticks: genTicks(10) }), makeLlm({ answers: afAnswers('low') }), {});
+    const rOff = await offSvc.evaluateActFront('0xtok', META, {}, {});
+    ok(rOff.path === 'reject_low' && rOff.stageCold === undefined,
+      '灰度关 → reject_low 且无 stageCold 键');
+
+    // F4 热票（平价 1e-8 → launch=fourmeme 常量 4.496e-9（窗内 min>常量），ATH≈+122%）
+    // 灰度开 → 照拒 reject_low（火过一轮=low 语义恢复）
+    const hotTicks = genTicks(10).map((r) => ({ ...r, price_bnb: 1e-8 }));
+    const hotSvc = makeSvc(makeDb({ ticks: hotTicks }), makeLlm({ answers: afAnswers('low') }),
+      { gate: { actStageColdExempt: true } });
+    const rHot = await hotSvc.evaluateActFront('0xtok', META, {}, {});
+    ok(rHot.path === 'reject_low' && rHot.stageCold === false && rHot.athVsLaunchPct > 80,
+      `热票灰度开 → 照拒（实际 ${rHot.path}/${rHot.stageCold}/${rHot.athVsLaunchPct}）`);
+
+    // F5 burst 票冷阶段 → burst_exempt（豁免链优先于阶段前提）
+    const burstSvc = makeSvc(makeDb({ ticks: genTicks(10) }), makeLlm({ answers: afAnswers('low', 'burst') }),
+      { gate: { actStageColdExempt: true } });
+    const rBurst = await burstSvc.evaluateActFront('0xtok', META, {}, {});
+    ok(rBurst.path === 'burst_exempt', '冷票 low∧burst → burst_exempt（豁免优先）');
   }
 
   console.log(`\n✅ _test_act_front_gate 全部通过（${passed} 断言）`);

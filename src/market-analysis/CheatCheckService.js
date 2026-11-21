@@ -74,6 +74,7 @@
  */
 
 const { buildSnapshotFromRows } = require('./cheat-snapshot');
+const { isColdStage } = require('./act-stage'); // T205/fix① 阶段前提共享线
 const { buildCheatState } = require('./cheat-state-builder');
 const { buildObservation, readActivityLevel, readStallBurst, readPhenomenon } = require('./cheat-result-mapper');
 const { gradeObservation, levelsFromObservation, strongbackerShapeHit, STRONGBACKER_RULE_VERSION } = require('./cheat-grade');
@@ -128,8 +129,18 @@ const ACTIVITY_EXEMPT_DOMAIN = ['low', 'mid', 'high', 'ultra'];
  *   显性化，省 10 题；三窗 high 档 cheat 现行拦截率 0.7%）
  * - mid → 'mid_full'（照走 cheat 门全 10 题 + BP——现行全链 bit 不变）
  */
-function actFrontRoute(act, burst, wash) {
-  if (act === 'low' || act === 'ultra') return burst ? 'burst_exempt' : `reject_${act}`;
+/**
+ * AF1 分流纯函数。coldStage=T205/fix① 阶段前提（灰度 gate.actStageColdExempt，
+ * 金狗 GWC 案立法）：未火过（锚前 ATH<80）的票 act=low 不再拒——low∧¬burst 由
+ * reject_low 改走 mid_full（照走 cheat 全链，Jev 16 题接手判读）；burst 豁免与
+ * ultra/wash/high 路由刻意不动（burst 优先、ultra 协同出货=当下事实非静默语义）。
+ */
+function actFrontRoute(act, burst, wash, coldStage = false) {
+  if (act === 'low' || act === 'ultra') {
+    if (burst) return 'burst_exempt';
+    if (act === 'low' && coldStage) return 'mid_full'; // T205：未火过 low 让位走全链
+    return `reject_${act}`;
+  }
   if (act === 'high') return wash === 'strong' ? 'reject_wash' : 'high_skip';
   return 'mid_full';
 }
@@ -182,6 +193,14 @@ class CheatCheckService {
     // 缺省 ['high'] 默认生效（CD409 起，原 ['high','ultra']）；显式 []=关；非法值
     // throw（配置错误 fail-fast 防静默失效——域不动=['high','ultra'] 仍可显式恢复）
     this._activityExemptLevels = parseActivityExemptLevels(config.gate && config.gate.activityExemptLevels);
+    // T205/fix① 活跃度阶段前提灰度（2026-11-21 金狗 GWC 0xb71209cb…7777 案立法，
+    // gate.actStageColdExempt 缺省 false=零行为）：**未火过**（锚前 ATH<80，
+    // act-stage.js 单点）的票 act=low 不再拒——一个原则两个挂点（本 service 内）：
+    // ①AF1 分流 reject_low → mid_full（照走 cheat 全链，burst 豁免/wash/high 路由
+    // 不动）；②cheat 分级门 E 通道（gradeObservation extras 透传，见 G23）。
+    // ultra 刻意不受影响（协同出货=当下事实）；ath null=照拦 fail-closed。
+    // FP act 臂同原则在 buyPointCheck.factorCheck.actStageColdExempt 键。
+    this._gateActStageCold = !!(config.gate && config.gate.actStageColdExempt === true);
     // CD389 每信号重判开关（2026-11-09 用户裁定「cheat 检测每一次都重新做，不缓存
     // cheat 的结果，每一次都重新算」——bt-v91 重跑引出；缺省 false 生产零变化）：
     // gateBuyPoint 全部秒回点（拉黑入口秒回/healthy 粘滞/unhealthy 粘滞/bootstrap
@@ -492,6 +511,12 @@ class CheatCheckService {
       const meta = this._normalizeMeta(token, tokenMeta, pull, createMeta);
       const snapshot = buildSnapshotFromRows(pull.rows, meta, { capped: pull.capped, anchorTickCount: pull.anchorTickCount });
       const { state } = buildCheatState(snapshot);
+      // T205/fix① 阶段前提（灰度 gate.actStageColdExempt）：未火过（锚前 ATH<80）
+      // 票 reject_low 让位走 mid_full——athVsLaunchPct 缺席=照拦（isColdStage
+      // null=false，放行方向 fail-closed）
+      const _stageAth = snapshot.derived && typeof snapshot.derived.athVsLaunchPct === 'number'
+        ? snapshot.derived.athVsLaunchPct : null;
+      const _stageCold = this._gateActStageCold && isColdStage(_stageAth);
 
       // 5b) AF 题集（引用 buildCheatQuestions 三题——单一真相源；deps.loadLlm
       //     测试桩缺 AF 键=惰性 dynamic import 真题集补齐并回填缓存，cheat 链零影响）
@@ -556,9 +581,11 @@ class CheatCheckService {
       const burst = sbwInfo === 'burst';
 
       // 分流决策（纯函数形状——单测直测）
-      const path = actFrontRoute(act, burst, washInfo);
+      const path = actFrontRoute(act, burst, washInfo, _stageCold);
       this.stats.actFrontRouted[path] = (this.stats.actFrontRouted[path] || 0) + 1;
-      return { status: 'assessed', act, sbw: sbwInfo, wash: washInfo, path, version };
+      // stageCold/athVsLaunchPct 留痕（T205 可观测性：信号 metadata actFrontGate 段）
+      return { status: 'assessed', act, sbw: sbwInfo, wash: washInfo, path, version,
+        ...(this._gateActStageCold ? { stageCold: _stageCold, athVsLaunchPct: _stageAth } : {}) };
     } catch (e) {
       // 接线级异常：fail-open 放行进 cheat（cheat/BP 门兜底）
       this.stats.errors++;
@@ -1231,6 +1258,11 @@ class CheatCheckService {
       const graded = gradeObservation(obs, {
         // （famous 三键已随 G20/CD416 D 通道退役）
         anchorSellCount,
+        // T205/fix① E 通道阶段前提（灰度 gate.actStageColdExempt——与 AF1 同键
+        // 同原则：未火过票 act=low 不产 unhealthy，详见 cheat-grade G23）
+        stageAthVsLaunchPct: snapshot.derived && typeof snapshot.derived.athVsLaunchPct === 'number'
+          ? snapshot.derived.athVsLaunchPct : null,
+        enableActStageCold: this._gateActStageCold,
       });
       obs.grade = graded.grade;
       obs.gradeReasons = graded.reasons;

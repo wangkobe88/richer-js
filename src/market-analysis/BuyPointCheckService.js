@@ -111,6 +111,11 @@ class BuyPointCheckService {
     this._factorEnabled = !!(config.factorCheck && config.factorCheck.enabled === true);
     // FP33/JG6 tail_dip 有机盘豁免灰度（factorCheck.tailDipOrganicExempt，缺省 false=FP32 行为不变）
     this._tailDipOrganicExempt = !!(config.factorCheck && config.factorCheck.tailDipOrganicExempt === true);
+    // T205 两灰度（缺省 false=FP34 行为不变，GWC 案立法）：fix① act low 家族阶段
+    // 前提（未火过 ATH<80 让位——同原则 AF1/E 通道在 cheatCheck.gate 键）/
+    // fix② tail_dip 量腿（锚前 30s 卖额 ≥0.3B 才拦）
+    this._actStageColdExempt = !!(config.factorCheck && config.factorCheck.actStageColdExempt === true);
+    this._tailDipVolumeLeg = !!(config.factorCheck && config.factorCheck.tailDipVolumeLeg === true);
     // T193 参与者 GMGN 画像观察键（张雪电摩 pump 作弊案→画像库消费端）：锚窗 top-N
     // 买家查 gmgn_wallet_profiles 聚合（票数中位/小亏带/新号/bot 浓度）。**观察键不
     // 进门不拦截**（阈值待分布裁定）；灰度缺省 false；回测（persist=false）不跑=
@@ -216,7 +221,11 @@ class BuyPointCheckService {
         // 未完成 → 空集=键 0 有证据零值恒放行 fail-open）
         arbBotWallets: await this._loadArbBotWallets(),
       });
-      const verdict = evaluateFactorPreBuyJudge(snapshot, { enableTailDipExempt: this._tailDipOrganicExempt });
+      const verdict = evaluateFactorPreBuyJudge(snapshot, {
+        enableTailDipExempt: this._tailDipOrganicExempt,
+        enableActStageCold: this._actStageColdExempt, // T205 fix①：act low 阶段前提
+        enableTailDipVolumeLeg: this._tailDipVolumeLeg, // T205 fix②：tail_dip 量腿
+      });
       this.stats.factorAssessed++;
       if (!verdict.pass) this.stats.factorBlocked++;
       return { status: 'assessed', ...verdict };
