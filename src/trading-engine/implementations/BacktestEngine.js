@@ -392,6 +392,14 @@ class BacktestEngine extends AbstractTradingEngine {
         `📊 回测配置: 源实验=${this._sourceExperimentId}, 初始余额=${this.initialBalance}` +
         (this._startTimeFilter ? `, 起点=${new Date(this._startTimeFilter).toISOString()}` : '') +
         (this._endTimeFilter ? `, 终点=${new Date(this._endTimeFilter).toISOString()}` : ''));
+    } else if (this._caseCollectionId) {
+      // Case 通道专属文案（startTimeFilter/endTimeFilter null=全量；null 直接 toISOString
+      // 会打 1970 误导——首跑实证旧文案误报「窗口派生」）
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `📊 回测配置: Case 集合=${this._caseCollectionName || this._caseCollectionId}` +
+        (this._startTimeFilter ? `, 起点=${new Date(this._startTimeFilter).toISOString()}` : '') +
+        (this._endTimeFilter ? `, 终点=${new Date(this._endTimeFilter).toISOString()}` : '（时间窗缺省=回放集合全部数据）') +
+        `, 初始余额=${this.initialBalance}`);
     } else {
       this.logger.info(this._experimentId, 'BacktestEngine',
         `📊 回测配置: 时间范围=${new Date(this._startTimeFilter).toISOString()} ~ ${new Date(this._endTimeFilter).toISOString()}（窗口 token_create 派生 token 集）, 初始余额=${this.initialBalance}`);
