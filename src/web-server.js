@@ -2870,6 +2870,63 @@ class RicherJsWebServer {
       }
     });
 
+    // ⚙️ 机器钱包名单（T198/FP30 arbBot 集同源）：gmgn_wallet_profiles tags ∩
+    // {arbitrager, sandwich_bot, wash_trader}（BuyPointCheckService._loadArbBotWallets
+    // 同一口径——signals 页价格图机器成交标记）。数据源=Supabase 全局表（RLS 红线：
+    // 走 dataService.supabase service key）；进程缓存 10min TTL（画像库离线增量回填，
+    // 无需跟随紧时效；查询失败 fail-open 空名单=图上零标记不阻塞）。
+    this.app.get('/api/rosters/arb-bot-wallets', async (req, res) => {
+      try {
+        const ARB_BOT_TAGS = new Set(['arbitrager', 'sandwich_bot', 'wash_trader']);
+        const TTL_MS = 10 * 60 * 1000;
+        const cached = this._arbBotRosterCache;
+        if (cached && Date.now() - cached.loadedAt < TTL_MS) {
+          return res.json({ success: true, data: cached.payload });
+        }
+        const supabase = this.dataService.supabase; // dbManager service key（RLS 红线）
+        const wallets = [];
+        const profiles = {};
+        let after = null;
+        for (;;) {
+          let q = supabase.from('gmgn_wallet_profiles')
+            .select('address,tags,buy_count,sell_count,token_num,winrate,realized_profit')
+            .order('address').limit(1000);
+          if (after) q = q.gt('address', after);
+          const { data, error } = await q;
+          if (error) throw new Error(error.message);
+          if (!data || !data.length) break;
+          for (const r of data) {
+            if (!Array.isArray(r.tags) || !r.tags.some((t) => ARB_BOT_TAGS.has(t))) continue;
+            const w = String(r.address || '').toLowerCase();
+            if (!w) continue;
+            wallets.push(w);
+            profiles[w] = {
+              tags: r.tags.filter((t) => ARB_BOT_TAGS.has(t)),
+              buyCount: Number(r.buy_count) || 0,
+              sellCount: Number(r.sell_count) || 0,
+              tokenNum: Number(r.token_num) || 0,
+              winrate: Number.isFinite(Number(r.winrate)) ? Number(r.winrate) : null,
+              realizedProfitUsd: Number.isFinite(Number(r.realized_profit)) ? Number(r.realized_profit) : null,
+            };
+          }
+          after = data[data.length - 1].address;
+          if (data.length < 1000) break;
+        }
+        const payload = {
+          wallets,
+          profiles,
+          meta: { source: 'gmgn_wallet_profiles', tags: [...ARB_BOT_TAGS] },
+        };
+        this._arbBotRosterCache = { loadedAt: Date.now(), payload };
+        this.logger.info('WebServer', `arbBot 机器名单加载: ${wallets.length} 址（signals 图标记）`);
+        res.json({ success: true, data: payload });
+      } catch (error) {
+        this.logger.error('WebServer', '读取机器钱包名单失败:', { details: error });
+        // fail-open 空名单：图上零标记，不阻塞页面
+        res.json({ success: true, data: { wallets: [], profiles: {}, meta: { reason: 'load_failed' } } });
+      }
+    });
+
     // 按地址批查代币分类/最高涨幅（token_profiles 全局表）。消费方=signal-stats 页
     // 涨幅补全：tokens 接口 discovered_at desc 10000 行截断 + narrative 兜底只覆盖
     // 有 token_narrative 行的票——万级 token 回测实验的早窗信号票两条链都 miss，
