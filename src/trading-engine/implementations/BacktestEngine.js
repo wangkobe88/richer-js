@@ -1254,19 +1254,32 @@ class BacktestEngine extends AbstractTradingEngine {
    * 空集合已在 _initializeDataSources 拒启（集合是显式资产，空集=配置错误）。
    */
   async _loadTokenMetadataFromCaseSet(supabase) {
-    const CASE_MEMBER_LIMIT = 1000;
-    const { data: rows, count, error } = await supabase
+    // JG-6c（2026-11-21）：崩塌域门族全集 2489 票打破「人管理量级」假设——分页
+    // 拉全（page 500）+ 总护栏 5000（超限仍 fail-loud 宁拒不漏）；对账=count exact。
+    const CASE_MEMBER_LIMIT = 5000, PAGE = 500;
+    const { count, error: cErr } = await supabase
       .from('case_collection_tokens')
-      .select('token_address, platform, token_meta', { count: 'exact' })
-      .eq('collection_id', this._caseCollectionId)
-      .limit(CASE_MEMBER_LIMIT);
-    if (error) throw new Error(`读取 Case 集合成员元数据失败: ${error.message}`);
+      .select('id', { count: 'exact', head: true })
+      .eq('collection_id', this._caseCollectionId);
+    if (cErr) throw new Error(`读取 Case 集合成员数失败: ${cErr.message}`);
     if (count != null && count > CASE_MEMBER_LIMIT) {
-      throw new Error(`Case 集合成员 ${count} 超页上限 ${CASE_MEMBER_LIMIT}（数据形状异常，宁拒不漏）`);
+      throw new Error(`Case 集合成员 ${count} 超总上限 ${CASE_MEMBER_LIMIT}（数据形状异常，宁拒不漏）`);
     }
-    const list = rows || [];
+    const list = [];
+    for (let from = 0; from < count; from += PAGE) {
+      const { data: page, error } = await supabase
+        .from('case_collection_tokens')
+        .select('token_address, platform, token_meta')
+        .eq('collection_id', this._caseCollectionId)
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(`读取 Case 集合成员元数据失败: ${error.message}`);
+      if (!page || !page.length) break;
+      list.push(...page);
+      if (page.length < PAGE) break;
+    }
     if (list.length !== (count || 0)) {
-      throw new Error(`Case 集合成员对账失配（无序页 ${list.length} ≠ count ${count}）`);
+      throw new Error(`Case 集合成员对账失配（分页累计 ${list.length} ≠ count ${count}）`);
     }
     const { tokenMetaFromCreatePayload } = require('../core/token-create-meta');
     for (const row of list) {

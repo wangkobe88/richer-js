@@ -81,7 +81,7 @@ function fakeCaseMemberDb(rows, countOverride) {
     calls,
     from(table) {
       const stack = [];
-      let countMode = null, limitN = null;
+      let countMode = null, limitN = null, rangeFrom = null, rangeTo = null, headMode = false;
       let selected = false;
       // ★supabase-js 2.x 形状约束（bt-v165 首跑事故防线）：from() 返回 QueryBuilder
       // 无 filter 方法——eq/in/order 等只在 .select() 之后可用。fake 忠实模拟，
@@ -90,19 +90,26 @@ function fakeCaseMemberDb(rows, countOverride) {
         if (!selected) throw new Error(`fake supabase-js 形状约束: .${m}() 只能在 .select() 之后调用（bt-v165 首跑事故：.from('case_ticks').eq(...) 真实 client 报 eq is not a function）`);
       };
       const chain = {
-        select(c, o) { selected = true; countMode = o?.count || null; return chain; },
+        select(c, o) { selected = true; countMode = o?.count || null; headMode = o?.head === true; return chain; },
         eq(col, v) { guard('eq'); stack.push(['eq', col, v]); return chain; },
         gt(col, v) { guard('gt'); stack.push(['gt', col, v]); return chain; },
         in(col, arr) { guard('in'); stack.push(['in', col, arr]); return chain; },
         lte(col, v) { guard('lte'); stack.push(['lte', col, v]); return chain; },
         order() { guard('order'); return chain; },
         limit(n) { guard('limit'); limitN = n; return chain; },
+        range(f, t) { guard('range'); rangeFrom = f; rangeTo = t; return chain; },
         async then(res) {
-          calls.push({ table, stack, countMode, limitN });
+          calls.push({ table, stack, countMode, limitN, rangeFrom, rangeTo, headMode });
           // case_collection_tokens 查询：测试数据即目标集合成员（.eq(collection_id)
-          // 在真实 DB 生效，fake 不再过滤）；countOverride 模拟超限/失配场景
+          // 在真实 DB 生效，fake 不再过滤）；countOverride 模拟超限/失配场景；
+          // JG-6c 分页装载：head=true 只回 count；range 分页切片（order 按 id 升序
+          // fake 无 id 列按原序近似——对账只看总量）
           const total = countOverride != null ? countOverride : rows.length;
-          res({ data: rows.slice(0, limitN || rows.length), count: countMode === 'exact' ? total : null, error: null });
+          if (headMode) { res({ data: null, count: countMode === 'exact' ? total : null, error: null }); return; }
+          let slice = rows;
+          if (rangeFrom != null) slice = rows.slice(rangeFrom, rangeTo + 1);
+          else if (limitN != null) slice = rows.slice(0, limitN);
+          res({ data: slice, count: countMode === 'exact' ? total : null, error: null });
         },
       };
       return chain;
@@ -147,22 +154,31 @@ function fakeCaseMemberDb(rows, countOverride) {
   ok(JSON.stringify(fl) === JSON.stringify(tokenMetaFromCreatePayload('flap', members[0].token_meta.payload, members[0].token_meta.blockTimeIso)),
     'B7 Case 通道产物与 tokenMetaFromCreatePayload 逐字节一致');
 
-  // count 超限 fail-loud
+  // count 超总上限 fail-loud（JG-6c 起 5000；2489 票门族全集=合法体量）
   const eng2 = stubEngine();
-  const db2 = fakeCaseMemberDb(members, 1500);
+  const db2 = fakeCaseMemberDb(members, 5001);
   eng2._getClient = () => db2;
   let threw = false;
-  try { await BacktestEngine.prototype._loadTokenMetadataFromCaseSet.call(eng2, db2); } catch (e) { threw = /超页上限/.test(e.message); }
-  ok(threw, 'B8 成员数超 1000 fail-loud（宁拒不漏）');
+  try { await BacktestEngine.prototype._loadTokenMetadataFromCaseSet.call(eng2, db2); } catch (e) { threw = /超总上限/.test(e.message); }
+  ok(threw, 'B8 成员数超 5000 fail-loud（宁拒不漏）');
 
-  // 对账失配 throw
+  // 对账失配 throw（分页 head 返回 count=3 但分页行 0——分页 DB 断供形状）
   const eng3 = stubEngine();
   const db3 = fakeCaseMemberDb([]);
-  db3.from = () => ({ select: () => ({ eq: () => ({ limit: async () => ({ data: [], count: 3, error: null }) }) }) });
+  db3.from = () => ({
+    select: () => ({
+      eq: () => ({
+        // head 查询（select().eq() 后 await=thenable）
+        then: async (res) => res({ data: null, count: 3, error: null }),
+        // 分页查询（select().eq().order().range() 后 await）
+        order: () => ({ range: () => ({ then: async (res) => res({ data: [], count: null, error: null }) }) }),
+      }),
+    }),
+  });
   eng3._getClient = () => db3;
   threw = false;
   try { await BacktestEngine.prototype._loadTokenMetadataFromCaseSet.call(eng3, db3); } catch (e) { threw = /对账失配/.test(e.message); }
-  ok(threw, 'B9 无序页与 count 失配 throw');
+  ok(threw, 'B9 分页累计与 count 失配 throw');
 }
 
 // ───────────────── C/D. ticks 表源切换直调 ─────────────────
