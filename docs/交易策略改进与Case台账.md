@@ -1752,3 +1752,24 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **验证计划（用户裁定流程）**：Case 集合 `JG6-taildip豁免对拍`（6fd0372f，三窗 LEG6 命中 112 票）同包两臂对拍——灰度关（=FP32 基线）vs 开（豁免生效），看真实 PnL/右尾 5 张成交/损耗面结局（libido 由 FP10 接住与否=对拍指标）。同轮 roster v14：用户点名 +0xf7a9…928b8 入 famous（libido 案——快进快出 0.132B 净 0，非跟单型）。
 
 **T204c FP34 对拍定案+转正（2026-11-21 用户裁定「好，落这个豁免」）**：2489 票门族全集两臂对拍——豁免净增 +0.6427 BNB（+26.4%，133→142 票/胜率 54.9→55.6%），增量 12 票 8 正 4 负；右尾 5 张死因碎片化留档（lifecycle/fam_early_flip/AF1/BP 各拦一张=全链冗余防御已知成本）；SI tail_no_buyer 豁免未生效疑 roster v14 跟单人头副作用待复查。转正=default.json buyPointCheck.factorCheck.tailDipOrganicExempt=true（实验开 factorCheck 随开；registry 键内跟随代码 v1→FP34 库包零改动）。同轮 JG-6c 基建：Case 集合装载分页化（2489 票破 1000 页上限，27bf805e）+集合扩容 2489 全 synced。全档=金狗台账 JG-6c/JG-6d。
+
+## T198b FP36 arbBot 持筹垄断臂流通腿豁免（0x2ee9…7777 误伤案，2026-11-21 用户裁定「好，这么立法吧」）
+
+**案源**：bt-v164（w1003）0x2ee9458681c134e9c7cd933b7af94be50a1f7777「躺赢人生」两笔买信号全被 `arb_bot_holdings` 拒（持筹 31.47→35.18%），锚后 ~6.9×（06:50 锚价 6.3e-9 → 07:03 峰 4.33e-8）。深挖：3 户中真正坐筹的是**两个镜像 sandwich_bot**（0xedcbcc3173a69c86b5c67f75b5656cd70b65399c / 0x073c01e779677c6ce5085840794d3647ac183efb——等额同块差 ~30 log 位、各自独立 tx、不同出资方、30d 画像 2.8k/3.2k 笔 · 1.4k/1.6k 票 · 胜率 28%/23% · 已实现 −$9.1k/−$15.1k 的双开机），锚点零卖出只是刚 load 完货的**瞬时库存**：06:55:30 双双砸 0.39B@2.2×、07:03:56 顶部区再砸@~5×，全天往返非坐筹——「机器持筹=死盘」判读在该票失效（top1 无标签大庄 0.453B/43.9% 臂反而看不见）。signals 页同窗加 ⚙️机器钱包图标记（dc9804e5：`/api/rosters/arb-bot-wallets` 端点+散点/K线双图橙▲棕▼，famous>聪明钱>机器优先级链）。
+
+**机制**：arbBotHoldCircPct 分母=在场流通（Σ正净）——流通小时机器占比被小分母放大、占总供应比例小（0x2ee9 流通 13.7%×35%≈**总供应 4.8%**），垄断名不副实、砸不深；流通 ≥16.5%（FP22 同线「筹码已充分派发」）机器绝对仓位大才真砸得动。
+
+**立法**：`armArbBotHoldings` 加流通腿——持筹 ≥30 ∧ `chip.circSupplyPct ≥16.5` 才拦；**<16.5 豁免放行**；circSupplyPct null（totalSupply 缺席）=豁免证据缺席**不豁免保持拦**（FP33 fail-closed 惯例，与 FP22 拦方向容缺相反）。无灰度键（四窗验证已毕直接立法，FP22 流通腿同款先例）。常量 `ARB_BOT_HOLD_EXEMPT_MAX_CIRC_PCT=16.5` 与 FP22 `HOLDER_EVEN_CREW_MIN_CIRC_PCT` 同线共享语义。版本 FP35→FP36；gates 门行 value 加流通%、line 注豁免语义。
+
+**四窗验证**（v164 热窗 419 命中行 metadata 真值〔引擎 FP32 产物，arbHold/circ 键口径跨版本不变〕+ 182 replay 老三窗现存真身 v159 ce102e94/v155 dddbe79e/v145 2448116a 共 14 命中；⚠原四窗 UUID 7ae8e398/8ebaccce/d29420e7 已删失效）：
+
+- **深跌分离（最强证据）**：豁免放回面（流通<16.5）288 行前向 60min **0 票 ≤−30%**（最差 −26.9%）vs 维持拦截面 130 行 **15 票**深跌（最差 −41.9%）——「流通小=砸不深」机制四窗方向全一致。
+- **右尾集中热窗**：放回面 ≥+100% 9 行全在 v164（0x2ee9 两行领衔 +316%/+320%）；Username123（80.3%@流通 16.1）贴线回收。
+- **期权结构知情**：纯成交面 31 行（热窗 24+老三窗 7），热窗 21/24 行 ret30 为负（中位 −12.7%）靠 0x2ee9 单票撑（粗算 +0.13B），中温冷窗放回面 9 行 ret30 全负 0 右尾（−0.15B）——平时小额损耗换热窗爆发，与 FP33 同构但右尾浓度更低。
+- **敏感性**：线 10/12 丢右尾（0x2ee9@14.5/Username123@16.1）；16.5 收住右尾主体。
+
+**对拍**：老三窗 replay 改 arms 判定后 14→5（=流通 ≥16.5 保留面），豁免 9 票=流通<16.5 面精确重合。
+
+**单测**：`_test_factor_prebuy_check.cjs` AB 段扩 AB8~AB12（0x2ee9 案值豁免/MiniMaxM3.1@22.4 仍拦/16.49 vs 16.5 边界/null 两形状照拦/gates 值含流通%）299/0；版本钉 FP35→FP36 全量 14 处+`r.version` 4 处；邻居 buy_point_lib 583/check_service 43（版本钉 1 处）/cheat_detection_lib 657 全绿。
+
+**验证脚本**：tmp-t198-circ-exempt.cjs（本地 v164 metadata）/tmp-t198-circ-replay182.cjs（182 老窗；v3 修复=token_create 行级 platform 列+tokenMetaFromCreatePayload 三参签名；experiment_tokens 全量分页 win1019 量级超时→arbHold 判定与 supply 解耦、命中后按需查）。
