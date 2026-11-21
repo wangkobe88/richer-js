@@ -179,6 +179,9 @@
       "memSource": {
         "enabled": false,
         "auditShadow": true
+      },
+      "factorCheck": {
+        "tailDipOrganicExempt": true
       }
     },
     "buySignalCooldownMs": 3000,

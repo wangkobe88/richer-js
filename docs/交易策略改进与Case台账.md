@@ -1750,3 +1750,5 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **单测**：`_test_factor_prebuy_check.cjs` AE 段 12 断言（쿠우타 正例三留痕/kroea 跟单 4/Eagle 捆绑 83/SB 巨量 19.8/量下界 2.5/大哥 famous 0/roster null/对敲 2/insider 15/cd 键缺/域外不注记/灰度缺省关）全绿 275/0；版本断言全量 FP32→FP33（14 处）+邻居 buy_point_check_service 1 处。buy_point_lib 583/factor_sell_filter 180/cheat_detection_service 200/cheat_grade 120/cheat_market_reset 20 邻居全绿。
 
 **验证计划（用户裁定流程）**：Case 集合 `JG6-taildip豁免对拍`（6fd0372f，三窗 LEG6 命中 112 票）同包两臂对拍——灰度关（=FP32 基线）vs 开（豁免生效），看真实 PnL/右尾 5 张成交/损耗面结局（libido 由 FP10 接住与否=对拍指标）。同轮 roster v14：用户点名 +0xf7a9…928b8 入 famous（libido 案——快进快出 0.132B 净 0，非跟单型）。
+
+**T204c FP34 对拍定案+转正（2026-11-21 用户裁定「好，落这个豁免」）**：2489 票门族全集两臂对拍——豁免净增 +0.6427 BNB（+26.4%，133→142 票/胜率 54.9→55.6%），增量 12 票 8 正 4 负；右尾 5 张死因碎片化留档（lifecycle/fam_early_flip/AF1/BP 各拦一张=全链冗余防御已知成本）；SI tail_no_buyer 豁免未生效疑 roster v14 跟单人头副作用待复查。转正=default.json buyPointCheck.factorCheck.tailDipOrganicExempt=true（实验开 factorCheck 随开；registry 键内跟随代码 v1→FP34 库包零改动）。同轮 JG-6c 基建：Case 集合装载分页化（2489 票破 1000 页上限，27bf805e）+集合扩容 2489 全 synced。全档=金狗台账 JG-6c/JG-6d。

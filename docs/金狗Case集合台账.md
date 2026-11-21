@@ -241,3 +241,11 @@
 **核验链（`scripts/tmp-jg-39ed-act-verify.cjs`+`tmp-jg-39ed-sig-dump.cjs`，wss_price_ticks 2680 行全窗）**：flap quote 盘（quote=0x4902…ec3f），10-04 01:01:20 创建 → 11:43:34 毕业，ATH +1051% vs launch。时序三段：①**开盘首波**（+0s/+20s 窗买 0.76B/0.89B）**22s 内价格即越 +28.5% 买入域上限**——高活跃直接穿门而出；②**回落死寂段**（+30s~+190s，价 +5% 门内）10s 活跃≈0（0~1 笔微量），无触发原料；+205s（01:04:45）**唯一 BUY 信号**（quietSurge 0.21B/91s 触发，curVs +22.4% 门内）**被 FP 门 act_low 臂拒**（actTotalBnb 0.197B/10s、actTrades=1、actBuyers=1，execution_reason=factor_gate_act_low）→ 零成交；③**活跃度真回来**时（+260s 0.46B@+29.6%、+290s 0.20B@+36.7%、+340s 1.45B@+116.5%）价格已永久出购买域。**活跃达标窗与价格门内窗零重叠**=观点的精确表述。
 
 **定位**：与 JG-13 互为镜像——JG-13 是「进场后被保命腿切飞」，本票是「门内来过信号但活跃度证据不足被 FP 拒，活跃度证据够了价格又出域」。FP act_low 对慢热爬坡票的延迟进场代价实证（样本 1）；与 JG-6c 崩塌域 act 族豁免讨论互补（那边是拦太狠、这边是活跃度门槛把门内信号挡了）。攒批不立法。留档=票备注（a8414632）+ 本档。
+
+## JG-6d FP34 两臂豁免对拍定案与转正（2026-11-21 用户裁定「好，落这个豁免」）
+
+**对拍终数**（2489 票门族全集、同包串行、T203b 修复后）：ctrl（豁免关）133 票/54.9%/**+2.4374 BNB**（+9.16%）vs exempt（FP34 两臂豁免开）142 票/55.6%/**+3.0801 BNB**（+10.85%）——**净增 +0.6427 BNB（+26.4%）**；增量 12 票 8 正 4 负（最大 0x824c49 +0.390B/0x57b7a8 +0.139B，最大亏 −0.048B）。期权结构在真实门链（AF1/cheat/BP 全真调+真实卖出链）下兑现为净赚。
+
+**右尾 5 张仍未成交（死因碎片化=全链冗余防御的已知成本留档）**：쿠우塔 02:31+ lifecycle_sell（裁定不豁）→act_front_low；SI tail_no_buyer 豁免未生效（疑 roster v14 改变 famous 跟单人头致腿 fail，留档待复查）+AF1+BP；릴테이/crypto nerd fam_early_flip 族（FP11）；洛天依 AF1+BP+act_ultra。继续剥洋葱=破坏各门既有立法证据，右尾 5 张作为 6.6% 右尾尾部的门链成本接受。
+
+**转正**：default.json fourmemeWs.buyPointCheck.factorCheck.tailDipOrganicExempt=true（实验开 factorCheck 即随开；flap 经 _mergedWsConfig 同键）；库包零改动（module-registry 键内跟随代码：v1→resolve 返回 FP34）。跑中实验须重启生效。
