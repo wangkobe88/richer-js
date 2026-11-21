@@ -147,6 +147,7 @@ function makeEngineStub({ rows, platforms, startFilter = null, endFilter = null,
     _tickCache: new BacktestTickCache({ logger, experimentId: 'exp-bt', cacheDir, deltaCompactionRows }),
     _loadRawTickRows: BacktestEngine.prototype._loadRawTickRows,
     _tickSourceQuery: BacktestEngine.prototype._tickSourceQuery, // 2026-11-20 ticks 表源辅助（Case 集合通道）
+    _tickScopeEq: BacktestEngine.prototype._tickScopeEq,         // 集合维度过滤（select 后注入）
     _fetchPlatformTicksRows: BacktestEngine.prototype._fetchPlatformTicksRows,
     _fetchHeadTickId: BacktestEngine.prototype._fetchHeadTickId,
     _probeIncrementalTickId: BacktestEngine.prototype._probeIncrementalTickId,
@@ -613,6 +614,7 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
         logger,
         metrics: { processedDataPoints: 0 },
         _tickSourceQuery: BacktestEngine.prototype._tickSourceQuery, // 2026-11-20 Case 集合通道表源辅助
+        _tickScopeEq: BacktestEngine.prototype._tickScopeEq,         // 集合维度过滤（select 后注入）
         _fetchPlatformTicksRows: BacktestEngine.prototype._fetchPlatformTicksRows,
         _fetchHeadTickId: BacktestEngine.prototype._fetchHeadTickId,
         _mapPool: BacktestEngine.prototype._mapPool,   // P5 装载段并发池

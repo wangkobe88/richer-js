@@ -51,6 +51,13 @@ function makeFakeDb(tables, opts = {}) {
     let countMode = null, headOnly = false;
     let orderBy = null, limitN = null, rangePair = null;
     let single = false, maybe = false;
+    // ★supabase-js 2.x 形状约束（bt-v165 首跑事故防线，2026-11-21）：from() 返回
+    // QueryBuilder 无 filter 方法——eq/gt/order/limit 等只在 .select()（或
+    // insert/update/delete/upsert 转入 FilterBuilder）之后可用。fake 忠实模拟，
+    // 写歪当场 throw 而非静默通过（service 现行代码全部 select 先行=合规）。
+    const guard = (m) => {
+      if (!mode) throw new Error(`fake supabase-js 形状约束: .${m}() 只能在 .select()/.insert()/.update()/.delete()/.upsert() 之后调用`);
+    };
 
     const chain = {
       select(_cols, o) { mode = mode || 'select'; countMode = o?.count || null; headOnly = !!o?.head; return chain; },
@@ -58,18 +65,18 @@ function makeFakeDb(tables, opts = {}) {
       upsert(rows, o) { mode = 'upsert'; payloadRows = Array.isArray(rows) ? rows : [rows]; upsertOpts = o || {}; return chain; },
       update(vals) { mode = 'update'; updateVals = vals; return chain; },
       delete() { mode = 'delete'; return chain; },
-      eq(c, v) { stack.push(['eq', c, v]); return chain; },
-      gt(c, v) { stack.push(['gt', c, v]); return chain; },
-      gte(c, v) { stack.push(['gte', c, v]); return chain; },
-      lt(c, v) { stack.push(['lt', c, v]); return chain; },
-      lte(c, v) { stack.push(['lte', c, v]); return chain; },
-      in(c, arr) { stack.push(['in', c, arr]); return chain; },
-      order(c, o) { orderBy = { c, asc: o ? o.ascending !== false : true }; return chain; },
-      limit(n) { limitN = n; return chain; },
-      range(a, b) { rangePair = [a, b]; return chain; },
-      single() { single = true; return exec(); },
-      maybeSingle() { maybe = true; return exec(); },
-      then(res, rej) { exec().then(res, rej); },
+      eq(c, v) { guard('eq'); stack.push(['eq', c, v]); return chain; },
+      gt(c, v) { guard('gt'); stack.push(['gt', c, v]); return chain; },
+      gte(c, v) { guard('gte'); stack.push(['gte', c, v]); return chain; },
+      lt(c, v) { guard('lt'); stack.push(['lt', c, v]); return chain; },
+      lte(c, v) { guard('lte'); stack.push(['lte', c, v]); return chain; },
+      in(c, arr) { guard('in'); stack.push(['in', c, arr]); return chain; },
+      order(c, o) { guard('order'); orderBy = { c, asc: o ? o.ascending !== false : true }; return chain; },
+      limit(n) { guard('limit'); limitN = n; return chain; },
+      range(a, b) { guard('range'); rangePair = [a, b]; return chain; },
+      single() { guard('single'); single = true; return exec(); },
+      maybeSingle() { guard('maybeSingle'); maybe = true; return exec(); },
+      then(res, rej) { guard('then'); exec().then(res, rej); },
     };
 
     // 数值列直比；时间戳（ISO 串）列走 Date 解析（Number(ISO)=NaN 会静默全 false）

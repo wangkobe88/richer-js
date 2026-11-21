@@ -82,15 +82,21 @@ function fakeCaseMemberDb(rows, countOverride) {
     from(table) {
       const stack = [];
       let countMode = null, limitN = null;
-      const self = this;
+      let selected = false;
+      // ★supabase-js 2.x 形状约束（bt-v165 首跑事故防线）：from() 返回 QueryBuilder
+      // 无 filter 方法——eq/in/order 等只在 .select() 之后可用。fake 忠实模拟，
+      // 写歪（.from().eq()）当场 throw 而非静默通过。
+      const guard = (m) => {
+        if (!selected) throw new Error(`fake supabase-js 形状约束: .${m}() 只能在 .select() 之后调用（bt-v165 首跑事故：.from('case_ticks').eq(...) 真实 client 报 eq is not a function）`);
+      };
       const chain = {
-        select(c, o) { countMode = o?.count || null; return chain; },
-        eq(col, v) { stack.push(['eq', col, v]); return chain; },
-        gt(col, v) { stack.push(['gt', col, v]); return chain; },
-        in(col, arr) { stack.push(['in', col, arr]); return chain; },
-        lte(col, v) { stack.push(['lte', col, v]); return chain; },
-        order() { return chain; },
-        limit(n) { limitN = n; return chain; },
+        select(c, o) { selected = true; countMode = o?.count || null; return chain; },
+        eq(col, v) { guard('eq'); stack.push(['eq', col, v]); return chain; },
+        gt(col, v) { guard('gt'); stack.push(['gt', col, v]); return chain; },
+        in(col, arr) { guard('in'); stack.push(['in', col, arr]); return chain; },
+        lte(col, v) { guard('lte'); stack.push(['lte', col, v]); return chain; },
+        order() { guard('order'); return chain; },
+        limit(n) { guard('limit'); limitN = n; return chain; },
         async then(res) {
           calls.push({ table, stack, countMode, limitN });
           // case_collection_tokens 查询：测试数据即目标集合成员（.eq(collection_id)
@@ -160,19 +166,24 @@ function fakeCaseMemberDb(rows, countOverride) {
 }
 
 // ───────────────── C/D. ticks 表源切换直调 ─────────────────
-console.log('C/D. _tickSourceQuery 与锚/探针形状');
+console.log('C/D. _tickSourceQuery/_tickScopeEq 与锚/探针形状');
 {
   function spyDb() {
     const calls = [];
     const make = () => {
       const stack = [];
+      let selected = false;
+      // ★supabase-js 2.x 形状约束（bt-v165 首跑事故防线）：filter 只在 select 之后
+      const guard = (m) => {
+        if (!selected) throw new Error(`fake supabase-js 形状约束: .${m}() 只能在 .select() 之后调用`);
+      };
       const chain = {
-        select(c) { stack.push(['select', c]); return chain; },
-        eq(col, v) { stack.push(['eq', col, v]); return chain; },
-        gt(col, v) { stack.push(['gt', col, v]); return chain; },
-        in(col, arr) { stack.push(['in', col, arr]); return chain; },
-        order(col, o) { stack.push(['order', col, o]); return chain; },
-        limit(n) { stack.push(['limit', n]); return chain; },
+        select(c) { selected = true; stack.push(['select', c]); return chain; },
+        eq(col, v) { guard('eq'); stack.push(['eq', col, v]); return chain; },
+        gt(col, v) { guard('gt'); stack.push(['gt', col, v]); return chain; },
+        in(col, arr) { guard('in'); stack.push(['in', col, arr]); return chain; },
+        order(col, o) { guard('order'); stack.push(['order', col, o]); return chain; },
+        limit(n) { guard('limit'); stack.push(['limit', n]); return chain; },
         then(res) { calls.push(...stack); res({ data: [], count: null, error: null }); },
       };
       return chain;
@@ -183,25 +194,33 @@ console.log('C/D. _tickSourceQuery 与锚/探针形状');
     };
   }
 
-  // C1 非 Case 通道：from('wss_price_ticks') 零附加过滤（现状 bit 不变）
+  // C0 形状约束自证：from() 后直接 .eq 必须被 fake 拒（bt-v165 首跑事故的回归防线）
+  {
+    const db0 = spyDb();
+    let threw = false;
+    try { db0.from('case_ticks').eq('collection_id', 'x'); } catch (e) { threw = /只能在 .select\(\) 之后/.test(e.message); }
+    ok(threw, 'C0 fake 忠实模拟 supabase-js：from().eq() 直接 throw（事故形状零容忍）');
+  }
+
+  // C1 非 Case 通道：_tickSourceQuery 换 wss_price_ticks 表，_tickScopeEq 直通零过滤
   const eng0 = stubEngine();
   eng0._caseCollectionId = null;
   const db0 = spyDb();
-  eng0._tickSourceQuery(db0);
-  ok(db0.calls[0][0] === 'FROM' && db0.calls[0][1] === 'wss_price_ticks' && db0.calls.length === 1,
-    'C1 非 Case 通道 wss_price_ticks 零过滤');
+  const q0 = eng0._tickScopeEq(eng0._tickSourceQuery(db0).select('id'));
+  await q0;
+  ok(db0.calls[0][0] === 'FROM' && db0.calls[0][1] === 'wss_price_ticks'
+    && !db0.calls.some(op => op[0] === 'eq' && op[1] === 'collection_id'),
+    'C1 非 Case 通道 wss_price_ticks 零 scope 过滤（现状 bit 不变）');
 
-  // C2 Case 通道：from('case_ticks') + .eq(collection_id)
+  // C2/C3 Case 通道：from('case_ticks') + scopeEq（select 之后）注入 collection_id
   const eng1 = stubEngine();
   const db1 = spyDb();
-  const q1 = eng1._tickSourceQuery(db1);
-  q1.select('id').limit(1);
-  await q1;
+  await eng1._tickScopeEq(eng1._tickSourceQuery(db1).select('id')).limit(1);
   ok(db1.calls[0][0] === 'FROM' && db1.calls[0][1] === 'case_ticks', 'C2 Case 通道 from case_ticks');
   ok(db1.calls.some(op => op[0] === 'eq' && op[1] === 'collection_id' && op[2] === CASE_ID),
-    'C3 附加 .eq(collection_id)（漏带=读到别集合行）');
+    'C3 _tickScopeEq 注入 .eq(collection_id)（漏带=读到别集合行）');
 
-  // D1 _fetchHeadTickId Case 形状（eq(collection_id)+ORDER BY id DESC LIMIT 1）
+  // D1 _fetchHeadTickId Case 形状（select 先行→scope→order desc limit 1）
   const dbH = spyDb();
   eng1._getClient = () => dbH;
   await BacktestEngine.prototype._fetchHeadTickId.call(eng1, dbH);
@@ -210,6 +229,9 @@ console.log('C/D. _tickSourceQuery 与锚/探针形状');
     'D2 headAnchor ORDER BY id DESC LIMIT 1（复合 PK 子树反向最右叶）');
   ok(dbH.calls.some(op => op[0] === 'eq' && op[1] === 'collection_id'),
     'D3 headAnchor 带 collection_id 限定');
+  const hIdx = dbH.calls.findIndex(op => op[0] === 'select');
+  const eqIdx = dbH.calls.findIndex(op => op[0] === 'eq' && op[1] === 'collection_id');
+  ok(hIdx !== -1 && eqIdx !== -1 && eqIdx > hIdx, 'D3b scope eq 在 select 之后（supabase-js 形状合规）');
 
   // D4 _anchorRowExists Case 形状（必须带 collection_id）
   const dbA = spyDb();
@@ -232,12 +254,14 @@ console.log('E. 源码锁');
     'E4 平台并集覆盖 _platforms');
   ok(/else if \(this\._caseCollectionId\) \{\s*\n\s*await this\._loadTokenMetadataFromCaseSet\(supabase\);/.test(engineSrc),
     'E5 _loadTokenMetadata 三路由');
-  ok(/this\._caseCollectionId\s*\?\s*supabase\.from\('case_events'\)\.eq\('collection_id', this\._caseCollectionId\)/.test(engineSrc),
-    'E6 graduation Case 通道读 case_events（带 collection_id）');
+  ok(/supabase\.from\(this\._caseCollectionId \? 'case_events' : 'wss_events'\)/.test(engineSrc)
+    && /gradQ = gradQ\.eq\('collection_id', this\._caseCollectionId\)/.test(engineSrc),
+    'E6 graduation Case 通道读 case_events（select 先行后注入 collection_id）');
   ok(/sourceExperimentId \|\| this\._tickCacheScopeKey/.test(engineSrc),
     'E7 _loadRawTickRows scope key 汇合沿用（case-<id> 经 _tickCacheScopeKey）');
-  ok((engineSrc.match(/\.from\('wss_price_ticks'\)/g) || []).length === 1,
-    'E8 wss_price_ticks 字面量仅剩 _tickSourceQuery 内 1 处（五装载方法全走表源辅助）');
+  ok((engineSrc.match(/\.from\('wss_price_ticks'\)/g) || []).length === 0
+    && /supabase\.from\(this\._caseCollectionId \? 'case_ticks' : 'wss_price_ticks'\)/.test(engineSrc),
+    'E8 装载方法零裸 from 字面量——表名只在 _tickSourceQuery 三元内 1 处（五装载方法全走表源辅助）');
   ok((engineSrc.match(/this\._tickSourceQuery\(supabase\)/g) || []).length >= 5,
     'E9 五装载方法经 _tickSourceQuery（countFetch/keyset/head/probe/anchorExists）');
   ok(/buildCaseCacheScopeKey\(this\._caseCollectionId\)/.test(engineSrc),

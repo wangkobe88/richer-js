@@ -1438,8 +1438,8 @@ class BacktestEngine extends AbstractTradingEngine {
     // 合一请求：count exact + 无序 limit（无 ORDER BY——planner 无 top-k 可贪）
     const countFetch = async (chunk) => {
       for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
-        const res = await this._tickSourceQuery(supabase)
-          .select(TICK_SELECT_COLUMNS, { count: 'exact' })
+        const res = await this._tickScopeEq(this._tickSourceQuery(supabase)
+          .select(TICK_SELECT_COLUMNS, { count: 'exact' }))
           .in('token_address', chunk)
           .eq('platform', platform)
           .gt('id', afterId)
@@ -1461,8 +1461,8 @@ class BacktestEngine extends AbstractTradingEngine {
         let data = null;
         let error = null;
         for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
-          const r = await this._tickSourceQuery(supabase)
-            .select(TICK_SELECT_COLUMNS)
+          const r = await this._tickScopeEq(this._tickSourceQuery(supabase)
+            .select(TICK_SELECT_COLUMNS))
             .eq('token_address', token)
             .eq('platform', platform)
             .gt('id', cursor)
@@ -1541,8 +1541,8 @@ class BacktestEngine extends AbstractTradingEngine {
    */
   async _fetchHeadTickId(supabase) {
     for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
-      const res = await this._tickSourceQuery(supabase)
-        .select('id')
+      const res = await this._tickScopeEq(this._tickSourceQuery(supabase)
+        .select('id'))
         .order('id', { ascending: false })
         .limit(1);
       if (!res.error) {
@@ -1581,8 +1581,8 @@ class BacktestEngine extends AbstractTradingEngine {
     const probeChunk = async (chunk) => {
       let data = null;
       for (let attempt = 1; attempt <= PROBE_ATTEMPTS; attempt++) {
-        let q = this._tickSourceQuery(supabase)
-          .select('id')
+        let q = this._tickScopeEq(this._tickSourceQuery(supabase)
+          .select('id'))
           .in('token_address', chunk)
           .eq('platform', platform);
         if (anchored) q = q.gt('id', afterId);
@@ -1615,8 +1615,8 @@ class BacktestEngine extends AbstractTradingEngine {
    */
   async _anchorRowExists(supabase, id) {
     // Case 通道必须带 collection_id（case_ticks id 全表不唯一，漏带会误验别集合锚行）
-    const { data, error } = await this._tickSourceQuery(supabase)
-      .select('id')
+    const { data, error } = await this._tickScopeEq(this._tickSourceQuery(supabase)
+      .select('id'))
       .eq('id', id)
       .limit(1);
     if (error) throw new Error(`wss_price_ticks 锚行核验失败: ${error.message}`);
@@ -1630,19 +1630,27 @@ class BacktestEngine extends AbstractTradingEngine {
 
   /**
    * ticks 装载表源（2026-11-20 Case 集合通道）：Case 通道读集合专属副本表
-   * case_ticks（.eq(collection_id) 限定——case 表 id 全表不唯一，漏带会读到别
-   * 集合行），其余通道 wss_price_ticks 现状不变。装载五方法（countFetch/
-   * keysetFetchToken/_fetchHeadTickId/_probeIncrementalTickId/_anchorRowExists）
-   * 统一经此入口取表——形状论证（DDL 复合 PK (collection_id,id)+索引
-   * (collection_id,platform,token_address,id)）：headAnchor=单列等值+ORDER BY
-   * id DESC LIMIT 1=集合子树反向最右叶（非禁用形状「IN+过滤 top-k 贪心」）；
-   * probe=索引前缀等值无 ORDER BY；keyset=三前缀等值后索引供 id 序（唯一例外
-   * 形状）；anchorExists=复合 PK 单行。TICK_SELECT_COLUMNS 不变（case_ticks
-   * 同名列，id=case 自有 id——scopeKey case-<id> 隔离缓存目录无碰撞）。
+   * case_ticks，其余通道 wss_price_ticks 现状不变。
+   * ⚠️supabase-js 2.x 形状约束（bt-v165 首跑实证）：`from()` 返回 QueryBuilder
+   * **只有 select/insert/update/upsert/delete**——filter 方法（eq/gt/order/…）
+   * 在 `.select()` 返回的 builder 上。故本辅助只换表名；集合维度过滤由
+   * `_tickScopeEq`（select 之后调用）注入，两辅助配套使用：
+   *   this._tickScopeEq(this._tickSourceQuery(supabase).select(列[, {count}])).in(...)
+   * case 表 id 全表不唯一，漏带 collection_id 会读到别集合行。
+   * 形状论证（DDL 复合 PK (collection_id,id)+索引 (collection_id,platform,
+   * token_address,id)）：headAnchor=单列等值+ORDER BY id DESC LIMIT 1=集合子树
+   * 反向最右叶（非禁用形状「IN+过滤 top-k 贪心」）；probe=索引前缀等值无
+   * ORDER BY；keyset=三前缀等值后索引供 id 序（唯一例外形状）；anchorExists=
+   * 复合 PK 单行。TICK_SELECT_COLUMNS 不变（case_ticks 同名列，id=case 自有
+   * id——scopeKey case-<id> 隔离缓存目录无碰撞）。
    */
   _tickSourceQuery(supabase) {
-    if (!this._caseCollectionId) return supabase.from('wss_price_ticks');
-    return supabase.from('case_ticks').eq('collection_id', this._caseCollectionId);
+    return supabase.from(this._caseCollectionId ? 'case_ticks' : 'wss_price_ticks');
+  }
+
+  /** Case 通道集合维度过滤（必须在 .select() 之后调用——见 _tickSourceQuery 形状注） */
+  _tickScopeEq(builder) {
+    return this._caseCollectionId ? builder.eq('collection_id', this._caseCollectionId) : builder;
   }
 
   /**
@@ -2017,12 +2025,12 @@ class BacktestEngine extends AbstractTradingEngine {
       let data = null;
       for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
         // Case 集合通道（2026-11-20）读集合专属镜像 case_events（快照自包含，
-        // 防源表未来清理/裁剪）；行形状（token_address/payload/block_time）镜像一致
-        const gradQuery = this._caseCollectionId
-          ? supabase.from('case_events').eq('collection_id', this._caseCollectionId)
-          : supabase.from('wss_events');
-        const res = await gradQuery
-          .select('token_address, payload, block_time')
+        // 防源表未来清理/裁剪）；行形状（token_address/payload/block_time）镜像一致。
+        // ⚠️supabase-js 形状：filter 在 select 之后（bt-v165 首跑同款坑）
+        let gradQ = supabase.from(this._caseCollectionId ? 'case_events' : 'wss_events')
+          .select('token_address, payload, block_time');
+        if (this._caseCollectionId) gradQ = gradQ.eq('collection_id', this._caseCollectionId);
+        const res = await gradQ
           .eq('kind', 'graduation')
           .in('token_address', batch);
         if (!res.error) { data = res.data; break; }
