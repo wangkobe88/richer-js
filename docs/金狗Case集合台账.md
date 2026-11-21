@@ -185,3 +185,11 @@
 **结论（回答「前期判断可能吗」）**：①事件本身 100% 可前期检测（quiet≥60s+大买=现有 quietSurge 触发族，无前瞻）；②「哪个点火会飞」在 token 内盘面特征上无强分离（策略口径 +1pt 量级）；③真实优势形态=**不对称**：亏损面三窗均浅（亏>20% 仅 2.2~7.4%，中位 fwdEnd≈1.0）∧ 尾部肥（≥3x 4~9%）——EV 来自浅损肥尾而非高胜率，且金狗级（≥10x）发生率 ~0.3~1.1%；④30min 地平线漏慢热主升（牢猫型）。
 
 **处理**：不立法——无 token 内强判别特征；若推进，正确路径=**回测臂**（quiet 点火事件入场+现有卖出侧，检验口径假象三坑：死票卖不出/自身冲击/慢热票持有）而非先立因子门。**2026-11-21 用户裁定：归档不推进**（回测臂候选留档，将来重启时工具/事件明细均已就位）。工具 `scripts/tmp-jg-global-ignition.cjs`（三窗已跑，事件明细 182 /tmp/jg-ign-*.jsonl）；金狗家族对照=JG-8。
+
+## JG-6c 对拍集合 token_meta 形状事故：tmp 建集脚本写扁平形状致装载七键降级——两臂降级知情不重跑（2026-11-21；已修集合数据）
+
+**现象**：signal-stats 页 symbol 不展示（`experiment_tokens.token_symbol` 112 行全空串）。**根因**：`JG6-taildip豁免对拍`（6fd0372f）由 `tmp-jg6-create-collection.cjs` 建集，写入 `token_meta` 为扁平形状（`{address,symbol,createdAt,creatorAddress,…}` 平铺），而回测装载器 `_loadTokenMetadataFromCaseSet` 只认官方契约形状 `{payload, blockTimeIso, platform}`（`CaseCollectionService.buildTokenMetaSnapshot` 产物）——`meta.payload||{}` 得 `{}`，经 `tokenMetaFromCreatePayload` 七键全降级。另两集合（大金狗/低活跃度金狗）走官方路径 wrapper 形状不受影响。
+
+**降级影响（超出显示，两臂知情）**：symbol/name=''（显示层）；**creator=null**（扁平键名 `creatorAddress` 不被读）→ FA creatorAddress=null → `signalGateReal:true` 真调门链的 cheat 快照 creator 三域匹配锚降级；**createdAtSec=null** → `_registerToken` 回退**首 tick 时刻** → tokenAgeSec 口径漂移；flap totalSupply 撞常量反而正确（112 票全 flap）。**两臂共享同一降级输入 → FP33 A/B 差值内部自洽**；绝对保真度受损。受波及已跑臂：`bt-v167-jg6-fp33-exempt`（d56643bb）+ `bt-v166b-jg6-fp33-ctrl-r2`（6f08daf1，T203b 重建臂）。
+
+**修复**：`tmp-jg6-fix-tokenmeta.cjs` 按官方 addToken 同口径（wss_events token_create 无序 limit+count 对账、多行取最早 block_time、CASE_PLATFORMS 校验）重建 112 行 wrapper 形状；只动 token_meta 不碰 sync_state/水位（112 票全 synced，ticks 副本无关）。预验=装载侧同款映射七键 112/112 全恢复（symbol/creator/createdAt 零缺失，symbol 与旧扁平值零差异），修复后新回测全恢复。**用户裁定**：只修集合数据——已跑两臂不补 display 字段（signal-stats symbol 仍空属预期）、不重跑、装载器不加 fail-fast 校验。**防再犯留档**：任何直写 `case_collection_tokens.token_meta` 的脚本必须经 `buildTokenMetaSnapshot`（形状契约=payload 原样+blockTimeIso+溯源键，快照不预映射）。
