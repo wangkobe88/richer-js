@@ -1219,6 +1219,36 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
         famousFollowBnb = +fb.toFixed(4);
       }
     }
+    // ── JG6/FP33 tail_dip 有机盘豁免原料：famous 同块跟单最大钱包数 ──
+    // famous 任一买笔所在 block 内「非 famous 独立 BUY 钱包数」的最大值——
+    // kroea 反例=4（famous 点火同块带跟买簇）、쿠우타=3、SI/릴테이=2（2026-11-21
+    // 金狗 JG-6 案三窗跨验线：≤3 豁免带内、≥4=famous 粉丝团冲量非自然流量）。
+    // 与 famousFollowBnb（slot 级金额）刻意不同口径：本键数「人头」不数钱——
+    // 跟单簇的形状指纹是同秒多个独立钱包，金额可大可小。roster 缺失 → 不计算
+    // （famousTraces 整体 null 同批，豁免证据缺席不豁免保持拦）。
+    let famousCohortMaxWallets = null;
+    if (rosterFt) {
+      const buyWalletsByBlock = new Map();
+      for (const t of ticks) {
+        if (t.side !== 'BUY' || t.block == null) continue;
+        const w = t.wallet && String(t.wallet).toLowerCase();
+        if (!w) continue;
+        const set = buyWalletsByBlock.get(t.block) || new Set();
+        set.add(w); buyWalletsByBlock.set(t.block, set);
+      }
+      let mx = 0;
+      for (const t of ticks) {
+        if (t.side !== 'BUY' || t.block == null) continue;
+        const w = t.wallet && String(t.wallet).toLowerCase();
+        if (!w || !rosterFt.has(w)) continue;
+        let cohort = 0;
+        for (const x of (buyWalletsByBlock.get(t.block) || new Set())) {
+          if (!rosterFt.has(x)) cohort++;
+        }
+        if (cohort > mx) mx = cohort;
+      }
+      famousCohortMaxWallets = mx;
+    }
     // ── T167/FP10 famous 低价全清冷却臂原料（btv140 BP-T055/T056 案）──
     // 群体末笔卖（**可靠价行**：outlier/零价/dt 缺失跳过——退出价证据不冒充）时刻/价格/
     // 较地板发行价 %（launchPriceBnb=T134 地板锚，与 currentVsLaunchPct 同分母——「低价」
@@ -1291,6 +1321,8 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
       groupBuyPct: cd.totalBuyBnb > 0 ? +((groupBuyBnb / cd.totalBuyBnb) * 100).toFixed(1) : null,
       // T200/FP31 famous 即时跟单额（slot 级，同 slot+2——thin 豁免腿消费）
       famousFollowBnb,
+      // JG6/FP33 tail_dip 有机盘豁免腿（famous 同块跟单人头 max）
+      famousCohortMaxWallets,
       // T167b/FP10 破发豁免直供（上段注释）：加权入场价 + 首买后盘面最低（可靠价域）
       groupEntryAvgBnb, postEntryMinBnb,
       // T167d/FP20 豁免换轨直供：末卖后在外流通谷值%（上段注释）

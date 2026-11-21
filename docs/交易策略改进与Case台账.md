@@ -1736,3 +1736,17 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **单测**：新 `_test_fp_retry_gate.cjs`（A 归一化缺省 0/合法域/非法三形状+字符串 Number 强转=maxTriggers 同款；B 状态机 budget0 no-op/spacing/耗尽/通过清/地平线/覆盖/功能代码零 Date.now；C **0xb6ee 事故现场反证**——锚时 t7N=2 拒→+1s spacing 未到→+2s 重评 t7N=4 翻转=用户思想实验机化；D 引擎胶水源码锁——两引擎 T110/落库/_sgRecordTrigger 三跳过+resume 直传 signalId+回测挂点 tickTs/anchorMs 截窗）。signal_gate_engine 旧三断言随形状更新（归一化期望对象补 fpRetry:0；门链挂点锁改 if(!opts.resume) 包裹形）。邻居 strategy_pack/strategy_library_validate_legs/clone_experiment/buy_phase_routing/live_hardening/backtest_trigger_leg/backtest_chain_order/backtest_narrative_gate/backtest_perf_probe/write_buffer_async/replay_observation_factors/experiment_stats_fifo 全绿。
 
 **余留**：①生效须策略包腿显式带 `signalGate.fpRetry>0`（trading-standard-v1 v1 未带=零变化；效果层实验=clone 后库页给目标腿加 fpRetry 或 deploy 新版包）；②w1003 单窗重试面 naive Σ−0.125 的负信号留档（效果层开闸前知情：本机制在该窗救回面偏负，豁免线方向为正——两修法救的票几乎不重叠，是否同开/怎么开由效果实验裁）；③signals 页 fpRetry 段暂无专用徽章（metadata JSON 可查，要展示再走 T175 冒烟流程）。
+
+## T204 FP33 tail_dip 有机盘豁免（金狗 JG-6 쿠우타 0xc0e896dd…7777 案，2026-11-21 用户裁定「好，落吧」）
+
+**机制**：`tail_dip_knife`（T182/FP18）臂命中时九腿全真 → 豁免放行——「famous 快闪砸出黄金坑+散户自然传播」形状（做市商痕迹弱 ∧ 散户通道主导 ∧ 量级带 [3,8]B ∧ famous 参与且无重跟单）。灰度键 `fourmemeWs.buyPointCheck.factorCheck.tailDipOrganicExempt`（缺省 false=FP32 行为 bit 不变；flap 经 _mergedWsConfig 同键）；null 语义=豁免证据缺席不豁免保持拦（宁拦不冒充——豁免方向要求证据齐全，与臂族拒方向容缺相反）。
+
+**九腿线值**（三窗跨验线，全部 cheatDerived/famousTraces 自足键不依赖 FA）：washPairCount=0（null=零对敲与 0 同判）∧ noBuySellPct<10 ∧ holderHHI<0.2 ∧ totalBuyBnb∈[3,8] ∧ routerEntryBuyPct≥60 ∧ top1BuyPct<15 ∧ sameBlockHoldCircPct≤60（cd 口径替代 FA bundleClusterHoldCircPct：Eagle 反例 83.2/쿠우타 53.1/SI 20.5）∧ famousTraces.groupBuyBnb≥0.1 ∧ famousCohortMaxWallets≤3。**新 snapshot 键 `famousCohortMaxWallets`**（buy-point-snapshot.js：famous 任一买笔所在 block 内非 famous 独立 BUY 钱包数 max——人头口径与 famousFollowBnb 金额口径刻意分开；roster 缺失→null）。
+
+**挂点**：evaluateFactorPreBuy 互斥臂链 tail_dip 分支改 `_tdArmHit && !tailDipExempted`（豁免不 push arms→链继续走 cd412/FP10/FP11 后续臂=其他 famous/砸盘臂仍可拒）；留痕=verdict.tailDipExempt{code:'tail_dip_organic_exempt'}+trace.tailDipExempt（灰度关/域外/腿不全不注=形状不变）。
+
+**证据链**（完整=金狗台账 JG-6/JG-6b）：w1003 375 被拦票右尾 9% 真实存在、流量筹码轴+cheat 轴双 AUC 否证后用户五轮精化出本形状；三窗跨验右尾 5（+494~+1030）/损耗 21=期权结构（用户翻案「其它窗没有误伤啊」修正否证框架）；AF1 门链 27/28 全过、右尾 5/5 纯行在场豁免即成交、「其他臂兜底」时序否证留档。
+
+**单测**：`_test_factor_prebuy_check.cjs` AE 段 12 断言（쿠우타 正例三留痕/kroea 跟单 4/Eagle 捆绑 83/SB 巨量 19.8/量下界 2.5/大哥 famous 0/roster null/对敲 2/insider 15/cd 键缺/域外不注记/灰度缺省关）全绿 275/0；版本断言全量 FP32→FP33（14 处）+邻居 buy_point_check_service 1 处。buy_point_lib 583/factor_sell_filter 180/cheat_detection_service 200/cheat_grade 120/cheat_market_reset 20 邻居全绿。
+
+**验证计划（用户裁定流程）**：Case 集合 `JG6-taildip豁免对拍`（6fd0372f，三窗 LEG6 命中 112 票）同包两臂对拍——灰度关（=FP32 基线）vs 开（豁免生效），看真实 PnL/右尾 5 张成交/损耗面结局（libido 由 FP10 接住与否=对拍指标）。同轮 roster v14：用户点名 +0xf7a9…928b8 入 famous（libido 案——快进快出 0.132B 净 0，非跟单型）。

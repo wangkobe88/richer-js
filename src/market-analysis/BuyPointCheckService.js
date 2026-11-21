@@ -109,6 +109,8 @@ class BuyPointCheckService {
     // 开=因子门（PVP 纯代码判定+CD 四臂升格门）先于 cheat/BP 门评估（引擎侧挂点）；
     // 关/缺段=零行为（引擎 fail-open 放行进 cheat 门）。物化语义与 enabled 同款。
     this._factorEnabled = !!(config.factorCheck && config.factorCheck.enabled === true);
+    // FP33/JG6 tail_dip 有机盘豁免灰度（factorCheck.tailDipOrganicExempt，缺省 false=FP32 行为不变）
+    this._tailDipOrganicExempt = !!(config.factorCheck && config.factorCheck.tailDipOrganicExempt === true);
     // T193 参与者 GMGN 画像观察键（张雪电摩 pump 作弊案→画像库消费端）：锚窗 top-N
     // 买家查 gmgn_wallet_profiles 聚合（票数中位/小亏带/新号/bot 浓度）。**观察键不
     // 进门不拦截**（阈值待分布裁定）；灰度缺省 false；回测（persist=false）不跑=
@@ -214,7 +216,7 @@ class BuyPointCheckService {
         // 未完成 → 空集=键 0 有证据零值恒放行 fail-open）
         arbBotWallets: await this._loadArbBotWallets(),
       });
-      const verdict = evaluateFactorPreBuyJudge(snapshot);
+      const verdict = evaluateFactorPreBuyJudge(snapshot, { enableTailDipExempt: this._tailDipOrganicExempt });
       this.stats.factorAssessed++;
       if (!verdict.pass) this.stats.factorBlocked++;
       return { status: 'assessed', ...verdict };
