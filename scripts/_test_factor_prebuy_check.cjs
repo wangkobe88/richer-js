@@ -1862,6 +1862,14 @@ console.log('AE. FP33/JG6 tail_dip 有机盘豁免（金狗 쿠우타 0xc0e896dd
     const r = M.evaluateFactorPreBuy(TNB({ famousTraces: { groupBuyBnb: 0, famousCohortMaxWallets: 0 } }), { enableTailDipExempt: true });
     assert.strictEqual(r.reason, 'tail_no_buyer_pressure');
   });
+  check('AE17 fail 腿留痕（SI 案形状：HHI 时变破线 → trace.tailDipExemptFail=holderHHI）', () => {
+    const r = M.evaluateFactorPreBuy(EX({ holderHHI: 0.2835 }), { enableTailDipExempt: true });
+    assert.strictEqual(r.reason, 'tail_dip_knife');
+    assert.strictEqual(r.trace.tailDipExemptFail, 'holderHHI');
+    const r2 = M.evaluateFactorPreBuy(TNB({}), { enableTailDipExempt: true });
+    assert.strictEqual(r2.trace.tailNoBuyerExempt, 'organic');
+    assert.strictEqual(r2.trace.tailNoBuyerExemptFail, undefined);
+  });
   check('AE16 lifecycle 不在豁免族（T192 残局臂照拦=用户裁定只豁两臂）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({
       wallets: [W(0.3, 0, 0.3), W(0.25, 0, 0.25)],

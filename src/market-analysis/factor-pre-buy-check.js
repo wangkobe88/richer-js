@@ -1373,17 +1373,17 @@ function armTailDipKnife(bd) {
  *  （宁拦不冒充——与 FP 臂族拒方向容缺同哲学但方向相反：豁免方向要求证据齐全）。
  *  cd=cheatDerived（washPairCount null=零对敲与 0 同判）；ft=buyDerived.famousTraces。 */
 function tailDipOrganicExempt(cd, ft) {
-  if (!cd) return false;
-  if (typeof cd.washPairCount === 'number' && cd.washPairCount > 0) return false; // null=零对敲放行
-  if (typeof cd.noBuySellPct !== 'number' || cd.noBuySellPct >= TAIL_DIP_EXEMPT_MAX_NO_BUY_SELL_PCT) return false;
-  if (typeof cd.holderHHI !== 'number' || cd.holderHHI >= TAIL_DIP_EXEMPT_MAX_HOLDER_HHI) return false;
-  if (typeof cd.totalBuyBnb !== 'number' || cd.totalBuyBnb < TAIL_DIP_EXEMPT_MIN_TOTAL_BUY_BNB || cd.totalBuyBnb > TAIL_DIP_EXEMPT_MAX_TOTAL_BUY_BNB) return false;
-  if (typeof cd.routerEntryBuyPct !== 'number' || cd.routerEntryBuyPct < TAIL_DIP_EXEMPT_MIN_ROUTER_ENTRY_PCT) return false;
-  if (typeof cd.top1BuyPct !== 'number' || cd.top1BuyPct >= TAIL_DIP_EXEMPT_MAX_TOP1_BUY_PCT) return false;
-  if (typeof cd.sameBlockHoldCircPct !== 'number' || cd.sameBlockHoldCircPct > TAIL_DIP_EXEMPT_MAX_SAME_BLOCK_HOLD_CIRC_PCT) return false;
-  if (!ft || typeof ft.groupBuyBnb !== 'number' || ft.groupBuyBnb < TAIL_DIP_EXEMPT_MIN_FAMOUS_GROUP_BUY_BNB) return false;
-  if (typeof ft.famousCohortMaxWallets !== 'number' || ft.famousCohortMaxWallets > TAIL_DIP_EXEMPT_MAX_FAMOUS_COHORT_WALLETS) return false;
-  return true;
+  if (!cd) return { ok: false, failLeg: 'noCheatDerived' };
+  if (typeof cd.washPairCount === 'number' && cd.washPairCount > 0) return { ok: false, failLeg: 'washPairCount' }; // null=零对敲放行
+  if (typeof cd.noBuySellPct !== 'number' || cd.noBuySellPct >= TAIL_DIP_EXEMPT_MAX_NO_BUY_SELL_PCT) return { ok: false, failLeg: 'noBuySellPct' };
+  if (typeof cd.holderHHI !== 'number' || cd.holderHHI >= TAIL_DIP_EXEMPT_MAX_HOLDER_HHI) return { ok: false, failLeg: 'holderHHI' };
+  if (typeof cd.totalBuyBnb !== 'number' || cd.totalBuyBnb < TAIL_DIP_EXEMPT_MIN_TOTAL_BUY_BNB || cd.totalBuyBnb > TAIL_DIP_EXEMPT_MAX_TOTAL_BUY_BNB) return { ok: false, failLeg: 'totalBuyBnb' };
+  if (typeof cd.routerEntryBuyPct !== 'number' || cd.routerEntryBuyPct < TAIL_DIP_EXEMPT_MIN_ROUTER_ENTRY_PCT) return { ok: false, failLeg: 'routerEntryBuyPct' };
+  if (typeof cd.top1BuyPct !== 'number' || cd.top1BuyPct >= TAIL_DIP_EXEMPT_MAX_TOP1_BUY_PCT) return { ok: false, failLeg: 'top1BuyPct' };
+  if (typeof cd.sameBlockHoldCircPct !== 'number' || cd.sameBlockHoldCircPct > TAIL_DIP_EXEMPT_MAX_SAME_BLOCK_HOLD_CIRC_PCT) return { ok: false, failLeg: 'sameBlockHoldCircPct' };
+  if (!ft || typeof ft.groupBuyBnb !== 'number' || ft.groupBuyBnb < TAIL_DIP_EXEMPT_MIN_FAMOUS_GROUP_BUY_BNB) return { ok: false, failLeg: 'famGroupBuyBnb' };
+  if (typeof ft.famousCohortMaxWallets !== 'number' || ft.famousCohortMaxWallets > TAIL_DIP_EXEMPT_MAX_FAMOUS_COHORT_WALLETS) return { ok: false, failLeg: 'famCohortMaxWallets' };
+  return { ok: true, failLeg: null };
 }
 
 /** CD412 极端捆绑砸盘：同块独立卖方 ≥15 ∧ 块卖 ≥1 BNB → 拦（不看承接比）；破发豁免 */
@@ -1544,15 +1544,19 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
   const cd = snapshot.cheatDerived || {};
   // FP33/JG6 tail_dip 有机盘豁免（单点计算留痕：豁免命中=tail_dip 域内且九腿全真）
   const _tdArmHit = armTailDipKnife(snapshot.buyDerived);
-  const tailDipExempted = _tdArmHit && enableTailDipExempt
-    && tailDipOrganicExempt(cd, snapshot.buyDerived && snapshot.buyDerived.famousTraces);
+  const _tdExemptTry = _tdArmHit && enableTailDipExempt
+    ? tailDipOrganicExempt(cd, snapshot.buyDerived && snapshot.buyDerived.famousTraces) : null;
+  const tailDipExempted = _tdExemptTry ? _tdExemptTry.ok : false;
   // FP34/JG-6c 豁免族扩两臂：tail_no_buyer_pressure 同款豁免（用户裁定 2026-11-21
   // 「只豁免 tail_dip_knife + tail_no_buyer_pressure」——983 票全集首拦行伴随臂
   // 实证两臂互为同域围堵主力[130 张重叠]，lifecycle 两臂拦截极准[42 张仅 2 右尾]
   // 不进豁免族；act 族不进[首拦行零伴随命中，只挡加仓路径不挡首买]）
   const _tnbArmHit = armTailNoBuyerSellPressure(snapshot.buyDerived);
-  const tailNoBuyerExempted = _tnbArmHit && enableTailDipExempt
-    && tailDipOrganicExempt(cd, snapshot.buyDerived && snapshot.buyDerived.famousTraces);
+  // JG-6d 可观测性：豁免 fail 留痕挂腿名（SI 案排查靠手工重放九腿才发现 HHI 时变
+  // 0.11→0.28 破线——腿时变是崩塌窗本性，fail 腿必须可查）
+  const _tnbExemptTry = _tnbArmHit && enableTailDipExempt
+    ? tailDipOrganicExempt(cd, snapshot.buyDerived && snapshot.buyDerived.famousTraces) : null;
+  const tailNoBuyerExempted = _tnbExemptTry ? _tnbExemptTry.ok : false;
   // FP6 observe（famous 高控+砸落）前置判定——CD414 臂排除消费（上轮裁定先观察）
   const domFall = judgeFamousDominanceFall(snapshot);
   if (enableCheatArms) {
@@ -1626,7 +1630,10 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     ...(tailNoBuyerExempted ? { tailNoBuyerExempt: { code: 'tail_no_buyer_organic_exempt', version: FACTOR_PREBUY_VERSION } } : {}),
     trace: { ...pvp.trace, act: activity.branch, tail: tail.branch, fam: famous.branch, domFall: domFall.branch,
       ...(tailDipExempted ? { tailDipExempt: 'organic' } : {}),
-      ...(tailNoBuyerExempted ? { tailNoBuyerExempt: 'organic' } : {}) } };
+      ...(tailNoBuyerExempted ? { tailNoBuyerExempt: 'organic' } : {}),
+      // JG-6d fail 腿留痕（灰度开且域内但腿挂=排查线索；'noCheatDerived' 等腿名）
+      ...(!_tdExemptTry || _tdExemptTry.ok ? {} : { tailDipExemptFail: _tdExemptTry.failLeg }),
+      ...(!_tnbExemptTry || _tnbExemptTry.ok ? {} : { tailNoBuyerExemptFail: _tnbExemptTry.failLeg }) } };
 }
 
 module.exports = {
