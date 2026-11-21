@@ -249,3 +249,5 @@
 **右尾 5 张仍未成交（死因碎片化=全链冗余防御的已知成本留档）**：쿠우塔 02:31+ lifecycle_sell（裁定不豁）→act_front_low；SI tail_no_buyer 豁免未生效（疑 roster v14 改变 famous 跟单人头致腿 fail，留档待复查）+AF1+BP；릴테이/crypto nerd fam_early_flip 族（FP11）；洛天依 AF1+BP+act_ultra。继续剥洋葱=破坏各门既有立法证据，右尾 5 张作为 6.6% 右尾尾部的门链成本接受。
 
 **转正**：default.json fourmemeWs.buyPointCheck.factorCheck.tailDipOrganicExempt=true（实验开 factorCheck 即随开；flap 经 _mergedWsConfig 同键）；库包零改动（module-registry 键内跟随代码：v1→resolve 返回 FP34）。跑中实验须重启生效。
+
+**JG-6e SI 豁免未生效结案（T204d，da02ec67）**：0xf7a9 不在 SI 锚窗（roster v14 副作用排除）——真凶=**HHI 时变**（12:11:28 锚 0.11 过线→12:11:37 行 0.2835 破线：崩塌进行时筹码快速集中=散户割肉/吸筹，九腿最时变腿）。行级豁免独立判定下，时变腿进一步压缩可成交窗（与金窗窄同源）。可观测性补丁：豁免 fail 落 trace.tailDipExemptFail/tailNoBuyerExemptFail 腿名。
