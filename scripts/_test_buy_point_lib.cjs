@@ -778,6 +778,44 @@ console.log('A11. BP77 塞单簇+恶意砸块族手算（四件方案立法①�
   const st77s = buildBuyPointState(buildBuyPointSnapshot(rowsStuff, metaA)).state;
   ok(st77s.includes('同块等额买单(锚窗)') && st77s.includes('8'),
     'A11: state 渲染塞单簇行（eqMax ≥2 才渲染——8 钱包 ×0.25 簇在场）');
+
+  // BP88 时间隔断（金狗集合 ZKind 0xa79e…7777 案，2026-11-21）：砸块末行距窗末
+  // ≥120s 的旧一轮砸盘不进 dump 候选；限窗内递补取卖额最大者（非删数据=限定搜索窗）
+  const rowsDump88 = [
+    row(5, 'BUY', W_B, 0.1, 1.0 * E9, 1e8, { block: 8000, li: 0 }),
+    row(10, 'SELL', W_D, 0.6, 0.85 * E9, 7e8, { block: 8000, li: 1 }),   // 旧砸块 -15%/0.6B（卖额更大）距窗末 190s → 隔断
+    row(168, 'BUY', W_C, 0.02, 1.0 * E9, 2e7, { block: 8010, li: 0 }),
+    row(170, 'SELL', W_E, 0.4, 0.88 * E9, 4.5e8, { block: 8010, li: 1 }), // 近砸块 -12%/0.4B 距窗末 30s → 递补顶上
+    row(200, 'BUY', W_F, 0.1, 0.95 * E9, 1.05e8, { block: 8020 }),        // 窗末行（0.95 拉起对末价→8010+8020 无相邻对）
+  ];
+  const d88 = buildBuyPointSnapshot(rowsDump88, metaA).buyDerived;
+  ok(d88.dumpBlock && d88.dumpBlock.block === 8010 && near(d88.dumpBlock.sellBnb, 0.4)
+    && d88.dumpBlock.dropPct === -12 && d88.dumpBlock.secToAnchor === 30 && d88.dump2Block === null,
+    `BP88: 旧砸盘隔断+限窗递补（8000 块 0.6B 卖额更大但距锚 190s ≥120 剔除；8010 块 0.4B 距 30s 顶上；8020 块号不相邻 → 无对——实际 ${d88.dumpBlock && JSON.stringify({ b: d88.dumpBlock.block, s: d88.dumpBlock.sellBnb, d: d88.dumpBlock.dropPct, t: d88.dumpBlock.secToAnchor })} dump2=${d88.dump2Block && d88.dump2Block.block}`);
+  // 只有旧砸盘（唯一砸块距 190s；窗末行块号隔断无相邻对）→ 两锚全 null、state 不渲染
+  const rowsDump88b = [
+    row(5, 'BUY', W_B, 0.1, 1.0 * E9, 1e8, { block: 8100, li: 0 }),
+    row(10, 'SELL', W_D, 0.6, 0.85 * E9, 7e8, { block: 8100, li: 1 }),   // -15%/0.6B 距窗末 190s
+    row(200, 'BUY', W_F, 0.1, 0.9 * E9, 1.1e8, { block: 8200 }),
+  ];
+  const d88b = buildBuyPointSnapshot(rowsDump88b, metaA).buyDerived;
+  ok(d88b.dumpBlock === null && d88b.dump2Block === null,
+    'BP88: 只有旧砸盘 → 两锚全 null（ZKind 主案形状：165s 沉寂前的旧砸盘不进判读原料）');
+  const st88b = buildBuyPointState(buildBuyPointSnapshot(rowsDump88b, metaA)).state;
+  ok(!st88b.includes('恶意砸块'),
+    'BP88: state 不渲染砸块行（锚 null 天然不渲染——题面判读原料断供=Jev 无从判恶意砸盘）');
+  // 边界线：距恰 120s（≥ 线）同隔断；119s 不隔断；相邻对以对末块判距（对末 119s → 对保留）
+  const rowsDump88c = [
+    row(5, 'BUY', W_B, 0.1, 1.0 * E9, 1e8, { block: 8300, li: 0 }),
+    row(80, 'SELL', W_D, 0.5, 0.85 * E9, 5.9e8, { block: 8300, li: 1 }),  // 8300 块 -15% 距窗末恰 120s → 单块隔断（≥ 线）
+    row(81, 'BUY', W_C, 0.02, 0.92 * E9, 2e7, { block: 8301, li: 0 }),    // 8301 块 0.92→0.84=-8.7%
+    row(81, 'SELL', W_E, 0.5, 0.84 * E9, 5.9e8, { block: 8301, li: 1 }),  // 距窗末 119s → 保留（< 线）
+    row(200, 'BUY', W_F, 0.1, 0.9 * E9, 1.1e8, { block: 8400 }),
+  ];
+  const d88c = buildBuyPointSnapshot(rowsDump88c, metaA).buyDerived;
+  ok(d88c.dumpBlock && d88c.dumpBlock.block === 8301 && near(d88c.dumpBlock.sellBnb, 0.5)
+    && d88c.dump2Block && d88c.dump2Block.block === 8300 && d88c.dump2Block.block2 === 8301,
+    `BP88: 边界线=单块距 120s 隔断/119s 保留，相邻对以对末块判距（对末 8301 距 119s → 8300+8301 对保留[合并卖额 1.0 为 dump2 候选]——实际 dump=${d88c.dumpBlock && d88c.dumpBlock.block} dump2=${d88c.dump2Block && d88c.dump2Block.block}+${d88c.dump2Block && d88c.dump2Block.block2}`);
 }
 
 // ═══════════════ A12. T166/FP9 famBurstWave 手算（famous 系突发波——btv140 BP-T048 TYB 案） ═══════════════

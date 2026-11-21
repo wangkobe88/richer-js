@@ -83,6 +83,18 @@ const BP_DUMP_MIN_DROP_PCT = 8;
 const BP_DUMP_FOLLOW_SEC = 60;
 /** BP77 承接观察窗下限（秒）：锚末距砸块末行不足此值=观察窗不足，承接比 null 不冒充 */
 const BP_DUMP_FOLLOW_MIN_OBS_SEC = 10;
+/** BP88 恶意砸块时间隔断窗（秒）：砸块末行距窗末（锚）≥ 此值 = 上一轮旧砸盘，不进
+ *  dumpBlock/dump2Block 候选——旧砸盘不进判读原料（方案 A，snapshot 侧剪除，题面/
+ *  state/mapper 零改动）。案源金狗集合 ZKind 0xa79e7364…7777（2026-11-21 用户观点：
+ *  「沉寂期之前有一个快速下跌，但并非从高点位下来、并经历了较长沉寂期，不应判
+ *  malicious_dump」）：dump2 对距锚 206s/dump 块 172s、其后 165s 零成交沉寂、买点
+ *  +16% 贴发行价 burst 涌入触发（chg5 +9.32），被判 malicious_dump 拒、锚后 +188%。
+ *  判读四腿（卖额/跌幅/卖方/承接比）原本无任何时间距锚约束——40 分钟前的旧砸盘
+ *  与 2 秒前的进行时砸盘同等定罪（secToAnchor 只被 BP82 贴锚臂 <10s 消费）。71 票
+ *  分组（11 实验同桶）：距锚 <30s 组 26 票 avgLast15=-4.9%（急跌接刀拦对了）、
+ *  120-240s 组 10 票 avgLast15=+25.1%（系统性误拦最肥带）、≥240s 组 +4.5%（混死盘）。
+ *  120s=分组分界线；tEnd 缺失（dt 异常）不过滤保持旧行为（fail-open 容缺）。 */
+const BP_DUMP_MAX_SEC_TO_ANCHOR = 120;
 /** BP79 买期/卖期分界尘门（BNB）：买侧 <此值=尘级不计入买期（GNusmas 尾段
  * 0.039/笔尘级买被当买期延续的误判源）；卖侧 <此值=探路碎卖不算卖期启动
  * （防单笔尘卖打断轴致⑨漏判误放） */
@@ -520,7 +532,9 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
   //    部分和（ratio 的分子，<10s 时为已见部分）、secToAnchor=砸块末行距锚秒数
   //    ——贴锚砸盘（砸完立刻到买点）形状 ratio 恒 null≠无承接证据，Jev 按已见
   //    买入/砸卖额判「贴锚砸盘无人接」（题面四腿④承接腿 BP82 臂）。dump2Block=
-  //    相邻 block 对（b+1）合并同款（接力砸拆块形状）──
+  //    相邻 block 对（b+1）合并同款（接力砸拆块形状）。BP88（2026-11-21）：候选
+  //    加时间隔断——砸块末行距窗末 ≥BP_DUMP_MAX_SEC_TO_ANCHOR(120s) 的旧一轮砸盘
+  //    不进候选（沉寂隔断后的买点是新一轮形状，旧砸盘不应压新轮判读）──
   let dumpBlock = null, dump2Block = null;
   {
     const blocks = new Map(); // block -> {firstDt,endDt,firstPx,lastPx,sells,sellBnb}
@@ -590,11 +604,16 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
         secToAnchor: fo.sec,
       };
     };
+    // BP88 时间隔断（2026-11-21）：砸块末行距窗末 ≥BP_DUMP_MAX_SEC_TO_ANCHOR = 上一轮
+    // 旧砸盘不进候选（限窗内取卖额最大者=递补语义）；tEnd 缺失不过滤（旧行为容缺）。
+    const dumpStale = (endDt) => tEnd !== null && endDt !== null && endDt !== undefined
+      && (tEnd - endDt) >= BP_DUMP_MAX_SEC_TO_ANCHOR;
     let best1 = null, best1Bnb = -1;
     for (const [block, e] of blocks) {
       const d = dropOf(e.firstPx, e.lastPx);
       if (d === null || d > -BP_DUMP_MIN_DROP_PCT) continue;
       if (e.sellBnb < BP_DUMP_MIN_SELL_BNB) continue;
+      if (dumpStale(e.endDt)) continue;
       if (e.sellBnb > best1Bnb) {
         best1Bnb = e.sellBnb;
         best1 = mkDump(block, null, e.sellBnb, d, e.sells, e.firstDt, e.endDt);
@@ -609,6 +628,7 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
       const d = dropOf(e1.firstPx, e2.lastPx);
       if (d === null || d > -BP_DUMP_MIN_DROP_PCT) continue;
       if (sellBnb < BP_DUMP_MIN_SELL_BNB) continue;
+      if (dumpStale(e2.endDt)) continue;
       if (sellBnb > best2Bnb) {
         best2Bnb = sellBnb;
         const merged = new Map(e1.sells);

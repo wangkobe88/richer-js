@@ -9,6 +9,7 @@ Richer-js：BSC four.meme + flap + gang meme 币自动交易引擎（BSC-only）
 - 买入点位分析案档案：`docs/买入点位分析与Case台账.md`（BP 编号；详档 auto-memory）；**每个买点 case/题集改动须同步追加台账**
 - **当前最优买卖策略快照**：`docs/当前最优买卖策略.md`（现行最优买/卖腿 condition 全文+机制配置+证据链，版本以 strategy_library 最新版为准；**每次策略演进同步维护**）
 - **聪明钱涌入信号专题台账**：`docs/聪明钱涌入信号专题台账.md`（SI 编号；famous/聪明钱连续涌入备选策略专题，与现行 ladder 体系刻意隔离）
+- **金狗 Case 集合台账**：`docs/金狗Case集合台账.md`（JG 编号；金狗集合 a8414632 的用户观点/数据验证/处理留档——集合=用户筛选高涨幅基准资产、发现系统性误拦用；触发机制改动的 case 同步对应主台账，**集合内新 case 同步追加**）
 - 历史实现：git 历史
 
 ## 常用命令
@@ -183,7 +184,7 @@ Jev 驱动**买信号驱动同步式盘面检测门（GMGN 式，作弊模块=�
 - **定位（与 CD 分工）**：输入同样是 ticks 锚截窗，CD 判「盘面是否作弊」，本模块判「**当前点位是否适合买入**」；协同形状只作降档参考。引擎融合=T117 门链 BP 门（`BuyPointCheckService`+`buy_point_analyses` 表+`_bpGateEvaluate` 全 fail-closed）；代码无规则映射层/grade
 - **判定形态（BP67/题集 BP67 起=纯门链五道）**：⓪塞单门（`exactEqualBlockMaxWallets >= 8` 代码门 stuffing_gate，门链最前，锚缺席容缺不拦——「不搞代码门」唯一例外=用户明裁机械形状）→ 盘型门 → 点位门（entry_shape 五桶）→ 活跃度门 → 筹码门，全过=neutral（good 档不再产出；两质量题已退役 BP48）：
   - **①盘型门**：market_pattern 现行四桶=retail_pvp 散户 PVP/famous_monopoly famous 独食/one_wave_dump 一波拉高出货（`PATTERN_GATE_POOR_BUCKETS=['retail_pvp','famous_monopoly','one_wave_dump']` 硬拒）/none 其余一切盘面（强庄/融合/重启等正常形状不细分 BP58/BP60 收口）；⑥sustained_climb 桶已退役归 none 统一门。判据=开盘段结构行+[WALLETS] 前列行+筹码结构行+活跃度行+卖压行+[PRICE] 行六源并读；材料不足按⑤融合桶不硬归类；门题缺席容缺
-  - **②点位门（entry_shape）**：`ENTRY_GATE_POOR_BUCKETS=['crash','malicious_dump']`——crash=数值四臂命中进形态复核（急跌只看买点本地窗急缓与累计幅度无关 BP66；急跌进行时轴 chg5≈chg10 同深无铺垫 BP59；判序四步制：先判反弹两件套→买入力在场豁免（尾 10s 买 ≥3 笔∧≥0.1 BNB 照放）→臂 A 本地买方缺席/臂 B 暴跌余波才坐实；打断家族唯一放行出口=反弹两件套不享买力豁免）；malicious_dump=Jev 四腿判读（卖额 ≥0.5 BNB∧块内跌幅 ≥10%∧卖方 ≥4 剔路由∧砸后承接比 <0.5；贴锚 <10s 改「砸后已见买入」判承接 BP82；总成交额 `totalVolumeBnb` ≥20 BNB 豁免 BP78——贴锚形状不吃豁免）；spike 判型保留落档不拦（BP68）；normal_dip=目标形状
+  - **②点位门（entry_shape）**：`ENTRY_GATE_POOR_BUCKETS=['crash','malicious_dump']`——crash=数值四臂命中进形态复核（急跌只看买点本地窗急缓与累计幅度无关 BP66；急跌进行时轴 chg5≈chg10 同深无铺垫 BP59；判序四步制：先判反弹两件套→买入力在场豁免（尾 10s 买 ≥3 笔∧≥0.1 BNB 照放）→臂 A 本地买方缺席/臂 B 暴跌余波才坐实；打断家族唯一放行出口=反弹两件套不享买力豁免）；malicious_dump=Jev 四腿判读（卖额 ≥0.5 BNB∧块内跌幅 ≥10%∧卖方 ≥4 剔路由∧砸后承接比 <0.5；贴锚 <10s 改「砸后已见买入」判承接 BP82；总成交额 `totalVolumeBnb` ≥20 BNB 豁免 BP78——贴锚形状不吃豁免；**BP88 时间隔断：砸块末行距锚 ≥120s 的旧一轮砸盘不进 dump 候选（snapshot 侧剪除 `BP_DUMP_MAX_SEC_TO_ANCHOR`，限窗递补、相邻对以对末块判距、tEnd 缺失容缺——沉寂隔断后的买点不受上一轮砸盘压判，题面/state/mapper 零改动）**）；spike 判型保留落档不拦（BP68）；normal_dip=目标形状
   - **③活跃度门**：activity_level∈{low,ultra} → poor（low=买点前全窗量级，判读倾向临近买点段，⑦=临近买点段定档主锚四臂判序：协同出货/衰减/密集/死寂只压不抬+三反锚；**第五档 burst=cheat 门输入桶不拦**——cheat sbw 经 ctx.cheatBurst 透传，行缺席按七要素照常判）；门题答案缺席 null 不拦
   - **④筹码门（现行停用 `CHIP_GATE_ENABLED=false` BP54）**：holder_concentration=strong 单臂（CD240 分层线直译+一人控盘例外）；**BP15 价格豁免锚**：currentVsLaunchPct ≤ +10% 贴发行价时持有不均衡不坐实 strong；恢复=true 一键还原
   - **⑤统一位置门**：none+LEGACY 全部走 `NORMAL_ENTRY_LAUNCH_PCT=28.5`（curVs≤+28.5% 放行含破发、已拉离拒、**锚缺失宁拦不冒充一律拒**）；⑥桶位置门 `SUSTAINED_CLIMB_LAUNCH_PCT=10` 已随桶退役；pump 豁免票同走统一位置门（BP55 专属门退役）
