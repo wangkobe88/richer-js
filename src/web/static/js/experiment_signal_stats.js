@@ -221,6 +221,12 @@ class ExperimentSignalStats {
       // 聚合信号统计
       this.aggregateSignalsByToken();
 
+      // 涨幅补全（2026-11-21 铁匠案）：tokens 接口 discovered_at desc 10000 行截断
+      // + narrative 兜底只覆盖有叙事行的票——万级 token 回测实验的早窗信号票两条链
+      // 都 miss（maxChange=null，最高涨幅排序沉底）。信号票全集千级，按地址批查
+      // token_profiles 补齐；失败不阻塞页面（维持 null 显示 '-'）。
+      await this._fillMissingMaxChange();
+
       // 更新UI
       this.updateExperimentHeader();
       this.updateSummaryStats();
@@ -236,6 +242,35 @@ class ExperimentSignalStats {
     }
   }
 
+  /** 涨幅补全：对 maxChange=null 的信号票按地址批查 token_profiles（500/批，
+   *  全局表非实验域；null 票含「无 profile 行」的正常情况——查不到维持 null） */
+  async _fillMissingMaxChange() {
+    const missing = this.tokenStats.filter(s => s.maxChange === null || s.maxChange === undefined);
+    if (!missing.length) return;
+    const BATCH = 500;
+    for (let i = 0; i < missing.length; i += BATCH) {
+      const batch = missing.slice(i, i + BATCH);
+      try {
+        const res = await fetch('/api/tokens/profiles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ addresses: batch.map(s => s.tokenAddress) })
+        });
+        if (!res.ok) continue;
+        const j = await res.json();
+        if (!j.success || !j.data) continue;
+        for (const stat of batch) {
+          const p = j.data[stat.tokenAddress] ?? j.data[String(stat.tokenAddress).toLowerCase()];
+          if (p && p.max_change_percent !== null && p.max_change_percent !== undefined) {
+            stat.maxChange = p.max_change_percent;
+          }
+        }
+      } catch (e) {
+        console.warn('涨幅补全失败（不阻塞页面）:', e);
+      }
+    }
+  }
+
   aggregateSignalsByToken() {
     // 按代币地址聚合信号统计
     const signalMap = new Map();
@@ -247,6 +282,7 @@ class ExperimentSignalStats {
       if (!signalMap.has(addr)) {
         signalMap.set(addr, {
           tokenAddress: addr,
+          signalSymbol: signal.token_symbol || signal.tokenSymbol || null, // 信号行自带 symbol：tokens 接口截断时的显示兜底
           buySignals: 0,
           sellSignals: 0,
           observeSignals: 0,
@@ -301,7 +337,7 @@ class ExperimentSignalStats {
       const narrativeItem = this.narrativeDataMap.get(signalStats.tokenAddress);
       return {
         ...signalStats,
-        symbol: narrativeItem?.symbol || 'Unknown',
+        symbol: signalStats.signalSymbol || narrativeItem?.symbol || 'Unknown',
         name: '',
         narrativeRating: this.narrativeRatingMap.get(signalStats.tokenAddress) ?? null,
         cheatGrade: this._cheatScore(signalStats.tokenAddress),

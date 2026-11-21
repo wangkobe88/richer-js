@@ -2870,6 +2870,34 @@ class RicherJsWebServer {
       }
     });
 
+    // 按地址批查代币分类/最高涨幅（token_profiles 全局表）。消费方=signal-stats 页
+    // 涨幅补全：tokens 接口 discovered_at desc 10000 行截断 + narrative 兜底只覆盖
+    // 有 token_narrative 行的票——万级 token 回测实验的早窗信号票两条链都 miss，
+    // 最高涨幅列 null 排序沉底（2026-11-21 铁匠 0x39ed…7777 实测 +1050.7% 沉底）。
+    // 信号票全集千级远小于实验全集，POST 地址批查而非取全量代币数据。
+    this.app.post('/api/tokens/profiles', async (req, res) => {
+      try {
+        const raw = Array.isArray(req.body?.addresses) ? req.body.addresses : [];
+        const addresses = [...new Set(raw.filter(a => typeof a === 'string' && a))]
+          .map(a => a.trim()).filter(Boolean).slice(0, 2000); // 护栏：单次 ≤2000，超出由调用方分批
+        if (!addresses.length) {
+          return res.json({ success: true, data: {}, count: 0 });
+        }
+        const profileMap = await this.dataService.getTokenProfilesByAddresses(addresses);
+        const data = {};
+        for (const [addr, p] of profileMap) {
+          data[addr] = {
+            max_change_percent: p.max_change_percent ?? null,
+            category: p.category ?? null,
+          };
+        }
+        res.json({ success: true, data, count: Object.keys(data).length });
+      } catch (error) {
+        this.logger.error('WebServer', '批量查询代币分类失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message, data: {} });
+      }
+    });
+
     // Holder 走势图数据（2026-10-15 ticks 化重建）：单 token 全量 ticks 重放 holderCount
     // 时序，口径与 FA _applyWalletAggregation bit 一致（五要素见 holder-series.js 头注）。
     // 全局口径不挂实验（holderCount 是 token 全局属性，虚拟/回测实验同图同值）；
