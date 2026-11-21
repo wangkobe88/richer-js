@@ -297,8 +297,10 @@
             }[t.sync_state] || t.sync_state;
             tr.innerHTML = `
                 <td class="px-3 py-2">
+                    <a href="/token-ticks?token=${encodeURIComponent(t.token_address)}" target="_blank"
+                       class="mono text-blue-600 hover:underline text-xs" title="Ticks 浏览页（价格图 / famous / 聪明钱标记）">${escapeHtml(t.token_address)}</a>
                     <a href="/token-detail?address=${encodeURIComponent(t.token_address)}" target="_blank"
-                       class="mono text-blue-600 hover:underline text-xs">${escapeHtml(t.token_address)}</a>
+                       class="ml-1 text-[10px] text-gray-400 hover:text-blue-600" title="代币详情页">详情</a>
                     ${meta.symbol ? `<div class="text-xs text-gray-400">${escapeHtml(meta.symbol)}${meta.name ? ' · ' + escapeHtml(meta.name) : ''}</div>` : ''}
                 </td>
                 <td class="px-3 py-2 text-xs">${escapeHtml(t.platform)}</td>

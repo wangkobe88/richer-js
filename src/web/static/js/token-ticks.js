@@ -18,6 +18,20 @@ class TokenTicksPage {
     this.candleChart = null;   // 区块 K 线主图（candlestick）
     this.volumeChart = null;   // 区块 K 线副图（成交量 bar）
 
+    // ⭐ famous 钱包名单（/api/rosters/famous-wallets，famous-copy-wallets.json 同源）：
+    // 价格图 famous 操作标记的数据源（与 signals 页同款）；null=未加载/拉取失败
+    // （零标记 fail-open 不阻塞主图）
+    this._famousWallets = null;
+    this._famousProfiles = null; // addr → GMGN 身份档案（twitter_username 等，可缺席）
+    this._famousRosterPromise = null;
+
+    // 🧠 聪明钱钱包名单（/api/rosters/smart-money-wallets，smartmoney-accum.json 同源）：
+    // 价格图聪明钱操作标记（与 signals 页同款）；null=未加载/失败（零标记 fail-open）。
+    // 与 famous 分层：famous 名单优先——交集钱包行归 famous 气泡，聪明钱标记跳过防双计
+    this._smartWallets = null;
+    this._smartProfiles = null; // addr → { twitterUsername, tags, hits, usd }（可缺席）
+    this._smartRosterPromise = null;
+
     // BP 测试集点位（?bp=<setName> 直达；2026-11-05 BP3）
     this.bpSetName = new URLSearchParams(window.location.search).get('bp') || '';
     this.bpPoints = null;      // 当前 token 的点位（[{pointId, source, signalInfo, anchorTickCount, forwardReturns, ladder, ...}]）
@@ -57,6 +71,9 @@ class TokenTicksPage {
     await this._waitForChartJS();
 
     this._loadTokenInfo();
+    // ⭐famous/🧠聪明钱 名单先就位（图表标记依赖；memoized，失败=空集零标记 fail-open；
+    // 必须在 _loadBpSets 之前——?bp= 直达路径内部会直接画图，晚到名单会漏标记）
+    await Promise.all([this.ensureFamousRoster(), this.ensureSmartRoster()]);
     await this._loadBpSets();   // BP 点位先到（图叠画依赖 bpPoints 已就位）
     await this._loadChartData();
     await this._loadTableData();
@@ -103,6 +120,123 @@ class TokenTicksPage {
       const summary = document.getElementById('token-summary');
       if (summary) summary.innerHTML = parts.join(' · ');
     } catch (e) { /* 忽略：信息缺失不影响 ticks 浏览 */ }
+  }
+
+  // ── ⭐famous / 🧠聪明钱 名单标记（与 signals 页同源同口径）─────────
+  // 名单缺席/失败=空集零标记 fail-open，不阻塞主图（signals 页同策略）。
+
+  /** ⭐ 拉取 famous 钱包名单（memoized：页面生命周期内拉一次；失败也 memoize 成空 Set） */
+  ensureFamousRoster() {
+    if (this._famousWallets) return Promise.resolve(this._famousWallets);
+    if (!this._famousRosterPromise) {
+      this._famousRosterPromise = fetch('/api/rosters/famous-wallets')
+        .then(r => (r.ok ? r.json() : null))
+        .then(json => {
+          const wallets = (json?.success && Array.isArray(json.data?.wallets)) ? json.data.wallets : [];
+          this._famousWallets = new Set(wallets.map(w => String(w).toLowerCase()));
+          this._famousProfiles = json?.data?.profiles || null;
+          console.log(`⭐ famous 名单加载: ${this._famousWallets.size} 址 (v${json?.data?.version ?? '?'})`);
+          return this._famousWallets;
+        })
+        .catch(err => {
+          console.warn('⚠️ famous 名单加载失败，价格图将无 famous 标记:', err);
+          this._famousWallets = new Set();
+          return this._famousWallets;
+        });
+    }
+    return this._famousRosterPromise;
+  }
+
+  /** 🧠 拉取聪明钱钱包名单（memoized；失败也 memoize 成空 Set） */
+  ensureSmartRoster() {
+    if (this._smartWallets) return Promise.resolve(this._smartWallets);
+    if (!this._smartRosterPromise) {
+      this._smartRosterPromise = fetch('/api/rosters/smart-money-wallets')
+        .then(r => (r.ok ? r.json() : null))
+        .then(json => {
+          const wallets = (json?.success && Array.isArray(json.data?.wallets)) ? json.data.wallets : [];
+          this._smartWallets = new Set(wallets.map(w => String(w).toLowerCase()));
+          this._smartProfiles = json?.data?.profiles || null;
+          console.log(`🧠 聪明钱名单加载: ${this._smartWallets.size} 址 (快照 ${json?.data?.meta?.snapshots ?? '?'})`);
+          return this._smartWallets;
+        })
+        .catch(err => {
+          console.warn('⚠️ 聪明钱名单加载失败，价格图将无聪明钱标记:', err);
+          this._smartWallets = new Set();
+          return this._smartWallets;
+        });
+    }
+    return this._smartRosterPromise;
+  }
+
+  /** ⭐ famous 钱包显示名：@twitter_username 优先 → twitter_name → GMGN name → null */
+  _famousLabel(wallet) {
+    const p = this._famousProfiles && this._famousProfiles[wallet];
+    if (!p) return null;
+    if (p.twitterUsername) return `@${p.twitterUsername}`;
+    if (p.twitterName) return p.twitterName;
+    if (p.name) return p.name;
+    return null;
+  }
+
+  /** 🧠 聪明钱钱包显示名：@twitter 优先 → name → null（null=tooltip 回落地址缩写） */
+  _smartLabel(wallet) {
+    const p = this._smartProfiles && this._smartProfiles[wallet];
+    if (!p) return null;
+    if (p.twitterUsername) return `@${p.twitterUsername}`;
+    if (p.name) return p.name;
+    return null;
+  }
+
+  /**
+   * 名单钱包操作点位通用构建器（famous/聪明钱共用；气泡图气泡/K线图 scatter 双图表）：
+   * wallet 口径 = sender_address || trader_address（与 FA/引擎、signals 页一致）；
+   * 名单缺席=空数组；价格/金额门槛与主气泡同口径（MIN_BNB=0.005、price_usd 有效）。
+   * exclude=更高优先级名单地址集合（famous）——交集钱包行归高优先级标记防双计。
+   */
+  _buildRosterMarkPoints(tickData, wallets, kind, metaFn, exclude) {
+    const buyPoints = [], sellPoints = [];
+    if (!wallets || wallets.size === 0) return { buyPoints, sellPoints };
+    const MIN_BNB = 0.005; // 与主气泡同口径（小额 tick 价格精度不足）
+    for (const tick of tickData) {
+      const wallet = (tick.sender_address || tick.trader_address || '').toLowerCase();
+      if (!wallet || !wallets.has(wallet)) continue;
+      if (exclude && exclude.size > 0 && exclude.has(wallet)) continue;
+      const bnbAmount = parseFloat(tick.bnb_amount) || 0;
+      if (bnbAmount < MIN_BNB) continue;
+      const priceUsd = parseFloat(tick.price_usd);
+      if (!priceUsd || priceUsd <= 0) continue;
+      const tradeType = tick.trade_type === 'buy' ? '买' : '卖';
+      (tick.trade_type === 'buy' ? buyPoints : sellPoints).push({
+        x: new Date(tick.block_time).getTime(),
+        y: priceUsd,
+        r: this._mapRadius(bnbAmount),
+        [kind]: { wallet, bnb: bnbAmount, tradeType, ...metaFn(wallet) },
+      });
+    }
+    return { buyPoints, sellPoints };
+  }
+
+  /** ⭐ famous 操作点位（金=买/紫=卖）：{x,y,r,_famous:{wallet,bnb,tradeType,label}} */
+  _buildFamousPoints(tickData) {
+    return this._buildRosterMarkPoints(
+      tickData, this._famousWallets, '_famous', (w) => ({ label: this._famousLabel(w) }));
+  }
+
+  /** 🧠 聪明钱操作点位（青=买/粉=卖）：famous 名单优先——交集钱包归 famous 防双计 */
+  _buildSmartPoints(tickData) {
+    return this._buildRosterMarkPoints(
+      tickData, this._smartWallets, '_smart',
+      (w) => {
+        const p = this._smartProfiles && this._smartProfiles[w];
+        return {
+          label: this._smartLabel(w),
+          tags: (p && Array.isArray(p.tags)) ? p.tags : [],
+          hits: (p && Number(p.hits)) || 0,
+          usd: (p && Number(p.usd)) || 0, // GMGN smartmoney 流出现次数/累计成交 USD（研究档案）
+        };
+      },
+      this._famousWallets);
   }
 
   // ── BP 测试集点位（set JSON 本地文件；182 构建后 scp 回本地）──
@@ -425,20 +559,62 @@ class TokenTicksPage {
     const ctx = canvas.getContext('2d');
     const buys = [], sells = [];
     const MIN_BNB = 0.005; // 小额 tick 价格精度不足（与信号页散点图同口径）
+    // ⭐famous/🧠聪明钱 操作点位（与 signals 页同款：独立气泡叠最顶层，
+    // 主 buys/sells 剔除已标记行防双计——图例计数/悬停双气泡）
+    const famousMarks = this._buildFamousPoints(tickData);
+    const smartMarks = this._buildSmartPoints(tickData);
+    const markedKeys = new Set([
+      ...famousMarks.buyPoints, ...famousMarks.sellPoints,
+      ...smartMarks.buyPoints, ...smartMarks.sellPoints,
+    ].map(p => `${p.x}|${(p._famous || p._smart).wallet}`));
     for (const tick of tickData) {
       const bnbAmount = parseFloat(tick.bnb_amount) || 0;
       if (bnbAmount < MIN_BNB) continue;
       const priceUsd = parseFloat(tick.price_usd);
       if (!priceUsd || priceUsd <= 0) continue;
       const timestamp = new Date(tick.block_time).getTime();
+      // famous/聪明钱行已进独立数据集，主数据集跳过
+      const wallet = (tick.sender_address || tick.trader_address || '').toLowerCase();
+      if (markedKeys.has(`${timestamp}|${wallet}`)) continue;
       const point = { x: timestamp, y: priceUsd, r: this._mapRadius(bnbAmount), _raw: tick };
       if (tick.trade_type === 'buy') buys.push(point); else sells.push(point);
     }
     this.chart = new Chart(ctx, {
       type: 'bubble',
       data: { datasets: [
-        // BP 点位必须排最前：Chart.js 倒序绘制=数组靠前者最后画在上层，
-        // 排尾部会被几百个半透明气泡堆叠近似不透明地埋掉（实测橙三角零像素）
+        // ⭐famous 独立气泡（金=买/紫=卖）+ 🧠聪明钱独立气泡（青=买/粉=卖）：
+        // 与 signals 页同款配色；Chart.js 倒序绘制——排最前=叠在普通气泡顶层
+        // （famous 优先，交集钱包行已归 famous 跳过聪明钱标记防双计）
+        {
+          label: `⭐Famous买 (${famousMarks.buyPoints.length})`,
+          data: famousMarks.buyPoints,
+          backgroundColor: 'rgba(250,204,21,0.9)',
+          borderColor: '#b45309',
+          borderWidth: 1.5,
+        },
+        {
+          label: `⭐Famous卖 (${famousMarks.sellPoints.length})`,
+          data: famousMarks.sellPoints,
+          backgroundColor: 'rgba(192,132,252,0.9)',
+          borderColor: '#6b21a8',
+          borderWidth: 1.5,
+        },
+        {
+          label: `🧠聪明钱买 (${smartMarks.buyPoints.length})`,
+          data: smartMarks.buyPoints,
+          backgroundColor: 'rgba(14,165,233,0.9)',
+          borderColor: '#0c4a6e',
+          borderWidth: 1.5,
+        },
+        {
+          label: `🧠聪明钱卖 (${smartMarks.sellPoints.length})`,
+          data: smartMarks.sellPoints,
+          backgroundColor: 'rgba(244,114,182,0.9)',
+          borderColor: '#831843',
+          borderWidth: 1.5,
+        },
+        // BP 点位紧随名单标记之后、主气泡之前：倒序绘制下仍压在普通气泡上层
+        // （排尾部会被几百个半透明气泡堆叠近似不透明地埋掉，实测橙三角零像素）
         ...this._bpScatterDatasets(tickData),
         { label: `Buy (${buys.length})`, data: buys, backgroundColor: 'rgba(34,197,94,0.65)', borderColor: 'rgba(22,163,74,0.9)', borderWidth: 1 },
         { label: `Sell (${sells.length})`, data: sells, backgroundColor: 'rgba(239,68,68,0.65)', borderColor: 'rgba(220,38,38,0.9)', borderWidth: 1 },
@@ -450,6 +626,30 @@ class TokenTicksPage {
           tooltip: { callbacks: {
             title(items) { return items.length ? new Date(items[0].raw.x).toLocaleString('zh-CN') : ''; },
             label: (item) => {
+              // ⭐ famous 气泡：GMGN 用户名+钱包地址+金额（与 signals 页同款）
+              if (item.raw._famous) {
+                const f = item.raw._famous;
+                const lines = [
+                  `⭐Famous ${f.tradeType || ''} | ${f.bnb.toFixed(4)} BNB`,
+                  `Price: $${item.raw.y.toExponential(3)}`,
+                ];
+                if (f.label) lines.push(f.label);
+                lines.push(`钱包: ${f.wallet.slice(0, 8)}…${f.wallet.slice(-6)}`);
+                return lines;
+              }
+              // 🧠 聪明钱气泡：twitter/标签+钱包地址+金额（GMGN smartmoney 流名单）
+              if (item.raw._smart) {
+                const f = item.raw._smart;
+                const lines = [
+                  `🧠聪明钱 ${f.tradeType || ''} | ${f.bnb.toFixed(4)} BNB`,
+                  `Price: $${item.raw.y.toExponential(3)}`,
+                ];
+                if (f.label) lines.push(f.label);
+                if (f.tags && f.tags.length) lines.push(`标签: ${f.tags.join(',')}`);
+                if (f.hits) lines.push(`GMGN流: ${f.hits} 次 / $${f.usd >= 1000 ? (f.usd / 1000).toFixed(1) + 'k' : f.usd.toFixed(0)}`);
+                lines.push(`钱包: ${f.wallet.slice(0, 8)}…${f.wallet.slice(-6)}`);
+                return lines;
+              }
               const bp = this._bpTooltip(item);
               if (bp) return bp;
               const raw = item.raw._raw;
@@ -530,8 +730,42 @@ class TokenTicksPage {
         plugins: {
           legend: { labels: { boxWidth: 12, padding: 12 } },
           tooltip: { callbacks: {
-            title: items => items.length ? `区块序号 ${items[0].raw.blockSeq} · ${new Date(items[0].raw.x).toLocaleTimeString('zh-CN')}` : '',
+            title: items => {
+              if (!items.length) return '';
+              const r = items[0].raw;
+              // 名单/BP 点位无 blockSeq——回落纯时刻（不冒充区块序号）
+              return r.blockSeq != null
+                ? `区块序号 ${r.blockSeq} · ${new Date(r.x).toLocaleTimeString('zh-CN')}`
+                : new Date(r.x).toLocaleTimeString('zh-CN');
+            },
             label: it => {
+              // ⭐famous 点位：GMGN 用户名+钱包地址+金额（与散点图同款）
+              if (it.raw._famous) {
+                const f = it.raw._famous;
+                const lines = [
+                  `⭐Famous ${f.tradeType || ''} | ${f.bnb.toFixed(4)} BNB`,
+                  `Price: $${it.raw.y.toExponential(3)}`,
+                ];
+                if (f.label) lines.push(f.label);
+                lines.push(`钱包: ${f.wallet.slice(0, 8)}…${f.wallet.slice(-6)}`);
+                return lines;
+              }
+              // 🧠 聪明钱点位：twitter/标签+钱包地址+金额（与散点图同款）
+              if (it.raw._smart) {
+                const f = it.raw._smart;
+                const lines = [
+                  `🧠聪明钱 ${f.tradeType || ''} | ${f.bnb.toFixed(4)} BNB`,
+                  `Price: $${it.raw.y.toExponential(3)}`,
+                ];
+                if (f.label) lines.push(f.label);
+                if (f.tags && f.tags.length) lines.push(`标签: ${f.tags.join(',')}`);
+                if (f.hits) lines.push(`GMGN流: ${f.hits} 次 / $${f.usd >= 1000 ? (f.usd / 1000).toFixed(1) + 'k' : f.usd.toFixed(0)}`);
+                lines.push(`钱包: ${f.wallet.slice(0, 8)}…${f.wallet.slice(-6)}`);
+                return lines;
+              }
+              // BP 点位（此前落 OHLC 分支打 $undefined——路由到专属 tooltip）
+              const bp = this._bpTooltip(it);
+              if (bp) return bp;
               const p = it.raw, dir = p.c >= p.o ? '▲' : '▼';
               return [`${dir} O $${p.o.toExponential(2)}  H $${p.h.toExponential(2)}`, `   L $${p.l.toExponential(2)}  C $${p.c.toExponential(2)}`];
             },
@@ -548,16 +782,32 @@ class TokenTicksPage {
       },
     });
 
-    // BP 点位叠画（candlestick 控制器 mixed scatter 兼容性未知——失败只 warn 不伤 K 线本体）
+    // ⭐famous/🧠聪明钱 + BP 点位叠画（candlestick 控制器 mixed scatter 兼容性未知——
+    // 失败只 warn 不伤 K 线本体；三角 scatter 与 signals 页 K 线同款配色，famous 优先防双计）
     try {
+      const famousMarks = this._buildFamousPoints(tickData);
+      const smartMarks = this._buildSmartPoints(tickData);
+      const rosterDs = [
+        { label: `⭐Famous买 (${famousMarks.buyPoints.length})`, data: famousMarks.buyPoints, type: 'scatter',
+          pointStyle: 'triangle', pointRadius: 8, pointHoverRadius: 10,
+          backgroundColor: 'rgba(250,204,21,0.95)', borderColor: '#b45309', borderWidth: 1.5 },
+        { label: `⭐Famous卖 (${famousMarks.sellPoints.length})`, data: famousMarks.sellPoints, type: 'scatter',
+          pointStyle: 'triangle', rotation: 180, pointRadius: 8, pointHoverRadius: 10,
+          backgroundColor: 'rgba(192,132,252,0.95)', borderColor: '#6b21a8', borderWidth: 1.5 },
+        { label: `🧠聪明钱买 (${smartMarks.buyPoints.length})`, data: smartMarks.buyPoints, type: 'scatter',
+          pointStyle: 'triangle', pointRadius: 8, pointHoverRadius: 10,
+          backgroundColor: 'rgba(14,165,233,0.95)', borderColor: '#0c4a6e', borderWidth: 1.5 },
+        { label: `🧠聪明钱卖 (${smartMarks.sellPoints.length})`, data: smartMarks.sellPoints, type: 'scatter',
+          pointStyle: 'triangle', rotation: 180, pointRadius: 8, pointHoverRadius: 10,
+          backgroundColor: 'rgba(244,114,182,0.95)', borderColor: '#831843', borderWidth: 1.5 },
+      ];
       const bpDs = this._bpScatterDatasets(tickData);
-      if (bpDs.length) {
-        bpDs.forEach(d => { d.parsing = { xAxisKey: 'x', yAxisKey: 'y' }; });
-        // unshift 排最前：倒序绘制=排前者画在上层（与气泡图同修，密集蜡烛区不再压点）
-        this.candleChart.data.datasets.unshift(...bpDs);
-        this.candleChart.update();
-      }
-    } catch (e) { console.warn('K 线 BP 叠画失败（气泡图仍有点位）:', e); }
+      const overlay = [...rosterDs, ...bpDs];
+      // unshift 排最前：倒序绘制=排前者画在上层（与气泡图同修，密集蜡烛区不再压点）
+      overlay.forEach(d => { d.parsing = { xAxisKey: 'x', yAxisKey: 'y' }; });
+      this.candleChart.data.datasets.unshift(...overlay);
+      this.candleChart.update();
+    } catch (e) { console.warn('K 线标记叠画失败（气泡图仍有点位）:', e); }
 
     // 副图：成交量 bar（buy 绿 / sell 红 堆叠；time x 轴与主图对齐）
     this.volumeChart = new Chart(document.getElementById('volume-chart'), {
