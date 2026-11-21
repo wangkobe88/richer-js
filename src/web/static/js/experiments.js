@@ -8,6 +8,7 @@ class ExperimentMonitor {
     window.experimentMonitor = true;
     this.experiments = [];
     this.sourceExperimentNames = new Map(); // 缓存源实验名字
+    this.caseCollectionNames = new Map(); // 缓存回测 Case 集合名字
     this.filters = {
       blockchain: 'all',
       status: 'all',
@@ -132,6 +133,9 @@ class ExperimentMonitor {
       // 加载源实验名字
       await this.loadSourceExperimentNames();
 
+      // 加载回测 Case 集合名字
+      await this.loadCaseCollectionNames();
+
       // 填充虚拟实验下拉框
       this.populateVirtualExperimentsFilter();
 
@@ -182,6 +186,42 @@ class ExperimentMonitor {
     results.forEach(result => {
       if (result.name) {
         this.sourceExperimentNames.set(result.id, result.name);
+      }
+    });
+  }
+
+  /**
+   * 加载回测实验的 Case 集合名字（token 宇宙第三通道：caseCollectionId）
+   */
+  async loadCaseCollectionNames() {
+    const collectionIds = new Set();
+    this.experiments.forEach(exp => {
+      if (exp.tradingMode === 'backtest' && exp.config?.backtest?.caseCollectionId) {
+        collectionIds.add(exp.config.backtest.caseCollectionId);
+      }
+    });
+
+    if (collectionIds.size === 0) return;
+
+    const promises = Array.from(collectionIds).map(async collectionId => {
+      try {
+        const response = await fetch(`/api/case-collections/${collectionId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data && data.data.name) {
+            return { id: collectionId, name: data.data.name };
+          }
+        }
+      } catch (error) {
+        console.error(`获取 Case 集合名字失败 ${collectionId}:`, error);
+      }
+      return { id: collectionId, name: null };
+    });
+
+    const results = await Promise.all(promises);
+    results.forEach(result => {
+      if (result.name) {
+        this.caseCollectionNames.set(result.id, result.name);
       }
     });
   }
@@ -403,17 +443,25 @@ class ExperimentMonitor {
           </span>
         </td>
 
-        <!-- 源实验/时间范围（回测 token 宇宙双通道：旧=源实验链接，新=数据时间窗口） -->
+        <!-- 源实验/时间范围（回测 token 宇宙三通道：源实验链接 / Case 集合 / 数据时间窗口） -->
         <td class="px-2 py-2">
           ${exp.tradingMode === 'backtest' && exp.config?.backtest?.sourceExperimentId ? `
             <a href="/experiment/${exp.config.backtest.sourceExperimentId}" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs truncate block max-w-[120px]" title="${this.sourceExperimentNames.get(exp.config.backtest.sourceExperimentId) || ''}">
               ${this.sourceExperimentNames.get(exp.config.backtest.sourceExperimentId) || this._formatExperimentId(exp.config.backtest.sourceExperimentId)}
             </a>
+          ` : (exp.tradingMode === 'backtest' && exp.config?.backtest?.caseCollectionId ? `
+            <a href="/case-collections?id=${exp.config.backtest.caseCollectionId}" target="_blank" class="text-fuchsia-400 hover:text-fuchsia-300 text-xs truncate block max-w-[120px]" title="${this._escapeHtml(this.caseCollectionNames.get(exp.config.backtest.caseCollectionId) || '')}（Case 集合：token 宇宙=集合成员快照）">
+              🗂 ${this._escapeHtml(this.caseCollectionNames.get(exp.config.backtest.caseCollectionId) || exp.config.backtest.caseCollectionId.substring(0, 8) + '…')}
+            </a>
+            ${exp.config.backtest.startTime && exp.config.backtest.endTime ? `
+            <div class="text-gray-400 text-xs leading-tight font-mono" title="附带数据时间范围">
+              ${this._formatWindowTime(exp.config.backtest.startTime)}<br>~ ${this._formatWindowTime(exp.config.backtest.endTime)}
+            </div>` : ''}
           ` : (exp.tradingMode === 'backtest' && exp.config?.backtest?.startTime && exp.config?.backtest?.endTime ? `
             <div class="text-gray-300 text-xs leading-tight font-mono" title="数据时间范围（token 集=窗口内新创建代币）">
               ${this._formatWindowTime(exp.config.backtest.startTime)}<br>~ ${this._formatWindowTime(exp.config.backtest.endTime)}
             </div>
-          ` : '<span class="text-gray-500 text-xs">-</span>')}
+          ` : '<span class="text-gray-500 text-xs">-</span>'))}
         </td>
 
         <!-- 操作按钮 -->
