@@ -94,6 +94,13 @@ const SIGNAL_GATE_BP_LEVELS = ['good', 'neutral', 'poor', 'insufficient'];
  *     validateLegs 400）
  *   - bpPassLevels：BP 综合判定放行桶数组 ⊆ 四桶非空，缺省 ['good','neutral']
  *     （用户裁定 2026-11-05）
+ *   - fpRetry（T203 2026-11-21 用户裁定「FP 拒后的重试是信号触发条件之内的事，
+ *     作为交易策略的一部分，不作为实验层配置」）：FP 因子门拒后的门内重评次数
+ *     上限，整数 ∈ [0,10]，缺省 0=零行为（存量腿 bit 不变）。重评=同一信号门链
+ *     延续（不另落信号行/不消耗新触发/不走 T110 发射冷却——冷却管的是触发条件
+ *     之间的发射，重试在触发之内）；重评通过才进 cheat/BP（Jev 只花在可能买的
+ *     信号上）。效果好坏由策略层负责（用户原话「相当于给实验运行打补丁，效果
+ *     不好只能怪效果层面没做好」）——机制件与效果解耦，本键=效果层旋钮。
  * 非法形状/未知键/越界值 → error 字符串（loadStrategies throw 拒启 /
  * StrategyLibraryService.validateLegs 400，sellDebounce 同款 fail-fast）。
  * @param {*} raw - 腿配置原始值
@@ -104,10 +111,10 @@ function normalizeSignalGate(raw) {
     if (typeof raw !== 'object' || Array.isArray(raw)) {
         return { normalized: null, error: `signalGate 必须是对象（键：maxTriggers/cheatRecheck/bpPassLevels），实际 ${JSON.stringify(raw)}` };
     }
-    const out = { maxTriggers: 1, cheatRecheck: false, recheckCondition: null, bpPassLevels: ['good', 'neutral'] };
+    const out = { maxTriggers: 1, cheatRecheck: false, recheckCondition: null, bpPassLevels: ['good', 'neutral'], fpRetry: 0 };
     for (const k of Object.keys(raw)) {
-        if (!['maxTriggers', 'cheatRecheck', 'recheckCondition', 'bpPassLevels'].includes(k)) {
-            return { normalized: null, error: `signalGate 未知键 "${k}"（仅支持 maxTriggers/cheatRecheck/recheckCondition/bpPassLevels）` };
+        if (!['maxTriggers', 'cheatRecheck', 'recheckCondition', 'bpPassLevels', 'fpRetry'].includes(k)) {
+            return { normalized: null, error: `signalGate 未知键 "${k}"（仅支持 maxTriggers/cheatRecheck/recheckCondition/bpPassLevels/fpRetry）` };
         }
     }
     if (raw.maxTriggers != null) {
@@ -140,6 +147,14 @@ function normalizeSignalGate(raw) {
             return { normalized: null, error: `signalGate.bpPassLevels 非法值 ${JSON.stringify(raw.bpPassLevels)}（须 ${SIGNAL_GATE_BP_LEVELS.join('/')} 的非空子集）` };
         }
         out.bpPassLevels = arr.slice();
+    }
+    // T203 FP 拒后门内重试次数（0=关；上限 10 防手滑巨值拖长 pending 窗）
+    if (raw.fpRetry != null) {
+        const n = Number(raw.fpRetry);
+        if (!Number.isInteger(n) || n < 0 || n > 10) {
+            return { normalized: null, error: `signalGate.fpRetry 非法值 ${JSON.stringify(raw.fpRetry)}（须整数 ∈ [0, 10]）` };
+        }
+        out.fpRetry = n;
     }
     return { normalized: out, error: null };
 }

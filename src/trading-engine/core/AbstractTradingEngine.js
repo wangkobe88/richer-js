@@ -1456,6 +1456,113 @@ class AbstractTradingEngine extends ITradingEngine {
     m.set(legId, (m.get(legId) || 0) + 1);
   }
 
+  // ============ T203 FP 拒后门内重试（2026-11-21 用户裁定立法）============
+  // 「因子过滤不通过之后的重试作为信号触发条件之内的事情（交易策略的一部分，
+  // 不作为实验配置的一部分，但是实验引擎要支持）」+「冷却机制是信号触发条件
+  // 之间的」——重试不走 T110 发射冷却、不另落信号行、不消耗新触发：FP 拒后
+  // pending 挂起，后续 tick 到点以新时刻为锚重评 FP（snapshot 锚=拉取窗末 tick
+  // =重评 tick，尾 7s 窗随点火发育自然翻转——案源 bt-v164 0xb6ee…7777 FP28
+  // 误拦：t7N=2 被拒，+1s 即 N=4）。重评过=同一信号续跑 actFront→cheat→BP→
+  // 执行（入场锚=重评 tick 现价）；Jev 只花在重评通过（真有可能买）的信号上。
+  // fpRetry 归策略包 signalGate（缺省 0=零行为）；状态机纯逻辑 FpRetryTracker
+  // 零 DB 零网络，时钟注入（实时=Date.now / 回测=tick 虚拟时刻——回测红线）。
+
+  /** 懒初始化 tracker（两引擎共用；常量缺省 2s 间隔/30s 地平线） */
+  _fpRetryEnsure() {
+    if (!this.__fpRetryTracker) {
+      const { FpRetryTracker } = require('./FpRetryTracker');
+      this.__fpRetryTracker = new FpRetryTracker();
+    }
+    return this.__fpRetryTracker;
+  }
+
+  /**
+   * FP 门拒后的登记点（signalGate 链 FP 拒分支调用；fpRetry 缺省 0=no-op 存量
+   * 零变化）。同 token 旧 pending 被覆盖=最新信号接管（单仓语义）。登记即落
+   * metadata.fpRetry 骨架段（预算可感知）。
+   */
+  async _fpRetryOnReject(tokenAddress, strategy, signalId, { nowMs, strategyName, firePriceBnb, signalCreatedAt }) {
+    const budget = strategy && strategy.signalGate ? Number(strategy.signalGate.fpRetry) : 0;
+    if (!(budget > 0) || signalId == null) return;
+    const p = this._fpRetryEnsure().register(tokenAddress, {
+      legId: strategy.id, signalId, budget: Number(strategy.signalGate.fpRetry), nowMs, strategyName,
+    });
+    if (!p) return;
+    this.logger.info(this._experimentId, 'FpRetry',
+      `${(strategyName || tokenAddress.slice(0, 10))} FP 拒后挂起重试 | budget=${budget} signalId=${String(signalId).slice(0, 8)}`);
+    try {
+      await this._updateSignalMetadata(signalId, {
+        fpRetry: { budget, firePriceBnb: firePriceBnb ?? null, signalCreatedAt: signalCreatedAt ?? null, attempts: [] },
+      });
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'FpRetry', `重试登记留痕失败（已吞） | ${tokenAddress.slice(0, 10)} ${e.message}`);
+    }
+  }
+
+  /**
+   * 重试 tick 主体（两引擎挂点调用；腿对象查现策略集——重启才换策略，查无=丢弃）。
+   * @param {(pending)=>void} dispatchResume 重评通过后的续跑发射（引擎各自形状：
+   *   实时=_evaluateBuyPath(token,factors,tick,{resume})；回测=同签名+fireTs+inflight）
+   * @returns {Promise<boolean>} true=本 tick 已续跑（挂点 return 接管）
+   */
+  async _fpRetryTick(tokenAddress, token, factors, nowMs, dispatchResume, fpCtx = {}) {
+    const tr = this._fpRetryEnsure();
+    const st = tr.tickCheck(tokenAddress, nowMs);
+    if (!st) return false;
+    const p = tr.pendingOf(tokenAddress);
+    if (!p) return false;
+    // 防重入：重评 await（service 拉数/慢评估）期间下一 tick 到来不得双派发
+    // （双跑=双倍预算消耗+潜在双续跑——单仓锁只能挡续跑之后）
+    if (!this.__fpRetryInflight) this.__fpRetryInflight = new Set();
+    if (this.__fpRetryInflight.has(tokenAddress)) return false;
+    this.__fpRetryInflight.add(tokenAddress);
+    try {
+      return await this.__fpRetryTickInner(tokenAddress, token, factors, nowMs, dispatchResume, fpCtx, tr, st, p);
+    } finally {
+      this.__fpRetryInflight.delete(tokenAddress);
+    }
+  }
+
+  async __fpRetryTickInner(tokenAddress, token, factors, nowMs, dispatchResume, fpCtx, tr, st, p) {
+    if (st.kind === 'expired') {
+      tr.clear(tokenAddress);
+      try {
+        await this._updateSignalMetadata(p.signalId, { fpRetry: { budget: st.budget, attempts: st.attempts, expired: true } });
+      } catch (e) { /* 留痕失败不阻断（行早已 failed 终态） */ }
+      return false;
+    }
+    const strategy = (this._strategyEngine.getAllStrategies() || [])
+      .find(s => s.action === 'buy' && s.signalGate && s.id === p.legId);
+    if (!strategy) { // 理论上仅重启换策略后发生——旧腿 pending 丢弃
+      tr.clear(tokenAddress);
+      return false;
+    }
+    // 重评（锚=当前时刻：实时无 anchorMs=拉到最新 tick；回测 anchorMs=虚拟时刻截窗）
+    const faState = this._factorAggregator.getTokenState(tokenAddress);
+    const gate = await this._factorGateEvaluate(tokenAddress, token, faState, p.signalId, {
+      firePriceBnb: factors.currentPriceBnb || 0,
+      strategyName: p.strategyName,
+      signalCreatedAt: nowMs,
+      ...fpCtx,
+    });
+    const rec = tr.recordResult(tokenAddress, gate.pass === true, gate.pass ? null : gate.reason, nowMs);
+    if (!rec) return false;
+    try {
+      await this._updateSignalMetadata(p.signalId, {
+        fpRetry: { budget: p.budget, attempts: rec.attempts, ...(rec.exhausted ? { exhausted: true } : {}) },
+      });
+    } catch (e) { /* 同上 */ }
+    if (rec.pass) {
+      this.logger.info(this._experimentId, 'FpRetry',
+        `${(p.strategyName || tokenAddress.slice(0, 10))} FP 重评通过（第 ${rec.attempts.length} 次）→ 续跑门链`);
+      dispatchResume({ strategy, signalId: p.signalId });
+      return true;
+    }
+    this.logger.info(this._experimentId, 'FpRetry',
+      `${(p.strategyName || tokenAddress.slice(0, 10))} FP 重评仍拒（剩 ${rec.remaining} 次）${rec.exhausted ? '——预算耗尽终态' : ''}`);
+    return false;
+  }
+
   /**
    * 触发耗尽腿排除集（T117 阶梯接棒）：signalGate 且计数 ≥ maxTriggers 的腿 id
    * Set，传 evaluate 第 6 参（跳过=次腿顶上）；非 signalGate 腿恒在集外。

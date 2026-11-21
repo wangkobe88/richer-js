@@ -1836,6 +1836,23 @@ class BacktestEngine extends AbstractTradingEngine {
           }
           perf.sell += Date.now() - _p0;
         } else if (!this._buyingTokens.has(tick.token_address) && token.status !== 'bought') {
+          // T203 FP 拒后门内重试（signalGate.fpRetry>0 才有 pending；虚拟时钟 tickTs
+          // 驱动——本类禁 Date.now 前视红线；到点本 tick 由重试路径接管防同 tick 双
+          // 路径竞发，spacing 未到照常 debounce。tickBuildSkip 跳过 build 的 C 类票
+          // pending 在场时补 build——pending ≤30s 地平线内罕见票，性能面可忽略）
+          if (this._fpRetryEnsure().pendingOf(tick.token_address)
+              && this._fpRetryEnsure().tickCheck(tick.token_address, tickTs)) {
+            const _frFactors = factors || this._factorAggregator.buildFactorMap(tick.token_address, tickTs);
+            if (_frFactors) {
+              const _frP = this._fpRetryTickBacktest(tick.token_address, token, _frFactors, tick, tickTs)
+                .catch(e => this.logger.error(this._experimentId, 'FpRetry',
+                  `${token.symbol || tick.token_address.slice(0, 10)} FP 重评异常(回放): ${e.message}`));
+              this._inflightEvals.add(_frP);
+              _frP.finally(() => this._inflightEvals.delete(_frP));
+              perf.other += Date.now() - _p0;
+              continue;
+            }
+          }
           // 所有买腿（含 signalGate）统一走 debounce——T132 per-tick 绕 debounce
           // 已撤销（2026-11-17 用户裁定「debounce 是对的，只是加了预检不应改架构」）：
           // per-tick 使信号量 ×3 → 门链阻塞 ×3 = 54min 性能事故的第二因子
@@ -2329,6 +2346,31 @@ class BacktestEngine extends AbstractTradingEngine {
     return p;
   }
 
+  /**
+   * T203 FP 拒后门内重试·回测 glue（主循环买分支挂点调用）：gateToken 形状适配
+   * （_evaluateBuyPath 同款 _tokenMeta 兜底）→ 共享 _fpRetryTick（anchorMs=tickTs
+   * as-of 截窗防前视；时钟全程虚拟 tickTs 非墙钟）。重评通过 → 续跑原信号门链
+   * （inflight 收集=回放串行语义保持：drain 后才推进下一笔 tick）。
+   */
+  _fpRetryTickBacktest(tokenAddress, token, factors, tick, tickTs) {
+    const _meta = this._tokenMeta.get(tokenAddress) || {};
+    const gateToken = {
+      ...token,
+      symbol: token.symbol ?? (_meta.symbol || null),
+      name: token.name ?? (_meta.name || null),
+      platform: token.platform ?? null,
+      createdAt: token.createdAt ?? (token.created_at ?? _meta.createdAtSec ?? null),
+      creatorAddress: token.creatorAddress ?? (token.creator_address ?? (_meta.creator || null)),
+    };
+    return this._fpRetryTick(tokenAddress, gateToken, factors, tickTs, (resume) => {
+      const p = this._evaluateBuyPath(token, factors, tick, tickTs, { resume })
+        .catch(e => this.logger.error(this._experimentId, 'BuyEval',
+          `${token.symbol || tokenAddress.slice(0, 10)} FP 重试续跑异常(回放): ${e.message}`));
+      this._inflightEvals.add(p);
+      p.finally(() => this._inflightEvals.delete(p));
+    }, { anchorMs: tickTs });
+  }
+
   async _evaluateBuyPath(token, factorResults, tick, fireTs, opts = {}) {
     const tokenAddress = token.token;
     const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues, buildTpaFactorSnapshot } = require('../core/FactorBuilder');
@@ -2355,7 +2397,11 @@ class BacktestEngine extends AbstractTradingEngine {
         ? (_exclBase ? new Set([..._exclBase, ...opts.evalExcludeIds]) : opts.evalExcludeIds)
         : _exclBase;
       const _sgOpts = _excl ? { excludeStrategyIds: _excl } : null;
-      const strategy = this._strategyEngine.evaluate(factorResults, token.token, nowTs, token, 'buy', _sgOpts);
+      // T203 opts.resume：FP 拒后重评通过的续跑——跳过条件评估/T110/落行/触发
+      // 记账/FP 门（同一信号门链延续，strategy=原腿直传；实时引擎同款）
+      const strategy = opts.resume
+        ? opts.resume.strategy
+        : this._strategyEngine.evaluate(factorResults, token.token, nowTs, token, 'buy', _sgOpts);
       if (!strategy) {
         return { success: false, reason: '无触发买入策略' };
       }
@@ -2379,9 +2425,12 @@ class BacktestEngine extends AbstractTradingEngine {
       // 时钟=nowTs 虚拟时钟（fireTs；本类禁 Date.now 前视红线）；冷却双门
       // （时间 AND 新 ticks，tick 口径=FA state.tradeCount 同源）；检查点即记账
       //（门拒/执行失败不退还——与实时引擎 admit 一体同语义）。拦截=不落 signal 行
-      const _throttleAdmit = this._buySignalThrottle.admit(tokenAddress, nowTs, factorResults.tradeCount);
-      if (!_throttleAdmit.ok) {
-        return { success: false, reason: `买信号节流拦截: ${_throttleAdmit.reason}` };
+      // T203 FP 重试续跑不走本层（用户裁定：冷却管触发之间的发射，重试在触发内）
+      if (!opts.resume) {
+        const _throttleAdmit = this._buySignalThrottle.admit(tokenAddress, nowTs, factorResults.tradeCount);
+        if (!_throttleAdmit.ok) {
+          return { success: false, reason: `买信号节流拦截: ${_throttleAdmit.reason}` };
+        }
       }
 
       const latestPrice = factorResults.currentPrice || 0;
@@ -2411,6 +2460,7 @@ class BacktestEngine extends AbstractTradingEngine {
       };
 
       let signalId = null;
+      if (!opts.resume) {
       try {
         const { TradeSignal } = require('../entities');
         const tradeSignal = new TradeSignal({
@@ -2454,6 +2504,7 @@ class BacktestEngine extends AbstractTradingEngine {
         this.logger.error(this._experimentId, 'BuyEval', `信号保存失败 | ${token.symbol} ${saveError.message}`);
         return { success: false, reason: `信号保存失败: ${saveError.message}` };
       }
+      }
 
       // ── T117 signalGateReal 门链（2026-11-07 受控解禁；挂点/序对齐实时引擎：
       // signal 落库成功后、preBuy 前）── signalGate 腿两门串行：①触发即消耗
@@ -2466,10 +2517,11 @@ class BacktestEngine extends AbstractTradingEngine {
       // createdAt 锚缺失会让 cheat 题面锚窗退化，尽量补齐）
       // T189b 资格线载体：门链 sbw（买点时刻二桶题判定）非 burst → 买入后不 arm
       // burst 承接冷盘（2026-11-19 用户裁定「burst 需要 sbw 确认」；fail-closed）
+      // T203 opts.resume（FP 拒后重评通过的续跑）：signalId 直传原信号行，跳过
+      // 落库/触发记账/FP 门（重评刚过——同一信号门链延续，实时引擎同款）
+      if (opts.resume && opts.resume.signalId) signalId = opts.resume.signalId;
       let t189SbwBurst = false;
       if (strategy.signalGate && this._signalGateReal) {
-        this._sgRecordTrigger(tokenAddress, strategy.id);
-
         const _meta = this._tokenMeta.get(tokenAddress) || {};
         const gateToken = {
           ...token,
@@ -2486,8 +2538,13 @@ class BacktestEngine extends AbstractTradingEngine {
         // 曾错传 factorResults → BP 市值族/CD supply 族锚恒 null，bt-v83/v84 702/702）
         const faState = this._factorAggregator.getTokenState(tokenAddress);
 
+        if (!opts.resume) {
+        this._sgRecordTrigger(tokenAddress, strategy.id);
+
         // T143 因子购买前检查门（FP1，门链最前——纯代码零 Jev；anchorMs=回放
         // as-of 截窗防前视；灰度 factorCheck.enabled 缺省关=fail-open 放行）
+        // T203 FP 拒 → fpRetry>0 时登记 pending（后续 tick 虚拟时钟门内重评——
+        // 案源 bt-v164 0xb6ee…7777 FP28 锚相位误拦；nowMs=nowTs 非墙钟）
         const _fp4T0 = Date.now();
         const factorGate = await this._factorGateEvaluate(
           tokenAddress, gateToken, faState, signalId, {
@@ -2497,7 +2554,13 @@ class BacktestEngine extends AbstractTradingEngine {
             signalCreatedAt: nowTs,
           });
         const _fp4Dt = Date.now() - _fp4T0;
-        if (!factorGate.pass) return { success: false, reason: factorGate.reason };
+        if (!factorGate.pass) {
+          await this._fpRetryOnReject(tokenAddress, strategy, signalId, {
+            nowMs: nowTs, strategyName: strategy.name, firePriceBnb, signalCreatedAt: nowTs,
+          });
+          return { success: false, reason: factorGate.reason };
+        }
+        }
 
         // T175/AF1 前置活跃度门（FP 之后 cheat 之前分流；anchorMs=回放 as-of 锚）
         const actFront = await this._actFrontGateEvaluate(

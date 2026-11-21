@@ -576,10 +576,10 @@ console.log('D. StrategyEngine（归一化/fail-fast/互斥/evaluate 排除）')
   // D1 缺省默认值（maxTriggers=1 / cheatRecheck=false / recheckCondition=null / bpPassLevels=good+neutral）
   const se1 = load([leg({ signalGate: {} })]);
   check('signalGate={} → 归一化默认值', se1.getAllStrategies()[0].signalGate,
-    { maxTriggers: 1, cheatRecheck: false, recheckCondition: null, bpPassLevels: ['good', 'neutral'] });
+    { maxTriggers: 1, cheatRecheck: false, recheckCondition: null, bpPassLevels: ['good', 'neutral'], fpRetry: 0 });
   const se1b = load([leg({ signalGate: { maxTriggers: 3, cheatRecheck: true, recheckCondition: 'tradeCount >= 5', bpPassLevels: ['good'] } })]);
   check('显式值原样归一化', se1b.getAllStrategies()[0].signalGate,
-    { maxTriggers: 3, cheatRecheck: true, recheckCondition: 'tradeCount >= 5', bpPassLevels: ['good'] });
+    { maxTriggers: 3, cheatRecheck: true, recheckCondition: 'tradeCount >= 5', bpPassLevels: ['good'], fpRetry: 0 });
   ok('无 signalGate 腿 → null（零变化）', load([leg({ id: 'plain' })]).getAllStrategies()[0].signalGate === null);
 
   // D2 非法形状 fail-fast throw
@@ -723,9 +723,9 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
   ok('legacy 腿不受影响（所有腿统一 debounce touch）',
     BT.includes('this._buyDebouncer.touch(tick.token_address, tick);') &&
     ENG.includes('this._scheduleDebouncedBuy(tokenAddress, tick);'));
-  ok('signalGateReal 门链挂点（signal 落库后先记账→作弊门→BP 门）',
+  ok('signalGateReal 门链挂点（signal 落库后先记账→FP 门→作弊门→BP 门；T203 后记账/FP 包在 if(!opts.resume)——FP 重试续跑不重复记账不重评 FP）',
     BT.includes('strategy.signalGate && this._signalGateReal') &&
-    BT.includes('this._sgRecordTrigger(tokenAddress, strategy.id);\n\n        const _meta'));
+    BT.includes('if (!opts.resume) {\n        this._sgRecordTrigger(tokenAddress, strategy.id);'));
   ok('signalGateReal 两门 anchorMs=nowTs 虚拟时刻透传（service lte 截窗防前视；T175/AF1 后 cheat 调用在 else 分支缩进+2）',
     BT.includes('strategy.signalGate,\n            { anchorMs: nowTs, factorResults })') &&
     BT.includes('anchorMs: nowTs,'));

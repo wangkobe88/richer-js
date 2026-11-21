@@ -1877,6 +1877,22 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // repeat-buy 轮可再观察，per-token 上限全局兜底）；同步纯内存判定+写行
       // fire-and-forget，绝不进买腿去抖链
       if (this._observationService) this._observationService.evaluate(token, factors, tick.timestamp);
+      // T203 FP 拒后门内重试（signalGate.fpRetry>0 才有 pending；重评=本 tick 因子
+      // 锚——到点本 tick 由重试路径接管（防同 tick 常规评估与重评竞发双路径），
+      // spacing 未到照常流程。重评过→同一信号续跑（不落行/不耗触发/不走 T110——
+      // 用户裁定：冷却管触发之间的发射，重试在触发之内）
+      if (this._fpRetryEnsure().pendingOf(tokenAddress)
+          && this._fpRetryEnsure().tickCheck(tokenAddress, Date.now())) {
+        this._fpRetryTick(tokenAddress, token, factors, Date.now(),
+          (resume) => {
+            this._evaluateBuyPath(token, factors, tick, { resume })
+              .catch(e => this.logger.error(this._experimentId, 'BuyEval',
+                `${token.symbol || tokenAddress.slice(0, 10)} FP 重试续跑异常: ${e.message}`));
+          })
+          .catch(e => this.logger.error(this._experimentId, 'FpRetry',
+            `${token.symbol || tokenAddress.slice(0, 10)} FP 重评异常: ${e.message}`));
+        return;
+      }
       // T132 signalGate 触发腿 per-tick 评估（绕 debounce burst 合并——单 tick 真窗
       // 形状：burst 末笔重读因子语义对 ea78 t0 案「真窗只存在于一笔 tick」结构性
       // 失明，实时/回测同形状同 miss；动机与语义详基类 _signalGatePerTickExcludedIds）。
@@ -2258,12 +2274,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 从评估集剔除（阶梯接棒——前腿耗尽次腿顶上；跳过语义与 maxExecutions 同构）
       // T132 opts.evalExcludeIds：per-tick 发起路径限定只评 signalGate 腿（防 legacy
       // 腿借 per-tick 路径提前触发绕 debounce——混合腿实验 legacy 行为 bit 不变）
+      // T203 opts.resume：FP 拒后重评通过的续跑——跳过条件评估/T110/落行/触发
+      // 记账/FP 门（同一信号的门链延续，strategy=原腿直传）
       const _exclBase = this._signalGateExcludedIds(tokenAddress);
       const _excl = (opts.evalExcludeIds && opts.evalExcludeIds.size > 0)
         ? (_exclBase ? new Set([..._exclBase, ...opts.evalExcludeIds]) : opts.evalExcludeIds)
         : _exclBase;
-      const strategy = this._strategyEngine.evaluate(factorResults, token.token, Date.now(), token, 'buy',
-        { excludeStrategyIds: _excl });
+      const strategy = opts.resume
+        ? opts.resume.strategy
+        : this._strategyEngine.evaluate(factorResults, token.token, Date.now(), token, 'buy',
+          { excludeStrategyIds: _excl });
       if (!strategy) {
         return { success: false, reason: '无触发买入策略' };
       }
@@ -2327,13 +2347,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 「无论是否通过」）。tick 口径=FA state.tradeCount（全量链上交易数，
       // live/回测同源）。拦截=不写信号行不烧后续门（cheatCheck/GMGN 配额同省），
       // debug 级留痕（正常高频形状，与叙事否决/熔断同级的「无信号」路径）。
-      // OBSERVE/手工买不走本层
-      const _throttleAdmit = this._buySignalThrottle.admit(tokenAddress, Date.now(), factorResults.tradeCount);
-      if (!_throttleAdmit.ok) {
-        this.metrics.buySignalThrottled++;
-        this.logger.debug(this._experimentId, 'BuyEval',
-          `${token.symbol} 买信号未发射（节流）: ${_throttleAdmit.reason}`);
-        return { success: false, reason: `买信号节流拦截: ${_throttleAdmit.reason}` };
+      // OBSERVE/手工买不走本层；T203 FP 重试续跑不走本层（用户裁定：冷却管
+      // 触发条件之间的发射，重试在信号触发条件之内——无新发射无新行）
+      if (!opts.resume) {
+        const _throttleAdmit = this._buySignalThrottle.admit(tokenAddress, Date.now(), factorResults.tradeCount);
+        if (!_throttleAdmit.ok) {
+          this.metrics.buySignalThrottled++;
+          this.logger.debug(this._experimentId, 'BuyEval',
+            `${token.symbol} 买信号未发射（节流）: ${_throttleAdmit.reason}`);
+          return { success: false, reason: `买信号节流拦截: ${_throttleAdmit.reason}` };
+        }
       }
 
       const latestPrice = factorResults.currentPrice || 0;
@@ -2370,6 +2393,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       };
 
       let signalId = null;
+      if (!opts.resume) {
       try {
         const { TradeSignal } = require('../entities');
         const tradeSignal = new TradeSignal({
@@ -2421,6 +2445,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         this.logger.error(this._experimentId, 'BuyEval', `信号保存失败 | ${token.symbol} ${saveError.message}`);
         return { success: false, reason: `信号保存失败: ${saveError.message}` };
       }
+      }
 
       // ── T117 信号源门链（2026-11-05 买入策略整体调整）──
       // signalGate 腿：condition=初始买入信号源（触发策略），fire 且 signal 落库
@@ -2434,21 +2459,33 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       //   bpPassLevels（默认 good/neutral）过；poor/insufficient/超时/错/disabled 拒
       // signalGate 腿与七个旧门字段互斥（loadStrategies fail-fast throw）→ 下方
       // preBuy/叙事直调/旧版 cheat 门/GMGN 段天然 no-op，零旧链交互
-      // T189b 资格线载体：门链 sbw（买点时刻二桶题判定）非 burst → 买入后不 arm
-      // burst 承接冷盘（2026-11-19 用户裁定「burst 需要 sbw 确认」）
+      // T203 opts.resume（FP 拒后重评通过的续跑）：signalId 直传原信号行，跳过
+      // 落库/触发记账/FP 门（重评刚过——同一信号门链延续）；actFront→cheat→BP
+      // 照常执行，入场锚=本续跑 tick 现价
+      if (opts.resume && opts.resume.signalId) signalId = opts.resume.signalId;
       let t189SbwBurst = false;
       if (strategy.signalGate) {
+        if (!opts.resume) {
         this._sgRecordTrigger(tokenAddress, strategy.id);
 
         // T143 因子购买前检查门（FP1，门链最前——纯代码零 Jev，被拒票不烧 cheat/BP
         // 配额；灰度 factorCheck.enabled 缺省关=fail-open 放行进 cheat 门）
+        // T203 FP 拒 → fpRetry>0 时登记 pending（后续 tick 门内重评——案源
+        // bt-v164 0xb6ee…7777 FP28 锚相位误拦）
         const factorGate = await this._factorGateEvaluate(
           tokenAddress, token, faState, signalId, {
             firePriceBnb,
             strategyName: strategy.name,
             signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
           });
-        if (!factorGate.pass) return { success: false, reason: factorGate.reason };
+        if (!factorGate.pass) {
+          await this._fpRetryOnReject(tokenAddress, strategy, signalId, {
+            nowMs: Date.now(), strategyName: strategy.name,
+            firePriceBnb, signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
+          });
+          return { success: false, reason: factorGate.reason };
+        }
+        }
 
         // T175/AF1 前置活跃度门（FP 之后 cheat 之前分流：low/ultra∧非burst 拒、
         // burst 豁免/high 跳过 cheat 直进 BP、mid/检测层故障照走 cheat 全链）
