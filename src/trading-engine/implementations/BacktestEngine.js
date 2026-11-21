@@ -2538,6 +2538,13 @@ class BacktestEngine extends AbstractTradingEngine {
         // 曾错传 factorResults → BP 市值族/CD supply 族锚恒 null，bt-v83/v84 702/702）
         const faState = this._factorAggregator.getTokenState(tokenAddress);
 
+        // T203b 作用域修复：_fp4T0/_fp4Dt 声明在 resume 块外——原 T203 形状把
+        // const 包进 if (!opts.resume) 块，块外慢分解段（_preFp4 计算行）在
+        // **正常路径**同样 ReferenceError（块作用域静态语义：块内 const 块外恒
+        // 不可见，与块是否执行无关）→ 全链放行的买入在成交前最后一步炸掉被
+        // catch 静默吞=不成交（JG-6 对拍 bt-v166 首跑实锤 20 次「_fp4T0 is not
+        // defined」全为 BP 放行后炸）。resume 路径恒 0=慢分解日志退化不计时。
+        let _fp4T0 = 0, _fp4Dt = 0;
         if (!opts.resume) {
         this._sgRecordTrigger(tokenAddress, strategy.id);
 
@@ -2545,7 +2552,7 @@ class BacktestEngine extends AbstractTradingEngine {
         // as-of 截窗防前视；灰度 factorCheck.enabled 缺省关=fail-open 放行）
         // T203 FP 拒 → fpRetry>0 时登记 pending（后续 tick 虚拟时钟门内重评——
         // 案源 bt-v164 0xb6ee…7777 FP28 锚相位误拦；nowMs=nowTs 非墙钟）
-        const _fp4T0 = Date.now();
+        _fp4T0 = Date.now();
         const factorGate = await this._factorGateEvaluate(
           tokenAddress, gateToken, faState, signalId, {
             anchorMs: nowTs,
@@ -2553,7 +2560,7 @@ class BacktestEngine extends AbstractTradingEngine {
             strategyName: strategy.name,
             signalCreatedAt: nowTs,
           });
-        const _fp4Dt = Date.now() - _fp4T0;
+        _fp4Dt = Date.now() - _fp4T0;
         if (!factorGate.pass) {
           await this._fpRetryOnReject(tokenAddress, strategy, signalId, {
             nowMs: nowTs, strategyName: strategy.name, firePriceBnb, signalCreatedAt: nowTs,

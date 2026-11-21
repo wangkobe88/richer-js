@@ -131,6 +131,13 @@ console.log('\n[D] 引擎胶水源码锁');
   ok(/let signalId = null;\s*\n\s*if \(!opts\.resume\) \{\s*\n\s*try \{/.test(bt), '回测：落库块包在 if(!opts.resume)');
   ok(/if \(!opts\.resume\) \{\s*\n\s*this\._sgRecordTrigger/.test(bt), '回测：_sgRecordTrigger 包在 if(!opts.resume)');
   ok(bt.includes('await this._fpRetryOnReject(tokenAddress, strategy, signalId'), '回测：FP 拒分支调 _fpRetryOnReject');
+  // D5b T203b 作用域锁（bt-v166 首跑事故：块内 const _fp4T0 在块外慢分解段
+  // 引用=正常路径全链放行也 ReferenceError→成交前静默炸——「块内 const 块外
+  // 恒不可见」与块是否执行无关）：_fp4T0/_fp4Dt 必须 let 声明在 resume 块外
+  ok(/let _fp4T0 = 0, _fp4Dt = 0;\s*\n\s*if \(!opts\.resume\) \{/.test(bt),
+    '回测：_fp4T0/_fp4Dt 声明在 resume 块外（T203b 作用域修复锁）');
+  ok(!/if \(!opts\.resume\) \{[\s\S]{0,600}?const _fp4T0/.test(bt),
+    '回测：resume 块内无 const _fp4T0（防撕裂回潮）');
   // D6 回测：挂点决策时钟=虚拟 tickTs（tickCheck/重评/续跑全链；perf 仪表的
   // 墙钟计数与主循环既有形状一致不算决策时钟）
   const hookIdx = bt.indexOf('_fpRetryTickBacktest(tick.token_address, token, _frFactors, tick, tickTs)');
