@@ -72,7 +72,7 @@ async function main() {
   const fs = require('fs');
   const outPath = `/tmp/t214-${NAME}.jsonl`;
   const out = fs.createWriteStream(outPath);
-  const hits = []; const replayed = 0; let tickTotal = 0;
+  const hits = []; let replayed = 0; let tickTotal = 0;
   const tStart = Date.now();
 
   for (let bi = 0; bi < addrs.length; bi += 50) {
