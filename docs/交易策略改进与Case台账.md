@@ -1850,3 +1850,13 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **单测**：新增 `_test_tick_debouncer.cjs` 17/17（A 段=0x76b0 事故现场反证：gap 10s fireTs=25200 而非 35000；B 密集形状零漂移；C maxWait 双腿先到=1000 非 1100/推进 1200；D 多条目各自到期；E 立即路径/real no-op/clear；F 尾 drain fireTs=自身到期而非 +10min 推进值）。邻居：chain_order 14/0、buy_signal_throttle 47/0、signal_gate_engine 141/0、fp_retry_gate 全绿、card_position 28/0、sell_debounce_mechanisms 88/0、backtest_trigger_leg 12/0。**效果测试豁免**（用户裁定）；回测结果会漂（静默票锚整体前移）=预期行为非回归。
 
 **关联**：T203 fpRetry（同票三层因果链的第一层，本案双层=本修+T205 灰度未开；详 auto-memory t203-fp-retry-gate）；T154/T132/一姐案（架构裁定链）；金狗侧 0x76b0 留档待用户裁定是否记 JG。
+
+## T208/FP42 big_buy_defer 换手豁免腿（2026-11-22 JG-32f 用户框架立法，用户裁定「go」）
+
+**豁免条件**：首波（开盘 10s 内买 ≥0.1B）as-of 全清仓（净持 ≤10% 买）∧ 后波 ≥2 家持有（净持 ≥50%）∧ famous 所在块（≥2 买钱包）买入占比 <15% → 不推迟直接放行。用户框架原话：「前期 sniper 走光，有人接盘（初步证明了传播力），但接盘的力量不能是 famous + 跟单买入，否则就成了 famous 收割票」——**只用于本门豁免场景**。
+
+**验证链**（金狗台账 JG-32d/e/f 全链）：①B 形状 24 票双臂端到端（bt-v178/180，集合 fd3fcb3f）——FP 全关臂 15 票买入 +0.644（真实卖腿）、登天猫 +256.4% 端到端买到=FP32 唯一拦截层；②famBlkBun 口径（买入点位时刻 famous 所在块≥2w 占比）B' 臂 15 票分离——≥15% 的 6 票 5 负 1 微正（丁真/女大/人生指南/MEME），=0 含全部大赢家；③全域独立门**否证勿重提**（无条件分层肥尾密度 3.4~4.3% 无差+杀金狗尾部 릴테이 966/下雨了 888/MOYNOK 918；金狗重合 5/30=干净换手型子族）；④**FP32 域内 2×2 定谳**（tmp-jg32f-domain.cjs，374 拒点四窗）：B∧fam<15 n=16 stall +1.62B（唯一正组）fwd 中位 54.6% 肥尾 2（登天猫 918/Greg 222）；B∧fam≥15 n=8 stall −0.20B 零肥尾；非 B 350 张 stall −4.5B=豁免严格限 B 不外溢。
+
+**实现**：buy-point-snapshot launchDefer 三锚扩 firstWaveCleared/laterHolders/famBlockPct（首波窗 10s/波线 0.1B/清仓 10%/持有 50%；roster 缺失 famBlockPct=null）→ factor-pre-buy-check armBigBuyDefer 豁免腿（null 任一=证据缺席不豁免保持拦 FP33/36/39 惯例）+gates 门行三键展示；版本 FP41→FP42。单测：_test_factor_prebuy_check AD8/AD9（豁免九形状）+ _test_buy_point_lib Y1~Y7（登马甲镜像夹具精确值+famous 同块 29.9% 口径锁）。
+
+**知情点**：线值（15%/10s/0.1B/2 家）w1003 主导后验、冷窗 B 样本 1~2 张/组；真实卖腿口径全域对照（JG-32d 遗留 350 张非 B 票）未跑但豁免严格限 B 形状域。牢大破口（纯脉冲无 famous 作弊票）不在本豁免面内——归 AF1 high 通道被脉冲冒用问题域（钱包级跨票黑名单前置取证未启动）。
