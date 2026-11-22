@@ -1735,7 +1735,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **单测**：新 `_test_fp_retry_gate.cjs`（A 归一化缺省 0/合法域/非法三形状+字符串 Number 强转=maxTriggers 同款；B 状态机 budget0 no-op/spacing/耗尽/通过清/地平线/覆盖/功能代码零 Date.now；C **0xb6ee 事故现场反证**——锚时 t7N=2 拒→+1s spacing 未到→+2s 重评 t7N=4 翻转=用户思想实验机化；D 引擎胶水源码锁——两引擎 T110/落库/_sgRecordTrigger 三跳过+resume 直传 signalId+回测挂点 tickTs/anchorMs 截窗）。signal_gate_engine 旧三断言随形状更新（归一化期望对象补 fpRetry:0；门链挂点锁改 if(!opts.resume) 包裹形）。邻居 strategy_pack/strategy_library_validate_legs/clone_experiment/buy_phase_routing/live_hardening/backtest_trigger_leg/backtest_chain_order/backtest_narrative_gate/backtest_perf_probe/write_buffer_async/replay_observation_factors/experiment_stats_fifo 全绿。
 
-**余留**：①生效须策略包腿显式带 `signalGate.fpRetry>0`（trading-standard-v1 v1 未带=零变化；效果层实验=clone 后库页给目标腿加 fpRetry 或 deploy 新版包）；②w1003 单窗重试面 naive Σ−0.125 的负信号留档（效果层开闸前知情：本机制在该窗救回面偏负，豁免线方向为正——两修法救的票几乎不重叠，是否同开/怎么开由效果实验裁）；③signals 页 fpRetry 段暂无专用徽章（metadata JSON 可查，要展示再走 T175 冒烟流程）。
+**余留**：①~~生效须策略包腿显式带 `signalGate.fpRetry>0`~~ **已生效（2026-11-22 用户裁定「fpRetry 的立法交易策略更新到当前交易策略中，下次测试需要生效」）**：deploy-trading-strategy.cjs 全 14 买腿 signalGate 加 `fpRetry: 1`（最小非零值保守起步——失败重试耗 maxTriggers 预算语义下取 1；高热度四臂 recheckCondition 形状不同须两轮替换 10+4=14 全覆盖）→ 182 --commit **trading-standard-v1 v1→v2**，docs 快照同步；生效动机=金狗 JG-23 批 1 BIBI 实证（0xb6ee 案源票在 bt-v177 被 `launch_fail_dead`（FP28 判据同款 ath26.8/龄72s/尾7s买2=点火单自己）原样误拦、拒点后 ×9.8——v1 未带 fpRetry 零行为的实时证据）；引用实验重启/新建实验自动取 v2；②w1003 单窗重试面 naive Σ−0.125 的负信号留档（效果层开闸前知情：本机制在该窗救回面偏负，豁免线方向为正——两修法救的票几乎不重叠，是否同开/怎么开由效果实验裁；**金狗集合 30 票重跑=首个效果对照窗，重跑时 BIBI 若救回即 T203 首个正例**）；③signals 页 fpRetry 段暂无专用徽章（metadata JSON 可查，要展示再走 T175 冒烟流程）。
 
 ## T204 FP33 tail_dip 有机盘豁免（金狗 JG-6 쿠우타 0xc0e896dd…7777 案，2026-11-21 用户裁定「好，落吧」）
 

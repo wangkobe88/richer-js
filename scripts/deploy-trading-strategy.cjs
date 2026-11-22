@@ -25,7 +25,7 @@
 'use strict';
 
 const ENTRY_NAME = 'trading-standard-v1';
-const ENTRY_DESC = '现行最优交易策略包：ladder v34 十四腿（T201 大户推迟已迁 FP32）+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 50s/足额0.01 + burstCooldown 全默认 + 四门 v1（FP32/D3.81/AF1/BP69）';
+const ENTRY_DESC = '现行最优交易策略包：ladder v34 十四腿（T201 大户推迟已迁 FP32）+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 50s/足额0.01 + burstCooldown 全默认 + 四门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=1 全买腿生效（2026-11-22 用户裁定「下次测试需要生效」——FP 拒后门内重评一次，30s 地平线）';
 
 const PACK_DEFINITION = {
   "buyLegs": [
@@ -38,6 +38,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 2,
         "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -55,6 +56,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -72,6 +74,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -89,6 +92,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -106,6 +110,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -123,6 +128,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -140,6 +146,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -157,6 +164,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -174,6 +182,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -191,6 +200,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -208,6 +218,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -225,6 +236,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -242,6 +254,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
@@ -259,6 +272,7 @@ const PACK_DEFINITION = {
       "signalGate": {
         "maxTriggers": 1,
         "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 1,
         "bpPassLevels": [
           "good",
           "neutral"
