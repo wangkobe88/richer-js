@@ -1312,7 +1312,7 @@ console.log('W. T188/FP22 持仓均等作弊仓臂（HHI<0.10 团伙分仓指纹
   check('W8 版本 FP22（T188 持仓均等作弊仓臂）', () => {
     assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
   });
-  // ── FP41 实体口径豁免腿（JG-24：捆绑购买=一个钱包；W9~W12） ──
+  // ── FP41 实体口径豁免腿（JG-31：捆绑购买=一个钱包——门的对象是实质主体非钱包数；W9~W12） ──
   const CH2E = (hhi, entHhi, posH, circ = 20) => SNAP({ buyDerived: { chip: { holderHHI: hhi, holderHHIEntities: entHhi, posHolderCount: posH, top1HoldCircPct: 20, top1Top2HoldCircPct: 35, circSupplyPct: circ }, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 3 } } });
   check('W9 ZKind 现场反证（散户 HHI 0.0746 ∧ 实体 0.3475[锚同块 6 钱包并实体] ∧ 流通 17.3 → 豁免不拦；bt-v177 实测值）', () => {
     assert.strictEqual(M.armEvenSplitCrew(CH2E(0.0746, 0.3475, 20, 17.3).buyDerived), false);

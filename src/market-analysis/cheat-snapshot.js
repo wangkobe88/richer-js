@@ -848,8 +848,9 @@ function computeDerived(snapshot, famousRoster) {
     if (t.side !== 'BUY' || !t.wallet) continue;
     if (!firstBuyBlockOf.has(t.wallet)) firstBuyBlockOf.set(t.wallet, t.block);
   }
-  // ── FP41 实体口径 HHI（2026-11-22 JG-24 立法，用户裁定「捆绑购买看成是
-  //    一个钱包」）：同首买块的正净持有钱包合并为一个实体再算 Σ(份额²)。
+  // ── FP41 实体口径 HHI（2026-11-22 JG-31 立法，用户裁定「捆绑购买看成是
+  //    一个钱包」；理念=本门拦「筹码实质分散无主力」，聚合购买的多钱包实
+//    质是一个主体，钱包口径与基本理念相违背）：同首买块的正净持有钱包合并为一个实体再算 Σ(份额²)。
   //    语义=GMGN「捆绑」行为单位口径（实证 ZKind 0xa79e：锚同块 6 钱包各买
   //    0.1B 档全走 GMGN 路由 to=0x1de460f3、gas 全 1M——六路独立滑点但同块
   //    同通道同档=行为单位；散户口径 HHI 0.0746 → 合并 0.3475=新实体接管
