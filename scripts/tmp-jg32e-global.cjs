@@ -70,7 +70,8 @@ async function fetchAll(from, pageSize = 1000) {
       const med = arr => arr.length ? arr.sort((x,y)=>x-y)[Math.floor(arr.length/2)] : null;
       const fwdMed = med(fwdOk.map(r=>r.fwd));
       const pos = fwdOk.filter(r=>r.fwd>20).length, tail = fwdOk.filter(r=>r.fwd>=200).length;
-      console.log(`  ${label}: n=${list.length} fwd中位=${fwdMed===null?'-':fwdMed.toFixed(1)}% ≥20%:${pos} ≥200%(肥尾):${tail}${tail?` → ${fwdOk.filter(r=>r.fwd>=200).sort((a,b)=>b.fwd-a.fwd).slice(0,3).map(r=>(r.sym||r.addr.slice(0,6))+'='+r.fwd).join(',')}:''}`);
+      const tailNames = tail ? ' → ' + fwdOk.filter(r=>r.fwd>=200).sort((a,b)=>b.fwd-a.fwd).slice(0,3).map(r=>(r.sym||r.addr.slice(0,6))+'='+r.fwd).join(',') : '';
+      console.log(`  ${label}: n=${list.length} fwd中位=${fwdMed===null?'-':fwdMed.toFixed(1)}% ≥20%:${pos} ≥200%(肥尾):${tail}${tailNames}`);
     };
     console.log(`\n═══ ${wname} ═══ 首信号票 ${res.length}`);
     line('全域(基线)', res);
