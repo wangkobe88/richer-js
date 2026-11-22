@@ -25,7 +25,7 @@
 'use strict';
 
 const ENTRY_NAME = 'trading-standard-v1';
-const ENTRY_DESC = '现行最优交易策略包：ladder v34 十四腿（T201 大户推迟已迁 FP32）+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 50s/足额0.01 + burstCooldown 全默认 + 四门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）';
+const ENTRY_DESC = '现行最优交易策略包：ladder v34 十四腿（T201 大户推迟已迁 FP32）+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 50s/足额0.01 + 四门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
 
 const PACK_DEFINITION = {
   "buyLegs": [
@@ -461,7 +461,6 @@ const PACK_DEFINITION = {
     "stallMs": 50000,
     "minTickBnb": 0.01
   },
-  "burstCooldown": {},
   "modules": {
     "factorCheck": "v1",
     "cheatCheck": "v1",
@@ -481,7 +480,7 @@ async function main() {
   const mods = Object.entries(PACK_DEFINITION.modules).map(([k, v]) => k + ':' + v).join(' ');
   console.log('条目: ' + ENTRY_NAME);
   console.log('内容: 买 ' + buyN + ' 腿 / 卖 ' + sellN + ' 腿 | stallClose=' + JSON.stringify(PACK_DEFINITION.stallClose)
-    + ' | burstCooldown=' + JSON.stringify(PACK_DEFINITION.burstCooldown) + ' | modules=' + mods);
+    + ' | burstCooldown=' + (PACK_DEFINITION.burstCooldown ? JSON.stringify(PACK_DEFINITION.burstCooldown) : '(关——2026-11-22 金狗伤害临时关闭)') + ' | modules=' + mods);
   for (const [i, l] of PACK_DEFINITION.buyLegs.entries()) {
     console.log('  📈 P' + (l.priority ?? '-') + ' cards=' + (l.cards ?? '-') + ' mt=' + ((l.signalGate && l.signalGate.maxTriggers) ?? '-') + ': ' + (l.condition || '').slice(0, 72));
   }
