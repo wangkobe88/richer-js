@@ -2105,6 +2105,34 @@
    },
    "ruledAt": "2026-11-18",
    "note": "BP87 立法票（followBuy 剔同块闪进闪出）：砸块 1.3427/4 卖方距锚 9s 贴锚，同块闪进闪出 0.3191→0.3096 占承接 69% 抬过 30% 线误判承接形成放行（model 段=旧口径判定 normal_dip 0.54 综 neutral，实亏 -4.9% 79s 断流）；expect=立法语义推定（剔往返单 0.1443=10.7%<30%→无人接→malicious_dump），非独立人工逐桶裁定"
+  },
+  {
+   "anchorId": "BPA-087",
+   "kind": "tick",
+   "tokenAddress": "0x4229ef42544901fb5f914fe674f929fdfeca7777",
+   "tokenName": "招财羊",
+   "locator": {
+    "tickId": 7947655,
+    "seqNo": 18,
+    "blockNumber": 128515267,
+    "logIndex": 70,
+    "blockTime": "2026-10-19T07:35:58Z",
+    "txPrefix": "0xa009994b",
+    "priceBnb": 6.818636543e-09
+   },
+   "expect": {
+    "bucket": null,
+    "entryShape": "normal_dip"
+   },
+   "model": {
+    "bucket": "poor",
+    "prob": 0.6,
+    "rule": "entry_gate",
+    "run": "bt-v159-fp26fp27-48h-win1019",
+    "questionVersion": "BP69"
+   },
+   "ruledAt": "2026-11-22",
+   "note": "BP89 攒批第二案（crash 臂 A 稀疏盘证据权重=密度轴候选，题集不动攒 case；BP86 高度轴首案）：190s 全窗仅 18 ticks（actIdlePct 91.1，AF1 自判 act=low）九笔买 0.53B 推 +31.3% 浅 ATH→27s 零成交→两笔卖 0.218B 打 -6.36%（chg5=chg10=chg30 三窗同深+尾 10s 零买+近 30s 买 0.0001 尘=臂 A 三腿字面全中，数值四臂全未中）→模型 crash(0.6) 综 poor 拒；用户观点「判为 crash 有点奇怪了，这是从很低的点位回落罢了」；事后 07:36:33 +22.1% 见底 V 反 6 分钟 +58%。expect.bucket=null=整体放行未裁定（dimensions 另有 holder_concentration=strong(0.53)、拦截盈亏方向未裁定），entryShape=用户语义裁定（低点位浅回落非崩盘）"
   }
  ]
 }
