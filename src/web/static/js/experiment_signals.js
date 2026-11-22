@@ -160,6 +160,12 @@ class ExperimentSignals {
     this.rejectionStats = null;
     this.showRejected = true;  // 默认显示被拒绝的信号
 
+    // 🎯 钱包聚焦（2026-11-22）：点击散点图气泡 → 同钱包交易保持原色、
+    // 其它钱包气泡变灰淡（观察单一钱包建仓/出货节奏）；null=未聚焦。
+    // _walletFocusToken 记聚焦时的 token——切票自动清除（跨票钱包行为无意义）
+    this._walletFocus = null;
+    this._walletFocusToken = null;
+
     // 🔥 实验配置（用于获取预检查条件）
     this.experimentConfig = null;
     // T202 策略库形状：包在启动后被改版时的版本漂移注记（空串=无漂移）
@@ -1651,6 +1657,23 @@ class ExperimentSignals {
       annotations.push(...this._buildObserveAnnotations(this._lastObserveSignals, trimStart, trimEnd));
       annotations.push(...this._buildCheatAnnotations(this._lastCheatDetections, trimStart, trimEnd));
 
+      // 🎯 钱包聚焦（2026-11-22）：气泡颜色走 scriptable——聚焦激活时非该钱包
+      // 气泡统一灰淡、命中气泡原色加浓（alpha→1），图例（dataset 级 context 无 raw）
+      // 与成交▲▼点（无钱包语义）保持原色不受影响。窗口切换重渲染后 scriptable
+      // 读的是 this._walletFocus 实时值，颜色自动跟随无需重建。
+      const FOCUS_DIM_BG = 'rgba(148,163,184,0.10)';
+      const FOCUS_DIM_BORDER = 'rgba(148,163,184,0.22)';
+      const focusBg = (base, hi) => ctx => {
+        if (!this._walletFocus) return base;
+        const w = this._pointWallet(ctx.raw);
+        return w == null ? base : (w === this._walletFocus ? hi : FOCUS_DIM_BG);
+      };
+      const focusBd = (base, hi) => ctx => {
+        if (!this._walletFocus) return base;
+        const w = this._pointWallet(ctx.raw);
+        return w == null ? base : (w === this._walletFocus ? hi : FOCUS_DIM_BORDER);
+      };
+
       this.chart = new Chart(ctx, {
         type: 'bubble',
         data: {
@@ -1659,59 +1682,59 @@ class ExperimentSignals {
             {
               label: `⭐Famous买 (${famousMarks.buyPoints.length})`,
               data: famousMarks.buyPoints,
-              backgroundColor: 'rgba(250,204,21,0.9)',
-              borderColor: '#b45309',
+              backgroundColor: focusBg('rgba(250,204,21,0.9)', 'rgba(250,204,21,1)'),
+              borderColor: focusBd('#b45309', '#fbbf24'),
               borderWidth: 1.5,
             },
             {
               label: `⭐Famous卖 (${famousMarks.sellPoints.length})`,
               data: famousMarks.sellPoints,
-              backgroundColor: 'rgba(192,132,252,0.9)',
-              borderColor: '#6b21a8',
+              backgroundColor: focusBg('rgba(192,132,252,0.9)', 'rgba(192,132,252,1)'),
+              borderColor: focusBd('#6b21a8', '#c084fc'),
               borderWidth: 1.5,
             },
             // 🧠 聪明钱独立气泡（青=买/粉=卖）：famous 之下次层（交集钱包已归 famous）
             {
               label: `🧠聪明钱买 (${smartMarks.buyPoints.length})`,
               data: smartMarks.buyPoints,
-              backgroundColor: 'rgba(14,165,233,0.9)',
-              borderColor: '#0c4a6e',
+              backgroundColor: focusBg('rgba(14,165,233,0.9)', 'rgba(14,165,233,1)'),
+              borderColor: focusBd('#0c4a6e', '#38bdf8'),
               borderWidth: 1.5,
             },
             {
               label: `🧠聪明钱卖 (${smartMarks.sellPoints.length})`,
               data: smartMarks.sellPoints,
-              backgroundColor: 'rgba(244,114,182,0.9)',
-              borderColor: '#831843',
+              backgroundColor: focusBg('rgba(244,114,182,0.9)', 'rgba(244,114,182,1)'),
+              borderColor: focusBd('#831843', '#f472b6'),
               borderWidth: 1.5,
             },
             // ⚙️ 机器钱包独立气泡（橙=买/棕=卖）：第三层（交集钱包已归 famous/聪明钱上层）
             {
               label: `⚙️机器买 (${arbbotMarks.buyPoints.length})`,
               data: arbbotMarks.buyPoints,
-              backgroundColor: 'rgba(249,115,22,0.9)',
-              borderColor: '#7c2d12',
+              backgroundColor: focusBg('rgba(249,115,22,0.9)', 'rgba(249,115,22,1)'),
+              borderColor: focusBd('#7c2d12', '#fb923c'),
               borderWidth: 1.5,
             },
             {
               label: `⚙️机器卖 (${arbbotMarks.sellPoints.length})`,
               data: arbbotMarks.sellPoints,
-              backgroundColor: 'rgba(180,83,9,0.9)',
-              borderColor: '#fdba74',
+              backgroundColor: focusBg('rgba(180,83,9,0.9)', 'rgba(180,83,9,1)'),
+              borderColor: focusBd('#fdba74', '#fdba74'),
               borderWidth: 1.5,
             },
             {
               label: `Buy (${buys.length})`,
               data: buys,
-              backgroundColor: 'rgba(34,197,94,0.65)',
-              borderColor: 'rgba(22,163,74,0.9)',
+              backgroundColor: focusBg('rgba(34,197,94,0.65)', 'rgba(34,197,94,0.95)'),
+              borderColor: focusBd('rgba(22,163,74,0.9)', 'rgba(34,197,94,1)'),
               borderWidth: 1,
             },
             {
               label: `Sell (${sells.length})`,
               data: sells,
-              backgroundColor: 'rgba(239,68,68,0.65)',
-              borderColor: 'rgba(220,38,38,0.9)',
+              backgroundColor: focusBg('rgba(239,68,68,0.65)', 'rgba(239,68,68,0.95)'),
+              borderColor: focusBd('rgba(220,38,38,0.9)', 'rgba(248,113,113,1)'),
               borderWidth: 1,
             },
             {
@@ -1743,6 +1766,13 @@ class ExperimentSignals {
           responsive: true,
           maintainAspectRatio: false,
           animation: { duration: 400 },
+          // 🎯 钱包聚焦：点击气泡=聚焦/取消该钱包（其它气泡灰淡）；点空白=取消；
+          // 悬停气泡 cursor=pointer 提示可点。图例区点击走图例自身显隐逻辑，不触发。
+          onClick: (evt, elements, chart) => this._handleBubbleClick(evt, elements, chart),
+          onHover: (evt, elements) => {
+            const target = evt.native && evt.native.target;
+            if (target) target.style.cursor = (elements && elements.length) ? 'pointer' : 'default';
+          },
           plugins: {
             annotation: { annotations },
             legend: { display: true, position: 'top', labels: { boxWidth: 12, padding: 12 } },
@@ -1851,10 +1881,149 @@ class ExperimentSignals {
 
       console.log(`✅ Bubble chart initialized: ${buys.length} buys, ${sells.length} sells, ${annotations.length} annotations`);
 
+      // 🎯 钱包聚焦：切票自动清除旧聚焦（跨票聚焦无意义）；重渲染（窗口切换/全量
+      // 加载）后数据集是新建对象——气泡缩放需重放，聚焦条统计也按新窗口重算
+      if (this._walletFocus && this._walletFocusToken !== token.address) this._clearWalletFocus();
+      this._applyWalletFocusScale(this.chart);
+      this._refreshWalletFocusChip();
+
     } catch (error) {
       console.error('❌ initBubbleChart 失败:', error);
       this.showKlinePlaceholder('图表初始化失败: ' + error.message);
     }
+  }
+
+  /**
+   * 🎯 钱包聚焦（2026-11-22）：图表点位 → 钱包地址（小写；无钱包语义返回 null）。
+   * 口径 = sender_address || trader_address（与 FA/名单标记构建器一致——解析失败
+   * 回退 trader=聚合路由，点它=聚焦全部路由行，与绘制口径诚实一致）。
+   * 成交▲▼点（本实验自身成交）无钱包语义返回 null——点击不聚焦、聚焦不变灰。
+   */
+  _pointWallet(pt) {
+    if (!pt || typeof pt !== 'object') return null;
+    if (pt._famous) return pt._famous.wallet || null;
+    if (pt._smart) return pt._smart.wallet || null;
+    if (pt._arbbot) return pt._arbbot.wallet || null;
+    if (pt._raw) return (pt._raw.sender_address || pt._raw.trader_address || '').toLowerCase() || null;
+    return null;
+  }
+
+  /** 🎯 图表点位 → {side:'buy'|'sell', bnb:number}（聚焦条统计用；非 tick 点返回 null） */
+  _pointSideBnb(pt) {
+    if (pt._famous || pt._smart || pt._arbbot) {
+      const m = pt._famous || pt._smart || pt._arbbot;
+      return { side: m.tradeType === '买' ? 'buy' : 'sell', bnb: Number(m.bnb) || 0 };
+    }
+    if (pt._raw) {
+      return { side: pt._raw.trade_type === 'buy' ? 'buy' : 'sell', bnb: parseFloat(pt._raw.bnb_amount) || 0 };
+    }
+    return null;
+  }
+
+  /** 🎯 散点图点击：气泡 → 聚焦/切换取消该钱包；空白 → 取消聚焦 */
+  _handleBubbleClick(evt, elements, chart) {
+    // 图例区点击走图例自身显隐逻辑，不当空白处理（防点击图例误清聚焦）
+    const lg = chart.legend;
+    if (lg && evt.x >= lg.left && evt.x <= lg.right && evt.y >= lg.top && evt.y <= lg.bottom) return;
+    const el = elements && elements[0];
+    if (!el) {
+      if (this._walletFocus) this._clearWalletFocus();
+      return;
+    }
+    const ds = chart.data.datasets[el.datasetIndex];
+    const pt = ds && Array.isArray(ds.data) ? ds.data[el.index] : null;
+    const w = this._pointWallet(pt);
+    if (!w) return; // 成交▲▼等无钱包点位：不聚焦也不打断现有聚焦
+    if (this._walletFocus === w) { this._clearWalletFocus(); return; }
+    this._setWalletFocus(w);
+  }
+
+  _setWalletFocus(wallet) {
+    this._walletFocus = wallet;
+    this._walletFocusToken = this._lastToken ? this._lastToken.address : null;
+    this._applyWalletFocusScale(this.chart);
+    if (this.chart) this.chart.update();
+    this._refreshWalletFocusChip();
+  }
+
+  _clearWalletFocus() {
+    if (!this._walletFocus) { this._refreshWalletFocusChip(); return; }
+    this._walletFocus = null;
+    this._walletFocusToken = null;
+    this._applyWalletFocusScale(this.chart);
+    if (this.chart) this.chart.update();
+    this._refreshWalletFocusChip();
+  }
+
+  /**
+   * 🎯 聚焦气泡放大 1.4x（在灰淡背景上视觉跳出）；取消时还原。bubble 的 r 在点
+   * 数据上（非 option），首次缩放前把原值记到 _rBase——窗口切换重建数据集后新点
+   * 无 _rBase 自动补记，取消时精确还原。scatter 型成交▲▼点 typeof r !== 'number'
+   * 天然跳过。
+   */
+  _applyWalletFocusScale(chart) {
+    if (!chart) return;
+    const on = !!this._walletFocus;
+    for (const ds of (chart.data.datasets || [])) {
+      if (!Array.isArray(ds.data)) continue;
+      for (const pt of ds.data) {
+        if (!pt || typeof pt !== 'object' || typeof pt.r !== 'number') continue;
+        const w = this._pointWallet(pt);
+        if (w == null) continue;
+        if (pt._rBase == null) pt._rBase = pt.r;
+        pt.r = (on && w === this._walletFocus)
+          ? Math.max(pt._rBase * 1.4, pt._rBase + 2)
+          : pt._rBase;
+      }
+    }
+  }
+
+  /**
+   * 🎯 聚焦信息条：钱包地址 + GMGN 跳转 + 买/卖笔数与 BNB + 净买 + 首末笔时刻——
+   * 直接回答「这个钱包啥时候建仓、啥时候卖」。统计基于当前画出的点位（与用户
+   * 所见同口径：famous/聪明钱/机器标记点已从主数据集剔重，不会双计）。
+   */
+  _refreshWalletFocusChip() {
+    const chip = document.getElementById('wallet-focus-chip');
+    if (!chip) return;
+    if (!this._walletFocus || !this.chart) {
+      chip.classList.add('hidden');
+      chip.innerHTML = '';
+      return;
+    }
+    const stats = { buyN: 0, sellN: 0, buyBnb: 0, sellBnb: 0, firstMs: null, lastMs: null };
+    for (const ds of (this.chart.data.datasets || [])) {
+      if (!Array.isArray(ds.data)) continue;
+      for (const pt of ds.data) {
+        if (!pt || typeof pt !== 'object') continue;
+        if (this._pointWallet(pt) !== this._walletFocus) continue;
+        const sb = this._pointSideBnb(pt);
+        if (!sb) continue;
+        if (sb.side === 'buy') { stats.buyN++; stats.buyBnb += sb.bnb; }
+        else { stats.sellN++; stats.sellBnb += sb.bnb; }
+        if (stats.firstMs == null || pt.x < stats.firstMs) stats.firstMs = pt.x;
+        if (stats.lastMs == null || pt.x > stats.lastMs) stats.lastMs = pt.x;
+      }
+    }
+    const w = this._walletFocus;
+    const net = stats.buyBnb - stats.sellBnb;
+    const fmtT = ms => ms == null ? '-' : new Date(ms).toLocaleString('zh-CN', { hour12: false });
+    const chain = (typeof this.getGMGNBlockchain === 'function' && this.blockchain)
+      ? this.getGMGNBlockchain(this.blockchain) : 'bsc';
+    chip.innerHTML = `
+      <span>🎯</span>
+      <span class="font-mono text-gray-100" title="${w}">${w.slice(0, 10)}…${w.slice(-8)}</span>
+      <a href="https://gmgn.ai/${chain}/address/${w}" target="_blank"
+         class="text-blue-400 hover:text-blue-300 underline" title="GMGN 查看该钱包">GMGN ↗</a>
+      <span class="text-green-400">买 ${stats.buyN} 笔 / ${stats.buyBnb.toFixed(3)} BNB</span>
+      <span class="text-red-400">卖 ${stats.sellN} 笔 / ${stats.sellBnb.toFixed(3)} BNB</span>
+      <span class="${net >= 0 ? 'text-green-400' : 'text-red-400'}">净买 ${net >= 0 ? '+' : '−'}${Math.abs(net).toFixed(3)} BNB</span>
+      <span class="text-gray-400">首笔 ${fmtT(stats.firstMs)} · 末笔 ${fmtT(stats.lastMs)}</span>
+      <button id="wallet-focus-clear" class="px-2 py-0.5 bg-gray-600 hover:bg-gray-500 rounded text-xs text-white">✕ 取消</button>
+      <span class="text-xs text-gray-500">再点该钱包气泡或点空白处也可取消</span>`;
+    chip.classList.remove('hidden');
+    const clearBtn = document.getElementById('wallet-focus-clear');
+    if (clearBtn) clearBtn.addEventListener('click', () => this._clearWalletFocus());
   }
 
   /**

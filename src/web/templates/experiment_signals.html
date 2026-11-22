@@ -273,7 +273,7 @@
                     <div class="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <h2 class="text-lg font-semibold text-white">Tick 交易散点图与交易信号</h2>
-                            <span class="text-xs text-gray-400">每点=一笔链上交易 · 气泡大小=BNB交易额 · 绿买红卖 · 实线=已执行信号 · 虚线=未执行 · 细点线=成交时刻 · ▲▼=成交价（悬停看延迟/价差）· 紫虚线=叙事析起 / 琥珀虚线=析毕（C84）· 青虚线=观察信号 · 点虚线=反作弊判定（玫红不健康/深红拉黑/青绿健康）</span>
+                            <span class="text-xs text-gray-400">每点=一笔链上交易 · 气泡大小=BNB交易额 · 绿买红卖 · 实线=已执行信号 · 虚线=未执行 · 细点线=成交时刻 · ▲▼=成交价（悬停看延迟/价差）· 紫虚线=叙事析起 / 琥珀虚线=析毕（C84）· 青虚线=观察信号 · 点虚线=反作弊判定（玫红不健康/深红拉黑/青绿健康）· 🎯点击气泡=聚焦该钱包交易（其它变浅，再点/点空白取消）</span>
                         </div>
                         <div class="flex items-center gap-2 text-sm">
                             <span class="text-gray-400 whitespace-nowrap">只显示代币发出后</span>
@@ -285,6 +285,8 @@
                             <a id="token-ticks-link" href="#" target="_blank" class="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-white transition-colors whitespace-nowrap" title="打开该代币的 Ticks 浏览页（全历史气泡图/区块K线/交易明细，与实验无关）">Ticks 浏览 ↗</a>
                         </div>
                     </div>
+                    <!-- 🎯 钱包聚焦条（点击气泡=高亮该钱包全部交易、其它钱包变浅；再点/点空白/✕ 取消） -->
+                    <div id="wallet-focus-chip" class="hidden px-4 py-2 border-b border-gray-700 text-sm flex flex-wrap items-center gap-x-3 gap-y-1"></div>
                     <div class="chart-container">
                         <canvas id="kline-chart"></canvas>
                     </div>
@@ -445,6 +447,6 @@
     </div>
 
     <script src="/static/js/simple-init.js?v=4.22"></script>
-    <script src="/static/js/experiment_signals.js?v=4.66"></script>
+    <script src="/static/js/experiment_signals.js?v=4.67"></script>
 </body>
 </html>
