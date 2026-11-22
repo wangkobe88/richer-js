@@ -25,6 +25,7 @@
 
 const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
 const { resolveLaunchPriceBnb, floorLaunchPriceBnb } = require('./launch-price');
+const { SR_HOLDER_DUST_BNB } = require('./stall-restart'); // T210 停滞再启动：像样持仓者折算线（单点，勿另写字面量）
 
 /** 等额簇金额舍入粒度（0.0001 BNB，T74 口径） */
 const EQUAL_AMOUNT_ROUND = 10000;
@@ -1224,6 +1225,21 @@ function computeDerived(snapshot, famousRoster) {
   let burstWaveWalletNetBnb = null, burstWaveSellBackPct = null;
   let burstWaveNetBnb = null; // CD398 二修：波窗自身净流 Σ(买−卖)（主判量，头注见计算段）
   let burstWaveWalletAvgBnb = null, burstWaveWalletMedianBnb = null;
+  // T210 停滞再启动通路原料（stall-restart.js evaluateStallRestart 消费——只算事实，
+  // 判定在纯函数；无 ≥30s 静默段全族 null）：
+  //   stallRestartExitSide/ExitBnb       最后静默段出口行的方向与金额（BNB）
+  //   stallRestartExitToAnchorSec         出口行→窗末（信号锚）秒数——「信号就是被这笔重启买单触发的」
+  //   stallRestartWaveRows                出口行起 5s 波窗内非尘行数（1=孤笔；≥2=真波归 sbw）
+  //   stallRestartEarlyWallets            前期交易期（沉寂前最后一笔非尘成交及之前的全行）独立钱包数
+  //   stallRestartVolPreBnb               出口行之前总成交额（买+卖，BNB，含停滞期尘埃行）
+  //   stallRestartHolders/FirstBuyers     出口行之前的像样持仓者数 / 前期像样买家数
+  //                                       （折算=净持仓×窗内首个可靠价 ≥SR_HOLDER_DUST_BNB，FA holdersExDust 同线）
+  //   stallRestartRetention               留存率=持仓者÷买家（买家 0 → null）
+  // 刻意不进 state/题面/FA 投影（Jev 输入零变化）；消费=因子门（低活跃臂/弱波臂让位）
+  // +活跃度前置门（restart_exempt 分流），信号留痕走 metadata.factorCheck.trace /
+  // actFrontGate 段。头注与线值=stall-restart.js。
+  let stallRestartExitSide = null, stallRestartExitBnb = null, stallRestartExitToAnchorSec = null, stallRestartWaveRows = null;
+  let stallRestartEarlyWallets = null, stallRestartVolPreBnb = null, stallRestartHolders = null, stallRestartBuyers = null, stallRestartRetention = null;
   // CD401 出口段卖压三键（btv109 P3，2026-11-13 用户裁定立法）：burst 的期望=
   // **纯流入驱动**（用户突然发现好票/好票开始传播/庄开始收筹码坐庄）——出口段
   // （最后 ≥30s 静默段出口→锚整窗，与 D3.67 段定位同锚）卖出占比高都不符合
@@ -1394,6 +1410,40 @@ function computeDerived(snapshot, famousRoster) {
         if (burstScan[i].dt - _exitTick.dt > BURST_WAVE_SEC) break;
         _win.push(burstScan[i]);
       }
+      // ── T210 停滞再启动通路原料（变量声明区头注）：与 sbw 主链同行集同出口行
+      // （burstScan/waveTicksAll——CD424 尘埃口径共用，键保真单一来源）；研究口径
+      // 逐位复刻：前期钱包数=沉寂前最后一笔非尘行及之前的全行、持仓者/买家=出口行
+      // 之前全行（含停滞期尘埃行）逐钱包净持仓、总成交额=出口行之前全行 Σbnb。
+      stallRestartExitSide = _exitTick.side;
+      stallRestartExitBnb = +_exitTick.bnb.toFixed(4);
+      stallRestartWaveRows = _win.length;
+      {
+        const _srPrevAllIdx = waveTicksAll.indexOf(burstScan[_lastGapIdx - 1]);
+        const _srWallets = new Set();
+        let _srVol = 0, _srFirstRel = 0;
+        const _srAgg = new Map();
+        for (let i = 0; i < _exitAllIdx; i++) {
+          const t = waveTicksAll[i];
+          if (i <= _srPrevAllIdx && t.wallet) _srWallets.add(t.wallet);
+          _srVol += t.bnb || 0;
+          if (!_srFirstRel && !t.outlier && t.priceBnb > 0) _srFirstRel = t.priceBnb;
+          if (!t.wallet) continue;
+          let a = _srAgg.get(t.wallet);
+          if (!a) { a = { netTok: 0, buyBnb: 0 }; _srAgg.set(t.wallet, a); }
+          if (t.side === 'BUY') { a.netTok += t.tok || 0; a.buyBnb += t.bnb || 0; } else a.netTok -= t.tok || 0;
+        }
+        let _srHolders = 0, _srBuyers = 0;
+        for (const a of _srAgg.values()) {
+          if (a.buyBnb >= SR_HOLDER_DUST_BNB) _srBuyers++;
+          if (a.netTok > 0 && a.netTok * _srFirstRel >= SR_HOLDER_DUST_BNB) _srHolders++;
+        }
+        stallRestartEarlyWallets = _srWallets.size;
+        stallRestartVolPreBnb = +_srVol.toFixed(4);
+        stallRestartHolders = _srHolders;
+        stallRestartBuyers = _srBuyers;
+        stallRestartRetention = _srBuyers > 0 ? +(_srHolders / _srBuyers).toFixed(3) : null;
+      }
+      stallRestartExitToAnchorSec = waveTicksAll[waveTicksAll.length - 1].dt - _exitTick.dt;
       if (_win.length >= 2) {
         burstExitWaveFromDt = _win[0].dt;
         // CD398 二修（2026-11-11 谷歌SI 对拍实锤）：波窗**自身**净流 Σ(买−卖)
@@ -2148,6 +2198,9 @@ function computeDerived(snapshot, famousRoster) {
     // 全族 null）
     postStallSpanSec, postStallBuyBnb, postStallBuyerCount,
     postStallFreshBuyerPct, postStallEqualClusterPct, postStallMaxBlockBuyPct,
+    // T210 停滞再启动通路原料（变量声明区头注；消费=stall-restart.js 纯函数）
+    stallRestartExitSide, stallRestartExitBnb, stallRestartExitToAnchorSec, stallRestartWaveRows,
+    stallRestartEarlyWallets, stallRestartVolPreBnb, stallRestartHolders, stallRestartBuyers, stallRestartRetention,
     // D3.35 协同买入参考四键（abnormal_behavior_ratio 题参考数值；D3.77/CD419
     // 随题退役改纯观察留档）+ 创建者曾持峰值锚（holdingsProfile 项含 circPct 在场流通口径）
     maxBlockBuyCount, maxBlockBuyPct, maxBlockPreGapSec, sameAmountWalletPct,

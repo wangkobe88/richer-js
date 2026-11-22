@@ -2043,6 +2043,8 @@ class AbstractTradingEngine extends ITradingEngine {
    * - reject_low/reject_ultra（低/过高 ∧ sbw≠burst）→ 拒（act_front_*）
    * - reject_wash（high ∧ 对倒 strong——CD380 denied 臂语义搬家）→ 拒
    * - burst_exempt（低/过高 ∧ sbw=burst——ba5e 立法保持）→ skipCheat 直进 BP
+   * - restart_exempt（T210：low ∧ 停滞再启动形状命中〔stall-restart.js〕→ 与 burst
+   *   同等 skipCheat 直进 BP——cheat/unhealthy 一并豁免，用户知情；sbw 保持 none）
    * - high_skip（high ∧ wash≠strong——CD379 豁免显性化省 10 题）→ skipCheat
    * - mid_full → 照走 cheat 门全 10 题；fail_open（检测层故障/答案缺席）→
    *   fail-open 放行进 cheat 全链（GMGN「数据不可用不得拦买点」同向）
@@ -2100,7 +2102,7 @@ class AbstractTradingEngine extends ITradingEngine {
       return { pass: false, reason: `活跃度前置门拒买（${reason}）`, info: res };
     }
     const skipCheat = !!(res && res.status === 'assessed'
-      && (res.path === 'burst_exempt' || res.path === 'high_skip'));
+      && (res.path === 'burst_exempt' || res.path === 'restart_exempt' || res.path === 'high_skip')); // restart_exempt=T210 停滞再启动通路（与 burst 同等跳过作弊门）
     return { pass: true, skipCheat, info: res };
   }
 

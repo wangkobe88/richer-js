@@ -75,6 +75,7 @@
 
 const { buildSnapshotFromRows } = require('./cheat-snapshot');
 const { isColdStage } = require('./act-stage'); // T205/fix① 阶段前提共享线
+const { evaluateStallRestart } = require('./stall-restart'); // T210 停滞再启动通路（纯函数判定）
 const { buildCheatState } = require('./cheat-state-builder');
 const { buildObservation, readActivityLevel, readStallBurst, readPhenomenon } = require('./cheat-result-mapper');
 const { gradeObservation, levelsFromObservation, strongbackerShapeHit, STRONGBACKER_RULE_VERSION } = require('./cheat-grade');
@@ -134,10 +135,16 @@ const ACTIVITY_EXEMPT_DOMAIN = ['low', 'mid', 'high', 'ultra'];
  * 金狗 GWC 案立法）：未火过（锚前 ATH<80）的票 act=low 不再拒——low∧¬burst 由
  * reject_low 改走 mid_full（照走 cheat 全链，Jev 16 题接手判读）；burst 豁免与
  * ultra/wash/high 路由刻意不动（burst 优先、ultra 协同出货=当下事实非静默语义）。
+ * stallRestart=T210 停滞再启动通路（2026-11-22 金狗 中文房间/铁匠/胖橘貓案，用户裁定
+ * 「这个通路跟 burst 一样，豁免前面的 cheat/unhealthy（可能会有一些 bad case 但是再看）」）：
+ * act=low ∧ 形状命中 → restart_exempt，与 burst 同等跳过 cheat 直进 BP（cheat/unhealthy
+ * 一并豁免=用户知情；sbw 保持 none=T189 burstCooldown 不 arm——它不是波）；优先级
+ * burst > restart > coldStage > 拒。stall-restart.js 六腿与线值单点。
  */
-function actFrontRoute(act, burst, wash, coldStage = false) {
+function actFrontRoute(act, burst, wash, coldStage = false, stallRestart = false) {
   if (act === 'low' || act === 'ultra') {
     if (burst) return 'burst_exempt';
+    if (act === 'low' && stallRestart) return 'restart_exempt'; // T210：停滞再启动=与 burst 同等通路
     if (act === 'low' && coldStage) return 'mid_full'; // T205：未火过 low 让位走全链
     return `reject_${act}`;
   }
@@ -265,7 +272,7 @@ class CheatCheckService {
       marketResets: 0, // CD382 截窗命中计数——CD393（11-09 6a1e4567 案）截窗整链退役后停用恒 0，保留键读数连续性
       resetInsufficientRejects: 0, // CD384 fail-closed 拒计数——CD393 退役后停用恒 0，保留键读数连续性
       actFrontNoted: 0, actFrontJoined: 0, actFrontTimeouts: 0, // T175/AF1 前置门观测（评估数/并发 join/竞速超时）
-      actFrontRouted: { reject_low: 0, reject_ultra: 0, reject_wash: 0, burst_exempt: 0, high_skip: 0, mid_full: 0, fail_open: 0 }, // 分流路径计数
+      actFrontRouted: { reject_low: 0, reject_ultra: 0, reject_wash: 0, burst_exempt: 0, restart_exempt: 0, high_skip: 0, mid_full: 0, fail_open: 0 }, // 分流路径计数
     };
   }
 
@@ -517,6 +524,9 @@ class CheatCheckService {
       const _stageAth = snapshot.derived && typeof snapshot.derived.athVsLaunchPct === 'number'
         ? snapshot.derived.athVsLaunchPct : null;
       const _stageCold = this._gateActStageCold && isColdStage(_stageAth);
+      // T210 停滞再启动通路（stall-restart.js；仅 act=low 时参与分流与留痕——
+      // 非 low 票返回形状不变）
+      const _stallRestart = evaluateStallRestart(snapshot.derived);
 
       // 5b) AF 题集（引用 buildCheatQuestions 三题——单一真相源；deps.loadLlm
       //     测试桩缺 AF 键=惰性 dynamic import 真题集补齐并回填缓存，cheat 链零影响）
@@ -581,11 +591,13 @@ class CheatCheckService {
       const burst = sbwInfo === 'burst';
 
       // 分流决策（纯函数形状——单测直测）
-      const path = actFrontRoute(act, burst, washInfo, _stageCold);
+      const path = actFrontRoute(act, burst, washInfo, _stageCold, act === 'low' && _stallRestart.hit);
       this.stats.actFrontRouted[path] = (this.stats.actFrontRouted[path] || 0) + 1;
-      // stageCold/athVsLaunchPct 留痕（T205 可观测性：信号 metadata actFrontGate 段）
+      // stageCold/athVsLaunchPct 留痕（T205 可观测性：信号 metadata actFrontGate 段）；
+      // T210 停滞再启动留痕（act=low 票：命中与否都落 legs+fail——「为何没走通路」可查）
       return { status: 'assessed', act, sbw: sbwInfo, wash: washInfo, path, version,
-        ...(this._gateActStageCold ? { stageCold: _stageCold, athVsLaunchPct: _stageAth } : {}) };
+        ...(this._gateActStageCold ? { stageCold: _stageCold, athVsLaunchPct: _stageAth } : {}),
+        ...(act === 'low' ? { stallRestart: _stallRestart } : {}) };
     } catch (e) {
       // 接线级异常：fail-open 放行进 cheat（cheat/BP 门兜底）
       this.stats.errors++;

@@ -3615,6 +3615,7 @@ class ExperimentSignals {
             if (p === 'reject_low' || p === 'reject_ultra') return { cls: 'rej', icon: '🚫', text: `拒（${info.act}）`, title: `act_front_${(p || '').replace('reject_', '')}：低/过高活跃度且非 burst 直接拒` };
             if (p === 'reject_wash') return { cls: 'rej', icon: '🚫', text: '拒（对倒 strong）', title: 'act_front_wash：high 档对倒 strong 拒（CD380 搬家）' };
             if (p === 'burst_exempt') return { cls: 'skip', icon: '⏭', text: `${info.act}·burst 豁免`, title: 'sbw=burst 豁免跳过作弊门直进 BP（ba5e 立法）' };
+            if (p === 'restart_exempt') return { cls: 'skip', icon: '⏭', text: `${info.act}·停滞再启动通路`, title: 'T210：前期停滞再启动形状命中（stall-restart.js 六腿）——与 burst 同等跳过作弊门直进 BP（cheat/unhealthy 一并豁免，用户知情）' };
             if (p === 'high_skip') return { cls: 'skip', icon: '⏭', text: 'high·跳过作弊', title: '活跃度 high 跳过作弊门直进 BP（CD379 豁免显性化，省 10 题 Jev）' };
             if (p === 'mid_full') return { cls: 'ok', icon: '✅', text: 'mid·走全链', title: '中等活跃度照走作弊门全 10 题' };
             return { cls: 'warn', icon: '⚠', text: '放行进全链', title: '档位答案缺席 fail-open' };
@@ -3622,7 +3623,7 @@ class ExperimentSignals {
           return { cls: 'warn', icon: '⚠', text: '故障·放行', title: '检测层故障 fail-open 放行进作弊门全链' };
         }
         if (kind === 'cheat') {
-          if (info.status === 'skipped_by_act_front') return { cls: 'skip', icon: '⏭', text: '被③跳过', title: '前置活跃度门分流跳过（high/burst 豁免票不烧 10 题 Jev）' };
+          if (info.status === 'skipped_by_act_front') return { cls: 'skip', icon: '⏭', text: '被③跳过', title: '前置活跃度门分流跳过（high/burst/停滞再启动通路票不烧 10 题 Jev）' };
           if (info.grade) {
             if (info.grade === 'healthy') return info.exempt
               ? { cls: 'exempt', icon: '🟡', text: `豁免过（原判 ${info.exempt.originalGrade || '?'}）`, title: '活跃度/burst 豁免放行' }
@@ -3709,8 +3710,8 @@ class ExperimentSignals {
           // FP6 门/值对表（用户裁定：因子过滤输出整理成门/值对，信号页展示各门值）
           const gatesTable = (Array.isArray(factorCheckInfo.gates) && factorCheckInfo.gates.length
             ? `<details class="mt-1" open><summary class="text-xs text-emerald-800 cursor-pointer select-none">🚪 因子门门/值对（${factorCheckInfo.gates.length} 门${factorCheckInfo.observe ? ' · 含观察标记' : ''}）</summary><div class="mt-1 overflow-x-auto"><table class="w-full text-xs border border-gray-400"><thead><tr class="bg-gray-200"><th class="text-left px-2 py-0.5">门</th><th class="text-left px-2 py-0.5">值</th><th class="text-left px-2 py-0.5">线</th></tr></thead><tbody>${factorCheckInfo.gates.map((ge) => `
-              <tr class="${ge.hit ? 'bg-red-100' : (ge.observe ? 'bg-amber-100' : '')}">
-                <td class="px-2 py-0.5 border-t border-gray-300 whitespace-nowrap">${this._escapeHtml(ge.label || ge.id)}${ge.hit ? ' 🚫' : (ge.observe ? ' 👁' : '')}</td>
+              <tr class="${ge.hit ? 'bg-red-100' : (ge.observe ? 'bg-amber-100' : (ge.exempt ? 'bg-indigo-100' : ''))}">
+                <td class="px-2 py-0.5 border-t border-gray-300 whitespace-nowrap">${this._escapeHtml(ge.label || ge.id)}${ge.hit ? ' 🚫' : (ge.observe ? ' 👁' : (ge.exempt ? ' ⏭ 通路' : ''))}</td>
                 <td class="px-2 py-0.5 border-t border-gray-300 font-mono">${this._escapeHtml(ge.value || '—')}</td>
                 <td class="px-2 py-0.5 border-t border-gray-300 text-gray-600">${this._escapeHtml(ge.line || '')}</td>
               </tr>`).join('')}</tbody></table></div></details>`
@@ -3775,13 +3776,14 @@ class ExperimentSignals {
             reject_ultra: '🚫 拒买（ultra ∧ 非 burst）',
             reject_wash: '🚫 拒买（high ∧ 对倒 strong）',
             burst_exempt: '⏭ burst 豁免 → 跳过④直进⑤',
+            restart_exempt: '⏭ 停滞再启动通路 → 跳过④直进⑤（T210）',
             high_skip: '⏭ 跳过④作弊门 → 直进⑤',
             mid_full: '✅ mid → 照走④全链',
             fail_open: '⚠ 放行进全链（档位答案缺席）',
           };
           const afBadgeCls = path && path.startsWith('reject_')
             ? 'bg-red-200 text-red-900 border-red-500 font-bold'
-            : (path === 'burst_exempt' || path === 'high_skip'
+            : (path === 'burst_exempt' || path === 'restart_exempt' || path === 'high_skip'
               ? 'bg-indigo-200 text-indigo-900 border-indigo-400 font-semibold'
               : (path === 'mid_full' ? 'bg-green-200 text-green-900 border-green-400' : 'bg-amber-100 text-amber-900 border-amber-300'));
           actFrontGateHtml = `
@@ -3794,6 +3796,7 @@ class ExperimentSignals {
               ${act ? `<span class="px-2 py-0.5 rounded-full border ${gateBucketClass(act)}">活跃度 ${this._escapeHtml(act)}</span>` : '<span class="text-gray-700">活跃度档位缺席</span>'}
               ${sbw ? `<span class="px-2 py-0.5 rounded-full border ${sbw === 'burst' ? 'bg-indigo-200 text-indigo-900 border-indigo-400' : 'bg-gray-200 text-gray-800 border-gray-400'}">停滞突发波 ${this._escapeHtml(sbw)}</span>` : ''}
               ${wash ? `<span class="px-2 py-0.5 rounded-full border ${gateBucketClass(wash)}">对倒 ${this._escapeHtml(wash)}</span>` : ''}
+              ${actFrontGateInfo.stallRestart ? `<span class="px-2 py-0.5 rounded-full border ${actFrontGateInfo.stallRestart.hit ? 'bg-indigo-200 text-indigo-900 border-indigo-400' : 'bg-gray-200 text-gray-700 border-gray-400'}" title="T210 停滞再启动通路六腿：沉寂≥60s ∧ 出口=非尘买单孤笔∧锚在其上 ∧ 前期钱包≥12 ∧ 持仓者≥6∧留存≥55% ∧ 锚前最高价<80% ∧ 额<5B">停滞再启动通路 ${actFrontGateInfo.stallRestart.hit ? '✓ 命中' : '✗ ' + this._escapeHtml((actFrontGateInfo.stallRestart.fail || []).join('/'))}</span>` : ''}
               <span class="text-gray-600">AF${this._escapeHtml(String(actFrontGateInfo.version || '1'))} · 每信号真调不粘滞 · 题面与作弊门同源</span>
             </div>
           </div>
@@ -4239,7 +4242,7 @@ class ExperimentSignals {
               <div class="text-xs font-semibold text-amber-200">🚨 作弊盘检测门（第 3 层 · Jev 10 题）</div>
               <span class="text-xs px-2 py-1 bg-indigo-200 text-indigo-900 rounded-full border border-indigo-400 font-semibold">⏭ 被③活跃度门跳过</span>
             </div>
-            <div class="text-xs text-gray-700">分流 path=${this._escapeHtml(String(cheatCheckInfo.path || '—'))}（act=${this._escapeHtml(String(cheatCheckInfo.act || '—'))}${cheatCheckInfo.sbw ? ` · sbw=${this._escapeHtml(String(cheatCheckInfo.sbw))}` : ''}）——高活跃度/burst 豁免票不烧 10 题直接进⑤BP 门；档位判定见上方②前置活跃度门</div>
+            <div class="text-xs text-gray-700">分流 path=${this._escapeHtml(String(cheatCheckInfo.path || '—'))}（act=${this._escapeHtml(String(cheatCheckInfo.act || '—'))}${cheatCheckInfo.sbw ? ` · sbw=${this._escapeHtml(String(cheatCheckInfo.sbw))}` : ''}）——高活跃度/burst/停滞再启动通路票不烧 10 题直接进⑤BP 门；档位判定见上方②前置活跃度门</div>
           </div>
           `;
         } else {
