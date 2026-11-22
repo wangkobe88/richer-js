@@ -1,12 +1,15 @@
 /**
- * 一次性数据修复（2026-11-21，bt-v171 token-returns 页 symbol=Unknown 排查产物）：
- * JG6-taildip豁免对拍 集合（6fd0372f-48eb-494d-890b-5fa652127609，2489 票）的
- * token_meta 是临时脚本（tmp-jg6-create-collection.cjs / tmp-jg6-expand-collection.cjs）
- * 写入的「归一化形状」（{address,symbol,name,...} 直铺），不满足 CaseCollectionService
- * .buildTokenMetaSnapshot 契约（{payload 原样, blockTimeIso, sourceEventId, platform}）——
- * BacktestEngine._loadTokenMetadataFromCaseSet 经 tokenMetaFromCreatePayload(meta.platform,
- * meta.payload||{}, meta.blockTimeIso) 取键全部落空 → symbol/name/creator 空（页面 Unknown）
- * + createdAtSec=null 回落首 tick 出生锚（与两装载通道契约口径不一致）。
+ * 数据修复（2026-11-21 建，bt-v171 token-returns 页 symbol=Unknown 排查产物；
+ * 2026-11-22 参数化 --collection 复用第二批）：临时建集合脚本
+ * （tmp-jg6-create-collection / tmp-jg6-expand-collection / tmp-t205-oos-collection
+ * 等直铺模板）写入的 token_meta 是「归一化形状」（{address,symbol,name,...} 直铺），
+ * 不满足 CaseCollectionService.buildTokenMetaSnapshot 契约（{payload 原样,
+ * blockTimeIso, sourceEventId, platform}）——BacktestEngine
+ * ._loadTokenMetadataFromCaseSet 经 tokenMetaFromCreatePayload(meta.platform,
+ * meta.payload||{}, meta.blockTimeIso) 取键全部落空 → symbol/name/creator 空
+ * （页面 Unknown）+ createdAtSec=null 回落首 tick 出生锚（与两装载通道契约口径
+ * 不一致）。已跑批次：6fd0372f JG6-taildip豁免对拍（2489 票）；
+ * 781083cd T205-actlow-win1103-窗外验证（375 票，bt-v175/176 两臂 Unknown 案）。
  *
  * 修复：逐票从 wss_events token_create 重建正式快照形状——选行逻辑与正式链路
  * addToken 逐字节同构（count exact+无序 limit 对账、多行取最早 block_time、
@@ -16,7 +19,7 @@
  * 键（platform/note/sync 水位一律不动）。miss 行 fail-loud 清单打印+退出码 1，
  * 不做合成兜底（对齐「宁拒不漏」纪律）。
  *
- * 182 跑（2489 票 × 点查+update ≈ 5000 往返，本地 VPN 必超时，红线 #9）。
+ * 182 跑（几百~几千票 × 点查+update，本地 VPN 必超时，红线 #9）。
  */
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
@@ -25,15 +28,33 @@ const {
   buildTokenMetaSnapshot, CASE_PLATFORMS, SYNC_EVENT_LIMIT,
 } = require('../src/web/services/CaseCollectionService');
 
-const COLLECTION_ID = '6fd0372f-48eb-494d-890b-5fa652127609';
 const PAGE = 500;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isSnapshotShape(meta) {
   return !!(meta && meta.payload && ('blockTimeIso' in meta));
 }
 
+async function resolveCollection(c, arg) {
+  if (UUID_RE.test(arg)) return arg;
+  const { data: row, error } = await c.from('case_collections')
+    .select('id').eq('name', arg).maybeSingle();
+  if (error) throw new Error(`按名查集合失败 ${arg}: ${error.message}`);
+  if (!row) throw new Error(`集合不存在（uuid|name 均未命中）: ${arg}`);
+  return row.id;
+}
+
 async function main() {
+  const argv = process.argv.slice(2);
+  const colIdx = argv.indexOf('--collection');
+  const colArg = colIdx !== -1 ? argv[colIdx + 1] : null;
+  if (!colArg) {
+    console.error('用法: node scripts/migrate-jg6-token-meta.cjs --collection <集合uuid|name>');
+    console.error('历史批次: 6fd0372f（JG6-taildip豁免对拍）· 781083cd（T205-actlow-win1103-窗外验证）');
+    process.exit(2);
+  }
   const c = dbManager.getClient();
+  const COLLECTION_ID = await resolveCollection(c, colArg);
 
   const { count } = await c.from('case_collection_tokens')
     .select('id', { count: 'exact', head: true })

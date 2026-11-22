@@ -1284,6 +1284,16 @@ class BacktestEngine extends AbstractTradingEngine {
     const { tokenMetaFromCreatePayload } = require('../core/token-create-meta');
     for (const row of list) {
       const meta = row.token_meta || {};
+      // 形状防线（2026-11-22 T205 OOS 复发案）：token_meta 必须是
+      // buildTokenMetaSnapshot 正式形状（{payload, blockTimeIso,…}）。临时建集合
+      // 脚本写旧扁平直铺形状（{address,symbol,name,…}）时 meta.payload 落空 →
+      // symbol/name/creator 全空 + createdAtSec=null（出生锚回落首 tick）静默
+      // 跑完（bt-v175/176 两臂 375×2 行 token_symbol='' → 页面 Unknown）。
+      // 宁拒不漏：非正式形状 fail-loud 拒启，迁移走
+      // scripts/migrate-jg6-token-meta.cjs --collection <集合>。
+      if (!meta.payload || !('blockTimeIso' in meta)) {
+        throw new Error(`Case 集合成员 token_meta 非正式快照形状（缺 payload/blockTimeIso 键）: ${row.token_address}——旧扁平直铺形状会让装载静默落空（symbol=Unknown+出生锚回落首 tick），先跑 scripts/migrate-jg6-token-meta.cjs --collection <集合uuid|name> 迁移（宁拒不漏）`);
+      }
       this._tokenMeta.set(row.token_address, tokenMetaFromCreatePayload(
         meta.platform || row.platform,
         meta.payload || {},

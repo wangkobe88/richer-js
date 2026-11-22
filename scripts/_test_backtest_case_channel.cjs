@@ -179,6 +179,23 @@ function fakeCaseMemberDb(rows, countOverride) {
   threw = false;
   try { await BacktestEngine.prototype._loadTokenMetadataFromCaseSet.call(eng3, db3); } catch (e) { threw = /对账失配/.test(e.message); }
   ok(threw, 'B9 分页累计与 count 失配 throw');
+
+  // 旧扁平直铺形状 fail-loud（2026-11-22 T205 OOS 复发案：tmp 建集合脚本写
+  // {address,symbol,name,…} 直铺形状 → meta.payload 落空 → bt-v175/176 两臂
+  // 375×2 行 token_symbol='' 页面 Unknown + createdAtSec=null 出生锚回落首 tick，
+  // 静默跑完对拍才暴露——防线=非正式形状拒启，逼迁移走 migrate 脚本）
+  const STALE_ADDR = '0x' + 'dd'.repeat(20);
+  const staleMembers = [{
+    token_address: STALE_ADDR, platform: 'flap',
+    token_meta: { address: STALE_ADDR, symbol: '1113', name: '极寒降临', platform: 'flap', createdAt: '2026-11-03T16:47:13.000Z', creatorAddress: '0x0786', createTxHash: '0xdee7', totalSupply: 1e9, quoteToken: null },
+  }];
+  const eng4 = stubEngine();
+  const db4 = fakeCaseMemberDb(staleMembers);
+  eng4._getClient = () => db4;
+  threw = false;
+  try { await BacktestEngine.prototype._loadTokenMetadataFromCaseSet.call(eng4, db4); } catch (e) { threw = /非正式快照形状/.test(e.message); }
+  ok(threw, 'B10 旧扁平 token_meta fail-loud 拒启（直铺形状零容忍，宁拒不漏）');
+  ok(eng4._tokenMeta.size === 0, 'B10b 拒启时零票装载（不部分写入 _tokenMeta）');
 }
 
 // ───────────────── C/D. ticks 表源切换直调 ─────────────────
@@ -282,6 +299,9 @@ console.log('E. 源码锁');
     'E9 五装载方法经 _tickSourceQuery（countFetch/keyset/head/probe/anchorExists）');
   ok(/buildCaseCacheScopeKey\(this\._caseCollectionId\)/.test(engineSrc),
     'E10 _initializeDataSources 用 buildCaseCacheScopeKey');
+  ok(/非正式快照形状（缺 payload\/blockTimeIso 键）/.test(engineSrc)
+    && /migrate-jg6-token-meta\.cjs --collection/.test(engineSrc),
+    'E11 token_meta 正式形状防线在场（旧扁平直铺 fail-loud + 报文指向迁移脚本——T205 OOS 复发案）');
 }
 
 // ───────────────── F. 共享映射模块本体 ─────────────────
