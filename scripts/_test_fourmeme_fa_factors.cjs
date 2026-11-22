@@ -707,6 +707,10 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 可靠价链 _relPriceTrend 时序，现价 vs W 秒前最近可靠价；chg5 主判据、
         // chg10/30 观察——详见文件尾 T185 段）
         'chg5Pct', 'chg10Pct', 'chg30Pct',
+        // 2026-11-22 T214 强庄胚子两键（LAB 0x1a08…7777 案 ladder v35 强庄重启臂
+        // 原料：静默出口价 vs T130 地板 + 首笔大买家底仓留存——详见
+        // _test_signal_source_factors.cjs I 段）
+        'quietExitVsLaunchPct', 'firstBigBuyerHoldPct',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删

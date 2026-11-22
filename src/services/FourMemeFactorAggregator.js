@@ -255,6 +255,10 @@ const FACTOR_PARAM_DEFAULTS = {
     // ── T117 信号源 t7 静默段（2026-11-05 买入策略整体调整：跌到底沉寂后突然放量）──
     quietThresholdMs: 60000,     // 静默段判定阈：相邻 tick 间隔 ≥ 此值 = 一段沉寂
                                  //   （quietSpanMs 定格 + surge 波重置）；factorParams 可覆盖
+    // ── T214 强庄胚子臂原料（2026-11-22 LAB 0x1a08…7777 案）：首笔大买家 latch 线 ──
+    firstBigBuyerMinBnb: 0.3,    // 首笔 ≥ 此值的 BUY write-once latch 为「首笔大买家」
+                                 //   （firstBigBuyerHoldPct 分母基准；与 FP 侧 0.3 级像样
+                                 //   买方同线）；factorParams 可覆盖
 };
 
 // 出生窗首买 map 防御帽（launch 系复用；对倒作业票 90s 内 <1 千钱包；超帽只停
@@ -1453,6 +1457,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             state._quietSpanMs = ts - state.lastTickAt;
             state._quietSurgeStartTs = ts;
             state._quietSurgeBuyBnb = 0;
+            // T214（2026-11-22 LAB 案）：定格出口行（=本笔苏醒 tick）可靠价——
+            // quietExitVsLaunchPct 分子。价格族仅可靠价：出口行 outlier/无可靠价 →
+            // null（宁 null 不冒充，该段出口价不可知）
+            state._quietExitPriceBnb = (priceReliable === true && priceBnb > 0) ? priceBnb : null;
         }
         if (state._quietSurgeStartTs !== null && ts >= state._quietSurgeStartTs && isBuy) {
             state._quietSurgeBuyBnb += bnbAmount;
@@ -1558,6 +1566,16 @@ class FourMemeFactorAggregator extends EventEmitter {
                     if (_cur > _mx) state._walletMaxNetTokens.set(walletAddr, _cur);
                 }
                 if (isBuy) {
+                    // T214 强庄胚子臂原料（2026-11-22 LAB 0x1a08…7777 案）：首笔大买家
+                    // write-once latch（首笔 ≥ firstBigBuyerMinBnb 的 BUY，记钱包与该笔
+                    // tokens 量为底仓基准；后续该钱包加减仓改 firstBigBuyerHoldPct 读值，
+                    // latch 本身不动）。挂 wallet 段（defer 两段喂食 per-tick 恰一次，
+                    // sender 真值口径）。「首笔大买家」=开盘扛价者语义：底仓仍在 =
+                    // 冷却期砸不穿的价格支撑（LAB：creator 首笔 0.75B，冷却末减仓 1/3
+                    // 后仍 61% 底仓扛价，散户全出清价格稳在发行价上方）
+                    if (!state._firstBigBuyer && bnbAmount >= this._fp.firstBigBuyerMinBnb) {
+                        state._firstBigBuyer = { wallet: walletAddr, tokens: tokenAmount };
+                    }
                     // GMGN 用户判定原料（2026-10-11 用户裁定）：本盘经聚合路由买入的 BNB 按钱包归集。
                     // trader 层判定与 EarlyParticipantCheckService routerPct 因子同层同源（AGGREGATOR_ROUTER_ADDRS
                     // 单一真相源；Set 条目小写，trader 归一 lower-case 后比对——checksum 形态行不漏记）；
@@ -2394,6 +2412,12 @@ class FourMemeFactorAggregator extends EventEmitter {
                                          //   值域 {0}∪[quietThresholdMs,∞)，0=从无静默证据）
             _quietSurgeStartTs: null,   // 当前 surge 波起点 ts（静默段后苏醒第一笔；null=从未开波）
             _quietSurgeBuyBnb: 0,       // 当前 surge 波累计买入 BNB（新静默段开新波时清零）
+            _quietExitPriceBnb: null,   // T214：最近静默段出口行（苏醒第一笔）可靠价——
+                                         //   quietExitVsLaunchPct 分子；null=从未定格/出口行
+                                         //   无可靠价（价格族仅可靠价，宁 null 不冒充）
+            _firstBigBuyer: null,       // T214：首笔大买家 latch {wallet, tokens}（首笔 ≥
+                                         //   firstBigBuyerMinBnb 的 BUY，write-once，wallet 真值
+                                         //   口径 sender||trader）；null=从未出现该量级首买
 
             _lastChainBlock: null,      // 链上序迟到水位（2026-10-14 鸡蛋案）：已见的最大
             _lastChainLogIdx: null,     // (blockNumber, log_index)——早于此的 tick 判 chainLate 不进价格链
@@ -4688,6 +4712,32 @@ class FourMemeFactorAggregator extends EventEmitter {
             quietSurgeBuyBnb: state._quietSurgeBuyBnb,
             quietSurgeSec: state._quietSurgeStartTs !== null
                 ? Math.max(0, (now - state._quietSurgeStartTs) / 1000) : null,
+            // T214 强庄胚子两键（2026-11-22 LAB 0x1a08…7777 案，ladder v35 强庄重启臂
+            // 原料）——形状判据「散户出清 ∧ 价格未破发 ∧ 首笔大买家底仓仍在 + 长期
+            // 沉寂 + 流量涌入」：
+            //   quietExitVsLaunchPct = 最近静默段出口行价 vs **T130 地板**
+            //   min(常量, 首笔买入可靠价)——刻意不含 T134 滚动最低（T170b 用户裁定
+            //   同款口径：「必须去掉已经历的最低价，否则之前破发过就只能比破发价还低」
+            //   ——历史砸穿票滚动最低垫低锚会洗白「未破发」判定）；null=从未定格静默段/
+            //   出口行无可靠价/无锚 fail-closed（裸比较恒 false 宁拦不冒充）
+            quietExitVsLaunchPct: (() => {
+                if (!(state._quietExitPriceBnb > 0)) return null;
+                const floor = _floorLaunchPriceBnb(
+                    _resolveLaunchPriceBnb(state.platform, state.quoteToken),
+                    state._firstBuyPriceBnb,
+                );
+                return (floor > 0)
+                    ? parseFloat((100 * (state._quietExitPriceBnb / floor - 1)).toFixed(2)) : null;
+            })(),
+            //   firstBigBuyerHoldPct = 首笔大买家当前净持仓 ÷ 其首笔买入 tokens ×100
+            //   （可 >100=底仓上加仓；负=已卖超首笔量）；null=无 latch（从未出现 ≥0.3B
+            //   首段大买）fail-closed——「无大买家扛价的真空冷却盘」不适用本臂
+            firstBigBuyerHoldPct: (() => {
+                const b = state._firstBigBuyer;
+                if (!b || !(b.tokens > 0)) return null;
+                const net = state._walletNetTokens.get(b.wallet) || 0;
+                return parseFloat((100 * net / b.tokens).toFixed(2));
+            })(),
             // T184 聪明钱涌入三键（smart-inflow 备选策略原料）：ready=首个达标事件后
             //   inflowReadyHoldMs 窗内为 1（事件时刻=链尾实体首买秒，now=buildFactorMap
             //   入参禁 Date.now——回测虚拟时钟同源）；chainSize/chainBnb=事件链快照

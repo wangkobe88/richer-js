@@ -231,6 +231,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     quietSpanMs: factorResults.quietSpanMs ?? null,
     quietSurgeBuyBnb: factorResults.quietSurgeBuyBnb ?? null,
     quietSurgeSec: factorResults.quietSurgeSec ?? null,
+    // T214 强庄胚子两键（2026-11-22 LAB 案，ladder v35 强庄重启臂原料）：出口价 vs
+    // T130 地板 + 首笔大买家底仓留存——FA 状态机/latch 不可离线重算（act* 先例），
+    // 不落库即丢；旧 FA 无键 → null 不掩盖
+    quietExitVsLaunchPct: factorResults.quietExitVsLaunchPct ?? null,
+    firstBigBuyerHoldPct: factorResults.firstBigBuyerHoldPct ?? null,
     // 滚动净买窗两键（T77 2026-10-27 MUSK2028 案 W=10s）：RatioWin null=窗内零买缺
     // 近期证据 fail-closed；Bnb=窗买量观察键。FA 内存事件环不可重算（act* 先例），
     // 不落库即丢；旧 FA 无这些键 → null，不掩盖

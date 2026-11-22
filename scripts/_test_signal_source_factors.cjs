@@ -283,6 +283,133 @@ console.log('G. FactorBuilder 快照透传（缺键 → null 不掩盖）');
     });
 }
 
+// ═══════════════ I. T214 强庄胚子两键 ═══════════════
+console.log('I. T214 quietExitVsLaunchPct / firstBigBuyerHoldPct（强庄重启臂原料）');
+{
+    const CONST = 4496173469e-18; // four.meme 主流档常量
+    const newFA2 = (factorParams) => {
+        const fa = new FourMemeFactorAggregator(
+            { fourmemeWs: { factorParams } }, { info() {}, warn() {}, error() {} });
+        fa.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', platform: 'fourmeme' });
+        return fa;
+    };
+    // quietExitVsLaunchPct —— 出口价 vs T130 地板 min(常量, 首买价)
+    {
+        // 高开票：首买 5.0e-9 > 常量 → 地板=常量；出口 4.7e-9 → +4.54
+        const fa = newFA2({ quietThresholdMs: 5000 });
+        fa.processTick(mkTick({ price_bnb: 5.0e-9, bnb_amount: 0.5, timestamp: T0 + 1000 }));
+        fa.processTick(mkTick({ price_bnb: 4.7e-9, bnb_amount: 0.25, timestamp: T0 + 15000 })); // gap 14s ≥5s 定格，出口价=本笔
+        const f = fa.buildFactorMap('0xtoken', T0 + 16000);
+        check('高开票出口价 vs 常量地板 = +4.54', () =>
+            assert.strictEqual(f.quietExitVsLaunchPct, parseFloat((100 * (4.7e-9 / CONST - 1)).toFixed(2))));
+        check('同刻 quietSpanMs=14000（定格同段）', () => assert.strictEqual(f.quietSpanMs, 14000));
+    }
+    {
+        // 低开票：首买 4.0e-9 < 常量 → 地板=首买价（T130）；出口 4.2e-9 → +5.00；
+        // 出口前砸穿 3.5e-9（T134 滚动最低）**不进分母**（T170b 同款口径——防洗白断言）
+        const fa = newFA2({ quietThresholdMs: 5000 });
+        fa.processTick(mkTick({ price_bnb: 4.0e-9, bnb_amount: 0.5, timestamp: T0 + 1000 }));
+        fa.processTick(mkTick({ price_bnb: 3.5e-9, bnb_amount: 0.3, trade_type: 'sell', timestamp: T0 + 2000 })); // 滚动最低
+        fa.processTick(mkTick({ price_bnb: 4.2e-9, bnb_amount: 0.25, timestamp: T0 + 15000 })); // 出口
+        const f = fa.buildFactorMap('0xtoken', T0 + 16000);
+        check('低开票出口价 vs 首买价地板 = +5.00（滚动最低 3.5e-9 不垫低分母）', () =>
+            assert.strictEqual(f.quietExitVsLaunchPct, 5.00));
+    }
+    {
+        // 出口行不可靠价（尘 tick <minPriceUpdateBnb → priceReliable=false）→ null
+        // 宁 null 不冒充；二次静默可靠价覆盖
+        const fa = newFA2({ quietThresholdMs: 5000 });
+        fa.processTick(mkTick({ price_bnb: 5.0e-9, bnb_amount: 0.5, timestamp: T0 + 1000 }));
+        fa.processTick(mkTick({ price_bnb: 9.9e-9, bnb_amount: 0.001, timestamp: T0 + 15000 })); // 尘行
+        const f1 = fa.buildFactorMap('0xtoken', T0 + 16000);
+        check('出口行尘 tick（价格不可靠）→ quietExitVsLaunchPct=null（span 照常定格）', () => {
+            assert.strictEqual(f1.quietExitVsLaunchPct, null);
+            assert.strictEqual(f1.quietSpanMs, 14000);
+        });
+        fa.processTick(mkTick({ price_bnb: 4.8e-9, bnb_amount: 0.1, timestamp: T0 + 22000 })); // gap 7s 二次静默，出口=本笔
+        const f2 = fa.buildFactorMap('0xtoken', T0 + 23000);
+        check('二次静默可靠出口价覆盖旧段 = +6.76', () =>
+            assert.strictEqual(f2.quietExitVsLaunchPct, parseFloat((100 * (4.8e-9 / CONST - 1)).toFixed(2))));
+    }
+    {
+        // 从未静默段 → null
+        const fa = newFA2({ quietThresholdMs: 60000 });
+        fa.processTick(mkTick({ price_bnb: 5.0e-9, bnb_amount: 0.5, timestamp: T0 + 1000 }));
+        fa.processTick(mkTick({ price_bnb: 5.1e-9, bnb_amount: 0.2, timestamp: T0 + 5000 }));
+        const f = fa.buildFactorMap('0xtoken', T0 + 6000);
+        check('从未静默段 → null', () => assert.strictEqual(f.quietExitVsLaunchPct, null));
+    }
+    // firstBigBuyerHoldPct —— 首笔大买家 latch write-once + 现净持仓/首笔 tokens
+    {
+        const fa = newFA2();
+        fa.processTick(mkTick({ sender_address: '0w1', bnb_amount: 0.1, token_amount: 500000, price_bnb: 5.0e-9, timestamp: T0 + 1000 })); // <0.3 不 latch
+        fa.processTick(mkTick({ sender_address: '0w2', bnb_amount: 0.4, token_amount: 800000, price_bnb: 5.1e-9, timestamp: T0 + 2000 })); // latch w2/800k
+        fa.processTick(mkTick({ sender_address: '0w3', bnb_amount: 2.0, token_amount: 3000000, price_bnb: 5.2e-9, timestamp: T0 + 3000 })); // 更大不覆盖 write-once
+        let f = fa.buildFactorMap('0xtoken', T0 + 3500);
+        check('write-once latch=首笔达标买 w2（0.1 不计、2.0 不覆盖），net=tokens → 100', () =>
+            assert.strictEqual(f.firstBigBuyerHoldPct, 100.00));
+        fa.processTick(mkTick({ sender_address: '0w2', trade_type: 'sell', bnb_amount: 0.15, token_amount: 300000, price_bnb: 5.0e-9, timestamp: T0 + 4000 }));
+        f = fa.buildFactorMap('0xtoken', T0 + 4500);
+        check('减仓 300k/800k → 62.50', () => assert.strictEqual(f.firstBigBuyerHoldPct, 62.50));
+        fa.processTick(mkTick({ sender_address: '0w2', trade_type: 'sell', bnb_amount: 0.1, token_amount: 500000, price_bnb: 4.9e-9, timestamp: T0 + 5000 }));
+        f = fa.buildFactorMap('0xtoken', T0 + 5500);
+        check('清仓 → 0.00（有证据零值非 null）', () => assert.strictEqual(f.firstBigBuyerHoldPct, 0.00));
+        fa.processTick(mkTick({ sender_address: '0w2', trade_type: 'sell', bnb_amount: 0.02, token_amount: 100000, price_bnb: 4.8e-9, timestamp: T0 + 6000 }));
+        f = fa.buildFactorMap('0xtoken', T0 + 6500);
+        check('卖超首笔量 → -12.50（负值照发，裸比较天然 false）', () => assert.strictEqual(f.firstBigBuyerHoldPct, -12.50));
+        fa.processTick(mkTick({ sender_address: '0w2', bnb_amount: 1.1, token_amount: 1100000, price_bnb: 5.3e-9, timestamp: T0 + 7000 }));
+        f = fa.buildFactorMap('0xtoken', T0 + 7500);
+        check('底仓上加仓 → >100（net=-100k+1100k=1000k → 125.00）', () => assert.strictEqual(f.firstBigBuyerHoldPct, 125.00));
+    }
+    {
+        // 无 latch（全史只有 <0.3 小买/纯卖）→ null fail-closed
+        const fa = newFA2();
+        fa.processTick(mkTick({ sender_address: '0w1', bnb_amount: 0.29, token_amount: 500000, price_bnb: 5.0e-9, timestamp: T0 + 1000 }));
+        fa.processTick(mkTick({ sender_address: '0w1', trade_type: 'sell', bnb_amount: 0.05, token_amount: 100000, price_bnb: 4.9e-9, timestamp: T0 + 2000 }));
+        const f = fa.buildFactorMap('0xtoken', T0 + 2500);
+        check('无 0.3B 级首买 latch → null（真空冷却盘不适用）', () => assert.strictEqual(f.firstBigBuyerHoldPct, null));
+    }
+    {
+        // 平台缺（未知 platform 无常量锚）→ quietExitVsLaunchPct=null fail-closed
+        const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+        fa.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T' }); // 无 platform
+        fa.processTick(mkTick({ price_bnb: 5.0e-9, bnb_amount: 0.5, timestamp: T0 + 1000 }));
+        fa.processTick(mkTick({ price_bnb: 4.7e-9, bnb_amount: 0.25, timestamp: T0 + 70000 })); // gap 69s ≥60s 默认阈
+        const f = fa.buildFactorMap('0xtoken', T0 + 71000);
+        check('未知平台无锚 → null（latch 键不受平台影响照发：1e6+1e6 加仓 → 200）', () => {
+            assert.strictEqual(f.quietExitVsLaunchPct, null);
+            assert.strictEqual(f.firstBigBuyerHoldPct, 200.00);
+        });
+    }
+    // FactorBuilder 快照透传（T214 两键）
+    {
+        const snap = FactorBuilder.buildFactorValuesForTimeSeries({ quietExitVsLaunchPct: 4.54, firstBigBuyerHoldPct: 61.25 });
+        check('FactorBuilder 透传两键', () => {
+            assert.strictEqual(snap.quietExitVsLaunchPct, 4.54);
+            assert.strictEqual(snap.firstBigBuyerHoldPct, 61.25);
+        });
+    }
+    // 源码口径断言：出口价定格挂 quiet 状态机定格点 + latch 挂 wallet 段
+    {
+        const src = read('src/services/FourMemeFactorAggregator.js');
+        check('出口价定格在 quiet 定格分支内（priceReliable 守卫）', () => {
+            const i = src.indexOf('state._quietExitPriceBnb = (priceReliable === true && priceBnb > 0)');
+            const seg = src.indexOf('_quietSpanMs = ts - state.lastTickAt');
+            assert.ok(i > 0 && seg > 0 && i > seg && i - seg < 400, '定格点漂移');
+        });
+        check('latch 挂 _applyWalletAggregation isBuy 分支（wallet 真值口径 per-tick 恰一次）', () => {
+            const i = src.indexOf('if (!state._firstBigBuyer && bnbAmount >= this._fp.firstBigBuyerMinBnb)');
+            const segStart = src.indexOf('_applyWalletAggregation(state, tick, vars)');
+            assert.ok(i > 0 && segStart > 0 && i > segStart, 'latch 挂点漂移');
+        });
+        check('quietExitVsLaunchPct 分母=T130 地板（不含滚动最低——T170b 防洗白口径）', () => {
+            const i = src.indexOf('quietExitVsLaunchPct: (() => {');
+            const seg = src.slice(i, src.indexOf('firstBigBuyerHoldPct: (() => {'));
+            assert.ok(seg.includes('state._firstBuyPriceBnb') && !seg.includes('_minRelPriceBnb'), '分母口径漂移');
+        });
+    }
+}
+
 // ═══════════════ H. 源码口径断言 ═══════════════
 console.log('H. 源码口径断言（顺序/上限/时钟红线）');
 {

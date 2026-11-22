@@ -25,7 +25,7 @@
 'use strict';
 
 const ENTRY_NAME = 'trading-standard-v1';
-const ENTRY_DESC = '现行最优交易策略包：ladder v34 十四腿（T201 大户推迟已迁 FP32）+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 50s/足额0.01 + 四门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
+const ENTRY_DESC = '现行最优交易策略包：ladder v35 十五腿（v34 十四腿+T214 强庄重启臂〔2026-11-22 LAB 0x1a08…7777 案：散户出清∧出口价未破发∧首笔大买家底仓仍在∧≥60s 沉寂∧突涌≥0.4B——刻意不带人气门；⚠T215 命中面分析未过=回退该臂〕〕）+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 50s/足额0.01 + 四门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
 
 const PACK_DEFINITION = {
   "buyLegs": [
@@ -279,6 +279,24 @@ const PACK_DEFINITION = {
         ]
       },
       "description": "深重启臂（v11 新增；v13 量门提高 15 笔/2.5 BNB；v17 加 actTotalBnb 门）：现价较发行价 ≤+10%（含破发）——回到 almost_launch 深半区的更贴发行价入场点；v34/T201 大户推迟门（G2）迁出：自条件串整段撤出至 FP 因子门 big_buy_defer 臂（T180 同款迁移；A 形态=FP 拒消耗 maxTriggers+信号桶知情接受——推迟窗近触发落行可定位；判定线不变 0.79/45s+1/60s+深破<−10；键源 buyDerived.launchDefer=FA launch 键镜像；灰度随 factorCheck.enabled）；v25/T151 前期买入太多推迟门（launchBigBuyBnb<1 OR sinceFirstTradeSec>60——首60s大户合计买≥1B 的票推迟到首笔交易 60s 后入场，t* 中位 +15~90s 抛压释放窗）；v20/T141 首两波扩展门（先头在首块+同波续单在下一块的狙击小队形状簇键抓不到，60s 后放行）；v21/T142+v22/T145 破发豁免臂（launchMinVsFloorPct < 0——历史最低跌破 min(常量,首买价)=经历过破发、首两波收割完成筹码换手完毕的重启位放行，ASTER 案；v22 起 f0/wave 任一达线即挡）；v23/v24/T149 年龄门加 sinceFirstTradeSec > 45（首笔交易起算 45s，与 tokenAgeSec > 60 AND 联立——0x3441cc2a 案创建后静默 50s 首两波满员 72s 单门放行接刀）；v29/T172+T173（2026-11-18 bt-v143 两案）三件：①launchBigBuyBnb 同块等额合并口径（FA 侧——首买同块四位归一全等 ≥2 钱包组累计合并过 0.19 线计入视为单用户，案源 0x683165bf…7777 0.846→1.1177≥1 进 60s 档）②破发豁免线 <0→<−10（浅回落=大额首买抬高锚的噪声非真破发——Ardot −0.96 案首裁 −5、案 3 驴来 0x531ddef1…7777 −8.75 被豁免放行 −0.0625 引出用户深化 −10：−5~−10 带窗内票全负 驴来 G1 clu=3 接住+油宝 −6.3 双门拦，≤−10 的 4 张 Σ+0.2832 与 ASTER −38.4 深破发照豁免）③大户推迟门加 0.79 档中间窗 45s（驴党 0xf37fe6de…7777 bigBuy=0.7934 36s fire 断流止损 −0.0148 案——0.79~0.8 视同 0.8 级 T169 惯例；45s 与 T149 同线，≥1 档维持 60s；豁免臂 −10 同享两档）；v30/T177（2026-11-18 0x65104a55…7777 案）≥10 捆绑绝对 veto（launchBundleClusterSize < 10 AND launchSellBundleClusterSize < 10——早期交易 10+ 钱包捆绑无论买入砸盘一律不买，无年龄放行无破发豁免；案源：10 户同块买 0.99B→同块砸 0.87B 块内 −24.5%→反弹 12s 洗白全链买入 93s 流动性止损 −62.4%）；v31/T178（2026-11-18 0xa025b8d8…7777 案）两波捆绑买入绝对 veto（(launchBuyBundleWaves < 2 OR launchBuyBundleDominancePct < 30)——2 次 ≥5 钱包同块捆绑买入且占出生窗买入 ≥30% 不买，raw 含复购波〔G3 首买簇键看不见的形状〕；案源：7 钱包同块 0.92B→同组相邻块复购 0.98B 占窗买 33.2%→同组 9 户两相邻块全清砸 2.08B→双信号放行买入 −6.7%；同窗对照 waves≥2∧dom≥30 恰 3 命中 2 负 1 小正）；v31/T179 同车（2026-11-18 bt-v147 瞬时V案 0x6b03…7777/0x66ca…7777 两案）做市/作弊团队黑名单绝对 veto（cheatCrewBuyBnb == 0——名单钱包〔config/rosters/cheat-crew-wallets.json 用户裁定集合〕本 token 有过买入一律不买；案源=砸盘砸到底→≤2s 瞬时拉起流水线，pull 被门链当「买力在场」放行；形状层否证〔瞬时V面净 +0.24 肥尾在内〕钱包层分离〔三件套足迹 37 票 -0.42 vs 其余 +2.00〕；FA 新键=K 组读时扫 famous 同款，0 语义裸比较放行；roster 只收 pull 角色，openers/churn/跟单生态不收；无年龄放行无破发豁免=身份 veto；被挡不消耗 maxTriggers；⚠名单数周轮换须定期扩簇）；v32/T180 首两波大部队×高占比 veto 首落 ladder 后同日迁移因子过滤模块 FP17 launch_squad_dominance 臂（用户裁定「放到因子过滤模块吧，不要放到信号触发模块了」——判定线不变 wave≥8 ∧ dom≥30，键源 buyDerived.launchSquad；ladder 尾门回 G1~G5）",
+      "cards": 4
+    },
+    {
+      "action": "buy",
+      "priority": 15,
+      "condition": "quietSpanMs >= 60000 AND quietSurgeBuyBnb >= 0.4 AND quietSurgeSec <= 30 AND quietExitVsLaunchPct >= 0 AND quietExitVsLaunchPct <= 28.5 AND currentVsLaunchPct > 0 AND currentVsLaunchPct <= 40 AND firstBigBuyerHoldPct >= 40 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15 AND launchBundleClusterSize < 10 AND launchSellBundleClusterSize < 10 AND (launchBuyBundleWaves < 2 OR launchBuyBundleDominancePct < 30) AND cheatCrewBuyBnb == 0",
+      "maxExecutions": null,
+      "buyPhase": "first",
+      "signalGate": {
+        "maxTriggers": 2,
+        "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 2,
+        "bpPassLevels": [
+          "good",
+          "neutral"
+        ]
+      },
+      "description": "强庄重启臂（T214 v35 2026-11-22 LAB 0x1a08…7777 案用户裁定「强庄币胚子的模式：散户出清 ∧ 价格未破发 ∧ 首笔大买家底仓仍在 + 长期沉寂 + 又有流量涌入——这个场景下要求持有者扣除 dust 大于一定数量就没有任何意义，加一个从买入信号产生到最后走通的路径」）。案源全弧：creator 首笔 0.75B 自买推高起跑线 +25%（常量锚口径 curVs 全程偏高）→61s P1 信号被 FP26 尾段买力枯竭正确拒（当时砸盘进行中）→132~135s creator 减仓 1/3+三散户清仓（holdDust 4→1，唯一持有者=creator 底仓 61% 扛价，价格稳在发行价上方=「没持有者价格还在发行价上」的用户观察）→148s 深静默→283s creator 本人 0.25B 孤笔重启（quietSpanMs=148000）→295~296s 全新钱包鱼贯 0.13~0.18B/笔（71% 走 GMGN 系聚合路由=散户热度）——常量锚下唯一可触发窗 296.0s 单 tick（holdDust 3→4 恰逢 curVs +25.3%，同秒次笔 +31.6% 出域）被 debounce 合并结构性吃掉（T132 per-tick 已撤），全周期零买入而票毕业 +750%。判据五件全事前可算：①quietSpanMs≥60s 长期沉寂②quietSurgeBuyBnb≥0.4 流量涌入（283 孤笔 0.25 不够线=刻意等波成形，避开 AF1 act_low 孤笔锚拒）③quietSurgeSec≤30 涌入早期窗④quietExitVsLaunchPct∈[0,28.5] 沉寂出口价未破发（T130 地板口径刻意不含滚动最低——T170b 防洗白同款；LAB 出口 +9.0%）⑤firstBigBuyerHoldPct≥40 首笔大买家底仓留存（latch 线 0.3B 与 FP 0.3 级同线；LAB=creator 61%；null=真空冷却盘不适用 fail-closed）。刻意不带 holdersExDust/tradeCount/buyVolume 人气门（用户裁定「没有意义」——散户出清后只剩庄）；fire 价域 (0,40]：上界 40 吃 debounce 簇末锚（LAB fire@296.2=+31.6%，波首 1s 内涨幅余量）下界 >0 未破发在案；launch 两个绝对 veto+waves 组+cheatCrew 与其余腿同防（开盘捆绑/做市团队不自恰盘不走本臂）；maxTriggers=2（t0 臂同款首拒再判救回面）；fpRetry=2 同全腿。⚠T215 命中面分析未过=回退本臂（用户裁定「单纯为了一个 case 去搞一个策略还是危险的」）",
       "cards": 4
     }
   ],
