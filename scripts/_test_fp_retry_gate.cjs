@@ -3,8 +3,9 @@
  * T203 FP 拒后门内重试 单测（零 DB 零网络）。
  * 覆盖：①normalizeSignalGate.fpRetry 归一化（缺省 0/合法域/非法形状）；
  * ②FpRetryTracker 状态机（登记/间隔/预算耗尽/通过清 pending/地平线过期/覆盖/
- * 零 Date.now——时钟注入红线）；③事故现场反证（bt-v164 0xb6ee…7777 FP28 锚
- * 相位形状：首评 t7N=2 拒，+2s 重评 t7N=4 翻转通过）；④引擎胶水源码锁
+ * 零 Date.now——时钟注入红线）；③事故现场反证（T203c：bt-v178 0xb6ee…7777
+ * 本尊重跑，拒后 +0.8s/+1.9s 三笔 tick 即断流 30s，2s 间隔零重评饿死——
+ * 间隔 200ms+重评预算 2 即接住）；④引擎胶水源码锁
  * （resume 跳过 T110/落库/触发记账/FP 门；回测挂点虚拟时钟非墙钟；归策略包
  * 缺省 0）。
  * 直接跑，断言失败退出非零。
@@ -52,13 +53,15 @@ console.log('\n[B] FpRetryTracker 状态机（时钟注入）');
 
   tk.register('t', { legId: 'L', signalId: 's1', budget: 2, nowMs: T0, strategyName: 'leg0' });
   ok(tk.pendingOf('t') && tk.pendingOf('t').remaining === 2, '登记 pending（budget 2）');
-  ok(tk.tickCheck('t', T0 + 1000) === null, 'spacing 1s < 2s 不评（防同秒连 tick 烧穿预算）');
-  ok(tk.tickCheck('t', T0 + 2000) && tk.tickCheck('t', T0 + 2000).kind === 'eval', 'spacing 2s 到点评');
+  ok(tk.spacingMs === 200, 'spacing 缺省 200ms=debounce 节奏（T203c）');
+  ok(tk.tickCheck('t', T0 + 100) === null, 'spacing 100ms < 200ms 不评（同块连 tick 不逐笔烧预算）');
+  ok(tk.tickCheck('t', T0 + 200) && tk.tickCheck('t', T0 + 200).kind === 'eval', 'spacing 200ms 到点评');
   // 首次重评仍拒
-  let r = tk.recordResult('t', false, 'launch_fail_dead', T0 + 2000);
+  let r = tk.recordResult('t', false, 'launch_fail_dead', T0 + 200);
   ok(!r.pass && r.remaining === 1 && !r.exhausted && r.attempts.length === 1, '拒 1 次 remaining=1');
   ok(r.attempts[0].reason === 'launch_fail_dead' && r.attempts[0].verdict === 'reject', 'attempt 留痕 reason/verdict');
-  ok(tk.tickCheck('t', T0 + 3000) === null, '第二间隔内不评');
+  ok(tk.tickCheck('t', T0 + 399) === null, '第二间隔内不评（间隔自上次评估起算）');
+  ok(tk.tickCheck('t', T0 + 400).kind === 'eval', '上次评估 +200ms 到点');
   // 覆盖语义：新信号接管
   tk.register('t', { legId: 'L', signalId: 's2', budget: 1, nowMs: T0 + 3500, strategyName: 'leg0' });
   ok(tk.pendingOf('t').signalId === 's2' && tk.pendingOf('t').remaining === 1, '同 token 新信号覆盖 pending（最新接管）');
@@ -83,29 +86,51 @@ console.log('\n[B] FpRetryTracker 状态机（时钟注入）');
   ok(!/Date\.now/.test(src), 'FpRetryTracker 功能代码零 Date.now（时钟注入红线）');
 }
 
-// ── C. 事故现场反证（bt-v164 0xb6ee…7777 FP28 锚相位形状）──
-console.log('\n[C] 0xb6ee 案锚相位形状重放（评估器打桩）');
+// ── C. 事故现场反证（T203c 案源=bt-v178 0xb6ee…7777 本尊重跑：2s 间隔饿死形状）──
+console.log('\n[C] 0xb6ee bt-v178 案 tick 节奏重放（评估器打桩）');
 {
   const { FpRetryTracker } = require('../src/trading-engine/core/FpRetryTracker');
-  const t0 = 1762300218000; // 19:10:58 锚
-  // 尾 7s 窗买笔数随时间（打桩：锚时 N=2 → +1s 起 N=4——0.074×2 进窗）
-  const t7nAt = (ts) => (ts <= t0 ? 2 : 4);
-  const fpVerdict = (ts) => t7nAt(ts) > 2 ? { pass: true } : { pass: false, reason: 'launch_fail_dead' };
+  const t0 = 1762300218000; // 首评锚（信号时刻，相对时间打桩）
+  const T = (sec) => t0 + sec * 1000;
+  // case_ticks 实测（集合 a8414632）：19:10:57 买 → 58 买 → 59 买×2 → 断流 30s
+  // → 19:11:29 买。拒后 tick 时刻（秒）：+0.8 / +1.8 / +1.9 / +31.8
+  const tickSec = [0.8, 1.8, 1.9, 31.8];
+  // 尾 7s 窗买笔数（armLaunchFailDead：N≤2 拒 / N≥3 过——ath 26.8% 龄 71s
+  // 两腿在重评时刻恒在域内，只有尾 7s 腿随 tick 翻转）
+  const t7nAt = (ts) => (ts < T(0.8) ? 1 : ts < T(1.8) ? 2 : 3);
+  const fpVerdict = (ts) => (t7nAt(ts) > 2 ? { pass: true } : { pass: false, reason: 'launch_fail_dead' });
 
+  ok(fpVerdict(t0).pass === false, '首评 尾7s买 N=1 FP28 拒（事故现场）');
+
+  // 反证锁：旧 2s 间隔同节奏零重评饿死（bt-v178 实况 fpRetry attempts:[] expired）
+  const old = new FpRetryTracker({ spacingMs: 2000 });
+  old.register('b6ee', { legId: 'L', signalId: 's0', budget: 1, nowMs: t0 });
+  const oldEvalN = tickSec.filter((s) => { const c = old.tickCheck('b6ee', T(s)); return c && c.kind === 'eval'; }).length;
+  ok(oldEvalN === 0 && old.tickCheck('b6ee', T(31.8)).kind === 'expired',
+    '旧 2s 间隔：拒后四笔 tick 全不评，+31.8s 即过期=attempts 空（事故重演锁）');
+
+  // 新缺省 200ms + budget 2：+0.8s 重评 N=2 仍拒（烧一次）→ +1.8s 重评 N=3 过
   const tk = new FpRetryTracker();
   tk.register('b6ee', { legId: 'buy_0_1', signalId: 'sig1', budget: 2, nowMs: t0 });
-  // 首评即 FP 拒（引擎在 _evaluateBuyPath FP 分支登记后 return）
-  let gate = fpVerdict(t0);
-  ok(gate.pass === false, '锚时刻 t7N=2 FP28 拒（事故现场）');
-  // +1s tick：spacing 2s 未到 → 不评（0x5859 类同秒连 tick 不烧预算）
-  ok(tk.tickCheck('b6ee', t0 + 1000) === null, '+1s spacing 未到不评');
-  // +2s tick：重评 → t7N=4 → 翻转
-  const st = tk.tickCheck('b6ee', t0 + 2000);
-  ok(st && st.kind === 'eval', '+2s 到点重评');
-  gate = fpVerdict(t0 + 2000);
-  const rec = tk.recordResult('b6ee', gate.pass, gate.pass ? null : gate.reason, t0 + 2000);
-  ok(rec.pass === true && rec.attempts.length === 1, '重评 t7N=4 翻转通过（延迟 2s 救回=用户思想实验）');
+  let st = tk.tickCheck('b6ee', T(0.8));
+  ok(st && st.kind === 'eval', '+0.8s tick 到点评（debounce 节奏）');
+  let g = fpVerdict(T(0.8));
+  let rec = tk.recordResult('b6ee', g.pass, g.pass ? null : g.reason, T(0.8));
+  ok(!rec.pass && !rec.exhausted && rec.remaining === 1, '+0.8s 重评 N=2 仍拒（剩 1 次——共 3 评少一次都接不住）');
+  st = tk.tickCheck('b6ee', T(1.8));
+  ok(st && st.kind === 'eval', '+1.8s tick 到点重评');
+  g = fpVerdict(T(1.8));
+  rec = tk.recordResult('b6ee', g.pass, g.pass ? null : g.reason, T(1.8));
+  ok(rec.pass === true && rec.attempts.length === 2, '+1.8s 重评 N=3 翻转通过（重评 2 次预算恰好用尽）');
   ok(tk.pendingOf('b6ee') === null, '通过后 pending 清（引擎续跑门链）');
+
+  // 预算 1 反证：同节奏 +0.8s 烧完即耗尽，+1.8s 翻转无预算可评=包 fpRetry 必须 ≥2
+  const tk1 = new FpRetryTracker();
+  tk1.register('b6ee', { legId: 'buy_0_1', signalId: 'sig1', budget: 1, nowMs: t0 });
+  tk1.tickCheck('b6ee', T(0.8));
+  const r1 = tk1.recordResult('b6ee', false, 'launch_fail_dead', T(0.8));
+  ok(r1.exhausted === true && tk1.pendingOf('b6ee') === null && tk1.tickCheck('b6ee', T(1.8)) === null,
+    'budget 1 反证：+0.8s 拒即耗尽，+1.8s N=3 无预算可评（包 fpRetry 1→2 立法依据）');
 }
 
 // ── D. 引擎胶水源码锁（形状防线）──

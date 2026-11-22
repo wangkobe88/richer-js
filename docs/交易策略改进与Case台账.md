@@ -1737,6 +1737,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **余留**：①~~生效须策略包腿显式带 `signalGate.fpRetry>0`~~ **已生效（2026-11-22 用户裁定「fpRetry 的立法交易策略更新到当前交易策略中，下次测试需要生效」）**：deploy-trading-strategy.cjs 全 14 买腿 signalGate 加 `fpRetry: 1`（最小非零值保守起步——失败重试耗 maxTriggers 预算语义下取 1；高热度四臂 recheckCondition 形状不同须两轮替换 10+4=14 全覆盖）→ 182 --commit **trading-standard-v1 v1→v2**，docs 快照同步；生效动机=金狗 JG-23 批 1 BIBI 实证（0xb6ee 案源票在 bt-v177 被 `launch_fail_dead`（FP28 判据同款 ath26.8/龄72s/尾7s买2=点火单自己）原样误拦、拒点后 ×9.8——v1 未带 fpRetry 零行为的实时证据）；引用实验重启/新建实验自动取 v2；②w1003 单窗重试面 naive Σ−0.125 的负信号留档（效果层开闸前知情：本机制在该窗救回面偏负，豁免线方向为正——两修法救的票几乎不重叠，是否同开/怎么开由效果实验裁；**金狗集合 30 票重跑=首个效果对照窗，重跑时 BIBI 若救回即 T203 首个正例**）；③signals 页 fpRetry 段暂无专用徽章（metadata JSON 可查，要展示再走 T175 冒烟流程）。
 
+**T203c 重评间隔修订+包 fpRetry 1→2（2026-11-22 用户裁定「延迟 2 秒就没用了……不需要延迟，只要 debounce 过了就行」+「重评最多两次，一共 3 次」）**
+
+- **案源（本尊重跑打脸）**：bt-v178-jindog-v2-fpretry（b486464b，金狗集合 a8414632，包 v2 fpRetry:1 已正确解析）0xb6eeb994aa5ea8e2b5bd4fde8e57e15b0ecd7777 仍被 FP28 `launch_fail_dead` 拒（`execution_reason: factor_gate_launch_fail_dead`，锚：ath 26.8%/龄 71s/尾 7s 买 1 笔），且 `metadata.fpRetry={budget:1,expired:true,attempts:[]}`——**零重评过期**。case_ticks 实测节奏：19:10:57 触发 → 拒后 +0.8s（19:10:58）/+1.8s·+1.9s（19:10:59×2）三笔点火买单 → 断流 → +31.8s（19:11:29）。三笔**全落在 2s spacing 内不评**，下一笔已超 30s 地平线——机制的原目标形状（锚相位截到 burst 前半段）被自己的间隔饿死。上轮留痕「案源票 v2 下依然没救回但机制正确工作」对本案**不成立**：BIBI（att=[]）是真断流（地平线内无后续 tick），0xb6ee 是有 tick 而被间隔拦截，两者不同类。
+- **根因（设计错误）**：spacing=2000 的立论「点火第 3 笔买单落地通常 1~5s」被快波否证（+0.8s 即落完再断流）；预算（fpRetry）本身已是重评次数上限，间隔只该承担 debounce 级节流（同块多笔 tick 不逐笔烧预算），不该承担「等证据发育」——间隔越大越接不住快波，与机制目的相悖。
+- **裁定**：①spacing 缺省 2000→**200ms**（=买腿 signalDebounceMs 节奏；FpRetryTracker 构造缺省两引擎共享，horizon 30s 不动，normalizeSignalGate 合法域不变）；②包全 14 买腿 `fpRetry: 1→2`（首评+重评共 3 评）。判据对拍（`armLaunchFailDead`=ath<40 ∧ 龄<90s ∧ 尾 7s 买≤2，N≥3 过；ath/龄两腿在重评时刻恒在域内，只有尾 7s 腿随 tick 翻转）：#1 首评 N=1 拒 → #2 +0.8s N=2 仍拒（烧一次）→ #3 +1.8s N=3 **过**；重评 2 次恰好用尽，**少一次都接不住**（budget 1 反证=+0.8s 拒即耗尽）。
+- **实现**：`core/FpRetryTracker.js` 构造缺省 spacingMs 200；`deploy-trading-strategy.cjs` 14 腿 `fpRetry: 2`+ENTRY_DESC。单测 `_test_fp_retry_gate.cjs`：B 段间隔断言随形（100ms 不评/200ms 到点/间隔自上次评估起算）；C 段重写=bt-v178 实测节奏反证机化（旧 2s 间隔四笔 tick 全不评即过期=**事故重演锁**；新缺省+budget 2 三评翻转通过；**budget 1 反证锁**=包必须 ≥2 的立法依据）；全绿。本地 dry-run 校验通过。
+- **余留**：①包 v3 待 182 `--commit`（存量引用实验重启/新建实验自动取 v3）；②残余形状知情：拒后前两笔 tick 来得太早（证据未翻）而决定性买单更晚 → 3 评仍耗尽（密度高=证据涨得快，实际风险小；再不够加 fpRetry 值=效果层旋钮）；③FP 放行后 **AF1 是下一瓶颈层**（首轮 fpRetry pass 3 行全死 act_front_low）——0xb6ee 在 +1.8s 锚能否过 AF1 未实证，重跑对拍看。
+
 ## T204 FP33 tail_dip 有机盘豁免（金狗 JG-6 쿠우타 0xc0e896dd…7777 案，2026-11-21 用户裁定「好，落吧」）
 
 **机制**：`tail_dip_knife`（T182/FP18）臂命中时九腿全真 → 豁免放行——「famous 快闪砸出黄金坑+散户自然传播」形状（做市商痕迹弱 ∧ 散户通道主导 ∧ 量级带 [3,8]B ∧ famous 参与且无重跟单）。灰度键 `fourmemeWs.buyPointCheck.factorCheck.tailDipOrganicExempt`（缺省 false=FP32 行为 bit 不变；flap 经 _mergedWsConfig 同键）；null 语义=豁免证据缺席不豁免保持拦（宁拦不冒充——豁免方向要求证据齐全，与臂族拒方向容缺相反）。

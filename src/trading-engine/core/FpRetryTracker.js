@@ -19,9 +19,17 @@
  *  - register：FP 门 assessed 拒后登记（同 token 旧 pending 覆盖——单仓语义下
  *    同刻至多一个信号在门链，新信号的拒覆盖旧 pending=最新信号接管重试）；
  *    lastEvalAt=登记时刻（首次 FP 评估即第 0 次评估，间隔从它起算）
- *  - tickCheck：距上次评估 ≥ spacingMs 才重评（防同秒连 tick 烧穿预算——点火
- *    第 3 笔买单落地通常 1~5s）；registeredAt 起 > horizonMs 过期（陈旧信号
- *    不复活——案源窗 15s/模拟 δ 中位 5s，30s 上界留余量）
+ *  - tickCheck：距上次评估 ≥ spacingMs 才重评（registeredAt 起 > horizonMs
+ *    过期——陈旧信号不复活：案源窗 15s/模拟 δ 中位 5s，30s 上界留余量）
+ *  - **T203c 间隔修订（2026-11-22 用户裁定「延迟 2 秒就没用了……不需要延迟，
+ *    只要 debounce 过了就行」）**：spacingMs 缺省 2000→200（=买腿
+ *    signalDebounceMs 节奏）。原 2s 的假设「点火第 3 笔买单落地通常 1~5s」被
+ *    案源本尊重跑否证——bt-v178 0xb6ee…7777 19:10:57.2 FP28 拒（尾 7s 买 N=1）
+ *    后仅 +0.8s/+1.9s 三笔点火买单随即断流 30s：全部落在 2s 间隔内零重评，
+ *    下一笔 +31.8s 已超地平线 → attempts 空过期。本机制要解决的正是「锚相位
+ *    截到 burst 前半段」——间隔越大越接不住快波；预算（fpRetry）本身已是
+ *    重评次数上限，间隔只做 debounce 级节流（同块多笔 tick 不逐笔烧预算），
+ *    配套包 fpRetry 1→2（首评+重评共 3 评：+0.8s N=2 仍拒、+1.8s N=3 过）
  *  - recordResult：pass=清 pending（引擎续跑 actFront→cheat→BP→执行，入场锚=
  *    重评 tick 现价=重评通过即有效 fire 时刻）；reject=remaining−1，耗尽终态。
  *    attempts 数组全程累积，引擎负责落 signal metadata.fpRetry 段留痕
@@ -32,10 +40,10 @@
 class FpRetryTracker {
   /**
    * @param {Object} [opts]
-   * @param {number} [opts.spacingMs=2000] 相邻两次 FP 重评的最小间隔
+   * @param {number} [opts.spacingMs=200] 相邻两次 FP 重评的最小间隔（debounce 节奏）
    * @param {number} [opts.horizonMs=30000] pending 登记起的总寿面（过期即终态）
    */
-  constructor({ spacingMs = 2000, horizonMs = 30000 } = {}) {
+  constructor({ spacingMs = 200, horizonMs = 30000 } = {}) {
     this.spacingMs = spacingMs;
     this.horizonMs = horizonMs;
     /** @type {Map<string, {legId:string, signalId:*, budget:number, remaining:number, attempts:Array, registeredAt:number, lastEvalAt:number, strategyName:(string|null)}>} */
