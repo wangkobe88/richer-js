@@ -1773,3 +1773,17 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **单测**：`_test_factor_prebuy_check.cjs` AB 段扩 AB8~AB12（0x2ee9 案值豁免/MiniMaxM3.1@22.4 仍拦/16.49 vs 16.5 边界/null 两形状照拦/gates 值含流通%）299/0；版本钉 FP35→FP36 全量 14 处+`r.version` 4 处；邻居 buy_point_lib 583/check_service 43（版本钉 1 处）/cheat_detection_lib 657 全绿。
 
 **验证脚本**：tmp-t198-circ-exempt.cjs（本地 v164 metadata）/tmp-t198-circ-replay182.cjs（182 老窗；v3 修复=token_create 行级 platform 列+tokenMetaFromCreatePayload 三参签名；experiment_tokens 全量分页 win1019 量级超时→arbHold 判定与 supply 解耦、命中后按需查）。
+
+## T205 活跃度阶段前提+尾部接刀量腿（FP35/G23，金狗 JG-15 GWC 0xb712…7777 复活拉回案，2026-11-21；**本条=2026-11-22 补档占位，留待继续解决**）
+
+> **补档说明（缺口留痕）**：FP35/FP37/FP38 代码注释引用「交易 T205/T205b」，但原实施会话未写入本台账（尾编号停在 T204 系）——2026-11-22 金狗 JG-6f 核验时发现的双份悬空引用之一。本条由 commit 26cf5bee/f40b49f6/24c4b594 提交信息重建，细节以提交信息与代码注为准，待复核补全。用户裁定（2026-11-22）：「先都备注记录一下，留待继续解决」。全案金狗侧=金狗台账 JG-15（同日补档占位）。
+
+**案源与用户两原则**（26cf5bee）：GWC 死盘 56min→0.84B 真金复活→4 笔尘埃卖 0.164B 空簿打出 −6% 被 tail_dip_knife+act_low 双拦，锚后 +932% 毕业。①「活跃度拦截的价值在火过一段时间后的流动性失去，前期不重要」——act=low 阶段前提 `isColdStage(锚前 ATH<80，FP27 同线)` 贯通三挂点（FP act low 五臂 `factorCheck.actStageColdExempt` / AF1 reject_low→mid_full / cheat 分级门 E 通道 G23 共读 `cheatCheck.gate.actStageColdExempt`；共享线 act-stage.js；cheat snapshot 新键 athVsLaunchPct 地板锚=min(平台常量,窗内最低可靠价) 三点同源；低活跃票最终守门员=E 通道，不贯通则上游放行的 low 票死在下游）；②「量极少的跌不是从高点下来的」——tail_dip_knife 加必要腿锚前 30s 卖额 ≥0.3B（CD401 同线，`factorCheck.tailDipVolumeLeg`；win30 缺席=臂不触发）。ultra 刻意不受阶段影响；ath null=照拦 fail-closed；三灰度键缺省 false=零行为。
+
+**三窗面**（bt-v164/159/155）：act 语义拒绝 2054 票 ATH<80 带右尾 8.7%/死 63% vs ≥80 带 6.5%/71%（金狗 30 票 9 票 ≥100% 右尾死于此面）；td+act 双拦∧卖<0.3∧ATH<80=149 票右尾 9.4%/死 44% 全场最肥（量腿单独放行 131 票 4.6%=与阶段前提交集才是肥面=空簿漂移同源误读双出口）。单测六件全绿（FP 294/AF1 65/grade 127 含黄金集 42 票零漂移/lib 657/service 200/bp_check 43），案源反证断言 AG1 锁生产行 arms=['tail_dip_knife','act_low']。
+
+## T205b 阶段放行三反锚 FP37 落而复撤（2026-11-21 f40b49f6 落 → 2026-11-22 24c4b594 撤回；**同上补档占位**）
+
+**落（FP37，用户裁定「落 ABC，胜率保持的高一点」）**：T205 对拍增量面 215 票胜率 41.9%/净 +1.408 的三个坏面刀口——A 纯卖触发 actBuyBnb=0（20 票 20% 胜率/Σ−0.243 零尾；⚠GWC 原案即此形状=知情代价，重放中本就死 FP27 top5 卖 0.164B 轻出货臂，救赎攒批另案）/ B 复活已展开 idlePct<40（56 票 34%/Σ−0.471 零尾）/ C 无同块买入波（cheat levels sbwLv=0 面 49 票 29%；FP 时序拿不到 Jev 答案→cd.maxBlockBuyCount≤2 数值锚代理，标定 60 票 33%/Σ−0.02 交集 46/49，mbc[3,4] 段 112 票 43%/Σ+0.99 是肉线不可上移）——组合效果 110 票胜率 50.0%/净 +1.838 双升（A∪B∪C∪D 胜率 57% 但净跌破基线=D 否证留档）；实现=stageCold 放行条件加三腿全 fail-closed（nearTail10BuyN≥1 ∧ idlePct≥40 ∧ maxBlockBuyCount>2），只作用于放行路径火过票/非放行票行为不变，rides actStageColdExempt 零新灰度。
+
+**撤（FP38，v174 对拍否证）**：三腿标定面 41.9%→50%，重放验证反降（168 票 39.9%/净 +1.17 vs v173 215 票 41.9%/+1.41）——切走 63 票净Σ+0.14（C 腿独切 28 票 +0.35 正脸=代理键失真）+漏切 55 张标定坏面（Σ−0.43）；根因=「留痕 metadata 标定分离轴→运行时快照实现」键保真链路结构性不可靠（三键两两不同 cap/settle 源）+重放 Jev 重掷面不稳。**撤回=放行条件回纯 isColdStage(ath<80)，FP37 三常量整链移除（仅存在于研究臂 v174 未投产）；增量面 41.9% 胜率=期权结构本体（亏损端全 ≤0.06 干净止损），胜率化妆实证代价=净额回撤，勿重提同族提案除非键保真先解**。单测 AH 段换撤回源码锁（常量绝迹+注记在场+纯卖触发形状行为锁）302/0。
