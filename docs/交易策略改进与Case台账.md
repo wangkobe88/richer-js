@@ -1860,3 +1860,5 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **实现**：buy-point-snapshot launchDefer 三锚扩 firstWaveCleared/laterHolders/famBlockPct（首波窗 10s/波线 0.1B/清仓 10%/持有 50%；roster 缺失 famBlockPct=null）→ factor-pre-buy-check armBigBuyDefer 豁免腿（null 任一=证据缺席不豁免保持拦 FP33/36/39 惯例）+gates 门行三键展示；版本 FP41→FP42。单测：_test_factor_prebuy_check AD8/AD9（豁免九形状）+ _test_buy_point_lib Y1~Y7（登马甲镜像夹具精确值+famous 同块 29.9% 口径锁）。
 
 **知情点**：线值（15%/10s/0.1B/2 家）w1003 主导后验、冷窗 B 样本 1~2 张/组；真实卖腿口径全域对照（JG-32d 遗留 350 张非 B 票）未跑但豁免严格限 B 形状域。牢大破口（纯脉冲无 famous 作弊票）不在本豁免面内——归 AF1 high 通道被脉冲冒用问题域（钱包级跨票黑名单前置取证未启动）。
+
+**T208 兑现对拍（bt-v181 f7344de1，B 形状 24 票集合+现行 v2 包+FP42 代码）**：豁免腿机制全验证 ✓——登天猫 big_buy_defer 豁免正确触发（三键 首波清仓✓/后波持8/fam 0%）但同锚（05:50:29，v2 包相位比 bt-v177 v1 早 3s）**T198 arb_bot_holdings 真实命中**（持筹 51.07%/6 户 ∧ 流通 23.82%≥16.5 两腿全真非 bug）→ 未买入；赵娜丽莎豁免买入 **+61.6%**（A 臂被 act_tail_flat 拒 6 次的新增赢面）；人生指南仍拒 ✓；牢大 fam 0% 按定义放行=已知破口（作弊票另案）；丁真买入走既有深破豁免（−16.26<−10 FP40 族）路径非新腿（fam 9.9%@38s 锚 vs 取证 16%@23s=锚时点分母稀释漂移非 bug）。净效果 9 票 +0.3995/+22.2% vs A 臂 4 票 +0.058。**遗留观察（攒批）**：登天猫类要进场还差 T198 早期瞬时库存豁免评估（51%/6 户=arb bot 快进快出窗口，JG-16 0x2ee9 镜像案同族=T198b 流通腿当年立法动机形状）——另一立法点另案。
