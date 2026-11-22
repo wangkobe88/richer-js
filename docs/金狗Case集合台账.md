@@ -291,3 +291,15 @@
 - FP33→FP34 进程在本票单票可见：bt-v167（单臂豁免时代）02:30:40 死 `tail_no_buyer_pressure`（同域围堵，JG-6c 首对拍实锤案票）→ bt-v169（两臂豁免）该行推进到 famous 族臂才停——每剥一层露出下一层。
 
 **结论**：用户观点成立——现行配置下接刀门（tail_dip_knife）已对本票豁免；但全链仍未成交=JG-6d「右尾 5 张死因碎片化=全链冗余防御已知成本」的单票实证保持（famous 族/lifecycle/AF1 各拦一笔）。无机制动作。留档=票备注（a8414632）+ 本档。
+
+## JG-18 0xfc23…7777（一姐）23:43:02 无信号复盘：burst 真窗被回测 debounce 末笔重读语义吞掉（2026-11-22；已核验落备注）
+
+**入口**：signals 页提问「23:43:02 没有信号发出的原因」（本地时=UTC 15:43:02）。flap quote 盘，15:40:48 创建 → 15:55:13 毕业，bt-v164 全票仅 2 信号零成交，后续 >500%（第二批金狗）。
+
+**核验链**（`scripts/tmp-fc23-{probe,gates,vsL,sigmd,trend,exdust,replay,legs}.cjs`——最后一环=FA 真重放：链上真序 70 行喂 FourMemeFactorAggregator + ConditionEvaluator 逐 tick 评腿）：
+- **P1 两触发全被 FP 拒**：15:42:04 #1 拒于 `holder_quiet_unload`（60s top5 卖 0.151B∈[0.1,0.3) ∧ ath39.9<80）；15:42:32 #2（预算 2/2 耗尽）拒于 `tail_dip_knife`（ath48.9≥40 ∧ curVs0≤28.5 ∧ chg5 −10.9 ∧ chg30 −32.84 崩塌进行时）。两拒均留痕。
+- **15:43:02 主升第一秒 burst**：7 笔买入 0.76B（vsL −0.8%→+32.2% 单秒穿域），7 个全新钱包——其中 5 个命中跟单/女巫簇名单（copy-wallet-roster/sybil-clusters，1 个兼 famous），但均不在 cheat-crew v4 名单（`cheatCrewBuyBnb==0` 门放行）。
+- **真重放结论（推翻静态疑点）**：burst 第 2~4 笔 tick 上 P9（tradeCount≥15 ∧ buyVol≥2.5，无 ExDust 门）条件全 true、P2（ExDust≥6）第 3~4 笔 true（ExDust 4→9 逐笔爬升）——**条件真窗存在**；第 5~7 笔起 curVs 28.8/29.2/32.2 出 28.5 域全 false。
+- **真凶=回测 debounce 末笔重读语义**：BacktestEngine 1869-1873「所有买腿（含 signalGate）统一走 debounce——T132 per-tick 已撤销（2026-11-17 用户裁定）」。同秒 7 笔 touch 合并，advance 在末笔后重读因子=curVs 32.2 出域 → 14 腿全 false，亚秒级真窗被结构性吞掉；15:43:10/15:43:20 burst 末笔 36.3/41.1 同理，此后一路 +350% 毕业无回落。
+
+**定位**：与 T132 立项动机（ea78 t0 案「真窗只存在于一笔 tick」）完全同形状——**实时引擎 per-tick 评估缺省开（signalGatePerTickEval=true）该形状会触发 P9，回测 T154 统一 debounce 结构性失明**=回测/实时形状差异的又一实证（样本 1，攒批不立法）。阶梯腿设计的已知代价面：P1 预算在回落死寂段被 FP 消耗 + burst 穿域速度（单秒 +30pt）快于任何 debounce 形状的采样粒度。留档=票备注（a8414632）+ 本档。
