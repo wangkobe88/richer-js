@@ -18,14 +18,14 @@ const TOKEN = '0xfc23bfc0371d8296d26d034a4e8b155661a57777';
   ]);
   if (error) throw new Error(error.message);
   const legs = ((pack || [])[0].definition || {}).buyLegs || [];
-  const COND = { P1: legs[0].condition, P2: legs[1].condition, P9: legs[9].condition };
+  const COND = { P1: legs[0].condition };
   const ev = new ConditionEvaluator();
   const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
   fa.registerToken(TOKEN, { createdAtMs: Date.parse('2026-10-04T15:40:48Z'), totalSupply: 1e9, symbol: '一姐', platform: 'flap', creatorAddress: null });
   const rows = (ticks || []).slice().sort((a, b) =>
     (a.block_number - b.block_number) || ((a.log_index ?? 0) - (b.log_index ?? 0)));
   console.log(`喂食 ${rows.length} 行（链上真序）`);
-  const marks = ['15:42:04', '15:42:32', '15:43:02', '15:43:03', '15:43:05', '15:43:08', '15:43:12', '15:43:18', '15:43:25'];
+  const marks = ['15:42:20', '15:42:28', '15:42:29', '15:42:30', '15:42:31', '15:42:32', '15:42:33', '15:42:34'];
   let i = 0;
   for (const r of rows) {
     i++;

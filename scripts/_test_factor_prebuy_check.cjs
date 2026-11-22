@@ -193,7 +193,7 @@ console.log('DP. FP23 相邻双块捆绑砸盘尾承接（T190/0x2b63 ASCEND 案
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'dump_pair_low_absorption');
     assert.deepStrictEqual(r.arms, ['dump_pair_low_absorption']);
-    assert.strictEqual(r.version, 'FP40');
+    assert.strictEqual(r.version, 'FP41');
     const g = r.gates.find(x => x.id === 'dump_pair');
     assert.ok(g, 'gates 须含 dump_pair 门');
     assert.strictEqual(g.hit, true);
@@ -206,7 +206,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP40'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP41'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -317,7 +317,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP40');
+    assert.strictEqual(r.version, 'FP41');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -870,7 +870,7 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP17（T180 首两波大部队迁入；FP16=大周期 burst 残局）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40'); // FP32=T201 大户推迟臂迁入（ladder v34 G2）；FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41'); // FP32=T201 大户推迟臂迁入（ladder v34 G2）；FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
   });
 }
 
@@ -1104,7 +1104,7 @@ console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入�
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'launch_squad_dominance');
     assert.ok(r.arms.includes('launch_squad_dominance'));
-    assert.strictEqual(r.version, 'FP40');
+    assert.strictEqual(r.version, 'FP41');
   });
   check('T2 有机热门盘 wave≥8 但 dom<30 → 放（da405bd0 wave13 dom0 实证——占比轴保护赢家）', () => {
     const r = M.evaluateFactorPreBuy(LS(13, 0));
@@ -1199,7 +1199,7 @@ console.log('U. FP19 尾部接刀臂（T182）');
     assert.strictEqual(g2.hit, false);
   });
   check('U10 版本（FP40=FP26 深破豁免；FP39=tail_dip 深破豁免）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
   });
 }
 
@@ -1248,7 +1248,7 @@ console.log('V. T187/FP21 持有者打散臂（筹码结构维度：posH≥25 �
     assert.strictEqual(M.armHolderScatter(CH(29, 28, 50).buyDerived), true);
   });
   check('V10 版本 FP21（T187 持有者打散；豁免=top1≥45 ∨ 前2≥60）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
   });
 }
 
@@ -1310,7 +1310,30 @@ console.log('W. T188/FP22 持仓均等作弊仓臂（HHI<0.10 团伙分仓指纹
     assert.ok(Math.abs(hhi([50, 25, 25]) - 0.375) < 1e-12);
   });
   check('W8 版本 FP22（T188 持仓均等作弊仓臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
+  });
+  // ── FP41 实体口径豁免腿（JG-24：捆绑购买=一个钱包；W9~W12） ──
+  const CH2E = (hhi, entHhi, posH, circ = 20) => SNAP({ buyDerived: { chip: { holderHHI: hhi, holderHHIEntities: entHhi, posHolderCount: posH, top1HoldCircPct: 20, top1Top2HoldCircPct: 35, circSupplyPct: circ }, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 3 } } });
+  check('W9 ZKind 现场反证（散户 HHI 0.0746 ∧ 实体 0.3475[锚同块 6 钱包并实体] ∧ 流通 17.3 → 豁免不拦；bt-v177 实测值）', () => {
+    assert.strictEqual(M.armEvenSplitCrew(CH2E(0.0746, 0.3475, 20, 17.3).buyDerived), false);
+    const r = M.evaluateFactorPreBuy(CH2E(0.0746, 0.3475, 20, 17.3));
+    assert.ok(!r.arms.includes('even_split_crew'));
+  });
+  check('W9b 真均分残局照拦（双腿全低：散户 0.0746 ∧ 实体 0.0956[严格等额合并后] ∧ 流通 20 → 拒——伪分散与真分散分开）', () => {
+    assert.strictEqual(M.armEvenSplitCrew(CH2E(0.0746, 0.0956, 20, 20).buyDerived), true);
+  });
+  check('W10 豁免线边界（实体 0.099 拒 / 0.100 恰达线放——与散户 HHI 同线）', () => {
+    assert.strictEqual(M.armEvenSplitCrew(CH2E(0.09, 0.099, 20, 20).buyDerived), true);
+    assert.strictEqual(M.armEvenSplitCrew(CH2E(0.09, 0.100, 20, 20).buyDerived), false);
+  });
+  check('W11 null=豁免证据缺席不豁免保持拦（FP33/FP36/FP39 惯例——undefined 同 null：旧快照无实体键 bit 不变）', () => {
+    assert.strictEqual(M.armEvenSplitCrew(CH2E(0.09, null, 20, 20).buyDerived), true);
+    assert.strictEqual(M.armEvenSplitCrew(CH2E(0.09, undefined, 20, 20).buyDerived), true);
+  });
+  check('W12 gates 门行带实体值（信号页②因子检查卡展示 实体0.347）', () => {
+    const r = M.evaluateFactorPreBuy(CH2E(0.0746, 0.3475, 20, 17.3));
+    const g = r.gates.find((x) => x.id === 'even_split_crew');
+    assert.ok(g.value.includes('实体0.347'));
   });
 }
 
@@ -1372,7 +1395,7 @@ console.log('X. FP26/T193 尾段买力枯竭+卖压在场（bt-v158 因子分析
     assert.strictEqual(g2.hit, false);
   });
   check('X7 版本（T193 尾段买力枯竭+卖压在场，T194 后顺延 FP27）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
   });
 }
 
@@ -1439,7 +1462,7 @@ console.log('Y. FP27/T194 大户静默卸货（未走完周期庄提前离场—
     assert.strictEqual(g2.hit, false);
   });
   check('Y8 版本（T194 大户静默卸货，T195 后顺延 FP28）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
   });
 }
 
@@ -1520,7 +1543,7 @@ console.log('Z. FP28/T195 早窗启动失败死盘（bt-v162 热窗首测立法�
     assert.strictEqual(g2.hit, false);
   });
   check('Z9 版本 FP28（T195 早窗启动失败死盘）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
   });
 }
 
@@ -1583,7 +1606,7 @@ console.log('AA. FP29/T197 分仓出货残局盘（CI/MOLLY 工厂盘取证立�
     assert.strictEqual(g2.hit, false);
   });
   check('AA7 版本（T197 分仓出货残局盘，T198 后顺延 FP30）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
   });
 }
 
@@ -1644,7 +1667,7 @@ console.log('AB. FP30/T198 机器持筹垄断（arbBot 组净持筹占在场流�
     assert.strictEqual(g2.hit, false);
   });
   check('AB7 版本（T198 机器持筹垄断，T198b 流通腿后 FP36）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
   });
   // T198b/FP36 流通腿豁免（2026-11-21 案源 0x2ee9…7777：镜像 sandwich_bot 瞬时
   // 库存误读；四窗深跌分离 0 vs 15，线 16.5=FP22 同线，null 不豁免保持拦）
@@ -1732,7 +1755,7 @@ console.log('AC. FP31/T200 fam_holding_thin 中等跟单豁免（slot 级 U 型�
     assert.strictEqual(M.FAM_THIN_FOLLOW_EXEMPT_MAX_BNB, 0.2);
   });
   check('AC6 版本 FP31（T200 中等跟单豁免）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
   });
 }
 
@@ -1780,7 +1803,7 @@ console.log('AD. FP32/T201 大户买入推迟（ladder v34 G2 迁入——행복
     assert.ok(r.arms.includes('big_buy_defer'));
   });
   check('AD7 版本 FP33（JG6 tail_dip 有机盘豁免；FP32 大户推迟线不变）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
     assert.strictEqual(M.BIG_BUY_DEFER_TIER079_BNB, 0.79);
     assert.strictEqual(M.BIG_BUY_DEFER_TIER1_BNB, 1);
     assert.strictEqual(M.BIG_BUY_DEFER_SEC_TIER079, 45);
@@ -2100,7 +2123,7 @@ console.log('AI. FP39 tail_dip_knife 深破豁免（一姐 0xfc23…7777 案 JG-
     assert.ok(g.value.includes('-11.21'), 'value 应含破发%: ' + g.value);
   });
   check('AI8 版本钉（FP40=FP26 同款深破豁免）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
   });
 }
 
@@ -2161,7 +2184,7 @@ console.log('AJ. FP40 tail_no_buyer_pressure 深破豁免（一姐案 JG-18 续�
     assert.deepStrictEqual(r.arms, []);
   });
   check('AJ7 版本钉死 FP40', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP40');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP41');
   });
 }
 

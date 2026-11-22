@@ -1006,6 +1006,8 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
     top3HoldCircPct: cd.top3HoldCircPct ?? null,
     // T188/FP22 持仓均等度（正净分布 HHI，cheat-snapshot 直切；团伙分仓指纹）
     holderHHI: cd.holderHHI ?? null,
+    // FP41 实体口径 HHI（同首买块捆绑钱包合并算 Σ份额²；豁免腿消费）
+    holderHHIEntities: cd.holderHHIEntities ?? null,
     // T188 流通腿（在场流通占比=Σ正净÷总量；HHI 臂派发进度条件——低流通救回）
     circSupplyPct: cd.circSupplyPct ?? null,
     sameBlockHoldPct: cd.sameBlockHoldPct ?? null,

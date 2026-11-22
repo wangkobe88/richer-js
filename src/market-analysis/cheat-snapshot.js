@@ -848,6 +848,29 @@ function computeDerived(snapshot, famousRoster) {
     if (t.side !== 'BUY' || !t.wallet) continue;
     if (!firstBuyBlockOf.has(t.wallet)) firstBuyBlockOf.set(t.wallet, t.block);
   }
+  // ── FP41 实体口径 HHI（2026-11-22 JG-24 立法，用户裁定「捆绑购买看成是
+  //    一个钱包」）：同首买块的正净持有钱包合并为一个实体再算 Σ(份额²)。
+  //    语义=GMGN「捆绑」行为单位口径（实证 ZKind 0xa79e：锚同块 6 钱包各买
+  //    0.1B 档全走 GMGN 路由 to=0x1de460f3、gas 全 1M——六路独立滑点但同块
+  //    同通道同档=行为单位；散户口径 HHI 0.0746 → 合并 0.3475=新实体接管
+  //    51% 的主力盘，非「均分无主力」残局）。等额/等量指纹（T74/T172）判
+  //    不出这种形状（滑价序列金额/数量全不等）。首买块在窗口外（无买入行
+  //    的正净持有钱包，开盘前 transfer 筹码）不合并=独立实体。消费=FP22
+  //    豁免腿（buyDerived.chip 切片），不进题面/state/FA 投影；<2 实体或
+  //    posTokTotal≤0 → null（有证据的缺席，同 holderHHI 语义）──
+  const holderHHIEntities = (() => {
+    if (!(posTokTotal > 0 && posSorted.length >= 2)) return null;
+    const entSum = new Map();
+    for (const [w, v] of posSorted) {
+      const blk = firstBuyBlockOf.get(w);
+      const k = blk !== undefined ? 'b' + blk : 'solo_' + w;
+      entSum.set(k, (entSum.get(k) || 0) + v);
+    }
+    if (entSum.size < 2) return null;
+    let h = 0;
+    for (const v of entSum.values()) h += (v / posTokTotal) * (v / posTokTotal);
+    return h;
+  })();
   // holdingsProfile（D3.35 补腿版）在 burst 波段之后统一构建（circPct 在场流通
   // 口径 + 原料 firstBuyBlockOf 在此备齐——见下方 D3.35 段）
 
@@ -2043,6 +2066,8 @@ function computeDerived(snapshot, famousRoster) {
     posHolderCount, top1Top2HoldCircPct, top3HoldCircPct,
     // T188/FP22 持仓均等度锚（正净分布 HHI；buyDerived.chip 切片供 FP 臂消费）
     holderHHI,
+    // FP41 实体口径 HHI（同首买块钱包合并；FP22 豁免腿消费，头注见计算段）
+    holderHHIEntities,
     // T188 流通腿锚（在场流通占比=Σ正净÷totalSupply；HHI 臂的派发进度条件）
     circSupplyPct,
     clusterHoldSupplyPct, t1PlusClusterSupplyPct, holdingsProfile,
