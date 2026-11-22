@@ -193,7 +193,7 @@ console.log('DP. FP23 相邻双块捆绑砸盘尾承接（T190/0x2b63 ASCEND 案
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'dump_pair_low_absorption');
     assert.deepStrictEqual(r.arms, ['dump_pair_low_absorption']);
-    assert.strictEqual(r.version, 'FP37');
+    assert.strictEqual(r.version, 'FP38');
     const g = r.gates.find(x => x.id === 'dump_pair');
     assert.ok(g, 'gates 须含 dump_pair 门');
     assert.strictEqual(g.hit, true);
@@ -206,7 +206,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP37'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP38'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -317,7 +317,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP37');
+    assert.strictEqual(r.version, 'FP38');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -870,7 +870,7 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP17（T180 首两波大部队迁入；FP16=大周期 burst 残局）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP37'); // FP32=T201 大户推迟臂迁入（ladder v34 G2）；FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP38'); // FP32=T201 大户推迟臂迁入（ladder v34 G2）；FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
   });
 }
 
@@ -1104,7 +1104,7 @@ console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入�
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'launch_squad_dominance');
     assert.ok(r.arms.includes('launch_squad_dominance'));
-    assert.strictEqual(r.version, 'FP37');
+    assert.strictEqual(r.version, 'FP38');
   });
   check('T2 有机热门盘 wave≥8 但 dom<30 → 放（da405bd0 wave13 dom0 实证——占比轴保护赢家）', () => {
     const r = M.evaluateFactorPreBuy(LS(13, 0));
@@ -1199,7 +1199,7 @@ console.log('U. FP19 尾部接刀臂（T182）');
     assert.strictEqual(g2.hit, false);
   });
   check('U10 版本 FP22（T188 持仓均等作弊仓；FP21=T187 持有者打散臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP37');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP38');
   });
 }
 
@@ -1248,7 +1248,7 @@ console.log('V. T187/FP21 持有者打散臂（筹码结构维度：posH≥25 �
     assert.strictEqual(M.armHolderScatter(CH(29, 28, 50).buyDerived), true);
   });
   check('V10 版本 FP21（T187 持有者打散；豁免=top1≥45 ∨ 前2≥60）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP37');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP38');
   });
 }
 
@@ -1310,7 +1310,7 @@ console.log('W. T188/FP22 持仓均等作弊仓臂（HHI<0.10 团伙分仓指纹
     assert.ok(Math.abs(hhi([50, 25, 25]) - 0.375) < 1e-12);
   });
   check('W8 版本 FP22（T188 持仓均等作弊仓臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP37');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP38');
   });
 }
 
@@ -1372,7 +1372,7 @@ console.log('X. FP26/T193 尾段买力枯竭+卖压在场（bt-v158 因子分析
     assert.strictEqual(g2.hit, false);
   });
   check('X7 版本（T193 尾段买力枯竭+卖压在场，T194 后顺延 FP27）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP37');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP38');
   });
 }
 
@@ -1439,7 +1439,7 @@ console.log('Y. FP27/T194 大户静默卸货（未走完周期庄提前离场—
     assert.strictEqual(g2.hit, false);
   });
   check('Y8 版本（T194 大户静默卸货，T195 后顺延 FP28）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP37');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP38');
   });
 }
 
@@ -1520,7 +1520,7 @@ console.log('Z. FP28/T195 早窗启动失败死盘（bt-v162 热窗首测立法�
     assert.strictEqual(g2.hit, false);
   });
   check('Z9 版本 FP28（T195 早窗启动失败死盘）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP37');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP38');
   });
 }
 
@@ -1583,7 +1583,7 @@ console.log('AA. FP29/T197 分仓出货残局盘（CI/MOLLY 工厂盘取证立�
     assert.strictEqual(g2.hit, false);
   });
   check('AA7 版本（T197 分仓出货残局盘，T198 后顺延 FP30）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP37');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP38');
   });
 }
 
@@ -1644,7 +1644,7 @@ console.log('AB. FP30/T198 机器持筹垄断（arbBot 组净持筹占在场流�
     assert.strictEqual(g2.hit, false);
   });
   check('AB7 版本（T198 机器持筹垄断，T198b 流通腿后 FP36）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP37');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP38');
   });
   // T198b/FP36 流通腿豁免（2026-11-21 案源 0x2ee9…7777：镜像 sandwich_bot 瞬时
   // 库存误读；四窗深跌分离 0 vs 15，线 16.5=FP22 同线，null 不豁免保持拦）
@@ -1732,7 +1732,7 @@ console.log('AC. FP31/T200 fam_holding_thin 中等跟单豁免（slot 级 U 型�
     assert.strictEqual(M.FAM_THIN_FOLLOW_EXEMPT_MAX_BNB, 0.2);
   });
   check('AC6 版本 FP31（T200 中等跟单豁免）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP37');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP38');
   });
 }
 
@@ -1780,7 +1780,7 @@ console.log('AD. FP32/T201 大户买入推迟（ladder v34 G2 迁入——행복
     assert.ok(r.arms.includes('big_buy_defer'));
   });
   check('AD7 版本 FP33（JG6 tail_dip 有机盘豁免；FP32 大户推迟线不变）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP37');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP38');
     assert.strictEqual(M.BIG_BUY_DEFER_TIER079_BNB, 0.79);
     assert.strictEqual(M.BIG_BUY_DEFER_TIER1_BNB, 1);
     assert.strictEqual(M.BIG_BUY_DEFER_SEC_TIER079, 45);
@@ -2004,20 +2004,8 @@ console.log('AG. T205 阶段前提+量腿（GWC 复活拉回案）');
     assert.strictEqual(r.level, 'ultra');
     assert.strictEqual(r.branch, 'act_ultra_coordinated_selling');
   });
-  check('AG15 端到端（T205b 后语义）：GWC 全形状双灰度全开 → A 腿不释（纯卖触发 nearTail10BuyN=0）→ 仍拦 act_low（原案形状知情代价，救赎在 FP27 攒批）', () => {
+  check('AG15 端到端（FP38 撤回后=纯阶段语义）：GWC 全形状双灰度全开 → 双臂全让位 pass（复活拉回收官；ABC 三反锚已随 v174 对拍否证撤回）', () => {
     const r = M.evaluateFactorPreBuy(GWC(0.164), { enableTailDipVolumeLeg: true, enableActStageCold: true });
-    assert.strictEqual(r.pass, false);
-    assert.strictEqual(r.reason, 'act_low'); // tail_dip 已被量腿放行、act low 被 A 腿撤销释放
-    assert.deepStrictEqual(r.arms, ['act_low']);
-  });
-  check('AG15b 端到端：GWC 类但触发窗有买方（nearTail10BuyN=2+mbc4+idle98.9）→ 三反锚全过双臂让位 pass', () => {
-    const r = M.evaluateFactorPreBuy(SNAP({
-      wallets: [W(0.3, 0, 0.3), W(0.25, 0, 0.25)],
-      buyDerived: { athVsLaunchPct: 43.5, currentVsLaunchPct: 26.3, chg5Pct: -6.01, chg30Pct: -6.01,
-        bundledBlock: null, win: { 30: { buyBnb: 0.3, buyN: 3, sellBnb: 0.164, sellN: 4 } },
-        activity: { idlePct: 98.9, ticksPerMin: 0.3, buyMedianBnb: 0.05, throughputBnbPerMin: 0.05, spanSec: 400, tickCount: 12, nearTail10BuyN: 2 } },
-      cheatDerived: { maxBlockBuyCount: 4 },
-    }), { enableTailDipVolumeLeg: true, enableActStageCold: true });
     assert.strictEqual(r.pass, true);
     assert.strictEqual(r.reason, null);
     assert.deepStrictEqual(r.arms, []);
@@ -2026,10 +2014,9 @@ console.log('AG. T205 阶段前提+量腿（GWC 复活拉回案）');
     const r = M.evaluateFactorPreBuy(GWC(0.164), { enableTailDipVolumeLeg: true });
     assert.strictEqual(r.reason, 'act_low');
   });
-  check('AG17 端到端（T205b 后语义）：只开阶段（量腿关）→ A 腿不释 → act_low 拦（tail_dip 同命中但 reason 优先级）', () => {
+  check('AG17 端到端：只开阶段（量腿关）→ 仍被 tail_dip 拦（ath43.5≥40 域内）', () => {
     const r = M.evaluateFactorPreBuy(GWC(0.164), { enableActStageCold: true });
-    assert.strictEqual(r.reason, 'act_low');
-    assert.deepStrictEqual(r.arms, ['tail_dip_knife', 'act_low']);
+    assert.strictEqual(r.reason, 'tail_dip_knife');
   });
   check('AG18 火过票灰度全开 → 双臂照拦（ATH≥80 死盘不受保护）', () => {
     const r = M.evaluateFactorPreBuy(GWC(0.5, 8), { enableTailDipVolumeLeg: true, enableActStageCold: true });
@@ -2046,60 +2033,28 @@ console.log('AG. T205 阶段前提+量腿（GWC 复活拉回案）');
   });
 }
 
-// ═════ AH. T205b 阶段放行三反锚（用户裁定 ABC——增量面胜率 41.9%→50% 标定） ═════
-console.log('AH. T205b 放行三反锚（A 买方在场/B 窗口真静/C 同块买入波）');
+// ═════ AH. T205b 三反锚撤回锁（FP38——v174 对拍否证：标定 41.9%→50% 重放反降 39.9%/+1.17，C 腿代理失真切正脸+三键保真漂移；源码常量绝迹+撤回注释在场） ═════
+console.log('AH. T205b 三反锚撤回锁（FP38）');
 {
-  const STAGEH = (ath, activity, cd) => ({
-    ticks: [{ dt: 400 }], wallets: [],
-    buyDerived: Object.assign({ activity }, ath == null ? {} : { athVsLaunchPct: ath }),
-    cheatDerived: cd,
+  const SRC = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'market-analysis', 'factor-pre-buy-check.js'), 'utf8');
+  check('AH1 三反锚常量绝迹（ACT_STAGE_RELEASE_* 不再存在）', () => {
+    assert.ok(!SRC.includes('ACT_STAGE_RELEASE_MIN_TAIL10_BUY_N'));
+    assert.ok(!SRC.includes('ACT_STAGE_RELEASE_MIN_IDLE_PCT'));
+    assert.ok(!SRC.includes('ACT_STAGE_RELEASE_MAX_DEAD_BLOCK_BUY_N'));
+    assert.ok(!SRC.includes('releaseTail10Ok') && !SRC.includes('releaseIdleOk') && !SRC.includes('releaseWaveOk'));
   });
-  const BASE_ACT = { idlePct: 98.9, ticksPerMin: 0.3, buyMedianBnb: 0, throughputBnbPerMin: 0.05, spanSec: 400, tickCount: 12, nearTail10BuyN: 2 };
-  const REL = (over = {}) => M.judgeActivityLevel(STAGEH(43.5, Object.assign({}, BASE_ACT, over.activity || {}),
-    over.cd || { maxBlockBuyCount: 4 }), { enableActStageCold: true });
-  check('AH1 A 腿：nearTail10BuyN=0（纯卖触发）→ 不释照拦 low', () => {
-    const r = REL({ activity: { nearTail10BuyN: 0 } });
-    assert.strictEqual(r.level, 'low');
-    assert.strictEqual(r.branch, 'act_low_idle');
-    assert.strictEqual(r.trace.stageCold, false);
+  check('AH2 撤回档在场（stageCold 回纯 isColdStage+否证注记）', () => {
+    assert.ok(SRC.includes('const stageCold = opts.enableActStageCold === true && isColdStage(stageAth);'));
+    assert.ok(SRC.includes('T205b 放行三反锚 ABC 已撤回 FP38'));
   });
-  check('AH2 A 腿边界：nearTail10BuyN=1 恰放 / null（键缺席）不释 fail-closed', () => {
-    assert.strictEqual(REL({ activity: { nearTail10BuyN: 1 } }).level, null);
-    assert.strictEqual(REL({ activity: { nearTail10BuyN: null } }).level, 'low');
-  });
-  check('AH3 B 腿：idlePct=39（复活已展开）→ 不释 / 40 恰放 / null 不释', () => {
-    assert.strictEqual(REL({ activity: { idlePct: 39 } }).level, 'low');
-    assert.strictEqual(REL({ activity: { idlePct: 40 } }).level, null);
-    assert.strictEqual(REL({ activity: { idlePct: null, nearTail10BuyN: 2 } }).level, 'low');
-  });
-  check('AH4 C 腿：maxBlockBuyCount=2（死区）→ 不释 / 3 恰放 / null/非数 不释（代理线 2|3）', () => {
-    assert.strictEqual(REL({ cd: { maxBlockBuyCount: 2 } }).level, 'low');
-    assert.strictEqual(REL({ cd: { maxBlockBuyCount: 3 } }).level, null);
-    assert.strictEqual(REL({ cd: { maxBlockBuyCount: null } }).level, 'low');
-    assert.strictEqual(REL({ cd: {} }).level, 'low');
-  });
-  check('AH5 三腿全过（尾买 2/idle 98.9/mbc 4）→ 释（level null/act_stage_cold）= AG10 现行语义', () => {
-    const r = REL({});
+  check('AH3 行为锁：纯卖触发形状（nearTail10BuyN=0）阶段放行照过（三腿不再约束）', () => {
+    const r = M.judgeActivityLevel({
+      ticks: [{ dt: 400 }], wallets: [],
+      buyDerived: { athVsLaunchPct: 43.5, activity: { idlePct: 98.9, ticksPerMin: 0.3, buyMedianBnb: 0, throughputBnbPerMin: 0.05, spanSec: 400, tickCount: 12, nearTail10BuyN: 0 } },
+      cheatDerived: { maxBlockBuyCount: 0 },
+    }, { enableActStageCold: true });
     assert.strictEqual(r.level, null);
     assert.strictEqual(r.branch, 'act_stage_cold');
-  });
-  check('AH6 灰度关（缺省）→ 三反锚零行为（ath=43.5 且纯卖触发也照拦——放行路径才受三腿约束）', () => {
-    const r = M.judgeActivityLevel(STAGEH(43.5, Object.assign({}, BASE_ACT, { nearTail10BuyN: 0 }), { maxBlockBuyCount: 1 }));
-    assert.strictEqual(r.level, 'low');
-    assert.strictEqual(r.branch, 'act_low_idle');
-  });
-  check('AH7 火过票（ath=120）三反锚不在场也不影响（本就照拦 low——三腿只作用于放行路径）', () => {
-    const r = M.judgeActivityLevel(STAGEH(120, Object.assign({}, BASE_ACT, { nearTail10BuyN: 5 }), { maxBlockBuyCount: 9 }), { enableActStageCold: true });
-    assert.strictEqual(r.level, 'low');
-    assert.strictEqual(r.trace.stageCold, false);
-  });
-  check('AH8 ultra 不受三反锚影响（协同出货照拦——当下事实）', () => {
-    const snap = {
-      ticks: [{ dt: 400 }], wallets: [],
-      buyDerived: { athVsLaunchPct: 43.5, activity: { nearTail10SellWallets: 12, nearTail10BuyN: 0, nearTail10BuyBnb: 0, idlePct: 2, ticksPerMin: 200 } },
-      cheatDerived: { maxBlockBuyCount: 0 },
-    };
-    assert.strictEqual(M.judgeActivityLevel(snap, { enableActStageCold: true }).level, 'ultra');
   });
 }
 

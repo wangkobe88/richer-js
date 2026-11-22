@@ -317,7 +317,7 @@ async function main() {
 
   // ═══════════════ E. FP N 升格臂证伪撤回（对拍 2026-11-18 同日）═══════════════
   console.log('E. FP N 通道升格臂撤回（对拍证伪）');
-  ok(FACTOR_PREBUY_VERSION === 'FP37', `FP 版本=FP37（T205b 三反锚后现行；断言随版本演进同步——2026-11-20 修存量漂移 FP28、2026-11-21 同步 FP35/FP37）（实际 ${FACTOR_PREBUY_VERSION}）`);
+  ok(FACTOR_PREBUY_VERSION === 'FP38', `FP 版本=FP38（T205b 撤回后现行；断言随版本演进同步——2026-11-20 修存量漂移 FP28、2026-11-21/22 同步 FP35/FP38)（实际 ${FACTOR_PREBUY_VERSION}）`);
   {
     // 最小 snapshot 直调：N 臂无条件拦会误伤 A_strong∧high 豁免票（萨摩耶 N=6.3
     // −0.014/我画地为牢 N=0.0 +0.0875/PAYAI N=9.5 +0.0762，净 −0.15 > FFFF
