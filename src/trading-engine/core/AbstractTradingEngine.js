@@ -1523,11 +1523,36 @@ class AbstractTradingEngine extends ITradingEngine {
     }
   }
 
+  /**
+   * T203d 重评资格门控纯读：以当刻 factors 复评腿触发条件（strategy.condition
+   * =loadStrategies 存的 AST；factors=挂点传入的全量因子表——实时=factorsUpdated
+   * 发射物/回测=buildFactorMap(addr, tickTs)，与触发评估同源同表）。翻假/评估
+   * 异常 → false（跳过本次重评，保守方向不烧预算不启动下游门链——对齐门链
+   * 「条件评估异常 fail-closed 拒」）。腿无 condition（理论不可达：signalGate
+   * 腿经 validateLegs 恒有触发条件）→ true 保持 T203 原语义（无门可评）。
+   */
+  _fpRetryLegConditionPasses(strategy, factors, tokenAddress) {
+    if (!strategy || !strategy.condition) return true;
+    try {
+      if (!this.__fpRetryCondEval) {
+        const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
+        this.__fpRetryCondEval = new ConditionEvaluator();
+      }
+      return this.__fpRetryCondEval.evaluate(strategy.condition, factors) === true;
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'FpRetry',
+        `腿条件复评异常（保守跳过本次重评） | ${tokenAddress.slice(0, 10)} ${e.message}`);
+      return false;
+    }
+  }
+
   async __fpRetryTickInner(tokenAddress, token, factors, nowMs, dispatchResume, fpCtx, tr, st, p) {
     if (st.kind === 'expired') {
       tr.clear(tokenAddress);
       try {
-        await this._updateSignalMetadata(p.signalId, { fpRetry: { budget: st.budget, attempts: st.attempts, expired: true } });
+        await this._updateSignalMetadata(p.signalId, {
+          fpRetry: { budget: st.budget, attempts: st.attempts, ...(p.skips > 0 ? { skipped: p.skips } : {}), expired: true },
+        });
       } catch (e) { /* 留痕失败不阻断（行早已 failed 终态） */ }
       return false;
     }
@@ -1535,6 +1560,20 @@ class AbstractTradingEngine extends ITradingEngine {
       .find(s => s.action === 'buy' && s.signalGate && s.id === p.legId);
     if (!strategy) { // 理论上仅重启换策略后发生——旧腿 pending 丢弃
       tr.clear(tokenAddress);
+      return false;
+    }
+    // T203d 重评资格门控（2026-11-22 用户裁定「每一个条件的重试，也是要满足
+    // 因子表达式条件的基础上进行的」；案源 GWC 0xb712…7777 bt-v179：FP 第 2 次
+    // 重评锚恰落拉升波首 tick，curVs +31.4% 已破腿门 28.5 线=腿条件当刻翻假，
+    // 重评两头皆死路——FP 拒=白烧一发预算 / FP 过=被 BP 统一位置门（≤+28.5
+    // 已拉离拒）拦下还白烧 cheat/BP Jev 配额）。翻假=跳过本次重评：不烧预算、
+    // pending 保留（30s 地平线照旧兜底终态），条件回真的下一个到点 tick 照常
+    // 评。刻意不做成「翻假即终态」：T203 案源 0xb6ee 形状=FP 证据发育期价格
+    // 快速上移、腿条件短暂翻假是常态，终态会把 T203 的救回面砍掉。
+    if (this._fpRetryLegConditionPasses(strategy, factors, tokenAddress) === false) {
+      tr.noteSkip(tokenAddress);
+      this.logger.debug(this._experimentId, 'FpRetry',
+        `${(p.strategyName || tokenAddress.slice(0, 10))} 腿条件当刻已翻假——跳过本次 FP 重评（不烧预算）| skipped=${p.skips}`);
       return false;
     }
     // 重评（锚=当前时刻：实时无 anchorMs=拉到最新 tick；回测 anchorMs=虚拟时刻截窗）
@@ -1549,7 +1588,7 @@ class AbstractTradingEngine extends ITradingEngine {
     if (!rec) return false;
     try {
       await this._updateSignalMetadata(p.signalId, {
-        fpRetry: { budget: p.budget, attempts: rec.attempts, ...(rec.exhausted ? { exhausted: true } : {}) },
+        fpRetry: { budget: p.budget, attempts: rec.attempts, ...(p.skips > 0 ? { skipped: p.skips } : {}), ...(rec.exhausted ? { exhausted: true } : {}) },
       });
     } catch (e) { /* 同上 */ }
     if (rec.pass) {

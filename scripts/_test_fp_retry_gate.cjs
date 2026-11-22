@@ -133,7 +133,99 @@ console.log('\n[C] 0xb6ee bt-v178 案 tick 节奏重放（评估器打桩）');
     'budget 1 反证：+0.8s 拒即耗尽，+1.8s N=3 无预算可评（包 fpRetry 1→2 立法依据）');
 }
 
-// ── D. 引擎胶水源码锁（形状防线）──
+// ── E. T203d 重评资格门控（2026-11-22 用户裁定「每一个条件的重试，也是要满足
+//      因子表达式条件的基础上进行的」；案源 GWC 0xb712…7777 bt-v179：FP 第 2 次
+//      重评锚恰落拉升波首 tick，curVs 31.4% 已破腿门 28.5 线=条件翻假，重评两头
+//      皆死路——FP 拒白烧预算 / FP 过被 BP 位置门拦还白烧 cheat/BP Jev）──
+console.log('\n[E] T203d 腿条件门控重评资格');
+{
+  const { FpRetryTracker } = require('../src/trading-engine/core/FpRetryTracker');
+  const { ConditionEvaluator } = require('../src/strategies/ConditionEvaluator');
+
+  // E1 noteSkip 纯逻辑：skips 计数；不动 remaining/lastEvalAt（下一个到点 tick 照常可评）
+  const tk = new FpRetryTracker();
+  const T0 = 1700000000000;
+  tk.register('t', { legId: 'L', signalId: 's1', budget: 2, nowMs: T0 });
+  tk.noteSkip('t'); tk.noteSkip('t');
+  ok(tk.pendingOf('t').skips === 2 && tk.pendingOf('t').remaining === 2, 'noteSkip×2：skips=2 预算不动');
+  ok(tk.pendingOf('t').lastEvalAt === T0, 'noteSkip 不动 lastEvalAt（条件回真下个到点 tick 即评）');
+  ok(tk.tickCheck('t', T0 + 200).kind === 'eval', '跳过后 spacing 语义原样（+200ms 到点可评）');
+  tk.noteSkip('missing'); // 无 pending 票 no-op 不抛
+  ok(true, 'noteSkip 无 pending no-op');
+
+  // E2 事故现场反证：0xb712 GWC bt-v179 真时间线重放（真 ConditionEvaluator+真
+  // tracker；FP verdict 打桩=首评/重评恒拒 act_low——本案 FP 层确恒拒，焦点在
+  // 预算是否被条件翻假时刻白烧）。腿条件=ladder leg0 同形关键三腿；factors=
+  // 各时刻 FA 重放实测值（tmp-b712-fa-replay.cjs）。
+  const cond = 'tradeCount >= 6 AND currentVsLaunchPct <= 28.5 AND actTotalBnb >= 0.1';
+  const ce = new ConditionEvaluator();
+  // [相对秒, factors, 事件] —— 07:54:35.2 触发；36.0 重评#1（价格未动条件仍真）；
+  // 48.0 波首 tick（curVs 31.4% ∧ actTotalBnb 0.0985 双翻假）；49.2 全波落地
+  // （curVs 57.9%）；55.0 闪卖（curVs 55.0%）；23:55:18=+42.8s 超地平线
+  const timeline = [
+    [0.0, { tradeCount: 37, currentVsLaunchPct: 26.33, actTotalBnb: 0.1504 }, 'fire'],
+    [0.8, { tradeCount: 37, currentVsLaunchPct: 26.33, actTotalBnb: 0.1504 }, 'tick'],
+    [12.8, { tradeCount: 40, currentVsLaunchPct: 31.4, actTotalBnb: 0.0985 }, 'tick'],
+    [13.2, { tradeCount: 48, currentVsLaunchPct: 57.89, actTotalBnb: 0.5836 }, 'tick'],
+    [19.8, { tradeCount: 49, currentVsLaunchPct: 55.04, actTotalBnb: 0.6321 }, 'tick'],
+    [42.8, { tradeCount: 51, currentVsLaunchPct: 40.28, actTotalBnb: 0.2594 }, 'tick'],
+  ];
+  const fpAlwaysReject = () => ({ pass: false, reason: 'act_low' });
+
+  // 门控版（T203d）：到点先复评腿条件，翻假跳过不烧预算
+  {
+    const tkx = new FpRetryTracker();
+    tkx.register('b712', { legId: 'buy_0_1', signalId: 'sig', budget: 2, nowMs: T0, strategyName: 'P1·首买' });
+    // 首评拒（登记即首评）：fire 时刻条件真
+    ok(ce.evaluate(cond, timeline[0][1]) === true, 'fire 时刻腿条件真（curVs 26.33 域内）——触发合法');
+    tkx.recordResult('b712', false, 'act_low', T0 + 800); // +0.8s 重评#1（条件仍真→评 FP 拒）
+    let expired = null, skips = 0, attempts = 1;
+    for (const [sec, factors] of timeline.slice(2)) {
+      const st = tkx.tickCheck('b712', T0 + sec * 1000);
+      if (!st) continue;
+      if (st.kind === 'expired') { expired = st; tkx.clear('b712'); break; } // 引擎侧过期后 clear（镜像 __fpRetryTickInner）
+      // T203d 门控：腿条件复评
+      if (ce.evaluate(cond, factors) === false) { tkx.noteSkip('b712'); skips++; continue; }
+      const g = fpAlwaysReject();
+      const rec = tkx.recordResult('b712', g.pass, g.reason, T0 + sec * 1000);
+      attempts++;
+      if (rec.exhausted) break;
+    }
+    const p = tkx.pendingOf('b712');
+    ok(expired && expired.kind === 'expired' && p === null, '门控版：30s 地平线过期终态（pending 清）');
+    ok(expired.attempts.length === 1 && attempts === 1, '门控版：attempts 恒 1（48.0/49.2/55.0 三次条件翻假全跳过——预算剩 1 未白烧）');
+    ok(skips === 3, `门控版：skips=3（翻假时刻 48.0/49.2/55.0 全跳过，实际=${skips}）`);
+
+    // 对照（无门控=T203c 现行形状）：48.0 即烧最后一发 → 耗尽终态（bt-v179 实况）
+    const tkOld = new FpRetryTracker();
+    tkOld.register('b712', { legId: 'buy_0_1', signalId: 'sig', budget: 2, nowMs: T0 });
+    tkOld.recordResult('b712', false, 'act_low', T0 + 800);
+    let exhaustedAt = null;
+    for (const [sec] of timeline.slice(2)) {
+      const st = tkOld.tickCheck('b712', T0 + sec * 1000);
+      if (!st) continue;
+      if (st.kind === 'eval') {
+        const rec = tkOld.recordResult('b712', false, 'act_low', T0 + sec * 1000);
+        if (rec.exhausted) { exhaustedAt = sec; break; }
+      }
+    }
+    ok(exhaustedAt === 12.8, `对照无门控：48.0（+12.8s）白烧最后一发即耗尽（bt-v179 实况重演，实际=${exhaustedAt}）`);
+  }
+
+  // E3 引擎胶水源码锁：门控调用点在 _factorGateEvaluate 之前 + noteSkip/skipped 落痕在场
+  const abs = fs.readFileSync(path.join(__dirname, '../src/trading-engine/core/AbstractTradingEngine.js'), 'utf8');
+  const trk = fs.readFileSync(path.join(__dirname, '../src/trading-engine/core/FpRetryTracker.js'), 'utf8');
+  const innerIdx = abs.indexOf('async __fpRetryTickInner(');
+  const condIdx = abs.indexOf('_fpRetryLegConditionPasses(strategy, factors, tokenAddress) === false', innerIdx);
+  const gateIdx = abs.indexOf('await this._factorGateEvaluate(tokenAddress', innerIdx);
+  ok(innerIdx > 0 && condIdx > innerIdx && gateIdx > condIdx,
+    '源码锁：条件门控调用点在 __fpRetryTickInner 内、_factorGateEvaluate 之前（先资格后重评）');
+  ok(abs.includes('_fpRetryLegConditionPasses(strategy, factors, tokenAddress)'), '源码锁：门控 helper 在场');
+  ok(abs.includes('tr.noteSkip(tokenAddress)'), '源码锁：翻假分支调 noteSkip');
+  ok(abs.includes('{ skipped: p.skips }'), '源码锁：metadata.fpRetry 落 skipped 计数（过期/拒两条留痕路径）');
+  ok(trk.includes('noteSkip(token)'), 'tracker：noteSkip 在场');
+  ok(!/Date\.now/.test(trk.split('noteSkip')[1] || ''), 'noteSkip 零 Date.now（时钟注入红线不变）');
+}
 console.log('\n[D] 引擎胶水源码锁');
 {
   const live = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');

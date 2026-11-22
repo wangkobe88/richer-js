@@ -61,12 +61,23 @@ class FpRetryTracker {
     const p = {
       legId, signalId, budget: n, remaining: n,
       attempts: [], registeredAt: nowMs, lastEvalAt: nowMs, strategyName,
+      skips: 0, // T203d 腿条件翻假跳过计数（纯观测；不改时间/预算状态）
     };
     this._pendings.set(token, p);
     return p;
   }
 
   pendingOf(token) { return this._pendings.get(token) || null; }
+
+  /**
+   * T203d 条件翻假跳过计数（引擎重评资格门控调用）：纯观测，不动 lastEvalAt/
+   * remaining——下一个到点 tick 条件回真即照常评。地平线过期/耗尽终态时引擎
+   * 把 skips 随 metadata.fpRetry 落痕（attempts 偏少的原因可解释）。
+   */
+  noteSkip(token) {
+    const p = this._pendings.get(token);
+    if (p) p.skips += 1;
+  }
 
   /**
    * tick 时刻判定（纯读，不改状态——expired 的清理由引擎确认后调 clear）：
