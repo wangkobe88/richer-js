@@ -522,3 +522,13 @@
 **拒因分布**（信号级）：act 族 51（act_low 22+act_tail_flat 19+AF1 10）≈bt-v177 持平最大族；tail_dip 5+tail_no_buyer 5；holder_scatter 4；lifecycle 3；famous 族 4；cheat 1（一姐）；launch_fail_dead 1（BIBI）。
 
 **定位**：非 bug；覆盖 4→5/30、净额 −0.145 的分解=神龙犬 −82.8pt+AGI −29.7+下雨了 −8.6 vs ZKind +49.2——**T208 修相位抓住了全部四张单秒窗票（30/30 有信号），但同轮相位变化让三张原成交票买点变差/丢失**；fpRetry 首轮实战=3 pass 全死 AF1（AF1 成为 FP 放行后的新瓶颈层）+BIBI 无 tick 边界。攒批不立法。留档=本档。
+
+## JG-35 集合级重跑 bt-v179（v4 包=burstCooldown 移除）：10/30 票 +1.8749B（+93.75%、胜率 90%）——三轮对照 4→5→10 票/净额 +0.371→+0.2365→+1.8749；关 burst 快卖直接救回牛屁 +208.5%/下雨了 +113.4%，fpRetry:2 救回 쿠우타/BIBI，FP43 救回登摩羯 +256.4%（2026-11-22；用户裁定「burst 无承接快速卖出机制先关闭，对金狗伤害太大」）
+
+**实验行**：bt-v179-jindog-v4-noburst（f8e1c963，clone bt-v164 换 caseCollectionId）——**v4 包=burstCooldown 段移除**（deploy --commit v3→v4；恢复=definition 加回 `burstCooldown:{}`；stallClose 50s 保留）+182 最新代码（T203c fpRetry:2+200ms、T208、FP41/FP42/**FP43**〔T209 launch_fail_dead 换手豁免，并行会话同轮立法〕）。多机制同轮知情；**并行会话 bt-v183（b7dc515d）同 v4 包独立跑出同结果（10 票 +1.8749 bit 一致）=确定性交叉验证**。completed：信号 98 / 成交 35 笔 10 票 / 净 +1.8749（+93.75%，胜率 90%=9 正 1 平）。
+
+**票级（10/30，全部 buy 1 笔 0.2B=4 卡口径）**：登摩羯 **+256.4%**（FP43 首评即过=T209 兑现；持有 4min，famous_hold/smart_hold 拦卖 5 次+P7/P10 四段卖——JG-2/A79e 主案票四轮首进）｜牛屁 **+208.5%**（T189 快卖消失后 P7/P10/P1 三段卖到主升——JG-13 误伤票终于拿住）｜下雨了 **+113.4%**（att=1:pass 重评进场+pump/smart HOLD 拦卖 2 次+四段卖——JG-4 兑现）｜神龙犬 +90.6%（bt-v178 +30.2%→完整拿住）｜ZKind +78.8%（bt-v178 +49.2% 24s 切→三段卖完整）｜AGI +70.8%（回归）｜쿠우타 +50.4%（**P3 首评 reject→第 2 次重评 pass→executed**=T203c 直接战果，bt-v177/178 五信号全灭票）｜牢猫 +38.9%（四轮稳定）｜BIBI +29.6%（**att=1:reject→2:pass**=T203 案源票三轮后终于救回；19:13 stallClose 50s 流动性止损出）｜Waterdrop 0.0%（**唯一平手：死于 stallClose 流动性止损非 burst 机制**——JG-19 承接 +60s 迟到依旧，burst 关闭救不了 stallClose 域，另案）。
+
+**机制归因分解**：①关 burstCooldown（主刀）=牛屁/下雨了/ZKind/神龙犬四票从「秒切平手/小赚」变「拿住主升」（Σ 增量 ≈ +2.6B 的主体）；②T203c fpRetry:2=쿠우타/BIBI/下雨了三票重评救回（bt-v178 时 3 pass 全死 AF1/BIBI 饿死——200ms 间隔+2 次预算后 AF1 也过了〔本轮 AF1 burst_exempt 形状〕）；③FP43=登摩羯换手豁免首评放行；④卖出过滤门（famous/smart/pump_arm HOLD）上涨途中拦卖 7 次=保尾功臣。**burstCooldown 关闭的净效果在本集合=纯增量（无一张票因不快卖而深亏——Waterdrop 平手出是 stallClose）**，与 T189b「sbw 未确认组净负」旧证据同向。
+
+**定位**：T189 临时关闭首个对照窗=+1.64B 净增；**金狗集合四轮链 bt-v177→178→179 覆盖 4→5→10/净额 +0.371→+0.2365→+1.8749**。Waterdrop（stallClose 域）与卖侧剩余观察留档。恢复路径知情=definition 加回 `burstCooldown:{}`。留档=本档+交易台账 T189 余留关闭行。
