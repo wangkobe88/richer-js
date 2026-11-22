@@ -1838,3 +1838,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **单测**：_test_factor_prebuy_check W9~W12（ZKind 现场反证案值 0.0746/0.3475/17.3、真均分双低照拦 0.0956、豁免线边界 0.099/0.100、null/undefined 保持拦、gates 实体值）322/0；版本钉全量 FP41；邻居 buy_point_check_service 43/lib/cheat 系全绿。
 
 **知情遗留**：①ZKind 在 bt-v177 相位豁免后 BP 位置门（curVs≈40.4>28.5）接棒拒该行仍买不进（fire 快照 15.96 门内=实跑相位可达）；②「簇在场秒砸」豁免票前向分布攒批复审；③182 部署后生效（生产灰度=factorCheck.enabled 既有开关，无新增灰度键——直接立法粗版）。金狗侧全档=JG-31。
+
+## T208 TickDebouncer 到期即结算——回测虚拟时钟 fireTs=真实到期时刻（0x76b0 中文房间案，2026-11-22 用户裁定「这个修复了即可，不需要效果测试，这是 debounce 设计的目标」）
+
+**案源**：bt-v177-jindog-v34-rerun（金狗集合重跑）0x76b0dc29…7777 中文房间（flap quote 盘，10-04）。11:30:25 静默 94s 后单笔 0.1977B 点火买触发 leg buy_0_1（t0 六笔最早臂）进买评估去抖；该票此后静默 10s，旧形状 `advance(nowTs)` 把 fireTs 落在下一笔 tick 11:30:35 的推进时刻——FA asOf/信号 created_at/T110 时钟/FP 锚窗全体漂移 10s。**FP40 临近段（锚前 30s）中位被 :35 尘买 0.0253 拉下 0.05 线 → act_near_dead 一票翻转拒**（离线 FP 纯函数锚对拍：:25.2 锚中位 0.1977=点火单自己 → pass=true 进后门；:35 锚拒判与线上信号行逐字复现）；24s 后 wave 到，×9~12 毕业。另一 razor edge：act 10s 窗 gap 恰 10000ms 整、点火买 0ms 余量压线存活——gap 再长=actTotalBnb 掉 0 → 真触发静默丢失（「真窗只存在于一笔 tick」类）。
+
+**裁定与定性**：用户质疑「debounce 窗之内无行为，就应该触发」成立——real 模式本就如此（setTimeout 到期即回调，fireTs=真实到期时刻），virtual 模式的「到期欠账下一笔 tick 结算」不是 debounce 语义而是虚拟时钟实现副作用。与 T154（2026-11-17 撤 per-tick、统一 debounce 阻塞式）不冲突：撤的是「每 tick 评估」，本修不动架构/不加评估点/信号量不变，只把**同一条 pending 的结算时刻**从「推进时刻」改回「到期时刻」。与一姐案「debounce 吞窗=必然机制（交易不可能插入同 block）」的区别知情：那案覆盖同块 burst 合并，本案是静默隔档（链上可以在 :25.2 成交、live per-tick 也会当拍评）——邻接形状，本修同时消解两族的锚漂移。
+
+**机制**：`core/TickDebouncer.js` `advance()` ——fire 时 fireTs=条目真实到期时刻 `min(lastTouch+debounceMs, burstStart+maxWaitMs)`（先到期腿），不再用推进时刻 nowTs；fireTs≤nowTs 由到期条件保证无需钳制。real 模式零变化（timer 路径本就到期回调）；touch 立即路径（debounceMs≤0）零变化；burst 重置/maxWait 语义零变化。回测链路 fireTs 单一入口 `_runBuyEvaluation(token, tick, fireTs)`——因子 asOf/信号时刻/FP anchorMs 全部自动跟随。**SellConfirmDebouncer 刻意不动**：卖确认窗是证据驱动（minTicks 凑证据才 fire），fire 必须落在 tick 到达时刻=设计语义非欠账。
+
+**单测**：新增 `_test_tick_debouncer.cjs` 17/17（A 段=0x76b0 事故现场反证：gap 10s fireTs=25200 而非 35000；B 密集形状零漂移；C maxWait 双腿先到=1000 非 1100/推进 1200；D 多条目各自到期；E 立即路径/real no-op/clear；F 尾 drain fireTs=自身到期而非 +10min 推进值）。邻居：chain_order 14/0、buy_signal_throttle 47/0、signal_gate_engine 141/0、fp_retry_gate 全绿、card_position 28/0、sell_debounce_mechanisms 88/0、backtest_trigger_leg 12/0。**效果测试豁免**（用户裁定）；回测结果会漂（静默票锚整体前移）=预期行为非回归。
+
+**关联**：T203 fpRetry（同票三层因果链的第一层，本案双层=本修+T205 灰度未开；详 auto-memory t203-fp-retry-gate）；T154/T132/一姐案（架构裁定链）；金狗侧 0x76b0 留档待用户裁定是否记 JG。
