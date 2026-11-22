@@ -2415,6 +2415,48 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
     const ftNone = buildBuyPointSnapshot(rowsSl, metaA, { famousRoster: new Set(['0x' + '77'.repeat(20)]) }).buyDerived.famousTraces;
     ok(ftNone.famousFollowBnb === null, 'X3 无 famous 命中 → null（FP3 域外本就放行）');
   }
+
+  // ═══ FP42/JG-32f big_buy_defer 换手豁免三键（launchDefer 扩展——首波清仓/后波持有/famous 同块） ═══
+  console.log('Y. FP42 launchDefer 豁免三键（首波清仓∧后波持有∧famous 同块占比）');
+  {
+    // 夹具镜像登马甲形状：首波 f484e5/94afbb（10s 内买 0.1/0.2 → 7s/14s 清仓）、
+    // 后波等额对 0.2×2+0.237 持有；famous 变体=famous 与跟单同块进场。
+    const W_S1 = '0x' + 'a1'.repeat(20), W_S2 = '0x' + 'a2'.repeat(20);
+    const W_L1 = '0x' + 'b1'.repeat(20), W_L2 = '0x' + 'b2'.repeat(20), W_L3 = '0x' + 'b3'.repeat(20);
+    const W_FA2 = '0x' + 'fa'.repeat(20), W_FD = '0x' + 'fd'.repeat(20);
+    const mkRows = (withFam) => [
+      row(2, 'BUY', W_S1, 0.10, 1.0 * E9, 1e8, { block: 2000 }),
+      row(5, 'BUY', W_S2, 0.20, 1.0 * E9, 2e8, { block: 2001 }),
+      row(8, 'SELL', W_S1, 0.10, 1.1 * E9, 0.9e8, { block: 2002 }),   // 首波 S1 清仓
+      row(15, 'SELL', W_S2, 0.19, 1.2 * E9, 1.6e8, { block: 2003 }),  // 首波 S2 清仓 ≥90%
+      row(20, 'BUY', W_L1, 0.20, 1.3 * E9, 1.5e8, { block: 2004 }),
+      row(20, 'BUY', W_L2, 0.20, 1.3 * E9, 1.5e8, { block: 2004, li: 1 }),
+      row(25, 'BUY', W_L3, 0.24, 1.4 * E9, 1.7e8, { block: 2005 }),
+      ...(withFam ? [
+        row(22, 'BUY', W_FA2, 0.15, 1.35 * E9, 1.1e8, { block: 2006 }),
+        row(22, 'BUY', W_FD, 0.25, 1.35 * E9, 1.9e8, { block: 2006, li: 1 }), // famous+跟单同块（块买 0.40）
+      ] : []),
+    ];
+    const roster = new Set([W_FA2]);
+    const ld = buildBuyPointSnapshot(mkRows(false), metaA, { famousRoster: roster }).buyDerived.launchDefer;
+    ok(ld.firstWaveCleared === true, `Y1 首波清仓=true（S1 净 0≤10%×0.10；S2 净 0.01≤10%×0.20，实际 ${ld.firstWaveCleared}）`);
+    ok(ld.laterHolders === 3, `Y2 后波持有=3（L1/L2/L3 全持 ≥50%，实际 ${ld.laterHolders}）`);
+    ok(ld.famBlockPct === 0, `Y3 无 famous 同块 → 0%（实际 ${ld.famBlockPct}）`);
+    const ldF = buildBuyPointSnapshot(mkRows(true), metaA, { famousRoster: roster }).buyDerived.launchDefer;
+    // 窗买=0.10+0.20+0.20+0.20+0.24+0.15+0.25=1.34；famous 块 2006（fa+fd 两钱包）=0.40 → 29.9%
+    ok(ldF.famBlockPct === 29.9, `Y4 famous+跟单同块 → 0.40/1.34=29.9%（≥15 收割布局，实际 ${ldF.famBlockPct}）`);
+    const ldNoRoster = buildBuyPointSnapshot(mkRows(false), metaA, { famousRoster: null }).buyDerived.launchDefer;
+    ok(ldNoRoster.famBlockPct === null, 'Y5 roster 缺失 → famBlockPct=null（豁免证据缺席）');
+    const ldNoEarly = buildBuyPointSnapshot([
+      row(2, 'BUY', W_S1, 0.10, 1.0 * E9, 1e8), row(20, 'BUY', W_L1, 0.20, 1.2 * E9, 1.7e8), row(25, 'BUY', W_L2, 0.20, 1.3 * E9, 1.5e8),
+    ], metaA, { famousRoster: roster }).buyDerived.launchDefer;
+    ok(ldNoEarly.firstWaveCleared === false, `Y6 首波未清仓 → false（S1 全持，实际 ${ldNoEarly.firstWaveCleared}）`);
+    // 无 ≥0.1B 首波 → null（证据缺席）
+    const ldNoWave = buildBuyPointSnapshot([
+      row(2, 'BUY', W_S1, 0.05, 1.0 * E9, 5e7), row(20, 'BUY', W_L1, 0.20, 1.2 * E9, 1.7e8), row(25, 'BUY', W_L2, 0.20, 1.3 * E9, 1.5e8),
+    ], metaA, { famousRoster: roster }).buyDerived.launchDefer;
+    ok(ldNoWave.firstWaveCleared === null, `Y7 无 ≥0.1B 首波 → null（实际 ${ldNoWave.firstWaveCleared}）`);
+  }
 })().catch((e) => {
   console.error('\n❌ FAIL:', e && e.message);
   console.error(e);

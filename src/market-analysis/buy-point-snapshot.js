@@ -58,6 +58,12 @@ const BP_LAUNCH_SQUAD_BLOCK_WALLETS = 5;
 const BP_LAUNCH_DEFER_MIN_TICK_BNB = 0.001;
 const BP_LAUNCH_DEFER_UNIFORM_DUST_BNB = 0.01;
 const BP_LAUNCH_DEFER_BIG_BUY_BNB = 0.19;
+// FP42/JG-32f big_buy_defer 豁免腿线（用户框架「sniper 走光+有人接盘+接盘≠famous 布局」；
+// 线值=JG-32f 域内 2×2 验证口径逐字：首波窗 10s/波线 0.1B/清仓线 10%/持有线 50%/≥2 家）
+const BP_LAUNCH_DEFER_EXEMPT_FIRST_WAVE_SEC = 10;
+const BP_LAUNCH_DEFER_EXEMPT_WAVE_BNB = 0.1;
+const BP_LAUNCH_DEFER_EXEMPT_CLEARED_RATIO = 0.1;
+const BP_LAUNCH_DEFER_EXEMPT_HOLD_RATIO = 0.5;
 /** 摆动确认阈值（%）：zigzag 反向运动超此值确认峰/谷摆点（BP8 圣诞树原料；初版待校准） */
 const BP_SWING_THRESHOLD_PCT = 20;
 /** 开盘段宽度（秒）：dt < 此值=开盘段（BP18 盘面分类锚——首段购买力结构度量） */
@@ -1623,13 +1629,26 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
     if (firstDt !== null && firstDt <= BP_LAUNCH_COVER_TOL) {
       const wCum = new Map();
       const wFirst = new Map();
+      // FP42/JG-32f 豁免腿账本：卖出全量计（净持仓语义）、首买 dt、famous 块结构（尘线后买）
+      const wSell = new Map();
+      const wFirstDt = new Map();
+      const blkBuy = new Map();
       let firstTradeDt = null;
+      let exemptWinBuyBnb = 0;
       for (const t of winRows) {
+        if (t.wallet && t.side !== 'BUY') wSell.set(t.wallet, (wSell.get(t.wallet) || 0) + (t.bnb || 0));
         if (t.side !== 'BUY' || (t.bnb || 0) < BP_LAUNCH_DEFER_MIN_TICK_BNB) continue;
         if (t.wallet) {
           wCum.set(t.wallet, (wCum.get(t.wallet) || 0) + (t.bnb || 0));
-          if (!wFirst.has(t.wallet)) wFirst.set(t.wallet, { blk: t.block ?? null, bnb: t.bnb || 0 });
+          if (!wFirst.has(t.wallet)) { wFirst.set(t.wallet, { blk: t.block ?? null, bnb: t.bnb || 0 }); wFirstDt.set(t.wallet, t.dt); }
+          if (t.block != null) {
+            let x = blkBuy.get(t.block);
+            if (!x) { x = { bnb: 0, wallets: new Set(), fam: false }; blkBuy.set(t.block, x); }
+            x.bnb += t.bnb || 0; x.wallets.add(t.wallet);
+            if (rosterFamous && rosterFamous.has(t.wallet)) x.fam = true;
+          }
         }
+        exemptWinBuyBnb += t.bnb || 0;
         if (firstTradeDt === null && !t.outlier && t.priceBnb > 0) firstTradeDt = t.dt;
       }
       const eqGroups = new Map();
@@ -1650,11 +1669,31 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
         for (const w of arr) merged += wCum.get(w) || 0;
         if (merged >= BP_LAUNCH_DEFER_BIG_BUY_BNB) bigBuyBnb += merged;
       }
+      // FP42/JG-32f 豁免腿分组：首波=firstDt+10s 前首买且累计买 ≥0.1B；后波=其后 ≥0.1B
+      const exemptEarlyCut = firstDt + BP_LAUNCH_DEFER_EXEMPT_FIRST_WAVE_SEC;
+      const earlyWs = [], laterWs = [];
+      for (const [w, v] of wCum) {
+        if (v < BP_LAUNCH_DEFER_EXEMPT_WAVE_BNB) continue;
+        const fd = wFirstDt.get(w);
+        if (fd === null || fd === undefined) continue;
+        (fd <= exemptEarlyCut ? earlyWs : laterWs).push(w);
+      }
       launchDefer = {
         bigBuyBnb: +bigBuyBnb.toFixed(4),
         sinceFirstTradeSec: firstTradeDt !== null && tEnd !== null
           ? +((tEnd - firstTradeDt).toFixed(1)) : null,
         minVsFloorPct: launchMinVsFloorPct,
+        // FP42/JG-32f 豁免腿三键：firstWaveCleared（首波全清仓 true/false；无首波=null 证据缺席）
+        // + laterHolders（后波持有家数）+ famBlockPct（famous 所在块≥2 买钱包买入占比%；
+        // roster 缺失=null）。null 语义=豁免证据缺席不豁免保持拦（FP33/FP36/FP39 惯例）。
+        firstWaveCleared: (() => {
+          if (earlyWs.length < 1) return null;
+          return earlyWs.every((w) => (wCum.get(w) || 0) - (wSell.get(w) || 0) <= (wCum.get(w) || 0) * BP_LAUNCH_DEFER_EXEMPT_CLEARED_RATIO);
+        })(),
+        laterHolders: laterWs.filter((w) => (wCum.get(w) || 0) - (wSell.get(w) || 0) >= (wCum.get(w) || 0) * BP_LAUNCH_DEFER_EXEMPT_HOLD_RATIO).length,
+        famBlockPct: rosterFamous && exemptWinBuyBnb > 0
+          ? +(100 * [...blkBuy.values()].filter((x) => x.fam && x.wallets.size >= 2).reduce((s, x) => s + x.bnb, 0) / exemptWinBuyBnb).toFixed(1)
+          : null,
       };
     }
   }
