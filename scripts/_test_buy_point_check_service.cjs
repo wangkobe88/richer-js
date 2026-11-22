@@ -553,7 +553,7 @@ function mkSvc(config, db, llm, extraDeps = {}) {
             const s = mkSvc({ enabled: true, factorCheck: { enabled: true }, settleDelayMs: 0, minTicks: 8 }, db, llm);
             const r = await s.evaluateFactorPreBuy('0xtok3', {});
             assert.strictEqual(r.status, 'assessed');
-            assert.ok(r.version === 'FP39' && typeof r.pass === 'boolean' && r.pvp && r.activity && Array.isArray(r.arms) && Array.isArray(r.gates) && r.observe === null);
+            assert.ok(r.version === 'FP40' && typeof r.pass === 'boolean' && r.pvp && r.activity && Array.isArray(r.arms) && Array.isArray(r.gates) && r.observe === null);
             assert.strictEqual(llmTouched, 0); // 零 Jev
             assert.strictEqual(db.inserted.length, 0); // 零表写
         });

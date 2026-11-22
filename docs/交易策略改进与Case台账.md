@@ -1808,3 +1808,13 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **与既有豁免族关系**：FP33 有机盘豁免（九腿）/FP34 扩臂走 `tailDipExempted` 门层机制（灰度键）；本豁免=臂内域腿（无键直接立法），与量腿（必要腿收窄）方向相反互不干扰；豁免后破发行不再进 arms，FP33 豁免对破发行自然不再需要。
 
 **单测**：AI1~AI8（案值 -11.21 豁免/浅破 -5 照拦/边界 -10.01 vs -10 严格小于/null 两形状照拦/量腿共存深破恒放行/0x6dc1 卡线外仍拦/gates value 含破发%/版本钉）310/0；邻居 buy_point_lib 583/check_service 43（版本钉同步 FP39）/cheat_detection_lib 657 全绿。182 pull 后重启实验生效。金狗侧=JG-18 追加立法档。
+
+## T206b FP26 tail_no_buyer_pressure 同款深破豁免（FP40，一姐案 JG-18 续，2026-11-22 用户裁定「同样豁免破发」）
+
+**裁定与案源**：FP39 单票实证（cf51c210）揭示一姐被同域臂族围堵——t1（15:42:05）被 FP26 接棒拒（尾5s买1∧30s卖5）、t2 即使触发 FP26 同命中（win30卖6∧尾5s买0）；用户裁定 FP26 加同款深破豁免。
+
+**实现**：`armTailNoBuyerSellPressure` 加豁免腿——`launchMinVsFloorPct < TAIL_KNIFE_BREAK_EXEMPT_VS_PCT`（**与 FP39 同一把线 -10**，常量注释改两臂共用）→ 臂不触发；null=豁免证据缺席不豁免保持拦；gates tail_no_buyer 行 value 加破发%；无灰度键（同 FP39 先例）。版本 FP40。
+
+**三窗验证**（`tmp-fc23-tnb-fwd.cjs` 182，单臂拒行 304 首拒行票锚后 30min；w1012 冷窗无单臂拒行）：深破层 51 票损耗最轻（中位 fwd −4.3/深跌仅 1 票=吕吕 0xe8cb −39.7 锚后价维度，实际买入走 stallClose 止损 −0.07 级=FP26 原档案案源票知情放回）vs 浅破层 117 票较重（−10.2/深跌 2）——**与 tail_dip 面（FP39）同构分层方向**；右尾薄（0x6d7b minVs−21.4 peak+100%）期权语义同源。
+
+**一姐可达性知情**：t1 时刻 minVsFloor=−5.45 浅破仍在豁免线外（两臂均照拦）——一姐的完整解锁需 t2 路径（深破时刻双豁免 ✓）+回测 debounce 锚不再漂移（形状敏感）+AF1 act=low 放行（T205 灰度）；本豁免主要价值=三窗深破面整体（51 票损耗最轻带）与 FP39 组成同域双豁免。单测 AJ1~AJ7（案值豁免/t1 浅破仍拦/边界/null/gates 值/双臂共存整体放行/版本钉）317/0+全量版本钉 FP40；邻居 lib 583/service 43/cheat 657 全绿。
