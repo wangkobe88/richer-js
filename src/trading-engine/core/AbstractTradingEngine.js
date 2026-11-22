@@ -2140,7 +2140,7 @@ class AbstractTradingEngine extends ITradingEngine {
    * 与 _reconfirmAndSell（去抖 fire 重评）——拦截=视同腿未触发（与原条件串释放
    * 臂假=evaluate 不返回该腿 bit 对齐：首评拦截清 pending、放行后重新首真起算）。
    * T157c 管辖门：**所有卖出臂统一过门**——管辖判定=profitPercent ≥ minProfitPct
-   * (100) 本身（pp<100 的卖信号恒放行）；T183 扩展：pump-imbalance 家族腿
+   * (50，T211 2026-11-22 起 100→50) 本身（pp<50 的卖信号恒放行）；T183 扩展：pump-imbalance 家族腿
    * （condition 引用 sinceEntryNetBuyRatio）无论 pp 过门 + smartHold 聪明钱臂
    * （famousHold 同构，FA sinceLastSmartBigBuySec/recentSmartSellBnb 载体）。
    * bypass 保命腿同样受管（famous 还在入场=HOLD 语义一致适用）。拦截留痕：连续拦截 per (token,腿)
@@ -2152,7 +2152,7 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   _factorSellFilterEvaluate(token, strategy, factors, nowTs) {
     if (!this._factorSellFilterCfg) return { blocked: false, rule: null, info: null };
-    // T157c 全臂管辖+T183 扩展：判定吃因子表+触发腿（pp≥100 即管；pump 臂签名
+    // T157c 全臂管辖+T183/T211：判定吃因子表+触发腿（pp≥50 即管，T211 起 100→50；pump 臂签名
     //〔condition 引用 sinceEntryNetBuyRatio〕无论 pp——strategy 腿对象原样透传，
     // evaluate 返回携带 condition 字段）
     const res = judgeFactorSellFilter(this._factorSellFilterCfg, factors, strategy);

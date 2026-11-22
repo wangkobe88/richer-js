@@ -2,15 +2,16 @@
 /**
  * T157 因子卖出过滤门单测（零 DB 零网络）
  *
- * T157c 管辖门简化（2026-11-17 用户裁定）：**所有卖出臂统一过门，管辖判定=
- * `profitPercent >= 100` 本身**——当前收益 >100% 的卖信号即被 famous 卖出门
- * 管住，与触发腿条件串里有没有 profitPercent 因子无关；arms 条件文本清单整链
+ * T157c 管辖门简化（2026-11-17 用户裁定；T211 2026-11-22 管辖线 100→50）：
+ * **所有卖出臂统一过门，管辖判定=`profitPercent >= minProfitPct(50 缺省)`
+ * 本身**——当前收益 ≥50% 的卖信号即被 famous/smart 卖出门管住，与触发腿条件串
+ * 里有没有 profitPercent 因子无关；arms 条件文本清单整链
  * 退役（配置漂移失配风险消灭），famousHold 三键收进模块配置。
  *
  * 覆盖：
  *  A. normalizeFactorSellFilterConfig 配置全形状（enabled/famousHold 三键/arms 退役防线）
  *  B. 全臂管辖（T157c 核心语义）：任何腿（止损/bypass/条件串不含 pp 的腿）
- *     pp≥100 即进 famousHold 管辖；pp<100 恒放行
+ *     pp≥50 即进 famous/smart 管辖（T211）；pp<50 恒放行
  *  C. judgeFactorSellFilter 判定树全分支（放行三形状+拦截+info 快照+阈值覆盖）
  *  D. 事故现场反证（0x29921a53…7777 bt-v140 四笔卖出帧回放——D 修靶心：
  *     卖出① recentSell=0.287 ∈ [0.2,0.4) 差异带：原条件串 0.2 线放行、新门 0.4 线拦截）
@@ -19,6 +20,8 @@
  *  G. 引擎包装 _factorSellFilterEvaluate（配置关=恒放行；拦截落行+日志去重；
  *     落行桩替换 _persistFactorSellFilterSignal——零 DB 红线）
  *  H. _initFactorSellFilter（缺段=关；非法 throw；arms 携带 throw）
+ *  O. T211 管辖线 100→50（2026-11-22 bt-v179 0x4509…7777 金狗案源四帧：
+ *     pp=92.8 smart 1s 前大买 0.33B 照卖=被 100 线放走的靶心）
  */
 
 'use strict';
@@ -44,7 +47,7 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
 // ── A. 配置归一化 ─────────────────────────────────────────
 {
     ok(CFG && CFG.enabled === true, 'A1 enabled=true 归一化');
-    ok(CFG.famousHold.minProfitPct === 100 && CFG.famousHold.maxSinceBuySec === 180 && CFG.famousHold.sellReleaseBnb === 0.4, 'A2 默认阈值（famousHold 整体省略=全默认）');
+    ok(CFG.famousHold.minProfitPct === 50 && CFG.famousHold.maxSinceBuySec === 180 && CFG.famousHold.sellReleaseBnb === 0.4, 'A2 默认阈值（famousHold 整体省略=全默认；minProfitPct=50 T211）');
     ok(normalizeFactorSellFilterConfig(null).normalized === null, 'A3 缺段=关');
     ok(normalizeFactorSellFilterConfig({ enabled: false }).normalized === null, 'A4 enabled=false=关');
     ok(normalizeFactorSellFilterConfig({ famousHold: {} }).error, 'A5 配段忘 enabled → error');
@@ -55,23 +58,28 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     ok(normalizeFactorSellFilterConfig({ enabled: true, famousHold: { nope: 1 } }).error, 'A9 famousHold 未知键 → error');
     ok(normalizeFactorSellFilterConfig({ enabled: true, famousHold: { sellReleaseBnb: -1 } }).error, 'A10 负值 → error');
     const c = normalizeFactorSellFilterConfig({ enabled: true, famousHold: { maxSinceBuySec: 300, sellReleaseBnb: 0.6 } }).normalized;
-    ok(c.famousHold.maxSinceBuySec === 300 && c.famousHold.sellReleaseBnb === 0.6 && c.famousHold.minProfitPct === 100, 'A11 阈值覆盖+回落');
+    ok(c.famousHold.maxSinceBuySec === 300 && c.famousHold.sellReleaseBnb === 0.6 && c.famousHold.minProfitPct === 50, 'A11 阈值覆盖+回落（minProfitPct 未覆盖回落 50）');
     normalizeFactorSellFilterConfig({ enabled: true, famousHold: { sellReleaseBnb: 99 } });
     ok(FACTOR_SELL_FILTER_DEFAULTS.sellReleaseBnb === 0.4, 'A12 默认常量不被污染');
 }
 
-// ── B. 全臂管辖（T157c 核心语义）─────────────────────────
-// 管辖判定=pp≥100 本身，与腿条件形状无关——任何卖臂 fire 时 pp≥100 都过 famousHold
+// ── B. 全臂管辖（T157c 核心语义；T211 管辖线 50）────────────────
+// 管辖判定=pp≥50 本身（T211 2026-11-22 100→50），与腿条件形状无关——任何卖臂
+// fire 时 pp≥50 都过 famous/smart HOLD 门
 {
     const F = { profitPercent: 105.6, sinceLastFamousBigBuySec: 42, recentFamousSellBnb: 0.287 };
-    // 各类腿（条件串含/不含 pp 因子、止损/bypass 形状）pp≥100 全部被拦
+    // 各类腿（条件串含/不含 pp 因子、止损/bypass 形状）pp≥50 全部被拦
     ok(judgeFactorSellFilter(CFG, F).blocked === true, 'B1 pp 止盈腿被拦');
     // 同因子表下「腿」概念不再参与判定——条件串不含 pp 的回撤臂同样被拦
     ok(judgeFactorSellFilter(CFG, F).blocked === true, 'B2 判定与腿条件形状无关（judge 两参）');
-    // pp<100 的卖信号恒放行（止损腿 pp 负值/低盈亏减仓）
-    for (const pp of [-40, 0, 50, 99.9]) {
-        ok(judgeFactorSellFilter(CFG, { ...F, profitPercent: pp }).blocked === false, `B3 pp=${pp} 恒放行（<管辖门 100）`);
+    // pp<50 的卖信号恒放行（止损腿 pp 负值/低盈亏减仓）
+    for (const pp of [-40, 0, 49.9]) {
+        ok(judgeFactorSellFilter(CFG, { ...F, profitPercent: pp }).blocked === false, `B3 pp=${pp} 恒放行（<管辖门 50）`);
     }
+    // pp=50 恰达管辖门（T211 边界 >=）
+    ok(judgeFactorSellFilter(CFG, { ...F, profitPercent: 50 }).blocked === true, 'B5 pp=50 恰达管辖门拦截（>=，T211）');
+    // 旧线差带反证：pp∈[50,100) 旧形状放行、T211 起入管辖（0x4509 案源 pp=92.8 域）
+    ok(judgeFactorSellFilter(CFG, { ...F, profitPercent: 92.8 }).blocked === true, 'B6 pp=92.8 案源域拦截（旧 100 线放走=T211 靶心）');
     // pp 缺失 fail-open 放行
     ok(judgeFactorSellFilter(CFG, { sinceLastFamousBigBuySec: 42, recentFamousSellBnb: 0 }).blocked === false, 'B4 pp 缺失放行');
 }
@@ -90,13 +98,15 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: 42, recentFamousSellBnb: 0.3999 }).blocked === true, 'C7 recentSell=0.3999 拦截');
     ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: 42, recentFamousSellBnb: null }).blocked === true, 'C8 recentSell null 保持拦截（否定形状 bit 对齐）');
     ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: 42, recentFamousSellBnb: NaN }).blocked === true, 'C9 recentSell NaN 保持拦截');
-    // pp=100 恰达管辖门
-    ok(judgeFactorSellFilter(CFG, { profitPercent: 100, sinceLastFamousBigBuySec: 10, recentFamousSellBnb: 0 }).blocked === true, 'C10 pp=100 恰达管辖门拦截（>=）');
+    // pp=50 恰达管辖门（T211）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 50, sinceLastFamousBigBuySec: 10, recentFamousSellBnb: 0 }).blocked === true, 'C10 pp=50 恰达管辖门拦截（>=）');
+    // pp=49.9 门外放行（T211 边界）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 49.9, sinceLastFamousBigBuySec: 10, recentFamousSellBnb: 0 }).blocked === false, 'C16 pp=49.9 门外放行');
     // 拦截产物形状
     const r = judgeFactorSellFilter(CFG, { profitPercent: 105.6, sinceLastFamousBigBuySec: 42, recentFamousSellBnb: 0.287 });
     ok(r.blocked === true && r.rule === 'famous_hold', 'C11 rule=famous_hold');
     ok(r.info.profitPercent === 105.6 && r.info.sinceLastFamousBigBuySec === 42 && r.info.recentFamousSellBnb === 0.287, 'C12 info 判据三因子值');
-    ok(r.info.sellReleaseBnb === 0.4 && r.info.maxSinceBuySec === 180 && r.info.minProfitPct === 100, 'C13 info 阈值快照');
+    ok(r.info.sellReleaseBnb === 0.4 && r.info.maxSinceBuySec === 180 && r.info.minProfitPct === 50, 'C13 info 阈值快照（minProfitPct=50 T211）');
     // 阈值覆盖生效
     const c2 = normalizeFactorSellFilterConfig({ enabled: true, famousHold: { maxSinceBuySec: 300, sellReleaseBnb: 0.2 } }).normalized;
     ok(judgeFactorSellFilter(c2, { profitPercent: 105, sinceLastFamousBigBuySec: 250, recentFamousSellBnb: 0.1 }).blocked === true, 'C14 覆盖窗 300s 内拦截');
@@ -123,6 +133,8 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
 //   recentFamousSellBnb >= 0.2)。T157c 管辖门=pp≥minProfitPct 与原外层
 //   pp>100 同域（边界 100 处 >= vs > 差异在原外层同样不触发腿，无行为差）。
 // 对拍 240 帧：除 D 线差异带 [0.2,0.4)（原放行新拦截=刻意收紧）外逐帧等价。
+// T211（管辖线 100→50）：对拍域限定 pp≥100=原腿 fire 域（原腿在 pp<100 从不
+// fire，等价性在该域空洞）；pp∈[50,100) 为 T211 刻意扩管辖收紧带非对拍对象。
 {
     const relOld = (pp, since, sell) =>
         pp < 100 || since === null || since > 180 || (sell !== null && sell >= 0.2);
@@ -130,7 +142,7 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
         profitPercent: pp, sinceLastFamousBigBuySec: since, recentFamousSellBnb: sell,
     }).blocked;
     const frames = [];
-    for (const pp of [50, 100, 105.6, 190.8, 300]) {
+    for (const pp of [100, 105.6, 190.8, 300]) {
         for (const since of [null, 5, 42, 180, 181, 258]) {
             for (const sell of [0, 0.1, 0.199, 0.2, 0.287, 0.3999, 0.4, 0.5]) {
                 frames.push([pp, since, sell]);
@@ -193,8 +205,8 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     ok(persisted[0].nowTs === 123456 && persisted[0].leg === 'sell_3_7', 'G3 落行参数（虚拟时钟透传）');
     call(CFG, token, strat, factors, 124000); call(CFG, token, strat, factors, 125000);
     ok(logs.length === 1 && persisted.length === 1, 'G4 持续拦截日志+落行去重');
-    const r2 = call(CFG, token, strat, { ...factors, profitPercent: 90 }, 130000);
-    ok(r2.blocked === false, 'G5 放行分支（pp 跌破管辖门）');
+    const r2 = call(CFG, token, strat, { ...factors, profitPercent: 45 }, 130000);
+    ok(r2.blocked === false, 'G5 放行分支（pp 跌破管辖门 50，T211）');
     call(CFG, token, strat, factors, 140000);
     ok(logs.length === 2 && persisted.length === 2, 'G6 放行后重置，再拦截重打+重落');
     // T157c 全臂管辖：条件串不含 pp 的腿（如止损形状）pp≥100 同样拦截落痕
@@ -222,7 +234,7 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     assert.throws(() => init({ enabled: true, famousHold: { sellReleaseBnb: -1 } }), /非法值/, 'H4 阈值越界 throw');
     assert.throws(() => init({ enabled: true, famousHold: { arms: ['x'] } }), /arms 已退役/, 'H5 arms 携带 throw（T157c 退役防线）');
     init({ enabled: true });
-    ok(fake._factorSellFilterCfg && fake._factorSellFilterCfg.famousHold.minProfitPct === 100, 'H6 最简配置 {enabled:true} 初始化（famousHold 全默认）');
+    ok(fake._factorSellFilterCfg && fake._factorSellFilterCfg.famousHold.minProfitPct === 50, 'H6 最简配置 {enabled:true} 初始化（famousHold 全默认，minProfitPct=50 T211）');
 }
 
 // ── I. T183 smartHold 聪明钱臂判定树（2026-11-18 bt-v150 0x2f17…7777 案）────
@@ -244,8 +256,10 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: 5, recentSmartSellBnb: 0.4 }).blocked === false, 'I6 smart 释放线恰达放行（>=）');
     ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0 }).blocked === false, 'I7 smart null（名单未加载/从未大买）放行 fail-open');
     ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: 5, recentSmartSellBnb: null }).blocked === true, 'I8 smart recentSell null 保持拦截（否定形状对齐）');
-    // pp<100 无腿 → smart 也不管（管辖门先行）
-    ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 2, recentSmartSellBnb: 0 }).blocked === false, 'I9 pp<100 无腿 smart 放行（管辖门）');
+    // pp<50 无腿 → smart 也不管（管辖门先行，T211 线）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 45, sinceLastSmartBigBuySec: 2, recentSmartSellBnb: 0 }).blocked === false, 'I9 pp<50 无腿 smart 放行（管辖门）');
+    // T211 差带反证：pp=57.5（T183 立法案值，旧 100 线门外）今入管辖 → smart 拦
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 2, recentSmartSellBnb: 0 }).blocked === true, 'I9b pp=57.5 入 T211 管辖拦截（旧 100 线放走）');
     // 双中 famous 优先
     const both = judgeFactorSellFilter(CFG, {
         profitPercent: 105, sinceLastFamousBigBuySec: 30, recentFamousSellBnb: 0,
@@ -267,7 +281,7 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
 // 案源：bt-v150 0x2f17 P5 腿（realHoldDuration>=30 AND sinceEntryNetBuyRatio>=90
 // AND sinceEntryBuyBnb>=1）pp=57.5<100 被 T157c 管辖门放走 → 全清后卖后 +350%。
 // 识别=condition 引用 sinceEntryNetBuyRatio（T113 家族唯一签名键，子串匹配抗
-// 阈值漂移）；非 pump 腿 pp<100 恒放行不变。
+// 阈值漂移）；非 pump 腿 pp<50 恒放行（T211 起；100 时代放行带 [50,100) 已入管辖）。
 // T186 起 pumpArmHold 默认开（臂级默认拦截遮蔽 famous/smart 证据型留痕）——
 // 本段锁 T183 形态语义（pump 臂仅 HOLD 证据才拦），块内遮蔽 CFG 为回滚形态。
 {
@@ -279,8 +293,9 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     const rCase = judgeFactorSellFilter(CFG, caseF, PUMP_LEG);
     ok(rCase.blocked === true && rCase.rule === 'smart_hold', 'J1 立法案帧：pump 腿 pp=57.5 + smart 2s → 拦截');
     ok(rCase.info.pumpArmJurisdiction === true, 'J2 info.pumpArmJurisdiction=true');
-    ok(judgeFactorSellFilter(CFG, caseF, OTHER_LEG).blocked === false, 'J3 同帧非 pump 腿 pp<100 放行（存量语义不变）');
-    ok(judgeFactorSellFilter(CFG, caseF).blocked === false, 'J4 同帧无腿（两参调用）放行——向后兼容');
+    ok(judgeFactorSellFilter(CFG, { ...caseF, profitPercent: 45 }, OTHER_LEG).blocked === false, 'J3 同帧非 pump 腿 pp<50 放行（管辖门外，T211）');
+    ok(judgeFactorSellFilter(CFG, caseF, OTHER_LEG).blocked === true, 'J3b 同帧非 pump 腿 pp=57.5 入 T211 管辖拦截（刻意收紧带）');
+    ok(judgeFactorSellFilter(CFG, { ...caseF, profitPercent: 45 }).blocked === false, 'J4 同帧无腿（两参调用）放行——向后兼容');
     // pump 腿 pp 缺失也管（腿自身触发=明确卖出意志，pp 不构成放行）
     ok(judgeFactorSellFilter(CFG, { sinceLastSmartBigBuySec: 5, recentSmartSellBnb: 0 }, PUMP_LEG).blocked === true, 'J5 pump 腿 pp 缺失仍管');
     // pump 腿两臂均无在场证据 → 放行（smart null=fail-open 不锁死）
@@ -289,7 +304,9 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 300, recentSmartSellBnb: 0 }, PUMP_LEG).blocked === false, 'J7 pump 腿 smart 出窗放行');
     ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastSmartBigBuySec: 5, recentSmartSellBnb: 0.5 }, PUMP_LEG).blocked === false, 'J8 pump 腿 smart 撤退达线放行');
     // 签名匹配只认 sinceEntryNetBuyRatio：引用 sinceEntryBuyBnb 单键（观察键）不算
-    ok(judgeFactorSellFilter(CFG, caseF, { id: 'x', name: 'x', condition: 'sinceEntryBuyBnb >= 1' }).blocked === false, 'J9 观察键单引用不触发 pump 管辖');
+    //（帧移 pp=45 门外：caseF pp=57.5 在 T211 辖内会被 smart 证据拦=混淆签名匹配断言）
+    const rJ9 = judgeFactorSellFilter(CFG, { ...caseF, profitPercent: 45 }, { id: 'x', name: 'x', condition: 'sinceEntryBuyBnb >= 1' });
+    ok(rJ9.blocked === false && rJ9.info.pumpArmJurisdiction === false, 'J9 观察键单引用不触发 pump 管辖');
     // famous 臂同受 pump 管辖扩展（pump 腿 pp<100 + famous 在场也拦）
     ok(judgeFactorSellFilter(CFG, { profitPercent: 57.5, sinceLastFamousBigBuySec: 10, recentFamousSellBnb: 0 }, PUMP_LEG).blocked === true, 'J10 pump 腿 famous 臂同样管辖');
     // 阈值漂移抗性：v4 改线（>=95/>=1.5）仍识别
@@ -455,8 +472,8 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     ok(judgeFactorSellFilter(CFG, { ...bibiF, profitPercent: 250 }, PUMP_LEG).rule === 'pump_arm_hold', 'N3 pp≥100 域 pump 腿同拦（臂级主因）');
     // N4 famous 证据在场也记 pump_arm_hold（臂级默认=主因，证据型留痕让位）
     ok(judgeFactorSellFilter(CFG, { ...bibiF, sinceLastFamousBigBuySec: 29 }, PUMP_LEG).rule === 'pump_arm_hold', 'N4 famous 证据在场留痕=pump_arm_hold（臂级主因优先）');
-    // N5 非 pump 腿不受默认拦截影响（pp<100 照旧放行=存量语义不变）
-    ok(judgeFactorSellFilter(CFG, bibiF, { id: 'p7', name: 'P7', condition: 'profitPercent > 100 AND peakProfitPct > 50' }).blocked === false, 'N5 非 pump 腿 pp<100 放行不变');
+    // N5 非 pump 腿不受默认拦截影响（pp=80.9 已在 T211 管辖内，famous/smart 双 null 无 HOLD 证据 → 放行）
+    ok(judgeFactorSellFilter(CFG, bibiF, { id: 'p7', name: 'P7', condition: 'profitPercent > 100 AND peakProfitPct > 50' }).blocked === false, 'N5 非 pump 腿零 HOLD 证据放行（pp=80.9 辖内但证据缺席）');
     // N6 非 pump 腿 pp≥100 走 famous/smart 照旧（默认拦截只作用于 pump 签名腿）
     const rN6 = judgeFactorSellFilter(CFG, { ...bibiF, profitPercent: 150, sinceLastSmartBigBuySec: 5 }, { id: 'p7', name: 'P7', condition: 'profitPercent > 100' });
     ok(rN6.blocked === true && rN6.rule === 'smart_hold', 'N6 非 pump 腿 pp≥100 smart 臂照旧');
@@ -476,6 +493,34 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     const seN = new StrategyEngine();
     seN.loadStrategies([{ id: 'p5', name: '卖出策略 P5', action: 'sell', priority: 5, condition: 'realHoldDuration >= 30 AND sinceEntryNetBuyRatio >= 90 AND sinceEntryBuyBnb >= 1' }]);
     ok(judgeFactorSellFilter(CFG, bibiF, seN._strategies[0]).rule === 'pump_arm_hold', 'N10 真实装载腿端到端默认拦截（BIBI 案兑现）');
+}
+
+// ── O. T211 管辖线 100→50（2026-11-22 bt-v179 0x4509…7777 金狗案源四帧）──────────
+// 案源：15:09:02 P10（prio10 族，镜像取 mcap-arc）卖出 pp=92.8 差 7.2 点在旧 100 线门外，smart
+// 0x2c26f58b 1s 前大买 0.3292B 照卖（用户「后面的卖出没有被聪明钱买入挡住」）；
+// 15:08:15 P11 pp=77.3、smart 23s 前大买 0.0988B 同形状；15:10:51 P7 pp=195.1 辖内
+// 但同钱包 60s 内自卖 0.4104B ≥ 释放线=撤退信号压倒（放行不变——T211 只动管辖
+// 线，释放线/新鲜窗不动）。四帧因子值=ticks 离线重放（与引擎留痕逐位对拍：
+// 15:05:20 被拦帧 sinceSmart=92/smartSell60=0.1246 复现一致）；腿条件=现行包
+// trading-standard-v1 v4 真实卖腿镜像（P 编号=priority 字段：P10=prio10 族任一、
+// P11=prio11 peak-protect 族、P7=profitPercent>100 主了结 1 卡；均非 pump 签名）。
+{
+    const P10 = { id: 'sell_mcap_arc', name: 'P10', condition: 'mcapPeakBnb > 20.1 AND secSinceMcapPeak >= mcapRiseHalfSec' };
+    const P11 = { id: 'sell_dd', name: 'P11', condition: 'peakProfitPct >= 10 AND drawdownFromHighestSinceLastBuy <= -25 AND marketCap >= 8.1 AND marketCap < 27' };
+    const P7 = { id: 'sell_tp', name: 'P7', condition: 'profitPercent > 100' };
+    const base = { sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0 };
+    // 15:09:02 靶心帧：pp=92.8 + smart 1s 前大买 → T211 拦（旧 100 线放走=立法动因）
+    const f1 = judgeFactorSellFilter(CFG, { ...base, profitPercent: 92.8, sinceLastSmartBigBuySec: 1, recentSmartSellBnb: 0 }, P10);
+    ok(f1.blocked === true && f1.rule === 'smart_hold', 'O1 15:09:02 案源帧：pp=92.8+smart 1s 拦截（T211 靶心）');
+    // 15:08:15 帧：pp=77.3 + smart 23s → 拦
+    const f2 = judgeFactorSellFilter(CFG, { ...base, profitPercent: 77.3, sinceLastSmartBigBuySec: 23, recentSmartSellBnb: 0 }, P11);
+    ok(f2.blocked === true && f2.rule === 'smart_hold', 'O2 15:08:15 帧：pp=77.3+smart 23s 拦截');
+    // 15:07:43 帧：pp=55.0（T211 辖内）但 smart 出窗 235s → 放行（证据缺席不锁死）
+    ok(judgeFactorSellFilter(CFG, { ...base, profitPercent: 55.0, sinceLastSmartBigBuySec: 235, recentSmartSellBnb: 0 }, P10).blocked === false, 'O3 15:07:43 帧：smart 出窗 235s 放行（辖内但证据缺席）');
+    // 15:10:51 帧：pp=195.1 辖内 + smart 110s 在窗，但 60s 自卖 0.4104 ≥ 释放线 0.4 → 放行（释放臂不动）
+    ok(judgeFactorSellFilter(CFG, { ...base, profitPercent: 195.1, sinceLastSmartBigBuySec: 110, recentSmartSellBnb: 0.4104 }, P7).blocked === false, 'O4 15:10:51 帧：smart 自卖 0.4104≥0.4 释放放行（T211 只动管辖线）');
+    // 案源腿均非 pump 签名（mcap-arc/峰后滞涨/回撤域——不触发 T186 默认拦）
+    ok(f1.info.pumpArmJurisdiction === false && f2.info.pumpArmJurisdiction === false, 'O5 案源腿均非 pump 签名管辖');
 }
 
 console.log(`✅ _test_factor_sell_filter 全部 ${passed} 断言通过`);

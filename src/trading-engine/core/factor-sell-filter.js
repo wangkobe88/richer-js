@@ -11,10 +11,18 @@
  * 首真起算）。止损/毕业卖/cheat 清仓/stallClose/手工卖不走策略腿评估，天然
  * 不受本门管辖（与原释放臂管辖范围一致）。
  *
- * T157c 管辖门（用户裁定 2026-11-17）：**所有卖出臂统一过门，管辖判定=
- * `profitPercent >= minProfitPct(100)` 本身**——当前收益 >100% 的卖信号即被
- * famous 卖出门管住，与触发腿条件串里有没有 profitPercent 因子无关；pp<100 的
- * 卖信号（止损/低盈亏减仓等）恒放行。
+ * T157c 管辖门（用户裁定 2026-11-17；T211 2026-11-22 管辖线 100→50）：**所有
+ * 卖出臂统一过门，管辖判定=`profitPercent >= minProfitPct(50)` 本身**——当前
+ * 收益 ≥50% 的卖信号即被 famous/smart 卖出门管住，与触发腿条件串里有没有
+ * profitPercent 因子无关；pp<50 的卖信号（止损/低盈亏减仓等）恒放行。
+ *
+ * T211 管辖线 100→50（2026-11-22 用户立法「将触发 famous/聪明钱阻挡的 pp 改为
+ * 50」，案源 bt-v179 0x4509…7777 金狗复盘：15:09:02 P10 卖出 pp=92.8 差 7.2
+ * 点在管辖门外，smart 0x2c26f58b 1s 前大买 0.3292B 照卖；15:08:15 pp=77.3、
+ * smart 23s 前大买 0.0988B 同形状）——famous/smart 两臂共用的 minProfitPct
+ * 缺省 100→50（famous 自 T157、smart 自 T183 均继承 100 线，本案一并放低）；
+ * pump 臂签名管辖（无论 pp）与 recoveryHold 独立管辖（peak≥80）不受影响；
+ * 止损域 pp<50 恒放行不变；释放线/新鲜窗（0.4/180s）不动。
  *
  * T183 管辖扩展（用户裁定 2026-11-18，案源 bt-v150 0x2f17…7777：P5 泵失衡臂
  * 买入 34s 后 pp=57.5 全清、卖后 +350%）：**pump-imbalance-exit 臂（T113 泵失衡
@@ -79,8 +87,8 @@
  * 与 bypass 卖臂的关系（T157c 全臂管辖知情面）：peak-protect 深回撤/famous-
  * entry-exit 等 bypass 腿同样受管（HOLD 证据在场 → 拦截顺延）——「famous/聪明钱
  * 还在入场就不急着卖」的 HOLD 语义一致适用于保命腿；famous-entry-exit 触发域=
- * near_launch (10,40]（价格贴近发行价），与我们 pp≥100（已翻倍）天然近似互斥，
- * 冲突面极小。
+ * near_launch (10,40]（价格贴近发行价），与我们 pp≥50（T211 起管辖线；获利已
+ * 厚）近似互斥（pp 锚=本仓买价≠发行价锚，低开票可同低），冲突面小。
  *
  * 拦截留痕（T157b 信号页可观测性）：引擎包装层落 SELL 信号行
  * metadata.execution_status='blocked' + factorSellFilter 判据段（连续拦截
@@ -89,12 +97,14 @@
 
 'use strict';
 
-/** famousHold/smartHold 默认阈值（T137 研究线 180s + T157 D 修释放线 0.4；配置可覆盖） */
+/** famousHold/smartHold 默认阈值（T137 研究线 180s + T157 D 修释放线 0.4；T211
+ * 管辖线 100→50（2026-11-22，案源 bt-v179 0x4509…7777 pp=92.8 smart 1s 前大买
+ * 0.33B 照卖——差 7.2 点被 T157c 100 线放走）；配置可覆盖） */
 const FACTOR_SELL_FILTER_DEFAULTS = Object.freeze({
-    // 管辖门+HOLD 保护域下限：当前浮盈 ≥100% 的卖信号才受 famous/smart 卖出门管
-    //（pp<100 恒放行——T157c：管辖判定即本键，不再按腿条件文本圈定；T183 起
+    // 管辖门+HOLD 保护域下限：当前浮盈 ≥50% 的卖信号才受 famous/smart 卖出门管
+    //（pp<50 恒放行——T157c：管辖判定即本键，不再按腿条件文本圈定；T183 起
     // pump-imbalance 家族腿（condition 引用 sinceEntryNetBuyRatio）无论 pp 过门）
-    minProfitPct: 100,
+    minProfitPct: 50,
     // famous 大买新鲜窗（秒）：sinceLastFamousBigBuySec ≤ 此值=famous 仍在入场
     maxSinceBuySec: 180,
     // famous 卖出释放线（BNB）：60s 窗内 famous 卖出合计 ≥ 此值=撤退信号压倒
@@ -177,7 +187,7 @@ function normalizeFactorSellFilterConfig(raw) {
     if (raw.enabled === false) return { normalized: null };
     const fhRaw = raw.famousHold;
     if (fhRaw == null) {
-        // famousHold 整体省略=全默认（管辖门 pp≥100 本身就是 famousHold 的 minProfitPct）
+        // famousHold 整体省略=全默认（管辖门 pp≥50〔T211〕本身就是 famousHold 的 minProfitPct）
         const sh0 = _normalizeSmartHold(raw.smartHold);
         if (sh0.error) return { error: sh0.error };
         const rh0 = _normalizeRecoveryHold(raw.recoveryHold);
@@ -379,7 +389,7 @@ function judgeFactorSellFilter(config, factors, leg) {
             && typeof chg5 === 'number' && Number.isFinite(chg5) && chg5 > rh.minChg5Pct;
     }
     // 管辖判定（T157c + T183 扩展）：
-    // ① pp ≥ minProfitPct（一般管辖——pp<100 的卖信号〔止损/低盈亏减仓〕恒放行；
+    // ① pp ≥ minProfitPct（一般管辖——pp<50 的卖信号〔止损/低盈亏减仓〕恒放行；
     //    pp 缺失 fail-open 放行防锁死卖出）
     // ② pump 臂签名（T183）：触发腿 condition 引用 sinceEntryNetBuyRatio
     //    （T113 泵失衡全清家族）→ 无论 pp 过门（该臂常在 pp<100 触发=立法案
