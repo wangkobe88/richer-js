@@ -528,6 +528,36 @@ console.log('E2. 回测引擎延长臂（虚拟时钟 + 检测时点 asOf parity
   check('curVs 缺失照卖（回测 fail-closed）', r4.calls.map(c => c.addr), ['0xt']);
 }
 
+// ═══════════════ T219 大户在场豁免 ═══════════════
+{
+  const { normalizeStallBigHolderExempt, stallBigHolderExempt } = require('../src/trading-engine/core/stall-close-almost-launch.js');
+  check('T219 缺省启用（缺段=开 3/30）', () => {
+    const n = normalizeStallBigHolderExempt({ stallMs: 50000 });
+    assert.deepStrictEqual(n, { minDustHolders: 3, top1CircPct: 30 });
+  });
+  check('T219 显式 false 关 → null', () => {
+    assert.strictEqual(normalizeStallBigHolderExempt({ bigHolderExempt: false }), null);
+  });
+  check('T219 覆盖值', () => {
+    const n = normalizeStallBigHolderExempt({ bigHolderExempt: { minDustHolders: 5, top1CircPct: 40 } });
+    assert.deepStrictEqual(n, { minDustHolders: 5, top1CircPct: 40 });
+  });
+  const N = { minDustHolders: 3, top1CircPct: 30 };
+  check('T219 ≥3 普通大户 → 豁免', () => {
+    assert.strictEqual(stallBigHolderExempt({ bigBuyersHeldDust: 3, top1HolderCircPct: 5 }, N), true);
+  });
+  check('T219 1 个特大户（top1 30%）→ 豁免', () => {
+    assert.strictEqual(stallBigHolderExempt({ bigBuyersHeldDust: 1, top1HolderCircPct: 30 }, N), true);
+  });
+  check('T219 大户少于线且无特大户 → 照卖', () => {
+    assert.strictEqual(stallBigHolderExempt({ bigBuyersHeldDust: 2, top1HolderCircPct: 29.9 }, N), false);
+  });
+  check('T219 证据缺失 fail-closed 照卖（豁免证据缺席宁卖）', () => {
+    assert.strictEqual(stallBigHolderExempt({}, N), false);
+    assert.strictEqual(stallBigHolderExempt(null, N), false);
+  });
+}
+
 console.log(`\n结果: ${pass} pass / ${fail} fail`);
 process.exit(fail ? 1 : 0);
 

@@ -27,7 +27,7 @@
 
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
-const { resolveStallCloseExtension, effectiveStallExtension } = require('../core/stall-close-almost-launch.js');
+const { resolveStallCloseExtension, effectiveStallExtension, normalizeStallBigHolderExempt, stallBigHolderExempt } = require('../core/stall-close-almost-launch.js');
 const { BURST_COOLDOWN_DEFAULTS, evaluateBurstCooldown } = require('../core/burst-cooldown-exit');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const { ExperimentStatsService } = require('../../web/services/ExperimentStatsService');
@@ -816,6 +816,8 @@ class BacktestEngine extends AbstractTradingEngine {
     // T170+T170b 域断流延长（与实时引擎同配置同判据，回测 parity 红线；两档：
     // almost_launch 90s 缺省 + 破发档 180s——纯函数/口径详见 core/stall-close-almost-launch.js）
     this._stallCloseExt = resolveStallCloseExtension(_sc, this._stallCloseMs);
+    // T219 大户在场豁免（与实时引擎同判据，回测 parity 红线）
+    this._stallBigHolderExempt = normalizeStallBigHolderExempt(_sc);
     this._lastStallScanTs = null;
     if (this._stallCloseMs != null) {
       this.logger.info(this._experimentId, 'BacktestEngine',
@@ -3240,6 +3242,9 @@ class BacktestEngine extends AbstractTradingEngine {
       // lastTickAt+档阈值的回放等价——时间键 parity）。
       const extTier = effectiveStallExtension(this._stallCloseExt, factors);
       if (extTier != null && nowTs - lastTickAt <= extTier.ms) continue;
+      // T219 大户在场豁免（与实时引擎同判据——断流期 state 冻结 as-of 正确；
+      // 证据缺失 fail-closed 照卖）
+      if (stallBigHolderExempt(factors, this._stallBigHolderExempt)) continue;
       // 仅域内票耗尽延长窗时重锚（fire 时刻 stalledMs>阈值已被上面 continue 蕴含）；
       // 域外/缺证据票保持 T104 基础检测点（asOf=lastTickAt+stallMs parity 红线零变化）
       if (extTier != null) {

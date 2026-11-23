@@ -105,6 +105,14 @@ const FACTOR_SELL_FILTER_DEFAULTS = Object.freeze({
     //（pp<50 恒放行——T157c：管辖判定即本键，不再按腿条件文本圈定；T183 起
     // pump-imbalance 家族腿（condition 引用 sinceEntryNetBuyRatio）无论 pp 过门）
     minProfitPct: 50,
+    // T219（2026-11-23 用户裁定「基于聪明钱/famous 卖出阻挡，扩展到 almost
+    // launch 价格往上的所有情况」）：管辖第二把尺——curVs ≥ 此值即受门管
+    //（不管 pp）；curVs null/未见可靠价=不管辖 fail-open 照卖
+    almostLaunchPct: 10,
+    // T219 用户裁定「除非它们在低价买入，需要卖出离场」：famous 低价建仓
+    //（near_launch 域买入 ≥ 此 BNB）且已开始卖（>0）→ famousHold 放行
+    //（它们止盈离场=我们跟着走，不挡）；0 显式关豁免
+    cheapExitBuyBnb: 0.2,
     // famous 大买新鲜窗（秒）：sinceLastFamousBigBuySec ≤ 此值=famous 仍在入场
     maxSinceBuySec: 180,
     // famous 卖出释放线（BNB）：60s 窗内 famous 卖出合计 ≥ 此值=撤退信号压倒
@@ -347,11 +355,15 @@ function judgeFactorSellFilter(config, factors, leg) {
     const peakPct = factors ? factors.peakProfitPct : undefined;
     const curVsLaunch = factors ? factors.currentVsLaunchPct : undefined;
     const chg5 = factors ? factors.chg5Pct : undefined;
+    const nearBuy = factors ? factors.sinceEntryFamousNearLaunchBuyBnb : undefined;
     const info = {
         profitPercent: pp ?? null,
         sinceLastFamousBigBuySec: sinceLast ?? null,
         recentFamousSellBnb: recentSell ?? null,
         minProfitPct: fh.minProfitPct,
+        almostLaunchPct: fh.almostLaunchPct,
+        cheapExitBuyBnb: fh.cheapExitBuyBnb,
+        sinceEntryFamousNearLaunchBuyBnb: nearBuy ?? null,
         maxSinceBuySec: fh.maxSinceBuySec,
         sellReleaseBnb: fh.sellReleaseBnb,
         sinceLastSmartBigBuySec: smartSinceLast ?? null,
@@ -395,7 +407,11 @@ function judgeFactorSellFilter(config, factors, leg) {
     //    （T113 泵失衡全清家族）→ 无论 pp 过门（该臂常在 pp<100 触发=立法案
     //    pp=57.5 被 T157c 缝隙放走的形状；腿自身触发已是明确卖出意志）
     const ppGoverned = typeof pp === 'number' && Number.isFinite(pp) && pp >= fh.minProfitPct;
-    if (!ppGoverned && !info.pumpArmJurisdiction) {
+    // T219 管辖第二把尺：curVs ≥ almostLaunchPct（almost launch 往上全域）——
+    // 「价格已经拉起来了，卖出必须过 famous/smart 阻挡」；null fail-open 不管辖
+    const curVsGoverned = typeof curVsLaunch === 'number' && Number.isFinite(curVsLaunch)
+        && curVsLaunch >= fh.almostLaunchPct;
+    if (!ppGoverned && !info.pumpArmJurisdiction && !curVsGoverned) {
         if (recoveryHit) return { blocked: true, rule: 'recovery_hold', info };
         return { blocked: false, rule: null, info };
     }
@@ -412,7 +428,14 @@ function judgeFactorSellFilter(config, factors, leg) {
     }
     // famousHold 命中（原三键去掉 pp 门——管辖已上方判定，逐位同 T157c）：
     // famous 仍在入场（180s 内大买）且卖出未达释放线（<0.4）
-    const famousHit = _freshWithin(sinceLast, fh.maxSinceBuySec)
+    // T219 低价建仓止盈豁免：famous 在 near_launch 低价建仓（≥cheapExitBuyBnb）
+    // 且已开始卖（>0）→ 它们止盈离场=我们跟着走，famousHold 不拦
+    //（键缺失/0 线显式关 → 豁免失效照原判）
+    const famousCheapExit = fh.cheapExitBuyBnb > 0
+        && typeof nearBuy === 'number' && Number.isFinite(nearBuy) && nearBuy >= fh.cheapExitBuyBnb
+        && typeof recentSell === 'number' && Number.isFinite(recentSell) && recentSell > 0;
+    const famousHit = !famousCheapExit
+        && _freshWithin(sinceLast, fh.maxSinceBuySec)
         && !_released(recentSell, fh.sellReleaseBnb);
     // smartHold 命中（T183 镜像）：聪明钱 180s 内大买且 60s 卖出未达释放线
     let smartHit = false;

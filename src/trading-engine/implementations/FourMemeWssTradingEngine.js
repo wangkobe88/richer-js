@@ -38,7 +38,7 @@ const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { TxSeenSignal } = require('../core/TxSeenSignal.js');
 const { createIpfsCacheWriter } = require('../core/IpfsCacheWriter.js');
-const { resolveStallCloseExtension, effectiveStallExtension } = require('../core/stall-close-almost-launch.js');
+const { resolveStallCloseExtension, effectiveStallExtension, normalizeStallBigHolderExempt, stallBigHolderExempt } = require('../core/stall-close-almost-launch.js');
 const { BURST_COOLDOWN_DEFAULTS, evaluateBurstCooldown } = require('../core/burst-cooldown-exit');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const Logger = require('../../services/logger');
@@ -952,6 +952,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 无滚动最低 ≤−5）→ 放宽到 breakdownStallMs（缺省 180s）。恒 max(stallMs,·)
     // 只延长不缩短；显式 0=对应臂关。纯函数/口径详见 core/stall-close-almost-launch.js。
     this._stallCloseExt = resolveStallCloseExtension(_sc, this._stallCloseMs);
+    // T219 大户在场豁免（用户裁定「有大户在场不断流卖出」+「全局生效」；
+    // bigHolderExempt:false 显式关）
+    this._stallBigHolderExempt = normalizeStallBigHolderExempt(_sc);
     if (this._stallCloseMs != null) {
       this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
         `🛡️ 流动性止损已启用 | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓（` +
@@ -3306,6 +3309,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 180s。域外/因子缺失/窗已耗尽 → 照卖（原机制不变）。
       const extTier = effectiveStallExtension(this._stallCloseExt, factors);
       if (extTier != null && stalledMs <= extTier.ms) continue;
+      // T219 大户在场豁免：≥3 普通大户 ∨ top1 占流通 ≥30% → 本次不断流卖
+      //（与理念一致——大户不肯走的票拿住；证据缺失 fail-closed 照卖）
+      if (stallBigHolderExempt(factors, this._stallBigHolderExempt)) continue;
       await this._emitStallCloseSell(token, factors, stalledMs, extTier);
     }
   }

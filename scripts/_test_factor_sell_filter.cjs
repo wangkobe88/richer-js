@@ -523,4 +523,23 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     ok(f1.info.pumpArmJurisdiction === false && f2.info.pumpArmJurisdiction === false, 'O5 案源腿均非 pump 签名管辖');
 }
 
+// ═══════════════ T219 管辖扩展 + famous 低价止盈豁免 ═══════════════
+{
+  const F = { profitPercent: 30, sinceLastFamousBigBuySec: 60, recentFamousSellBnb: 0 }; // pp<50
+  // 管辖扩展：curVs ≥ 10 → 进管辖（不管 pp）
+  ok(judgeFactorSellFilter(CFG, { ...F, currentVsLaunchPct: 15 }).blocked === true,
+    'T219 pp=30 ∧ curVs=15（almost launch 往上）∧ famous 在场 → 拦（管辖第二把尺）');
+  ok(judgeFactorSellFilter(CFG, { ...F, currentVsLaunchPct: 5 }).blocked === false,
+    'T219 pp=30 ∧ curVs=5（almost launch 域内）→ 不管辖放行');
+  ok(judgeFactorSellFilter(CFG, { ...F }).blocked === false,
+    'T219 curVs 缺失 → 不管辖 fail-open 放行');
+  // 低价止盈豁免：famous near_launch 建仓 ≥0.2 ∧ 已开始卖 >0 → 放行
+  ok(judgeFactorSellFilter(CFG, { profitPercent: 80, sinceLastFamousBigBuySec: 60, recentFamousSellBnb: 0.1, sinceEntryFamousNearLaunchBuyBnb: 0.25 }).blocked === false,
+    'T219 低价建仓 0.25∧卖 0.1 → 止盈离场放行（原释放线 0.4 前的新豁免）');
+  ok(judgeFactorSellFilter(CFG, { profitPercent: 80, sinceLastFamousBigBuySec: 60, recentFamousSellBnb: 0.1, sinceEntryFamousNearLaunchBuyBnb: 0.15 }).blocked === true,
+    'T219 低价建仓 <0.2 线 → 豁免不成立照拦');
+  ok(judgeFactorSellFilter(CFG, { profitPercent: 80, sinceLastFamousBigBuySec: 60, recentFamousSellBnb: 0, sinceEntryFamousNearLaunchBuyBnb: 0.25 }).blocked === true,
+    'T219 低价建仓达标但 famous 还没卖 → 照拦（止盈还没开始）');
+}
+
 console.log(`✅ _test_factor_sell_filter 全部 ${passed} 断言通过`);
