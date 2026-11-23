@@ -23,7 +23,7 @@
 
 const { ConditionEvaluator } = require('../strategies/ConditionEvaluator');
 
-const POINT_TYPE_VERSION = 'PT1';
+const POINT_TYPE_VERSION = 'PT2'; // PT2=T217 观测级门控（cheatCheck 规则集化 g23/g23NoSlowGrind/skip + factorCheckArmExempt 臂差集）
 
 /** 类型注册表（有序=优先级阶梯，首匹配胜出；normal 兜底恒在末位） */
 const POINT_TYPES = [
@@ -39,7 +39,16 @@ const POINT_TYPES = [
             + 'AND athVsLaunchPct >= 40 AND athVsLaunchPct <= 100 '
             + 'AND mcapFromPeakPct <= 50 '
             + 'AND bigBuyersCount >= 3 AND bigBuyersHeldDust >= 3 AND famousCopyWalletCircPct > 0',
-        policy: { factorCheckArms: 'cheatOnly', actFront: 'pass', buyPoint: 'stuffingOnly' },
+        // T217：cheatCheck 规则集差集（g23NoSlowGrind=A 主判排除 slow_grind_pump+去 E
+        // 通道——案源 0xa04ee1ed：唯一 strong=slowGrindPump、famous 在场自然带量入场、
+        // max60 9.11x 错过）；FP 同形状臂差集（slow_pump_unload=FP8a 慢拉卸货）
+        policy: {
+          factorCheckArms: 'cheatOnly',
+          factorCheckArmExempt: ['slow_pump_unload'],
+          actFront: 'pass',
+          cheatCheck: 'g23NoSlowGrind',
+          buyPoint: 'stuffingOnly',
+        },
     },
     // ── 未来类型占位（v1 不实现，追加时 bump POINT_TYPE_VERSION）──
     // 'strongbacker_egg'   强庄币雏形：……
@@ -48,7 +57,7 @@ const POINT_TYPES = [
         id: 'normal',
         label: '普通点位',
         condition: null, // null=兜底（前面全不中即普通）
-        policy: {},      // {}=现行全门语义（FP 全臂→AF1→CD→BP 全链）
+        policy: {},      // {}=现行全门语义（FP 全臂→AF1→CD〔g23 规则集〕→BP 全链）
     },
 ];
 
@@ -56,7 +65,9 @@ const POINT_TYPES = [
 const POLICY_VALUE_DOMAIN = {
     factorCheckArms: ['cheatOnly', 'skip'],
     actFront: ['pass'],
-    cheatCheck: ['skip'],
+    // T217 观测级门控：CD 门从三态结论门控改为规则集消费原始观测（'full' 退役——
+    // g23=现行 G 语义等价迁移；g23NoSlowGrind=retail 差集；skip=跳 16 题）
+    cheatCheck: ['g23', 'g23NoSlowGrind', 'skip'],
     buyPoint: ['stuffingOnly', 'skip'],
 };
 
@@ -100,6 +111,14 @@ function assertPointTypesValid(factorKeys) {
             throw new Error(`[pointType] 类型 ${type.id} condition 非法：${(v.errors || []).join('；')}`);
         }
         for (const dim of Object.keys(type.policy)) {
+            if (dim === 'factorCheckArmExempt') {
+                // T217 FP 臂差集：非空字符串数组（码域宽松——未知码=无害空操作）
+                if (!Array.isArray(type.policy[dim]) || !type.policy[dim].length
+                    || !type.policy[dim].every((c) => typeof c === 'string' && c)) {
+                    throw new Error(`[pointType] 类型 ${type.id} policy.factorCheckArmExempt 须为非空字符串数组`);
+                }
+                continue;
+            }
             if (!POLICY_VALUE_DOMAIN[dim]) {
                 throw new Error(`[pointType] 类型 ${type.id} policy 携带未知维度 ${dim}`);
             }

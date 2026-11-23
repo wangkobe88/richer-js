@@ -1698,16 +1698,22 @@ const CHEAT_CLASS_ARM_CODES = new Set([
 /**
  * 臂类别过滤（纯函数，armClass 策略的决策核——单测锁定）：
  * null=现行全臂语义 bit 不变；'cheat'=只留作弊类臂（act_ultra 优先级保持）。
+ * exempt=T217 pointType 臂差集（如 retail 去 slow_pump_unload——FP8a 慢拉卸货与
+ * CD slowGrindPump 同形状先验：famous 自然带量入场≠虚假拉盘）；对全臂语义同样
+ * 适用（normal 类型也可携差集，缺省空=零变化）。
  * @returns {{arms: string[], reason: string|null}}
  */
-function filterArmsByClass(parts, armClass) {
+function filterArmsByClass(parts, armClass, exempt = []) {
+  const ex = Array.isArray(exempt) && exempt.length ? new Set(exempt) : null;
   if (armClass !== 'cheat') {
+    const eff = ex ? parts.arms.filter((c) => !ex.has(c)) : parts.arms;
     const reason = parts.actLevel === 'low' ? 'act_low'
       : (parts.actLevel === 'ultra' ? 'act_ultra'
-        : (parts.pvpReason || parts.tailReason || parts.famousReason || (parts.arms.length ? parts.arms[0] : null)));
-    return { arms: parts.arms, reason };
+        : (parts.pvpReason || parts.tailReason || parts.famousReason || (eff.length ? eff[0] : null)));
+    return { arms: eff, reason };
   }
-  const arms = parts.arms.filter((c) => CHEAT_CLASS_ARM_CODES.has(c));
+  const arms = (ex ? parts.arms.filter((c) => !ex.has(c)) : parts.arms)
+    .filter((c) => CHEAT_CLASS_ARM_CODES.has(c));
   const reason = arms.includes('act_ultra') ? 'act_ultra' : (arms.length ? arms[0] : null);
   return { arms, reason };
 }
@@ -1816,7 +1822,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
   const { arms: effArms, reason } = filterArmsByClass({
     arms, pvpReason: pvp.reason, actLevel: activity.level,
     tailReason: tail.reason, famousReason: famous.reason,
-  }, armClass);
+  }, armClass, opts.armExempt);
   const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, bd: snapshot.buyDerived || {}, armHits: effArms, stallRestart });
   return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, tail, famous, arms: effArms,
     ...(armClass ? { armClass } : {}),

@@ -58,7 +58,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G23', '版本常量 G23（改规则必须 bump+同步台账+跑黄金集；G23=T205 E 通道阶段前提（2026-11-21 金狗 GWC 0xb71209cb…7777 案）：E_low_activity 加阶段腿——灰度 extras.enableActStageCold ∧ extras.stageAthVsLaunchPct（锚窗最高可靠价较地板发行价，cheat snapshot 新键）<80 未火过 → E 不产 unhealthy（cheat 门放行进 BP）——低活跃票最终守门员（FP act 臂/AF1 reject_low 同原则贯通 act-stage.js 共享线，不落本腿则上游放行 low 票死在 E）；ultra/M 通道刻意不动；ath null=照拦；灰度关=零行为黄金集 bit 不变；台账金狗 JG-15+交易 T205）；G22=G21−R 通道（2026-11-17 CD419/D3.77 用户裁定原话「abnormal_behavior_ratio 是针对一些不普世的异常现象，也删除吧，分工问题，如果发现有一些异常现象在 cheat 的其它锚不好控，会增加因子过滤锚，这个比较泛的 cheat 锚就不保留了」：泛异常兜底题与分工不符——不普世异常形状的承接载体=FP 因子门（T143 FP 族纯代码零 Jev）而非泛 cheat 题；题随 D3.77 整题删除（11→10）、R_abnormal_dominant 通道随题退役不再产出（历史行留档）、levels/buckets abnormalBehavior 键移除、FA cheatAbnormalBehaviorRatio 键恒 null；判读原料锚（D3.35 四键/D3.54 脉冲三键/创建者峰值）照算纯观察、state 两喂料行移除；黄金集 D3.26 存档无该题答案→重放零变化）；G21=G20−A 主判 burst_spike_concentration（CD418/D3.76——sbw=burst 豁免链天然放行 A 主判冗余：题整删+EXT 清单移除+MAIN_IDS 九→八主判+spike+pump 双 strong 封堵降级豁免臂随题退役，尖刺两锚照算纯观察）；G20=−D 通道（CD416 famous 锚删除——CD379 活跃度豁免下实际拦截为零，famous 拦截载体=BP ③桶+卖侧 T133/T136/T161/T137 臂）；G19=−J_holdings_strong 臂（btv140 食蟹猴二案）+D3.72 slow_grind_pump 合力反锚第二通道；G18=−G8 弱 burst 代码臂（CD397）；G17=N 通道（CD374）；G16=D 邻界联立臂（CD323，已随 G20 整体退役）；G15=burst_spike 入 EXT（→G21 出列）；G14=M 通道 ultra；G12/G13=R 通道立/改制（→G22 随题退役）')
+  ok(CHEAT_GRADE_RULES_VERSION === 'G24', '版本常量 G24（T217 规则集化：extras.ruleset 维度——g23=现行语义零改动〔normal〕/g23NoSlowGrind=retail_golden_pit 差集〔A 主判排除 slow_grind_pump+去 E 通道，案源 0xa04ee1ed famous 带量 9.11x 错过；用户三裁定〕；G23=T205 E 通道阶段前提；G1-G22 演进史见作弊台账）');
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance')
     && !MAIN_IDS.includes('burst_spike_concentration') && !MAIN_IDS.includes('strong_backer_pressure'),
@@ -762,6 +762,47 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
     const oB = mkLow(); withExt(oB, 'stall_burst_wave', 'burst');
     ok(grade(oB, { enableActStageCold: true, stageAthVsLaunchPct: 10 }).grade === 'healthy',
       'G23：sbw=burst 豁免照常（与阶段前提正交）');
+  }
+
+  // ═══════════════ T217 观测级门控规则集（g23NoSlowGrind 差集） ═══════════════
+  {
+    const { CHEAT_RULESET_IDS } = require('../src/market-analysis/cheat-grade');
+    ok(JSON.stringify(CHEAT_RULESET_IDS) === JSON.stringify(['g23', 'g23NoSlowGrind']),
+      'T217 规则集清单恰两枚（未知规则集 throw 由下方负例覆盖）');
+
+    // 案源复刻：唯一 strong=slow_grind_pump（0xa04ee1ed 形状——wash none/sbw none）
+    const mkSlowGrind = () => { const o = baseObs(); withExt(o, 'slow_grind_pump', 'strong'); return o; };
+    const g23v = grade(mkSlowGrind(), { anchorSellCount: 1 });
+    ok(g23v.grade === 'cheat' && g23v.reasons.some((x) => x.code === 'A_strong:slow_grind_pump'),
+      'T217 g23（现行）：slow_grind_pump 唯一 strong → cheat（案源 bt-v195 原判复刻）');
+    const rg = grade(mkSlowGrind(), { anchorSellCount: 1, ruleset: 'g23NoSlowGrind' });
+    ok(rg.grade === 'healthy', 'T217 差集：slow_grind_pump strong 不产 cheat（famous 自然带量≠虚假拉盘）');
+    ok(rg.version === 'G24@g23NoSlowGrind', 'T217 差集：version 带 @ruleset 标记（审计可辨）');
+
+    // 差集只去 slowGrind：washPair strong 照旧 cheat（拉黑联动语义保留）
+    const mkWash = () => { const o = baseObs(); withExt(o, 'wash_pair', 'strong'); withExt(o, 'slow_grind_pump', 'strong'); return o; };
+    ok(grade(mkWash(), { anchorSellCount: 1, ruleset: 'g23NoSlowGrind' }).grade === 'cheat',
+      'T217 差集：wash_pair strong 照旧 cheat（差集只去 slowGrindPump——用户裁定②）');
+
+    // E 通道去除（与 AF1 pass 矛盾）：act=low∧sbw≠burst 在差集下不产 unhealthy
+    const mkLowT217 = () => { const o = baseObs(); o.activityLevel.bucket = 'low'; return o; };
+    const gLow = grade(mkLowT217(), { anchorSellCount: 1, ruleset: 'g23NoSlowGrind' });
+    ok(gLow.grade === 'healthy', 'T217 差集：E 通道去除（act=low 不产 unhealthy——用户裁定③）');
+    // M 通道照旧：ultra 仍 unhealthy
+    const mkUltraT217 = () => { const o = baseObs(); o.activityLevel.bucket = 'ultra'; return o; };
+    ok(grade(mkUltraT217(), { anchorSellCount: 1, ruleset: 'g23NoSlowGrind' }).grade === 'unhealthy',
+      'T217 差集：M 通道照旧（ultra 仍 unhealthy）');
+
+    // 未知规则集 throw fail-loud
+    let threw = false;
+    try { grade(baseObs(), { anchorSellCount: 1, ruleset: 'nope' }); } catch (_e) { threw = true; }
+    ok(threw, 'T217 未知规则集 throw（绝不静默回落）');
+
+    // g23 显式传=与缺省逐字等价
+    const a = grade(baseObs(), { anchorSellCount: 1 });
+    const b = grade(baseObs(), { anchorSellCount: 1, ruleset: 'g23' });
+    ok(a.grade === b.grade && a.version === b.version && JSON.stringify(a.reasons) === JSON.stringify(b.reasons),
+      'T217 显式 g23=缺省等价（normal 类型 bit 不变由构造保证）');
   }
 
   console.log(`\n✅ _test_cheat_grade 全过（${passed} 断言）`);

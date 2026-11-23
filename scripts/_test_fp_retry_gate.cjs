@@ -251,8 +251,8 @@ console.log('\n[D] 引擎胶水源码锁');
   // D5b T203b 作用域锁（bt-v166 首跑事故：块内 const _fp4T0 在块外慢分解段
   // 引用=正常路径全链放行也 ReferenceError→成交前静默炸——「块内 const 块外
   // 恒不可见」与块是否执行无关）：_fp4T0/_fp4Dt 必须 let 声明在 resume 块外
-  ok(/let _fp4T0 = 0, _fp4Dt = 0;\s*\n\s*if \(!opts\.resume\) \{/.test(bt),
-    '回测：_fp4T0/_fp4Dt 声明在 resume 块外（T203b 作用域修复锁）');
+  ok(/let _fp4T0 = 0, _fp4Dt = 0;[\s\S]{0,900}?if \(!opts\.resume\) \{/.test(bt),
+    '回测：_fp4T0/_fp4Dt 声明在 resume 块外（T203b 作用域修复锁；T216 起中间夹 pointType 分类块同在块外）');
   ok(!/if \(!opts\.resume\) \{[\s\S]{0,600}?const _fp4T0/.test(bt),
     '回测：resume 块内无 const _fp4T0（防撕裂回潮）');
   // D6 回测：挂点决策时钟=虚拟 tickTs（tickCheck/重评/续跑全链；perf 仪表的

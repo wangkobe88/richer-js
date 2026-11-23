@@ -225,8 +225,10 @@ class BuyPointCheckService {
         enableTailDipExempt: this._tailDipOrganicExempt,
         enableActStageCold: this._actStageColdExempt, // T205 fix①：act low 阶段前提
         enableTailDipVolumeLeg: this._tailDipVolumeLeg, // T205 fix②：tail_dip 量腿
-        // T213b 好散户币通路包策略：armClass='cheat' → FP 只留严重作弊臂
+        // T213b 好散户币通路包策略：armClass='cheat' → FP 只留严重作弊臂；
+        // T217 pointType 臂差集（如 retail 去 slow_pump_unload）
         ...(opts.armClass === 'cheat' ? { armClass: 'cheat' } : {}),
+        ...(Array.isArray(opts.armExempt) && opts.armExempt.length ? { armExempt: opts.armExempt } : {}),
       });
       this.stats.factorAssessed++;
       if (!verdict.pass) this.stats.factorBlocked++;

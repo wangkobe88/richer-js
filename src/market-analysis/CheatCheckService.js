@@ -78,7 +78,7 @@ const { isColdStage } = require('./act-stage'); // T205/fix① 阶段前提共�
 const { evaluateStallRestart } = require('./stall-restart'); // T210 停滞再启动通路（纯函数判定）
 const { buildCheatState } = require('./cheat-state-builder');
 const { buildObservation, readActivityLevel, readStallBurst, readPhenomenon } = require('./cheat-result-mapper');
-const { gradeObservation, levelsFromObservation, strongbackerShapeHit, STRONGBACKER_RULE_VERSION } = require('./cheat-grade');
+const { gradeObservation, levelsFromObservation, strongbackerShapeHit, STRONGBACKER_RULE_VERSION, CHEAT_RULESET_IDS } = require('./cheat-grade');
 
 const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
@@ -334,6 +334,11 @@ class CheatCheckService {
     const token = String(tokenAddress || '').toLowerCase();
     if (!token) return { status: 'invalid_token' };
     this.stats.gateNoted++;
+    // T217 观测级门控规则集（pointType policy 携带；缺省 g23=现行语义）：
+    // 粘滞/_inflight 以 token@ruleset 复合键隔离（同票不同类型不同结论）；
+    // 拉黑 _gateBlocked 保持全局单键（用户裁定：cheat 拉黑+清仓联动不分规则集）
+    const ruleset = CHEAT_RULESET_IDS.includes(opts.ruleset) ? opts.ruleset : 'g23';
+    const skey = token + '@' + ruleset;
 
     // CD379 活跃度豁免：出口统一包 _applyActivityExempt（拉黑登记/恢复点已跳过
     // 豁免票，blocked 出口此处为纯防御形状统一——bootstrap 恢复的旧拉黑行以
@@ -359,22 +364,22 @@ class CheatCheckService {
     // 边缘：recheck=false 腿 join 上 recheck=true 腿已起的真析链=拿更细结果，
     // 不烧额外配额，方向安全接受。CD381 forceRecheck：healthy/unhealthy 粘滞
     // 全部绕过（重检语义覆盖 recheckUnhealthy 布尔）；CD389 同绕（每信号重判）
-    const lg = this._lastGrade.get(token);
+    const lg = this._lastGrade.get(skey);
     if (!_force
         && lg && (lg.grade === 'healthy'
         || (opts.recheckUnhealthy === false && lg.grade === 'unhealthy'))) {
       return this._applyActivityExempt(this._stickyResult(token, lg)); // CD379：sticky unhealthy 豁免票同放行
     }
 
-    let chain = this._inflight.get(token);
+    let chain = this._inflight.get(skey);
     if (!chain) {
       // CD389：配置级重判经 opts 归一化透传 _chain（4b/4c bootstrap 秒回同绕过；
-      // 显式 opts.forceRecheck 已真则原样透传）
-      const _chainOpts = this._alwaysRecheck === true && opts.forceRecheck !== true
-        ? { ...opts, forceRecheck: true } : opts;
-      chain = this._chain(token, tokenMeta, context, _chainOpts).finally(() => this._inflight.delete(token));
+      // 显式 opts.forceRecheck 已真则原样透传）；T217 ruleset 同透传
+      const _chainOpts = { ruleset, ...(this._alwaysRecheck === true && opts.forceRecheck !== true
+        ? { ...opts, forceRecheck: true } : opts) };
+      chain = this._chain(token, tokenMeta, context, _chainOpts).finally(() => this._inflight.delete(skey));
       chain.catch(() => {}); // 链内全吞错；此处仅防 unhandled rejection
-      this._inflight.set(token, chain);
+      this._inflight.set(skey, chain);
     } else {
       this.stats.inflightJoined++;
     }
@@ -1048,7 +1053,10 @@ class CheatCheckService {
       // 腿 unhealthy 同样粘滞（bootstrap 恢复的 unhealthy 也秒回）；
       // CD381 forceRecheck：绕过（同入口语义）
       {
-        const lg = this._lastGrade.get(token);
+        // T217：bootstrap 恢复的粘滞带 g23 域标记（DB 行=原始 grade）——非 g23
+        // 规则集的查询以 token@ruleset 键 miss → 真析重评（不同类型不同结论）
+        const _rs = CHEAT_RULESET_IDS.includes(opts.ruleset) ? opts.ruleset : 'g23';
+        const lg = this._lastGrade.get(token + '@' + _rs);
         if (opts.forceRecheck !== true
             && lg && (lg.grade === 'healthy'
             || (opts.recheckUnhealthy === false && lg.grade === 'unhealthy'))) {
@@ -1267,7 +1275,7 @@ class CheatCheckService {
       // anchorSellCount=锚窗卖笔数现场计数——E 门真实对手盘豁免原料，digest 落档）
       let anchorSellCount = 0;
       for (const r of pull.rows) if (r.trade_type !== 'buy') anchorSellCount++;
-      const graded = gradeObservation(obs, {
+      const _gradeExtras = {
         // （famous 三键已随 G20/CD416 D 通道退役）
         anchorSellCount,
         // T205/fix① E 通道阶段前提（灰度 gate.actStageColdExempt——与 AF1 同键
@@ -1275,11 +1283,18 @@ class CheatCheckService {
         stageAthVsLaunchPct: snapshot.derived && typeof snapshot.derived.athVsLaunchPct === 'number'
           ? snapshot.derived.athVsLaunchPct : null,
         enableActStageCold: this._gateActStageCold,
-      });
+      };
+      const graded = gradeObservation(obs, _gradeExtras);
       obs.grade = graded.grade;
       obs.gradeReasons = graded.reasons;
       obs.gradeVersion = graded.version;
       obs.anchorSellCount = anchorSellCount;
+      // T217 观测级门控：观测行落原始 grade（研究原料不变）——门决策域按 pointType
+      // 规则集重评（g23=同一对象零行为差；差集规则集=纯函数重评，levels/anchors
+      // 观测域共享、豁免链/拉黑三点同构照旧消费重评后的 grade）
+      const _rs = CHEAT_RULESET_IDS.includes(opts.ruleset) ? opts.ruleset : 'g23';
+      const gateGraded = _rs === 'g23' ? graded
+        : gradeObservation(obs, { ..._gradeExtras, ruleset: _rs });
 
       await this._writeRow(token, meta, pull, obs, { answers: res.result.answers, model: res.result.model, usage: res.result.usage, state }, context, snapshot.derived);
       this.stats.analyzed++;
@@ -1307,20 +1322,21 @@ class CheatCheckService {
       // activity 桶（high 恢复/ultra 单档拒，CD388 形态）∨ burst 臂——单一子式
       // 与出口/bootstrap 三点同构；unhealthy 照旧双通道（均受 CD380 约束）
       const _actBucket = obs.activityLevel ? obs.activityLevel.bucket : null;
-      const activityExempt = graded.grade === 'cheat'
+      const activityExempt = gateGraded.grade === 'cheat'
         ? this._isCheatExemptEligible(_actBucket, levels, anchors) // CD391：cheat 豁免登记拉黑跳过（CD398 流向腿+CD400 dump 承接臂同判）
         : ((this._isActivityExempt(_actBucket)
             || this._isStallBurstExempt(levels, anchors)) // CD383/CD397 burst 资格臂（CD398 流向硬腿）
           && !this._exemptDeniedReason(levels, anchors));
-      if (graded.grade === 'cheat' && !activityExempt) {
+      if (gateGraded.grade === 'cheat' && !activityExempt) {
         this._gateBlocked.add(token);
-      } else if (graded.grade === 'unhealthy') {
+      } else if (gateGraded.grade === 'unhealthy') {
         const n = (this._gateUnhealthyGrades.get(token) || 0) + 1;
         this._gateUnhealthyGrades.set(token, n);
       }
 
-      this._lastGrade.set(token, {
-        grade: graded.grade, reasons: graded.reasons, version: graded.version,
+      this._lastGrade.set(token + '@' + _rs, {
+        grade: gateGraded.grade, reasons: gateGraded.reasons, version: gateGraded.version,
+        ruleset: _rs,
         unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
         levels, buckets, anchors,
       });
@@ -1353,10 +1369,11 @@ class CheatCheckService {
         // 采实验日志与 cheat_detection 行——豁免规则立法的原料）
         ` 买压=${snapshot.derived.anchorBuySellRatio ?? '—'}` +
         ` sbLike=${this._strongbackerLike.has(token) ? 1 : 0}` +
-        ` grade=${graded.grade}${graded.reasons.length ? `(${graded.reasons.map((r) => r.code).join(',')})` : ''}` +
+        ` grade=${gateGraded.grade}${gateGraded !== graded ? `(raw:${graded.grade})` : ''}${gateGraded.reasons.length ? `(${gateGraded.reasons.map((r) => r.code).join(',')})` : ''}` +
         ` ticks=${pull.anchorTickCount}${pull.capped ? '+' : ''} | ${token}`);
       return {
-        status: 'analyzed', grade: graded.grade, reasons: graded.reasons,
+        status: 'analyzed', grade: gateGraded.grade, reasons: gateGraded.reasons,
+        ...(gateGraded !== graded ? { rawGrade: graded.grade, ruleset: _rs } : {}),
         unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
         levels, buckets, anchors,
         strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0, // CD159 观察臂（曾经命中粘滞值）
@@ -1422,7 +1439,8 @@ class CheatCheckService {
    */
   _blockedResult(token) {
     this.stats.gateBlockedHits++;
-    const lg = this._lastGrade.get(token);
+    // T217：拉黑全局单键——粘滞快照回退 @g23 域条目（denied 判据=观测域与规则集无关）
+    const lg = this._lastGrade.get(token) || this._lastGrade.get(token + '@g23');
     return {
       status: 'graded', grade: 'cheat', blocked: true,
       reasons: [{ level: 'cheat', code: 'gate_blocked' }],
@@ -1490,14 +1508,17 @@ class CheatCheckService {
         // _lastGrade 恢复（最新带 grade 行）：cheat 拉黑秒回/healthy 粘滞秒回/
         // unhealthy 投影不缺位（下次信号重判覆盖）
         const gradedRow = rows.find((r) => r.snapshot_digest && r.snapshot_digest.grade);
-        if (gradedRow && !this._lastGrade.has(token)) {
+        if (gradedRow && !this._lastGrade.has(token + '@g23')) {
           const d = gradedRow.snapshot_digest;
           const { levels, buckets, anchors } = levelsFromObservation(d, {
             // （famous 两键已随 G20/CD416 D 通道退役；旧档 digest anchors 内
             //  famousDominancePct 键 levelsFromObservation 不再挑读=自然降级）
           });
-          this._lastGrade.set(token, {
+          // T217：DB 行=原始 grade（g23 域）——恢复键带 @g23 标记；非 g23 规则集
+          // 的粘滞查询天然 miss → 真析按类型重评
+          this._lastGrade.set(token + '@g23', {
             grade: d.grade, reasons: d.gradeReasons || [], version: d.gradeVersion || this._version,
+            ruleset: 'g23',
             unhealthyGrades: unhealthy, levels, buckets, anchors,
           });
         }

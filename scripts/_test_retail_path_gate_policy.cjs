@@ -66,6 +66,25 @@ console.log('B. evaluateFactorPreBuy armClass 端到端（最小快照）');
   });
 }
 
+console.log('A2b. filterArmsByClass exempt 臂差集（T217）');
+{
+  const parts = { arms: ['cd400_dump_no_absorption', 'slow_pump_unload', 'act_low'], pvpReason: null, actLevel: 'low', tailReason: null, famousReason: null };
+  check('A2b1 cheat+exempt slow_pump：慢拉臂被差集剔除其余照拦', () => {
+    const r = filterArmsByClass(parts, 'cheat', ['slow_pump_unload']);
+    assert.deepStrictEqual(r.arms, ['cd400_dump_no_absorption']);
+    assert.strictEqual(r.reason, 'cd400_dump_no_absorption');
+  });
+  check('A2b2 exempt 空=与无参逐字等价', () => {
+    const a = filterArmsByClass(parts, 'cheat');
+    const b = filterArmsByClass(parts, 'cheat', []);
+    assert.deepStrictEqual(a, b);
+  });
+  check('A2b3 全臂语义同享差集（normal 也可携）', () => {
+    const r = filterArmsByClass(parts, null, ['slow_pump_unload']);
+    assert.deepStrictEqual(r.arms, ['cd400_dump_no_absorption', 'act_low']);
+  });
+}
+
 console.log('C. validatePack gatePolicy 退役（T216 迁 modules.pointType）');
 {
   const mk = (gp) => ({

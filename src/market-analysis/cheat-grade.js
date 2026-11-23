@@ -315,7 +315,7 @@
 const { PHENOMENON_IDS, EXT_PHENOMENON_IDS } = require('./cheat-result-mapper');
 const { isColdStage, ACT_STAGE_HOT_MIN_ATH_VS_PCT } = require('./act-stage'); // T205/fix① 共享线（零依赖叶子）
 
-const CHEAT_GRADE_RULES_VERSION = 'G23'; // G23=T205 E 通道阶段前提（2026-11-21 金狗 GWC 0xb71209cb…7777 复活拉回误杀案，用户原则「活跃度拦截的价值在火过一段时间后的流动性失去，前期不重要」）：E_low_activity 加阶段腿——**未火过**（extras.stageAthVsLaunchPct 锚窗最高可靠价较地板发行价 <80，act-stage.js 共享线 FP27 同线）∧灰度 extras.enableActStageCold（CheatCheckService gate.actStageColdExempt）→ E 不产 unhealthy（cheat 门放行进 BP）——低活跃票的最终守门员（FP act 臂/AF1 reject_low 同原则贯通，不落本腿则上游放行的 low 票死在 E）；ultra（M 通道）刻意不动=协同出货当下事实非静默语义；ath null=照拦（放行方向证据缺席不释放）；A/D/J/L 通道不受影响。版本 bump=规则域变化（灰度关时零行为，黄金集 42 票对拍锁 bit 不变）；台账金狗 JG-15+交易 T205+作弊台账 G23 段
+const CHEAT_GRADE_RULES_VERSION = 'G24'; // G24=T217 规则集化（2026-11-23 用户架构裁定「Jev 检测不再直接产生 unhealthy/cheat 结论，而是产生门控的结果」：extras.ruleset 维度——g23=现行语义零改动（normal 类型，黄金集 42 票对拍锁不变）/g23NoSlowGrind=retail_golden_pit 差集〔A 主判排除 slow_grind_pump+去 E 通道，案源 0xa04ee1ed famous 带量 9.11x 错过；用户三裁定：拉黑联动照旧全局/差集 v1 只去 slowGrindPump/去 E〕）；G23=T205 E 通道阶段前提 // G23=T205 E 通道阶段前提（2026-11-21 金狗 GWC 0xb71209cb…7777 复活拉回误杀案，用户原则「活跃度拦截的价值在火过一段时间后的流动性失去，前期不重要」）：E_low_activity 加阶段腿——**未火过**（extras.stageAthVsLaunchPct 锚窗最高可靠价较地板发行价 <80，act-stage.js 共享线 FP27 同线）∧灰度 extras.enableActStageCold（CheatCheckService gate.actStageColdExempt）→ E 不产 unhealthy（cheat 门放行进 BP）——低活跃票的最终守门员（FP act 臂/AF1 reject_low 同原则贯通，不落本腿则上游放行的 low 票死在 E）；ultra（M 通道）刻意不动=协同出货当下事实非静默语义；ath null=照拦（放行方向证据缺席不释放）；A/D/J/L 通道不受影响。版本 bump=规则域变化（灰度关时零行为，黄金集 42 票对拍锁 bit 不变）；台账金狗 JG-15+交易 T205+作弊台账 G23 段
 
 /**
  * 档位→数值映射（G1 因子化投影，2026-11-01 用户指令「以因子的形式放到表达式中」）：
@@ -491,6 +491,20 @@ function levelsFromObservation(observation, extras = {}) {
 /** 四现象题（B 通道现象门原料） */
 const PHEN_IDS = PHENOMENON_IDS; // [equal_amount_split, coordinated_sell_back, creator_front_run, sell_dispersion]
 
+// ── T217 观测级门控规则集（2026-11-23 用户架构裁定：Jev 检测不再直接产三态结论做
+//    门控，结论层归 pointType 类型规则集——normal 也换这套实现，G24=g23 语义等价
+//    迁移；差集规则集由 pointType policy 携带）──
+// g23           = normal 规则集（现行语义零改动——默认参数=现行调用不变，等价性
+//                 由构造保证；黄金集 42 票对拍锁不变）
+// g23NoSlowGrind= retail_golden_pit 差集（用户三裁定 2026-11-23）：①A 主判排除
+//                 slow_grind_pump（strong 也不产 cheat——案源 0xa04ee1ed…7777：
+//                 唯一 strong=slowGrindPump、famous 在场自然带量入场≠虚假拉盘、
+//                 max60 9.11x 错过）②E 通道（act=low∧sbw≠burst→unhealthy）去除
+//                 ——与该类型 AF1 pass 矛盾；L/M/A 其余码/CD379 豁免链/CD383
+//                 burst 臂/CD380 不豁免臂/cheat 拉黑联动全部照旧
+const CHEAT_RULESET_IDS = ['g23', 'g23NoSlowGrind'];
+
+
 /** 八主判题：三现象 + EXT 剔 sbw（cr/sbw=辅助判定不进主判；wash_pair D3.28
  *  随 EXT 清单自动入列；**holdings_balance D3.32 刻意排除**——G7 用户裁定独立
  *  J 通道（strong→unhealthy）不进 A 主判清单，组合垄断=拒买级非拉黑级（J 臂
@@ -562,6 +576,12 @@ function _pct(v) {
 function gradeObservation(observation, extras = {}) {
   const obs = observation || {};
   const ex = extras || {};
+  // T217 规则集（缺省 g23=现行语义 bit 不变；未知值 throw fail-loud）
+  const ruleset = ex.ruleset === undefined || ex.ruleset === 'g23' ? 'g23' : ex.ruleset;
+  if (!CHEAT_RULESET_IDS.includes(ruleset)) {
+    throw new Error(`[cheat-grade] 未知规则集 ${JSON.stringify(ex.ruleset)}（可用：${CHEAT_RULESET_IDS.join('/')}）`);
+  }
+  const noSlowGrind = ruleset === 'g23NoSlowGrind';
   const ph = obs.phenomena || {};
   const ext = obs.extLevels || {};
   const lv = {};
@@ -569,7 +589,7 @@ function gradeObservation(observation, extras = {}) {
   for (const id of EXT_PHENOMENON_IDS) lv[id] = ext[id] ?? null;
 
   const sbw = ext.stall_burst_wave ?? null;
-  const strongHit = MAIN_IDS.filter((k) => lv[k] === 'strong');
+  const strongHit = MAIN_IDS.filter((k) => lv[k] === 'strong' && !(noSlowGrind && k === 'slow_grind_pump'));
   const modAll = MAIN_IDS.filter((k) => lv[k] === 'moderate').length;
   const act = obs.activityLevel && typeof obs.activityLevel.bucket === 'string'
     ? obs.activityLevel.bucket : null;
@@ -626,7 +646,7 @@ function gradeObservation(observation, extras = {}) {
   // 尘埃流量/卖出引发 → Jev 判 none，E 恢复拦截）。案史：G8 定线时 17 票
   // sbw=burst 豁免挡住的全是自己人（14 票 Jev act 已判 low）——退役后该防线
   // 由 D3.67 题面四判轴接棒，E_low_activity_weak_burst 码随臂退役（历史行留档）
-  if (act === 'low' && sbw !== 'burst') {
+  if (act === 'low' && sbw !== 'burst' && !noSlowGrind) {
     // T205/G23 阶段前提（金狗 GWC 案，灰度 enableActStageCold）：未火过
     // （锚前 ATH<80）的票 low 不产 unhealthy——「前期活跃度检测不重要，火过
     // 一段时间后 low=流动性失去才拦」；ath 缺席 null=照拦（isColdStage false）
@@ -706,11 +726,11 @@ function gradeObservation(observation, extras = {}) {
 
   const grade = reasons.some((r) => r.level === 'cheat') ? 'cheat'
     : (reasons.some((r) => r.level === 'unhealthy') ? 'unhealthy' : 'healthy');
-  return { grade, reasons, version: CHEAT_GRADE_RULES_VERSION };
+  return { grade, reasons, version: CHEAT_GRADE_RULES_VERSION + (ruleset !== 'g23' ? `@${ruleset}` : '') };
 }
 
 module.exports = {
-  gradeObservation, CHEAT_GRADE_RULES_VERSION, MAIN_IDS,
+  gradeObservation, CHEAT_GRADE_RULES_VERSION, CHEAT_RULESET_IDS, MAIN_IDS,
   CHEAT_LEVEL_SCORES, scoreLevel, levelsFromObservation,
   strongbackerShapeHit, STRONGBACKER_RULE, STRONGBACKER_RULE_VERSION,
 };

@@ -1793,6 +1793,11 @@ class AbstractTradingEngine extends ITradingEngine {
           awaitMs: this._cheatGateAwaitMs, recheckUnhealthy: signalGate.cheatRecheck === true,
           ...(recheckDue ? { forceRecheck: true } : {}), // CD381：绕拉黑/粘滞秒回真调重判
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
+          // T217 观测级门控：pointType 规则集（g23=现行；g23NoSlowGrind=retail 差集；
+          // 服务侧缺省 g23 零变化）
+          ...(ctx.pointTypePolicy && ctx.pointTypePolicy.cheatCheck
+            && ctx.pointTypePolicy.cheatCheck !== 'skip'
+            ? { ruleset: ctx.pointTypePolicy.cheatCheck } : {}),
         });
     } catch (e) {
       this.logger.warn(this._experimentId, 'SignalGate',
@@ -2074,8 +2079,10 @@ class AbstractTradingEngine extends ITradingEngine {
           strategyName: ctx.strategyName ?? null,
         }, {
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
-          // T216 类型级门控：FP 只留严重作弊臂
+          // T216 类型级门控：FP 只留严重作弊臂；T217 臂差集（如 retail 去 slow_pump_unload）
           ...(ctx.pointTypePolicy?.factorCheckArms === 'cheatOnly' ? { armClass: 'cheat' } : {}),
+          ...(Array.isArray(ctx.pointTypePolicy?.factorCheckArmExempt) && ctx.pointTypePolicy.factorCheckArmExempt.length
+            ? { armExempt: ctx.pointTypePolicy.factorCheckArmExempt } : {}),
         });
         const _fp4Dt = Date.now() - _fp4T0;
         if (_fp4Dt > 300) this.logger.info(this._experimentId, 'SignalGate',

@@ -30,7 +30,13 @@ console.log('A. classifyPointType 分类');
   check('A1 黄金坑因子表命中（MOYNOK t+562s 第一波坑底真值：curVs 25.7/dd 28.8 无下限版）', () => {
     const r = classifyPointType(GOLDEN);
     assert.strictEqual(r.type, 'retail_golden_pit');
-    assert.deepStrictEqual(r.policy, { factorCheckArms: 'cheatOnly', actFront: 'pass', buyPoint: 'stuffingOnly' });
+    assert.deepStrictEqual(r.policy, {
+      factorCheckArms: 'cheatOnly',
+      factorCheckArmExempt: ['slow_pump_unload'],
+      actFront: 'pass',
+      cheatCheck: 'g23NoSlowGrind',
+      buyPoint: 'stuffingOnly',
+    });
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
     for (const k of ['tokenAgeSec', 'buyVolumeBnb', 'currentVsLaunchPct', 'athVsLaunchPct', 'mcapFromPeakPct', 'bigBuyersCount', 'bigBuyersHeldDust', 'famousCopyWalletCircPct']) {
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
@@ -58,7 +64,7 @@ console.log('A. classifyPointType 分类');
 console.log('B. assertPointTypesValid 启动防线');
 {
   const faKeys = new FourMemeFactorAggregator({}).getFactorKeys();
-  check('B1 FA 真键集全过（注册表 condition 键域合法）', () => {
+  check('B1 FA 真键集全过（注册表 condition 键域合法——PT2 policy 五键含 cheatCheck 规则集+臂差集）', () => {
     assert.doesNotThrow(() => assertPointTypesValid(faKeys));
   });
   check('B2 未知因子 throw 拒启', () => {

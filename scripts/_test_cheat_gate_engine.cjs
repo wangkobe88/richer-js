@@ -618,7 +618,7 @@ async function testActivityExempt() {
 
   // F3 sticky 出口真调（零 DB 零 LLM：unhealthy 粘滞+recheck=false → 豁免变换 healthy 放行）
   const s3 = mkSvc();
-  s3._lastGrade.set('0xexempt', {
+  s3._lastGrade.set('0xexempt@g23', {
     grade: 'unhealthy', reasons: [{ code: 'E_low_activity' }], version: 'G17',
     unhealthyGrades: 2, levels: { activityLevel: 1 }, buckets: { activityLevel: 'high' }, anchors: {},
   });
@@ -628,7 +628,7 @@ async function testActivityExempt() {
 
   // F4 源码口径锁：拉黑登记点跳过豁免票（graded 段）+ bootstrap 恢复检查 + late 包
   ok('F4 拉黑登记点豁免跳过（grade===cheat && !activityExempt 恰一处）',
-    (svcSrc.match(/graded\.grade === 'cheat' && !activityExempt/g) || []).length === 1);
+    (svcSrc.match(/gateGraded\.grade === 'cheat' && !activityExempt/g) || []).length === 1);
   ok('F4 bootstrap 恢复拉黑豁免检查（cheatSeen && !_isCheatExemptEligible——与拉黑登记点同构，CD391 起单一子式三点共用）',
     svcSrc.includes('cheatSeen && !this._isCheatExemptEligible('));
   ok('F4 timeout late 包豁免+翻案变换（迟到结果不把豁免票错拉黑；CD381 重检迟到翻正同解除）',
@@ -703,7 +703,7 @@ async function testActivityExempt() {
     s7.stats.exemptDenied - beforeDeny === 0 && s7.stats.activityCheatDenied - beforeAC === 0, s7.stats);
   // F7 sticky 出口：holdings 臂移除后 sticky 秒回同样走豁免变换（粘滞态不改、决策域放行）
   const s7s = mkSvc();
-  s7s._lastGrade.set('0xdenied', {
+  s7s._lastGrade.set('0xdenied@g23', {
     grade: 'unhealthy', reasons: [{ code: 'J_holdings_strong' }], version: 'G17',
     unhealthyGrades: 2, levels: { holdingsBalance: 3 }, buckets: { activityLevel: 'high' }, anchors: {},
   });
@@ -715,7 +715,7 @@ async function testActivityExempt() {
   // CD391 起 cheat 分支资格=_isCheatExemptEligible 单一子式（activity 桶 high 恢复/
   // ultra 单档拒 ∨ burst 臂）、unhealthy 分支照旧双通道 ∧ !denied
   ok('F7 拉黑登记点收紧在场（cheat → _isCheatExemptEligible；unhealthy → (isExempt ∨ stallBurst) && !deniedReason(levels)；CD398 起 anchors 双参透传流向腿+CD400 dump 承接臂）',
-    svcSrc.includes("graded.grade === 'cheat'\n        ? this._isCheatExemptEligible(_actBucket, levels, anchors) // CD391：cheat 豁免登记拉黑跳过（CD398 流向腿+CD400 dump 承接臂同判）")
+    svcSrc.includes("gateGraded.grade === 'cheat'\n        ? this._isCheatExemptEligible(_actBucket, levels, anchors) // CD391：cheat 豁免登记拉黑跳过（CD398 流向腿+CD400 dump 承接臂同判）")
       && svcSrc.includes('|| this._isStallBurstExempt(levels, anchors)) // CD383/CD397 burst 资格臂（CD398 流向硬腿）\n          && !this._exemptDeniedReason(levels, anchors));'));
   ok('F7 bootstrap 恢复拉黑同款收紧（cheatDigest levelsFromObservation 判臂；CD391 起单一子式三点同构；CD398 三参透传 cheatLv.anchors）',
     svcSrc.includes('const cheatLv = cheatDigest ? levelsFromObservation(cheatDigest) : null;')
@@ -812,7 +812,7 @@ async function testActivityExempt() {
     s8off._applyActivityExempt({ status: 'graded', grade: 'cheat', levels: { stallBurstWave: 1 }, buckets: { activityLevel: 'low' } }).grade === 'cheat');
   // F8 sticky 出口：粘滞 unhealthy 携带 levels → 秒回同走 burst 豁免
   const s8s = mkSvc();
-  s8s._lastGrade.set('0xburst', {
+  s8s._lastGrade.set('0xburst@g23', {
     grade: 'unhealthy', reasons: [{ code: 'E_low_activity' }], version: 'G18',
     unhealthyGrades: 1, levels: { stallBurstWave: 1 }, buckets: { activityLevel: 'low' }, anchors: {},
   });
@@ -955,14 +955,14 @@ async function testAlwaysRecheck() {
 
   // G3 healthy 粘滞绕过：flag 开 → 不秒回；缺省 → 秒回 cached 零 chain
   const s3 = mkSvcG({ alwaysRecheck: true });
-  s3._lastGrade.set('0xst', { grade: 'healthy', reasons: [], version: 'G17', unhealthyGrades: 0, levels: {}, buckets: { activityLevel: 'mid' }, anchors: {} });
+  s3._lastGrade.set('0xst@g23', { grade: 'healthy', reasons: [], version: 'G17', unhealthyGrades: 0, levels: {}, buckets: { activityLevel: 'mid' }, anchors: {} });
   const c3 = []; s3._chain = chainStub(c3);
   const r3 = await s3.gateBuyPoint('0xst', {}, {});
   check('G3 healthy 粘滞绕过（chain 真调非 cached 秒回）',
     { grade: r3.grade, cached: r3.cached === true, chainCalls: c3.length },
     { grade: 'healthy', cached: false, chainCalls: 1 });
   const s3b = mkSvcG();
-  s3b._lastGrade.set('0xst', { grade: 'healthy', reasons: [], version: 'G17', unhealthyGrades: 0, levels: {}, buckets: { activityLevel: 'mid' }, anchors: {} });
+  s3b._lastGrade.set('0xst@g23', { grade: 'healthy', reasons: [], version: 'G17', unhealthyGrades: 0, levels: {}, buckets: { activityLevel: 'mid' }, anchors: {} });
   const c3b = []; s3b._chain = chainStub(c3b);
   const r3b = await s3b.gateBuyPoint('0xst', {}, {});
   check('G3 对照（缺省关）：healthy 秒回 cached 零 chain（CD158 语义维持）',
@@ -997,9 +997,9 @@ async function testAlwaysRecheck() {
   const svcSrc = fs.readFileSync(path.join(__dirname, '../src/market-analysis/CheatCheckService.js'), 'utf8');
   ok('G6 入口归一化（_force = opts.forceRecheck ∨ alwaysRecheck——两秒回点同判）',
     svcSrc.includes('const _force = opts.forceRecheck === true || this._alwaysRecheck === true;'));
-  ok('G6 链归一化透传（_chainOpts 注入 forceRecheck:true——_chain 4b/4c bootstrap 复检读 opts.forceRecheck 天然绕过）',
-    svcSrc.includes('const _chainOpts = this._alwaysRecheck === true && opts.forceRecheck !== true')
-    && svcSrc.includes('? { ...opts, forceRecheck: true } : opts;'));
+  ok('G6 链归一化透传（T217 起 _chainOpts 前置 ruleset 注入+forceRecheck 归一化——_chain 4b/4c 读 opts 天然继承）',
+    svcSrc.includes('const _chainOpts = { ruleset, ...(this._alwaysRecheck === true && opts.forceRecheck !== true')
+    && svcSrc.includes('? { ...opts, forceRecheck: true } : opts) };'));
   ok('G6 stats.alwaysRechecks 独立计数器在场（与 forceRechecks 分账）',
     svcSrc.includes('alwaysRechecks: 0'));
   ok('G6 _chain 4b bootstrap 拉黑复检读 opts.forceRecheck（归一化后天然绕过）',
