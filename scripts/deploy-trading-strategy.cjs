@@ -25,7 +25,7 @@
 'use strict';
 
 const ENTRY_NAME = 'trading-standard-v1';
-const ENTRY_DESC = '现行最优交易策略包：ladder v35 十五腿（v34 十四腿+T214 强庄重启臂〔2026-11-22 LAB 0x1a08…7777 案：散户出清∧出口价未破发∧首笔大买家底仓仍在∧≥60s 沉寂∧突涌≥0.4B——刻意不带人气门；⚠T215 命中面分析未过=回退该臂〕〕）+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 50s/足额0.01 + 四门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
+const ENTRY_DESC = '现行最优交易策略包：ladder v36 十六腿（v35 十五腿+T224 黄金坑臂〔2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系好散户币黄金坑买腿并入主包 priority 16 兜底臂〕）〔2026-11-22 LAB 0x1a08…7777 案：散户出清∧出口价未破发∧首笔大买家底仓仍在∧≥60s 沉寂∧突涌≥0.4B——刻意不带人气门；⚠T215 命中面分析未过=回退该臂〕〕）+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 50s/足额0.01 + 四门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
 
 const PACK_DEFINITION = {
   "buyLegs": [
@@ -297,6 +297,24 @@ const PACK_DEFINITION = {
         ]
       },
       "description": "强庄重启臂（T214 v35 2026-11-22 LAB 0x1a08…7777 案用户裁定「强庄币胚子的模式：散户出清 ∧ 价格未破发 ∧ 首笔大买家底仓仍在 + 长期沉寂 + 又有流量涌入——这个场景下要求持有者扣除 dust 大于一定数量就没有任何意义，加一个从买入信号产生到最后走通的路径」）。案源全弧：creator 首笔 0.75B 自买推高起跑线 +25%（常量锚口径 curVs 全程偏高）→61s P1 信号被 FP26 尾段买力枯竭正确拒（当时砸盘进行中）→132~135s creator 减仓 1/3+三散户清仓（holdDust 4→1，唯一持有者=creator 底仓 61% 扛价，价格稳在发行价上方=「没持有者价格还在发行价上」的用户观察）→148s 深静默→283s creator 本人 0.25B 孤笔重启（quietSpanMs=148000）→295~296s 全新钱包鱼贯 0.13~0.18B/笔（71% 走 GMGN 系聚合路由=散户热度）——常量锚下唯一可触发窗 296.0s 单 tick（holdDust 3→4 恰逢 curVs +25.3%，同秒次笔 +31.6% 出域）被 debounce 合并结构性吃掉（T132 per-tick 已撤），全周期零买入而票毕业 +750%。判据五件全事前可算：①quietSpanMs≥60s 长期沉寂②quietSurgeBuyBnb≥0.4 流量涌入（283 孤笔 0.25 不够线=刻意等波成形，避开 AF1 act_low 孤笔锚拒）③quietSurgeSec≤30 涌入早期窗④quietExitVsLaunchPct∈[0,28.5] 沉寂出口价未破发（T130 地板口径刻意不含滚动最低——T170b 防洗白同款；LAB 出口 +9.0%）⑤firstBigBuyerHoldPct≥40 首笔大买家底仓留存（latch 线 0.3B 与 FP 0.3 级同线；LAB=creator 61%；null=真空冷却盘不适用 fail-closed）。刻意不带 holdersExDust/tradeCount/buyVolume 人气门（用户裁定「没有意义」——散户出清后只剩庄）；fire 价域 (0,40]：上界 40 吃 debounce 簇末锚（LAB fire@296.2=+31.6%，波首 1s 内涨幅余量）下界 >0 未破发在案；launch 两个绝对 veto+waves 组+cheatCrew 与其余腿同防（开盘捆绑/做市团队不自恰盘不走本臂）；maxTriggers=2（t0 臂同款首拒再判救回面）；fpRetry=2 同全腿。⚠T215 命中面分析未过=回退本臂（用户裁定「单纯为了一个 case 去搞一个策略还是危险的」）",
+      "cards": 4
+    },
+    {
+      "action": "buy",
+      "priority": 16,
+      "condition": "tokenAgeSec >= 160 AND tokenAgeSec <= 900 AND buyVolumeBnb >= 4 AND buyVolumeBnb <= 15 AND (currentVsLaunchPct <= 28.5 OR earlyReturn < 15) AND currentVsLaunchPct <= 33.5 AND athVsLaunchPct >= 40 AND athVsLaunchPct <= 100 AND mcapFromPeakPct <= 50 AND bigBuyersCount >= 3 AND bigBuyersHeldDust >= 3 AND actTotalBnb15s <= 0.31 AND actTotalBnb30s <= 0.4 AND actTotalBnb60s <= 0.5 AND actTotalBnb90s <= 1.0 AND famousFollowSlotMaxWallets <= 8 AND notoriousWalletCircPct <= 30 AND (anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03) AND famousCopyWalletCircPct > 0",
+      "maxExecutions": null,
+      "buyPhase": "first",
+      "signalGate": {
+        "maxTriggers": 1,
+        "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 0,
+        "bpPassLevels": [
+          "good",
+          "neutral"
+        ]
+      },
+      "description": "黄金坑臂（T224 2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系 retail-good-path-v1 v18 买腿并入主包 priority 16 兜底臂；pointType 类型=retail_golden_pit〔label「Famous入场-大户在场-长时间冷寂-有买入的低价坑-二波潜力币」〕）。形状=正常对倒票第一小波（ATH 1.4-2.0x）回撤 30-50% 后的域内坑位：龄 160-900s（交易了一段时间大户不肯卖）∧ 量 4-15B（早期未交易完）∧ 价格域双尺+硬帽（(地板尺 ≤28.5 ∨ 首价尺 <15) ∧ 地板尺 ≤33.5——接深坑拉回 MOYNOK 波首笔 30.13/8.2 案、不接极端背离 0x2c3fdb 94.12 案）∧ ≥3 个 0.2B 级大买家过尘线在场 ∧ famous 底仓持有 ∧ 冷窗 15s≤0.31/30s≤0.4/60s≤0.5/90s≤1.0（由冷转热第一笔买入可能比较大，大的反而好）∧ famous 跟单 ≤8（2s 窗非 famous 买入钱包数全生命周期单调 max，0x2a05 同块 16 钱包挤爆案）∧ notorious ≤30（臭名昭著钱包集合 notorious-wallets.json 先只放 bf00）∧ 锚买门（锚 tick 是买入 ∨ 15s 内 ≥0.03B 买——死寂点不买等第一笔像样买盘落地，「所有后面要上涨的币都需要有买入」）。门链=pointType retail policy（FP cheatOnly+臂豁免〔slow_pump_unload/arb_bot_holdings〕/AF1 pass/CD g23NoSlowGrind/BP stuffingOnly——好散户币通路接纳策略）。刻意不带 ladder 尾部 veto 组（G1/G3/G4/G5/cheatCrew）——出生窗簇键对 160s+ 坑位语义不同、捆绑/作弊由 FP cheatOnly 臂+CD 16 题兜底（T216 裁定）。验证=89 票集合 golden-pit-35 bt-v215 +0.9147/6 票/胜率 83.3%/零亏损；跨窗初验 win1012 30898 票 4 命中 2 正 2 负。⚠buyPhase first 语义：集合票早期多被 ladder t0/t2 族先买——本腿为早期未被买走的票的坑位兜底/重启接棒臂",
       "cards": 4
     }
   ],

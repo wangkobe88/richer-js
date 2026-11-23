@@ -29,7 +29,7 @@ const POINT_TYPE_VERSION = 'PT13'; // PT13=T223 补 4 curVs 硬上限 33.5（用
 const POINT_TYPES = [
     {
         id: 'retail_golden_pit',
-        label: '强散户币黄金坑',
+        label: 'Famous入场-大户在场-长时间冷寂-有买入的低价坑-二波潜力币',
         // 迁自 T213b retail-good-path-v1 包 gatePolicy（用户裁定 2026-11-23 迁入模块
         // 作首个类型）：正常对倒票第一小波（ATH 1.4-2.0x）回撤 30-50% 后的域内坑位
         // （首价尺 ≤+28.5%），量 4-15B，≥3 尘线大买家在场 + famous 持有。
