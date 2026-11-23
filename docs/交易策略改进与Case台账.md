@@ -1983,3 +1983,11 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **bt-v199（608b8f75）对照 bt-v198**：BUY 54→**9**、成交 28→8 票、**PnL −0.0553→+0.0228（首次转正）**、亏损面全压分币级（最差 −0.006）；盈利 4 票=币安会飞 +0.012/羊百亿 +0.009/大表哥 +0.008/Laura +0.004。定向验证：0xe14d（famous 16.6%）**零信号 ✓**；0xd64e 零信号——**绑定约束=famous 41.28% >10**（41% 坐筹的 wash_trader `0x7a23…` 同时在 famous 名单=标签交叉分析的四只三挂钱包之一，famous 上限与 arb 豁免撞车、前者先生效，顺带兜住 famous 名单卫生问题；墙龄 123<160 双保险）。v9 存活信号 famous 全落 5~10% 带。
 
 **黄金坑腿 v8 终形**：`tokenAgeSec 160-900 ∧ buyVolumeBnb 4-15 ∧ currentVsLaunchPct≤28.5（地板尺）∧ athVsLaunchPct 40-100 ∧ mcapFromPeakPct≤50 ∧ bigBuyersCount≥3 ∧ bigBuyersHeldDust≥3 ∧ famousCopyWalletCircPct (0,10]`；policy=`FP cheatOnly+臂豁免〔slow_pump_unload/arb_bot_holdings〕/AF1 pass/CD g23NoSlowGrind/BP stuffingOnly`。版本谱系 v1→v8：v5 地板尺回迁/v6 龄 90/v7 龄 160/v8 famous 帽+arb 豁免。
+
+## T217 补 4（bt-v203 PT4）：arb_bot_holdings 豁免真正落地——PnL +0.1203→+0.8009（金鲨号单票 +0.664）
+
+**PT3→PT4（d5867240）**：v8 裁定 arb_bot_holdings 臂豁免此前**只存在于 commit 信息未写入文件**（v8 补丁脚本 famous 帽 AssertionError 中途失败、同脚本第 3 处 arb 豁免连带未执行，bt-v202 0xd64e 仍被 FP 拦实锤）；PT4 补落+版本 bump+A1 测试断言全 policy。**教训二连：线值改动必须写完跑测试断言（A1 深层断言全 policy 即可挡住半落地）**。
+
+**bt-v203（7d39f5fa）对照 bt-v202**：39 信号不变（腿条件未动）、成交 51→60、票数 20→23、盈利 8→11、**PnL +0.1203→+0.8009**。**定向验证 0xd64e=金鲨号**：BUY ✅（fp.pass=true arms=[]〔arb 豁免生效〕→ CD healthy → BP neutral）→ 卖出链完整工作（因子卖出过滤门 6 次拦截：pump_arm_hold×1/smart_hold×3/famous_hold×2——拿住机制在保护）→ 3 次卖腿清仓 cost 0.200/gain 0.864/**+0.664**（占全场收益 83%，单票集中如实注记）。**act 族臂拦截残留=零**（cheatOnly 构造性排除——用户「活跃·临近死寂豁免」要求已在机制内满足，12 码中唯一活跃度码 act_ultra 仍拦=协同出货真流量维度刻意保留）。
+
+**黄金坑谱系成绩单（89 票同集合）**：v4 −0.2882 → 观测级 −0.4287 → v6 龄90 −0.0553 → v7 龄160 ≈平 → v8 famous帽 +0.0228 → v9 去帽 +0.1203 → **PT4 +0.8009**。余留：①单票集中（金鲨号 83%）——跨窗 OOS 验证待做 ②卖腿早送课题不变（MOYNOK +0.14 vs 2.45x）。
