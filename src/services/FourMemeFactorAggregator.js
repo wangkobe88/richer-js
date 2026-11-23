@@ -3149,16 +3149,19 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 条件载体（300s=观察键）；窗口半开 [now-W, now)；四窗累计先于 10s 窗
         // 过滤（300s 窗需要 10s 外的行）。e.ts 未来行不可达（defer 乱序回推行 ts
         // 恒=链上过去时刻），与 act 10s 窗同款无上界容忍
-        let t15 = 0, t30 = 0, t60 = 0, t300 = 0;
-        const W15 = now - 15000, W30 = now - 30000, W60 = now - 60000, W300 = now - 300000;
+        let t15 = 0, t30 = 0, t60 = 0, t90 = 0, t300 = 0;
+        const W15 = now - 15000, W30 = now - 30000, W60 = now - 60000, W90 = now - 90000, W300 = now - 300000;
         for (const e of state._activityEvents) {
             if (e.ts >= W300) {
                 t300 += e.bnb;
-                if (e.ts >= W60) {
-                    t60 += e.bnb;
-                    if (e.ts >= W30) {
-                        t30 += e.bnb;
-                        if (e.ts >= W15) t15 += e.bnb;
+                if (e.ts >= W90) {
+                    t90 += e.bnb;
+                    if (e.ts >= W60) {
+                        t60 += e.bnb;
+                        if (e.ts >= W30) {
+                            t30 += e.bnb;
+                            if (e.ts >= W15) t15 += e.bnb;
+                        }
                     }
                 }
             }
@@ -3180,6 +3183,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             actTotalBnb15s: t15,
             actTotalBnb30s: t30,
             actTotalBnb60s: t60,
+            actTotalBnb90s: t90,
             actTotalBnb300s: t300,
             actTrades: trades,
             actTraders: traders.size,
@@ -4319,12 +4323,40 @@ class FourMemeFactorAggregator extends EventEmitter {
         // （2026-10-22 用户裁定去 NULL「最低是 0」：0 < 15 放行与原 IS NULL 臂逐输入
         // 等价，条件串裸比较不再带 IS NULL 前置臂）。
         let famousCopyWalletCircPct = 0;
+        let famousCopyWalletSupplyPct = 0;
+        // T221 famous 跟单拥挤键（2026-11-23 0x2a05…7777 案用户裁定「famous 的
+        // 跟单太多了，同区块都挤爆了，抛压会很大，这种其实看到了也不敢上的」，
+        // 跟单口径=「famous 买入后 1-2 个 slot」——远期买入算健康不计）：每个
+        // famous 买入事件开 2s 闭窗（含同块同行 ts），数窗内非 famous 买入钱包数
+        // （去重），全 famous 买点取 max。原料=_activityEvents 环（行带真 wallet、
+        // 每 tick 恰 push 一次——读点全量扫=defer 乱序回推序无关；环保留 ~6min
+        // 使远期 famous 买自然出窗）。名单未启用/无 famous 买 → 0 fail-open
+        // （famousCopyWalletCircPct 同 0 语义）。刻意不计买额（跟单人多本身即风险
+        // 信号——「挤爆」；1.355B 十六钱包案线值 ≤8 以 bt-v207 触发面重放锁定）
+        let famousFollowSlotMaxWallets = 0;
         if (_famousCopyWallets && _famousCopyWallets.size > 0) {
             let _famousNet = 0;
             for (const [addr, v] of state._walletNetTokens) {
                 if (v > _famousNet && v > 0 && _famousCopyWallets.has(addr.toLowerCase())) _famousNet = v;
             }
             famousCopyWalletCircPct = _circDen > 0 ? _famousNet / _circDen * 100 : 0;
+            // T220 famous 总供应占比**观察键**（2026-11-23 0x37d131 案 bf00 持
+            // 6.95% supply / 22.94% 流通〔小流通盘放大〕提出、3%/5% 帽随金鲨号案
+            // 否证不立法——0x7a2363a4 持 9.81% 是最大赢家；按钱包分离同样无结论
+            // 〔bf00 三票结局混杂〕，用户裁定「针对某个钱包的策略还有点早」先不搞。
+            // 只发键不进门，供复盘：supply 口径=绝对筹码垄断不随流通收缩虚高）。
+            // 0 语义同流通版（名单空/无命中 → 0 放行）；totalSupply 缺失 → 0
+            famousCopyWalletSupplyPct = state.totalSupply > 0 ? _famousNet / state.totalSupply * 100 : 0;
+            for (const e of state._activityEvents) {
+                if (!e.buy || !e.w || !_famousCopyWallets.has(e.w.toLowerCase())) continue;
+                const _ffSeen = new Set();
+                for (const f of state._activityEvents) {
+                    if (f === e || !f.buy || !f.w) continue;
+                    if (_famousCopyWallets.has(f.w.toLowerCase())) continue;
+                    if (f.ts >= e.ts && f.ts - e.ts <= 2000) _ffSeen.add(f.w.toLowerCase());
+                }
+                if (_ffSeen.size > famousFollowSlotMaxWallets) famousFollowSlotMaxWallets = _ffSeen.size;
+            }
         }
 
         // sybil 大簇合计净持仓占比（2026-10-20 乌龟案用户裁定）：簇内钱包
@@ -4643,6 +4675,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             actTotalBnb15s: activity.actTotalBnb15s,
             actTotalBnb30s: activity.actTotalBnb30s,
             actTotalBnb60s: activity.actTotalBnb60s,
+            actTotalBnb90s: activity.actTotalBnb90s,
             actTotalBnb300s: activity.actTotalBnb300s,
             actTrades: activity.actTrades,
             actTraders: activity.actTraders,
@@ -4712,6 +4745,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 极著名钱包单钱包最大净持仓占比（2026-10-18 用户点名集合；null=未启用
             // IS NULL 臂放行 / 0 起=有证据零值；见上方注释块）
             famousCopyWalletCircPct,
+            // T220 famous 总供应占比观察键（0 语义同流通版；3%/5% 帽随金鲨号案
+            // 否证不立法，只发不进门——见计算处注释块）
+            famousCopyWalletSupplyPct,
+            // T221 famous 跟单拥挤键（famous 买后 2s 窗非 famous 买入钱包数 max；
+            // 0=无 famous 买 fail-open——见计算处注释块）
+            famousFollowSlotMaxWallets,
             // sybil 大簇钱包合计净持仓占比（2026-10-20 乌龟案用户裁定；null=未启用
             // IS NULL 臂放行 / 0 起=有证据零值；口径=合计非单钱包最大，见上方注释）
             sybilClusterHolderCircPct,

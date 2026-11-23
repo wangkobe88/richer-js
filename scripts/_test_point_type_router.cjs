@@ -24,6 +24,9 @@ const GOLDEN = {
   mcapFromPeakPct: 28.8, bigBuyersCount: 9, bigBuyersHeldDust: 7, famousCopyWalletCircPct: 0.5,
   // T218 三窗冷门（MOYNOK bt-v204 引擎锚真值 0.072/0.174/0.180——v11 线 0.12/0.25/0.5 过）
   actTotalBnb15s: 0.072, actTotalBnb30s: 0.174, actTotalBnb60s: 0.180,
+  // PT7 两键（v12 腿同款）：90s 冷窗 ≤1.0（MOYNOK 锚 90s≈0.18 过线）；
+  // famous 跟单 ≤8（MOYNOK 买点前 4 过线；0x2a05 同块 16 钱包案为负例）
+  actTotalBnb90s: 0.18, famousFollowSlotMaxWallets: 4,
 };
 const PARTIAL = { ...GOLDEN, athVsLaunchPct: 120 }; // ATH 出带（>100）
 
@@ -40,7 +43,7 @@ console.log('A. classifyPointType 分类');
       buyPoint: 'stuffingOnly',
     });
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
-    for (const k of ['tokenAgeSec', 'buyVolumeBnb', 'currentVsLaunchPct', 'athVsLaunchPct', 'mcapFromPeakPct', 'bigBuyersCount', 'bigBuyersHeldDust', 'famousCopyWalletCircPct']) {
+    for (const k of ['tokenAgeSec', 'buyVolumeBnb', 'currentVsLaunchPct', 'athVsLaunchPct', 'mcapFromPeakPct', 'bigBuyersCount', 'bigBuyersHeldDust', 'famousCopyWalletCircPct', 'actTotalBnb90s', 'famousFollowSlotMaxWallets']) {
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
     }
   });
@@ -52,6 +55,18 @@ console.log('A. classifyPointType 分类');
   check('A2b 龄门负例：tokenAgeSec 159 <160 → normal（v7 用户裁定龄门收紧到 160）', () => {
     const r = classifyPointType({ ...GOLDEN, tokenAgeSec: 159 });
     assert.strictEqual(r.type, 'normal');
+  });
+  check('A2c PT7 负例：90s 冷窗 1.4 >1.0 → normal（0x53691a 刚冷一分钟不够案）', () => {
+    const r = classifyPointType({ ...GOLDEN, actTotalBnb90s: 1.4 });
+    assert.strictEqual(r.type, 'normal');
+  });
+  check('A2d PT7 负例：famous 跟单 16 >8 → normal（0x2a05 同块挤爆案）', () => {
+    const r = classifyPointType({ ...GOLDEN, famousFollowSlotMaxWallets: 16 });
+    assert.strictEqual(r.type, 'normal');
+  });
+  check('A2e PT7 边界：跟单恰 8 过线（≤）', () => {
+    const r = classifyPointType({ ...GOLDEN, famousFollowSlotMaxWallets: 8 });
+    assert.strictEqual(r.type, 'retail_golden_pit');
   });
   check('A3 浅回撤无下限仍命中（dd=20 ≤50 ✓ 用户裁定只有上限）', () => {
     const r = classifyPointType({ ...GOLDEN, mcapFromPeakPct: 20 });

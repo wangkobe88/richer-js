@@ -2011,3 +2011,19 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **回退（用户裁定「回退大户持仓断流卖出豁免吧」，1c3604c6）**：bt-v206 对拍否证（流动性止损卖行 16→0、PnL +0.8443→+0.5449——豁免关掉 stall 逃生门，「大户在场」在坏票上是残局〔残仓大户卡死盘〕，14 票变坏 −0.36 远超 4 票变好 +0.065）；缺省 null=关（T219 前行为），显式 `bigHolderExempt:true`（默认 3/30）可恢复（T170c 破发档同款留档形态）。**保留**：卖出阻挡管辖扩展（curVs≥10 第二把尺）+ famous 低价止盈豁免（near_launch 建仓 ≥0.2B ∧ 已开始卖 → famousHold 放行）。
 
 **bt-v207（015abcfa）对照**：信号 31、票数 19、盈利 6、**PnL +0.9068**（vs v205 +0.8443/ v206 +0.5449）——stall 豁免回退后卖行恢复 17（≈v205 16+路径差 1）；**保留两打磨净贡献 +0.0625**（MOYNOK +0.172 维持 v206 水平、大表哥 0.043→0.066→0.074 连升）；bot3 回浅亏（−0.006/−0.012/−0.030）。**黄金坑谱系**：…PT6 线收紧 +0.8443 → T219 全量 +0.5449（否证）→ **T219 回退 stall+保留卖出扩展 +0.9068**。现行卖出侧终形=factorSellFilter 管辖 pp≥50∨curVs≥10∨pump 签名 + famousHold/smartHold（180s/0.4）+ famous 低价止盈豁免 + stallClose 无大户豁免。余留：金鲨号集中 73%、跨窗 OOS。
+
+## T220 famous 总供应占比帽否证：3%/5% 双线杀最大赢家 + per-wallet 画像无分离——键留观察不进门（2026-11-23）
+
+用户假设（0x37d131…7777 案原话）：「famous 持仓占总供应量 5% 以上太多不敢买，理想最好别过 3%，但这个你看会不会杀好票」。数据验证（bt-v207 触发面 famous 最大持仓钱包×supply 占比分布）：**金鲨号 famous（0x7a2363a4，wash_trader 三挂钱包之一）持 9.81% 恰是全场最大赢家（+0.664）**——3%/5% 双线均把它切走；其余各票 max famous 占比 3.3~9.5% 与结局无单调关系（5.34%→−0.0302、5.96%→+0.0194、5.09%→−0.0011 混杂）。
+
+**per-wallet 个体画像**（用户点名 bf00「老哥持有 5% 以上恐怕不是不行，它是个大割，杀跟单很猛，用户看到就不敢上了」）：bf00 作最大 famous 的 3 票结局混杂（0xf10324 4.22% pnl 0 / 0x37d131 6.95% −0.0043 / 0xfc305b 3.82% +0.0193）无干净分离；且 bf00 在 MOYNOK（正票 +0.172）上同样是「持续倒卖+底仓不动」收割者画像——「大割钱包在场」不是一票否决信号（反而可能是黄金坑推手）。**用户裁定「针对某个钱包的策略还有点早」→不立法**。
+
+**落地**：FA 新增 `famousCopyWalletSupplyPct`（supply 口径单钱包 max 净持仓占比）**纯观察键不进门**（计算+发射+FactorBuilder 透传+键集白名单+_test_famous_follow_slot G2 收键）；famousCopyWalletCircPct 无帽现状维持（v9 裁定去帽不翻案）。
+
+## T221 famous 跟单拥挤门 + 90s 冷窗（bt-v207 触发面复审两裁定）：famousFollowSlotMaxWallets ≤8 / actTotalBnb90s ≤1.0（2026-11-23）
+
+用户两裁定：①0x2a05…7777 案「famous 的跟单太多了，同区块都挤爆了，抛压会很大，这种其实看到了也不敢上的」——「跟单我们就算 famous 买入后 1-2 个 slot 即可，远期的买入算是健康的，可以不管」②0x53691a…7777 案「盘子刚冷下来，一分钟的低活跃度期可能还是不太够，是否 1.5 分钟好一些」→线值 ≤1.0（用户选推荐项）。
+
+**实现**：①FA 新键 `famousFollowSlotMaxWallets`——每个 famous 买入事件开 **2s 闭窗（含同块同行 ts）**，数窗内非 famous 买入钱包数（去重），全 famous 买点取 max；原料 `_activityEvents` 环（行带真 wallet、每 tick 恰 push 一次——读点全量扫=defer 乱序回推序无关；环保留 ~6min 使远期 famous 买自然出窗=「远期买入算健康」的机制化）；名单未启用/无 famous 买→0 fail-open（famousCopyWalletCircPct 同 0 语义）；famous 自身买不计、卖行不计。②`actTotalBnb90s`（90s 窗，与 15/30/60/300 同族单趟嵌套累计）。两键进黄金坑腿（v12）+pointType retail 条件（**PT6→PT7**）+FactorBuilder 快照透传+键集白名单。单测 `_test_famous_follow_slot` 13 断言（闭窗口径/famous 自身不计/卖行不计/乱序序无关/大小写归一/探针收键）+`_test_activity_window_multi` 14/14（90s 边界/嵌套自洽）+router 负例（跟单 16→normal、90s 1.4→normal、恰 8 过线）。
+
+**线值锚**（前轮实测）：0x2a05 同块 16 钱包×1.355B vs MOYNOK 买点前 4 vs 金鲨号 0——≤8 分界干净。**bt-v208 对拍待跑**。

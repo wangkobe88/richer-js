@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * T218 多粒度冷窗四键单测（零 DB 零网络）：
- *   actTotalBnb15s/30s/60s/300s（买卖合计金额，窗口半开 [now-W, now)）
- * 口径断言（用户提案「分时间活跃度因子」2026-11-23）：
+ * T218 多粒度冷窗五键单测（零 DB 零网络）：
+ *   actTotalBnb15s/30s/60s/90s/300s（买卖合计金额，窗口半开 [now-W, now)）
+ * 口径断言（用户提案「分时间活跃度因子」2026-11-23；PT7 加 90s 窗）：
  *   A. 窗口边界精确值（半开区间：恰在 now-W 的行不计入、略晚计入）
- *   B. 四窗嵌套自洽（15s ≤ 30s ≤ 60s ≤ 300s）与 act 10s 窗同环同源
+ *   B. 五窗嵌套自洽（15s ≤ 30s ≤ 60s ≤ 90s ≤ 300s）与 act 10s 窗同环同源
  *   C. defer 乱序回推无害（求和交换律——环按 ts 过滤非到达序）
  *   D. 裁剪保留窗扩到 activityWinLongMs（300s 窗不因 10s 裁剪穿窗）
  *   E. 探针收键（三防线自动认得）；now 注入防前视（读点无 Date.now）
@@ -44,6 +44,8 @@ console.log('A. 窗口边界精确值');
   fa.processTick(mkTick({ timestamp: NOW - 25000, trader_address: 'wC', bnb_amount: 0.7 }), {});
   // 60s 窗专属：now-45000
   fa.processTick(mkTick({ timestamp: NOW - 45000, trader_address: 'wD', bnb_amount: 1.1 }), {});
+  // 90s 窗专属：now-75000（PT7 冷窗线 ≤1.0 载体）
+  fa.processTick(mkTick({ timestamp: NOW - 75000, trader_address: 'wG', bnb_amount: 0.9 }), {});
   // 300s 窗专属：now-200000
   fa.processTick(mkTick({ timestamp: NOW - 200000, trader_address: 'wE', bnb_amount: 2.0 }), {});
   // 300s 窗外：now-300001
@@ -52,9 +54,18 @@ console.log('A. 窗口边界精确值');
   check('A1 15s 窗闭区间（恰 now-15000 计入）', () => assert.strictEqual(f.actTotalBnb15s, 0.8));
   check('A2 30s 窗=15s+专属', () => assert.strictEqual(f.actTotalBnb30s, 1.5));
   check('A3 60s 窗=30s+专属', () => assert.strictEqual(f.actTotalBnb60s, 2.6));
-  check('A4 300s 窗=60s+专属（now-300001 窗外不计）', () => assert.strictEqual(f.actTotalBnb300s, 4.6));
-  check('A5 嵌套自洽 15s≤30s≤60s≤300s', () => {
-    assert.ok(f.actTotalBnb15s <= f.actTotalBnb30s && f.actTotalBnb30s <= f.actTotalBnb60s && f.actTotalBnb60s <= f.actTotalBnb300s);
+  check('A3b 90s 窗=60s+专属（PT7）', () => assert.strictEqual(f.actTotalBnb90s, 3.5));
+  check('A4 300s 窗=60s+专属（now-300001 窗外不计）', () => assert.strictEqual(f.actTotalBnb300s, 5.5));
+  check('A5 嵌套自洽 15s≤30s≤60s≤90s≤300s', () => {
+    assert.ok(f.actTotalBnb15s <= f.actTotalBnb30s && f.actTotalBnb30s <= f.actTotalBnb60s
+      && f.actTotalBnb60s <= f.actTotalBnb90s && f.actTotalBnb90s <= f.actTotalBnb300s);
+  });
+  check('A5b 90s 窗闭区间边界（恰 now-90000 计入）', () => {
+    const fa2 = newFA();
+    fa2.processTick(mkTick({ timestamp: NOW - 90000, trader_address: 'wX', bnb_amount: 0.2 }), {});
+    fa2.processTick(mkTick({ timestamp: NOW - 90001, trader_address: 'wY', bnb_amount: 0.3 }), {});
+    const f2 = fa2.buildFactorMap('0xtoken', NOW);
+    assert.strictEqual(f2.actTotalBnb90s, 0.2); // -90001 在 90s 窗外不计
   });
 }
 

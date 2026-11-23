@@ -229,6 +229,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     actTotalBnb15s: factorResults.actTotalBnb15s ?? null,
     actTotalBnb30s: factorResults.actTotalBnb30s ?? null,
     actTotalBnb60s: factorResults.actTotalBnb60s ?? null,
+    actTotalBnb90s: factorResults.actTotalBnb90s ?? null,
     actTotalBnb300s: factorResults.actTotalBnb300s ?? null,
     actTrades: factorResults.actTrades ?? null,
     actTraders: factorResults.actTraders ?? null,
@@ -305,6 +306,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     maxCopyWalletHolderCircPct: factorResults.maxCopyWalletHolderCircPct ?? null,
     // 极著名钱包子集（2026-10-18 用户点名）：null=未启用（IS NULL 臂放行），随快照透传
     famousCopyWalletCircPct: factorResults.famousCopyWalletCircPct ?? null,
+    // T220/T221 famous 总供应占比观察键 + 跟单拥挤键（0 语义同流通版；2s 窗非 famous
+    // 买入钱包数 max）——不落库即丢（原料 _activityEvents 环），随快照透传
+    famousCopyWalletSupplyPct: factorResults.famousCopyWalletSupplyPct ?? null,
+    famousFollowSlotMaxWallets: factorResults.famousFollowSlotMaxWallets ?? null,
     // sybil 大簇合计净持仓（2026-10-20 乌龟案用户裁定）：null=未启用（IS NULL 臂放行），随快照透传
     sybilClusterHolderCircPct: factorResults.sybilClusterHolderCircPct ?? null,
     // 平台标签（2026-10-17 C84 起进快照）：新模型单一买条件 platform != 'flap' 分门 +
