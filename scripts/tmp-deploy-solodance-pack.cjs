@@ -35,7 +35,8 @@ const SOLO_LEG = {
   if (!check.valid) { console.error('包校验失败:\n  - ' + check.errors.join('\n  - ')); process.exit(1); }
   console.log(`solodance-test-v1：买 ${def.buyLegs.length} 腿 / 卖 ${def.sellLegs.length} 腿 | modules=${JSON.stringify(def.modules)}`);
   if (!COMMIT) { console.log('(dry-run；182 加 --commit 入库)'); process.exit(0); }
-  const { data: existing } = await db.from('strategy_library').select('id, version').eq('name', 'solodance-test-v1').order('version', { ascending: false }).limit(1);
+  const { data: exArr } = await db.from('strategy_library').select('id, version').eq('name', 'solodance-test-v1').order('version', { ascending: false }).limit(1);
+  const existing = exArr[0];
   if (existing) {
     const { error } = await db.from('strategy_library').update({ definition: def, description: 'T225 独舞对拍专用包（1 独舞买腿+现行 v7 卖腿）', updated_at: new Date().toISOString() }).eq('id', existing.id);
     if (error) throw new Error(error.message);
