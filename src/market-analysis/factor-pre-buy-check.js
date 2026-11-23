@@ -1705,11 +1705,15 @@ const CHEAT_CLASS_ARM_CODES = new Set([
  */
 function filterArmsByClass(parts, armClass, exempt = []) {
   const ex = Array.isArray(exempt) && exempt.length ? new Set(exempt) : null;
+  // T225 修（개구리씨 案）：臂差集此前只过滤 arms 数组（cd 族）——famous/tail/pvp 三族
+  // 的 reason 在优先级链里不经过 exempt=fam_holding_thin 豁免无效的根因；三族 reason
+  // 同过差集（命中豁免=该族不产拒因，观察臂照算）
+  const _fx = (r) => (ex && r && ex.has(r) ? null : r);
   if (armClass !== 'cheat') {
     const eff = ex ? parts.arms.filter((c) => !ex.has(c)) : parts.arms;
     const reason = parts.actLevel === 'low' ? 'act_low'
       : (parts.actLevel === 'ultra' ? 'act_ultra'
-        : (parts.pvpReason || parts.tailReason || parts.famousReason || (eff.length ? eff[0] : null)));
+        : (_fx(parts.pvpReason) || _fx(parts.tailReason) || _fx(parts.famousReason) || (eff.length ? eff[0] : null)));
     return { arms: eff, reason };
   }
   const arms = (ex ? parts.arms.filter((c) => !ex.has(c)) : parts.arms)
