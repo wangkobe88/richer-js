@@ -18,7 +18,14 @@
 /**
  * 策略包 definition 形状常量（与 DDL CHECK / 引擎 _resolveStrategyPack 对齐）
  */
-const PACK_TOP_KEYS = ['buyLegs', 'sellLegs', 'stallClose', 'burstCooldown', 'modules'];
+const PACK_TOP_KEYS = ['buyLegs', 'sellLegs', 'stallClose', 'burstCooldown', 'modules', 'gatePolicy'];
+
+// T213b 好散户币通路包策略：门链接纳策略白名单（值域 fail-fast——未知值拒入库）
+const GATE_POLICY_KEYS = {
+    factorCheckArms: ['cheatOnly'],
+    actFront: ['pass'],
+    buyPoint: ['stuffingOnly'],
+};
 
 const _intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
 const _numInRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
@@ -248,6 +255,19 @@ function validatePack(definition) {
     }
     if (definition.burstCooldown !== undefined && definition.burstCooldown !== null) {
         errors.push(...validateBurstCooldownSection(definition.burstCooldown));
+    }
+    if (definition.gatePolicy !== undefined && definition.gatePolicy !== null) {
+        if (typeof definition.gatePolicy !== 'object' || Array.isArray(definition.gatePolicy)) {
+            errors.push('gatePolicy 段形状非法（须为对象：{factorCheckArms|actFront|buyPoint: 白名单值}）');
+        } else {
+            for (const [k, v] of Object.entries(definition.gatePolicy)) {
+                if (!GATE_POLICY_KEYS[k]) {
+                    errors.push(`gatePolicy.${k}: 未知策略键（可用：${Object.keys(GATE_POLICY_KEYS).join('/')}）`);
+                } else if (!GATE_POLICY_KEYS[k].includes(v)) {
+                    errors.push(`gatePolicy.${k}: 非法值 "${v}"（可用：${GATE_POLICY_KEYS[k].join('/')}）`);
+                }
+            }
+        }
     }
     if (definition.modules !== undefined && definition.modules !== null) {
         const { assertModuleKey, MODULE_NAMES } = require('../../market-analysis/module-registry');

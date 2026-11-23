@@ -54,7 +54,7 @@
 
 const { buildBuyPointSnapshot } = require('./buy-point-snapshot');
 const { buildBuyPointState } = require('./buy-point-state-builder');
-const { buildBuyPointObservation } = require('./buy-point-result-mapper');
+const { buildBuyPointObservation, STUFFING_MAX_EQ_WALLETS } = require('./buy-point-result-mapper');
 const { evaluateFactorPreBuy: evaluateFactorPreBuyJudge, FACTOR_PREBUY_VERSION } = require('./factor-pre-buy-check');
 
 const DEFAULTS = {
@@ -225,6 +225,8 @@ class BuyPointCheckService {
         enableTailDipExempt: this._tailDipOrganicExempt,
         enableActStageCold: this._actStageColdExempt, // T205 fix①：act low 阶段前提
         enableTailDipVolumeLeg: this._tailDipVolumeLeg, // T205 fix②：tail_dip 量腿
+        // T213b 好散户币通路包策略：armClass='cheat' → FP 只留严重作弊臂
+        ...(opts.armClass === 'cheat' ? { armClass: 'cheat' } : {}),
       });
       this.stats.factorAssessed++;
       if (!verdict.pass) this.stats.factorBlocked++;
@@ -349,6 +351,27 @@ class BuyPointCheckService {
         arbBotWallets: await this._loadArbBotWallets(),
       });
       const { state } = buildBuyPointState(snapshot);
+
+      // 6a) T213b 好散户币通路包策略（buyPoint='stuffingOnly'）：只评塞单门——
+      // exactEqualBlockMaxWallets ≥8（BP77 同线同键，纯机械作弊形状）拒，其余
+      // （盘型/点位/活跃度/筹码门 + Jev 全链）放行。锚缺席容缺不拦（同塞单门
+      // 现行语义）；insufficient_ticks 仍在上方预门拒（BP10 数据不够就挡住）。
+      if (opts.stuffingOnly === true) {
+        const bd = snapshot.buyDerived || {};
+        const eqW = typeof bd.exactEqualBlockMaxWallets === 'number' ? bd.exactEqualBlockMaxWallets : null;
+        const hit = eqW !== null && eqW >= STUFFING_MAX_EQ_WALLETS;
+        this.stats.analyzed++;
+        this._log('info', `BP 塞单门-only（包策略） | eqWallets=${eqW ?? '-'} → ${hit ? '拒' : '放行'} | ${token}`);
+        return {
+          status: 'assessed',
+          assessment: hit
+            ? { bucket: 'poor', prob: null, rule: 'stuffing_gate' }
+            : { bucket: 'neutral', prob: null, rule: 'policy_stuffing_only' },
+          dimensions: null, anchors: null, model: null, usage: null,
+          policy: 'stuffingOnly',
+          ...(eqW !== null ? { stuffingEqWallets: eqW } : {}),
+        };
+      }
 
       // 6b) T193 参与者画像观察键（锚窗已拉零新增拉数；回测不跑；fail-open 段级容错）
       let participantProfile = null;

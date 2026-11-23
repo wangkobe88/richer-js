@@ -1682,6 +1682,36 @@ function judgeFamousDanger(snapshot) {
  * @param {object} [opts] { enableCheatArms=true, enablePvp=true }（预扫描/灰度分臂开关）
  * @returns {{pass:boolean, reason:string|null, version:string, pvp:object, arms:string[], trace:object}}
  */
+// ── T213b 好散户币通路包策略（2026-11-23 用户裁定「FP 只留严重作弊门」）──
+// 作弊类臂全集（armClass='cheat' 时唯一参与拦截的码集）：捆绑/团伙分仓/砸盘承接族/
+// 机器持筹/慢拉卸货 + act_ultra（协同出货/极端密度=wash 密度流——刻意保留的假流量
+// 维度，与「活跃度要求降低」撤的 low 档不同轴）。效果提升类（pvp/act_low/尾声/famous
+// 族/大户推迟/接刀/残局族/launch_fail/静默卸货/burst 承接族 cd401）全撤——CD 16 题
+// 作弊门在门链后段兜底流量真实性。
+const CHEAT_CLASS_ARM_CODES = new Set([
+  'launch_squad_dominance', 'even_split_crew', 'oversell_residual', 'arb_bot_holdings',
+  'cd400_dump_no_absorption', 'cd403_dump_low_absorption', 'dump_pair_low_absorption',
+  'cd405_burst_bundled_wave', 'cd412_extreme_dump_sellers', 'cd414_dense_dump',
+  'slow_pump_unload', 'act_ultra',
+]);
+
+/**
+ * 臂类别过滤（纯函数，armClass 策略的决策核——单测锁定）：
+ * null=现行全臂语义 bit 不变；'cheat'=只留作弊类臂（act_ultra 优先级保持）。
+ * @returns {{arms: string[], reason: string|null}}
+ */
+function filterArmsByClass(parts, armClass) {
+  if (armClass !== 'cheat') {
+    const reason = parts.actLevel === 'low' ? 'act_low'
+      : (parts.actLevel === 'ultra' ? 'act_ultra'
+        : (parts.pvpReason || parts.tailReason || parts.famousReason || (parts.arms.length ? parts.arms[0] : null)));
+    return { arms: parts.arms, reason };
+  }
+  const arms = parts.arms.filter((c) => CHEAT_CLASS_ARM_CODES.has(c));
+  const reason = arms.includes('act_ultra') ? 'act_ultra' : (arms.length ? arms[0] : null);
+  return { arms, reason };
+}
+
 function evaluateFactorPreBuy(snapshot, opts = {}) {
   const enableCheatArms = opts.enableCheatArms !== false;
   const enablePvp = opts.enablePvp !== false;
@@ -1781,10 +1811,15 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     : { hit: 0, branch: 'disabled', reason: null, trace: {} };
   if (famous.hit === 1) arms.push(famous.reason);
   // FP6 famous 高控+砸落观察臂（标记不拦截——留待找方案；判定已前移 CD414 排除消费）
-  const reason = activity.level === 'low' ? 'act_low'
-    : (activity.level === 'ultra' ? 'act_ultra' : (pvp.reason || tail.reason || famous.reason || (arms.length ? arms[0] : null)));
-  const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, bd: snapshot.buyDerived || {}, armHits: arms, stallRestart });
-  return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, tail, famous, arms,
+  // T213b armClass 策略：'cheat' → 效果提升类臂全撤（决策与展示同步用 effArms）
+  const armClass = opts.armClass === 'cheat' ? 'cheat' : null;
+  const { arms: effArms, reason } = filterArmsByClass({
+    arms, pvpReason: pvp.reason, actLevel: activity.level,
+    tailReason: tail.reason, famousReason: famous.reason,
+  }, armClass);
+  const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, bd: snapshot.buyDerived || {}, armHits: effArms, stallRestart });
+  return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, tail, famous, arms: effArms,
+    ...(armClass ? { armClass } : {}),
     gates,
     observe: domFall.observe ? { code: 'fam_dominance_fall', ...domFall.trace } : null,
     // T210 停滞再启动通路留痕（命中才注=未命中票返回形状不变；FP33 豁免留痕同款）
@@ -1803,6 +1838,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
 
 module.exports = {
   FACTOR_PREBUY_VERSION,
+  CHEAT_CLASS_ARM_CODES, filterArmsByClass,
   TAIL_DIP_EXEMPT_MIN_TOTAL_BUY_BNB, TAIL_DIP_EXEMPT_MAX_TOTAL_BUY_BNB,
   TAIL_DIP_EXEMPT_MAX_NO_BUY_SELL_PCT, TAIL_DIP_EXEMPT_MAX_HOLDER_HHI,
   TAIL_DIP_EXEMPT_MIN_ROUTER_ENTRY_PCT, TAIL_DIP_EXEMPT_MAX_TOP1_BUY_PCT,

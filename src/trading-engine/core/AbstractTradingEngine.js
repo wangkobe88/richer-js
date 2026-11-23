@@ -1889,6 +1889,8 @@ class AbstractTradingEngine extends ITradingEngine {
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
           // BP67：cheat 门 burst 判定输入（activity_level burst 桶证据行；null=无证据不注入）
           ...(ctx.cheatBurst ? { cheatBurst: ctx.cheatBurst } : {}),
+          // T213b 好散户币通路包策略：BP 只评塞单门（盘型/点位/活跃度/筹码全放行）
+          ...(this._gatePolicyForChain()?.buyPoint === 'stuffingOnly' ? { stuffingOnly: true } : {}),
         });
         if (res && res.status === 'assessed') {
           const bucket = res.assessment?.bucket ?? null;
@@ -1993,6 +1995,16 @@ class AbstractTradingEngine extends ITradingEngine {
    * setFactorPreBuyFactors（cheat 门 _projectCheatFactors 整包 set 会覆盖——不共
    * 用通道）。metadata 落 factorCheck 段。ctx.anchorMs=回测 as-of 锚（同 BP 门）。
    */
+  /**
+   * T213b 好散户币通路包策略：门链接纳策略（gatePolicy 归包 definition）。
+   * null=现行全门语义 bit 不变；形状 {factorCheckArms:'cheatOnly',
+   * actFront:'pass', buyPoint:'stuffingOnly'} 由 retail-good-path-v1 等包携带。
+   */
+  _gatePolicyForChain() {
+    const def = this._strategyDefinition || null;
+    return (def && def.gatePolicy) || null;
+  }
+
   async _factorGateEvaluate(tokenAddress, token, faState, signalId, ctx = {}) {
     const svc = this._buyPointCheckService;
     let info;
@@ -2017,7 +2029,11 @@ class AbstractTradingEngine extends ITradingEngine {
           signalCreatedAt: ctx.signalCreatedAt ?? null,
           firePriceBnb: ctx.firePriceBnb ?? null,
           strategyName: ctx.strategyName ?? null,
-        }, Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {});
+        }, {
+          ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
+          // T213b 包策略：FP 只留严重作弊臂
+          ...(this._gatePolicyForChain()?.factorCheckArms === 'cheatOnly' ? { armClass: 'cheat' } : {}),
+        });
         const _fp4Dt = Date.now() - _fp4T0;
         if (_fp4Dt > 300) this.logger.info(this._experimentId, 'SignalGate',
           `FP4 慢评估 ${_fp4Dt}ms | ${token.symbol || tokenAddress.slice(0, 10)}`);
@@ -2098,6 +2114,20 @@ class AbstractTradingEngine extends ITradingEngine {
   async _actFrontGateEvaluate(tokenAddress, token, faState, signalId, ctx = {}) {
     if (this._actFrontGateEnabled !== true || !this._cheatCheckService || !this._cheatCheckService.enabled) {
       return { pass: true, skipCheat: false, info: null };
+    }
+    // T213b 好散户币通路包策略：actFront='pass' → AF1 直通（坑位时刻天然低活跃，
+    // 活跃度要求随包撤；cheat 门照走——skipCheat 恒 false）
+    if (this._gatePolicyForChain()?.actFront === 'pass') {
+      const info = { status: 'policy_pass', policy: 'actFront:pass' };
+      if (signalId) {
+        try {
+          await this._updateSignalMetadata(signalId, { actFrontGate: info });
+        } catch (updateError) {
+          this.logger.warn(this._experimentId, 'SignalGate',
+            `更新信号元数据失败 | ${token.symbol || tokenAddress.slice(0, 10)} ${updateError.message}`);
+        }
+      }
+      return { pass: true, skipCheat: false, info };
     }
     const meta = {
       address: token.token,
