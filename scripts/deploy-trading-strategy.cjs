@@ -25,7 +25,7 @@
 'use strict';
 
 const ENTRY_NAME = 'trading-standard-v1';
-const ENTRY_DESC = '现行最优交易策略包：ladder v37 十五腿（v34 十四腿+T224 黄金坑臂〔2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系好散户币黄金坑买腿并入主包 priority 16 兜底臂〕；**T225 强庄重启臂已回退移除**〔2026-11-23 用户裁定独舞形态「如果这个形态没有好票，那就放弃这个形态」——T215 三窗命中面（③线无分离度：≥40 组盈利 98% 集中两张毕业票/w1103 全亏/null 组胜率反而最高）+T225 独舞严档三窗 10 票 9 张死盘唯 LAB 孤例；FA 两观察键 quietExitVsLaunchPct/firstBigBuyerHoldPct 保留，pointType strongbacker 占位注释留档〕）+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 50s/足额0.01 + 四门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
+const ENTRY_DESC = '现行最优交易策略包：ladder v38 十六腿（v34 十四腿+T224 黄金坑臂+**T225 独舞臂 priority 17**〔2026-11-23 用户裁定「把这个 pointType 对应的策略正式发布，合并到系统当前的交易策略中」——pointType strongbacker_solo_dance（PT19，policy actFront:pass+cheatCheck:g23NoE+臂豁免 fam_holding_thin/oversell_residual）；bt-v224 验证 LAB +225.81%/개구리씨 +138.48%/6 死盘全拦〕〔2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系好散户币黄金坑买腿并入主包 priority 16 兜底臂〕；T214/v35 初版强庄臂（firstBigBuyerHoldPct≥40 线）经 T215 命中面否证已回退留档——终版独舞九键重立为 T225）+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 50s/足额0.01 + 四门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
 
 const PACK_DEFINITION = {
   "buyLegs": [
@@ -297,6 +297,24 @@ const PACK_DEFINITION = {
         ]
       },
       "description": "黄金坑臂（T224 2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系 retail-good-path-v1 v18 买腿并入主包 priority 16 兜底臂；pointType 类型=famous_holder_cold_pit（旧名 retail_golden_pit）〔label「Famous入场-大户在场-长时间冷寂-有买入的低价坑-二波潜力币」〕）。形状=正常对倒票第一小波（ATH 1.4-2.0x）回撤 30-50% 后的域内坑位：龄 160-900s（交易了一段时间大户不肯卖）∧ 量 4-15B（早期未交易完）∧ 价格域双尺+硬帽（(地板尺 ≤28.5 ∨ 首价尺 <15) ∧ 地板尺 ≤33.5——接深坑拉回 MOYNOK 波首笔 30.13/8.2 案、不接极端背离 0x2c3fdb 94.12 案）∧ ≥3 个 0.2B 级大买家过尘线在场 ∧ famous 底仓持有 ∧ 冷窗 15s≤0.31/30s≤0.4/60s≤0.5/90s≤1.0（由冷转热第一笔买入可能比较大，大的反而好）∧ famous 跟单 ≤8（2s 窗非 famous 买入钱包数全生命周期单调 max，0x2a05 同块 16 钱包挤爆案）∧ notorious ≤30（臭名昭著钱包集合 notorious-wallets.json 先只放 bf00）∧ 锚买门（锚 tick 是买入 ∨ 15s 内 ≥0.03B 买——死寂点不买等第一笔像样买盘落地，「所有后面要上涨的币都需要有买入」）。门链=pointType retail policy（FP cheatOnly+臂豁免〔slow_pump_unload/arb_bot_holdings〕/AF1 pass/CD g23NoSlowGrind/BP stuffingOnly——好散户币通路接纳策略）。刻意不带 ladder 尾部 veto 组（G1/G3/G4/G5/cheatCrew）——出生窗簇键对 160s+ 坑位语义不同、捆绑/作弊由 FP cheatOnly 臂+CD 16 题兜底（T216 裁定）。验证=89 票集合 golden-pit-35 bt-v215 +0.9147/6 票/胜率 83.3%/零亏损；跨窗初验 win1012 30898 票 4 命中 2 正 2 负。⚠buyPhase first 语义：集合票早期多被 ladder t0/t2 族先买——本腿为早期未被买走的票的坑位兜底/重启接棒臂",
+      "cards": 4
+    },
+    {
+      "action": "buy",
+      "priority": 17,
+      "condition": "quietSpanMs >= 60000 AND quietSurgeBuyBnb >= 0.4 AND quietSurgeSec <= 30 AND quietExitVsLaunchPct >= 0 AND quietExitVsLaunchPct <= 28.5 AND currentVsLaunchPct > 0 AND currentVsLaunchPct <= 28.5 AND quietExitBigBuyers == 1 AND quietExitLatchHoldPct > 0 AND quietExitEndWithSell == 1 AND actTotalBnb60Ex15 <= 0.05 AND quietExitOthersBuyBnb <= 0.3 AND quietSurgeSellBnb <= 0.05 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15 AND launchBundleClusterSize < 10 AND launchSellBundleClusterSize < 10 AND (launchBuyBundleWaves < 2 OR launchBuyBundleDominancePct < 30) AND cheatCrewBuyBnb == 0",
+      "maxExecutions": null,
+      "buyPhase": "first",
+      "signalGate": {
+        "maxTriggers": 2,
+        "recheckCondition": "preCheatResult == 'unhealthy' OR priceBackToAlmostLaunch == 1",
+        "fpRetry": 2,
+        "bpPassLevels": [
+          "good",
+          "neutral"
+        ]
+      },
+      "description": "独舞臂（T225 2026-11-23 用户裁定「把这个 pointType 对应的策略正式发布，合并到系统当前的交易策略中」；pointType 类型=strongbacker_solo_dance〔label「一个钱包的独舞：独自持大仓不全卖出的强庄爆拉币」，PT19〕）。用户时序画像：「开盘大户小户买→大户小户卖→(大户留仓)沉寂→拉盘；盘面干净=卖出潮后无新资金跟进」。九键：①quietSpan≥60s 死透沉寂②surge≥0.4∧≤30s 拉盘涌入③出口价∈[0,28.5] 未破发（T130 地板）④现价∈(0,28.5] 低位⑤quietExitBigBuyers==1 活跃段唯一大户（ZKind 1.47B 接力盘切）⑥quietExitLatchHoldPct>0 出口留仓（清仓型切）⑦quietExitEndWithSell==1 卖收尾（从未活过死票切）⑧actTotalBnb60Ex15≤0.05 临门 60s 段成交≈0（用户口径「一分钟活跃度=15秒活跃度」——替代 180s 尾窗周期重叠假阳性）+quietExitOthersBuyBnb≤0.3 大户之外总买入线（湖南 0.597 闪进闪出团伙案）⑨quietSurgeSellBnb≤0.05 拉盘波不绑卖（ZEC 同 slot 买 0.604∧卖 0.5084 对倒案）。门链=pointType 独舞 policy（actFront:pass + cheatCheck:g23NoE〔E 低活跃通道差集——AF1/cheat E 两道同源拒一并豁免〕+ factorCheckArmExempt〔fam_holding_thin/oversell_residual〕——A/L/M/N 真作弊与 BP 照走）。验证=solodance-8 集合 bt-v224（T226 卖出侧）：LAB +225.81%/개구리씨 +138.48%、6 死盘全拦（湖南/ZEC 腿层、Willow/Fomies/庄周/吕吕 FP 层）、净 +0.7286/胜率 100%。前期否证留档：T215 ③线无分离度、出口口径画像修正（latch 占流通 vs 占首笔量）、FP 臂差集 famous/tail/pvp 盲区修复（T225 三修）",
       "cards": 4
     }
   ],
