@@ -7,7 +7,7 @@ const { dbManager } = require('../src/services/dbManager');
 const EXP = '0129ab22-a197-47d5-83bb-fd7344b85fd8';
 (async () => {
   const db = dbManager.getClient();
-  const sig = await db.from('strategy_signals').select('token_address, created_at, reason, status, metadata')
+  const sig = await db.from('strategy_signals').select('token_address, created_at, reason, metadata')
     .eq('experiment_id', EXP).order('created_at', { ascending: true }).limit(100);
   if (sig.error) throw new Error(sig.error.message);
   console.log('信号行', sig.data.length, '行');
