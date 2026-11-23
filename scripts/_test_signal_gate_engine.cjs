@@ -734,6 +734,10 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
     BT.includes('if (actFront.skipCheat)'));
   ok('signalGateReal 服务构造 persist:false 隔离注入',
     BT.includes('persist: false, settleDelayMs: 0'));
+
+  ok('T216 pointTypePolicy 声明在 resume 块外（作用域事故防线——块内 const 块外 AF1/cheat/BP 引用恒 ReferenceError）',
+    BT.indexOf('const pointTypePolicy = _ptInfo') >= 0
+      && BT.indexOf('const pointTypePolicy = _ptInfo') < BT.indexOf('this._sgRecordTrigger(tokenAddress, strategy.id);'));
   ok('signal 落库 metadata signalGate 段（triggerNo 预读 +1 留痕）',
     BT.includes('triggerNo: this._sgTriggerCount(tokenAddress, strategy.id) + 1'));
 }

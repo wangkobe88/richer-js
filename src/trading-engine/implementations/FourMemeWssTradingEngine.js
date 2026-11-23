@@ -2465,11 +2465,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (opts.resume && opts.resume.signalId) signalId = opts.resume.signalId;
       let t189SbwBurst = false;
       if (strategy.signalGate) {
-        if (!opts.resume) {
-        this._sgRecordTrigger(tokenAddress, strategy.id);
-
         // T216 点位类型辨别（模块启用才分类；null=未启用全现行）——分类一次、
-        // policy 线穿四门 ctx；metadata pointType 段（类型+版本+condition 引用因子快照）
+        // policy 线穿四门 ctx（挂 resume 块外：续跑路径同样分类——T203b 同款作用域
+        // 事故防线，块内 const 块外不可见）；metadata pointType 段（类型+版本+因子快照）
         const _ptInfo = this._classifyPointType(factorResults);
         if (_ptInfo && signalId) {
           try {
@@ -2480,6 +2478,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           }
         }
         const pointTypePolicy = _ptInfo ? _ptInfo.policy : null;
+        if (!opts.resume) {
+        this._sgRecordTrigger(tokenAddress, strategy.id);
 
         // T143 因子购买前检查门（FP1，门链最前——纯代码零 Jev，被拒票不烧 cheat/BP
         // 配额；灰度 factorCheck.enabled 缺省关=fail-open 放行进 cheat 门）

@@ -2568,15 +2568,8 @@ class BacktestEngine extends AbstractTradingEngine {
         // catch 静默吞=不成交（JG-6 对拍 bt-v166 首跑实锤 20 次「_fp4T0 is not
         // defined」全为 BP 放行后炸）。resume 路径恒 0=慢分解日志退化不计时。
         let _fp4T0 = 0, _fp4Dt = 0;
-        if (!opts.resume) {
-        this._sgRecordTrigger(tokenAddress, strategy.id);
-
-        // T143 因子购买前检查门（FP1，门链最前——纯代码零 Jev；anchorMs=回放
-        // as-of 截窗防前视；灰度 factorCheck.enabled 缺省关=fail-open 放行）
-        // T203 FP 拒 → fpRetry>0 时登记 pending（后续 tick 虚拟时钟门内重评——
-        // 案源 bt-v164 0xb6ee…7777 FP28 锚相位误拦；nowMs=nowTs 非墙钟）
         // T216 点位类型辨别（模块启用才分类；null=未启用全现行）——分类一次、
-        // policy 线穿四门 ctx；metadata pointType 段（与实时引擎同构）
+        // policy 线穿四门 ctx（挂 resume 块外：续跑路径同样分类）；metadata pointType 段
         const _ptInfo = this._classifyPointType(factorResults);
         if (_ptInfo && signalId) {
           try {
@@ -2587,7 +2580,13 @@ class BacktestEngine extends AbstractTradingEngine {
           }
         }
         const pointTypePolicy = _ptInfo ? _ptInfo.policy : null;
+        if (!opts.resume) {
+        this._sgRecordTrigger(tokenAddress, strategy.id);
 
+        // T143 因子购买前检查门（FP1，门链最前——纯代码零 Jev；anchorMs=回放
+        // as-of 截窗防前视；灰度 factorCheck.enabled 缺省关=fail-open 放行）
+        // T203 FP 拒 → fpRetry>0 时登记 pending（后续 tick 虚拟时钟门内重评——
+        // 案源 bt-v164 0xb6ee…7777 FP28 锚相位误拦；nowMs=nowTs 非墙钟）
         _fp4T0 = Date.now();
         const factorGate = await this._factorGateEvaluate(
           tokenAddress, gateToken, faState, signalId, {
