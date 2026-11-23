@@ -465,14 +465,26 @@ console.log('K. T137 KOL HOLD 两键（sinceLastFamousBigBuySec / recentFamousSe
             check('K1 sinceLastFamousBigBuySec = 123.5（精确 (now−lastAt)/1000）', () =>
                 assert.strictEqual(f.sinceLastFamousBigBuySec, 123.5));
         }
-        // K2 阈值门：0.1 贴线过（≥）= 研究口径大买线
+        // K2 阈值门：0.09 贴线过（≥）= T226 大买线（0.1→0.09，用户裁定「famous 有时
+        //    需要付 gas」——0.1 意愿单链上净额常见 0.098x）
         {
             const fa = newFA();
             fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
-            fa.processTick(tK({ bnb_amount: 0.1, timestamp: T0 + 2000 })); // 恰 0.1（闭界）
+            fa.processTick(tK({ bnb_amount: 0.09, timestamp: T0 + 2000 })); // 恰 0.09（闭界）
             const f = fa.buildFactorMap('0xtoken', T0 + 3000);
-            check('K2a 0.1 贴线（≥famousBigBuyBnb）记时刻 → 1.0', () =>
+            check('K2a 0.09 贴线（≥famousBigBuyBnb）记时刻 → 1.0', () =>
                 assert.strictEqual(f.sinceLastFamousBigBuySec, 1));
+            // K2a2 案源反证（T226 立法现场）：0xa38b…7777 개구리 씨 11:38:03 famous
+            // 0.09836 单——旧线 0.1 拦不记（HOLD 窗 11:39:09 过期→11:39:20 放行卖出），
+            // 新线 0.09 必须记上
+            {
+                const fa3 = newFA();
+                fa3.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa3.processTick(tK({ bnb_amount: 0.09836, timestamp: T0 + 2000 }));
+                const f3 = fa3.buildFactorMap('0xtoken', T0 + 3000);
+                check('K2a2 案源 0.09836（0.09≤x<0.1）记时刻 → 1.0（T226 gas 净额）', () =>
+                    assert.strictEqual(f3.sinceLastFamousBigBuySec, 1));
+            }
             const fa2 = newFA();
             fa2.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
             fa2.processTick(tK({ bnb_amount: 0.05, timestamp: T0 + 2000 }));       // 低于线不记

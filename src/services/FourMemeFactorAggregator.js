@@ -192,7 +192,9 @@ const FACTOR_PARAM_DEFAULTS = {
                                  //   max(2×activityWinMs, 本值)，环内存上限随之放大
     // ── T137 KOL HOLD 两键（2026-11-13 KOL 研究：pp≥100 ∧ famous 仍在入场 →
     //    延缓该卡卖出吃到高点；V2 触发口径「120s 内有 ≥0.1B famous 买」+2.32）──
-    famousBigBuyBnb: 0.1,        // sinceLastFamousBigBuySec 的 famous 大买判定线（BNB）；
+    famousBigBuyBnb: 0.09,       // sinceLastFamousBigBuySec 的 famous 大买判定线（BNB）；
+    //   T226 0.1→0.09（用户裁定「有时候需要付 gas」）：famous 发 0.1 意愿单经路由/
+    //   gas 后链上净额常见 0.098x——0xa38b…7777 案源 0.09836 差 1.6% 没续上 HOLD 窗；
     bigBuyerCohortMinBnb: 0.2,   // T213 黄金坑大买家队列线：累计买入 ≥ 此值（BNB）入队
                                  //   研究口径 fb 收集同线；factorParams 可覆盖
     famousSellWinMs: 60000,      // recentFamousSellBnb 滑窗（释放臂「60s 内 famous 卖出
@@ -200,7 +202,7 @@ const FACTOR_PARAM_DEFAULTS = {
     // ── T183 聪明钱流两参数（smartHold 卖出过滤臂原料；名单=
     //    data/kol-study/smartmoney-accum.json，见 loadSmartMoneyWallets）──
     smartBigBuyBnb: 0.02,        // sinceLastSmartBigBuySec 的聪明钱大买判定线（BNB）。
-                                 //   刻意低于 famous 0.1：GMGN smartmoney 流钱包单笔
+                                 //   刻意低于 famous（0.09）：GMGN smartmoney 流钱包单笔
                                  //   规模小于 KOL（立法案 0x2f17 唯一窗内命中 0.0494，
                                  //   0.1 线漏拦）；与 smartBotMinBuyBnb 参与线同值 0.02
     smartSellWinMs: 60000,       // recentSmartSellBnb 滑窗（释放臂原料窗，famous 同款 60s）

@@ -2100,3 +2100,9 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 ①**id 改名**（用户裁定「retail_golden_pit 也改一下吧，当前这个名字太泛了」）：`retail_golden_pit` → **`famous_holder_cold_pit`**（label 六要素 id 化：famous 入场背书+大户在场+冷寂考验+低价坑；「有买入」=机制、「二波潜力」=目标刻意不入 id）；PT13→PT14（policy/condition 零变化，id 为审计维度 bump）；主包 description 同步 → v8。历史信号行快照存 label（旧名显示正常，前端不查注册表）——数据/审计兼容由快照自包含保证。
 ②**全域对拍攒批**（用户裁定「先不全窗测试，先攒修改最后整合在一起测试」）：pointType 随主包启用的 ladder 全域行为变化（retail 形状点位门链放宽）纳入攒批清单——与后续修改整合后统一对拍，本轮不单独跑主窗口。
+
+## T226 famousHold 大买线 0.1→0.09（用户裁定「有时候需要付 gas」）：0xa38b…7777 개구리 씨 案源 0.09836 贴线 miss 续窗失败（2026-11-23）
+
+**案源**（bt-v223-solodance8-armfix `ae353b9f`，token 0xa38b2d9478d8a9ed87ec0fc93ea29e3e69dc7777）：用户信号页质询「卖出点位前 11:38:02 有 famous 买入，为什么没挡住卖出」。取证：famous `0x5576…5e81`（roster 命中）11:38:03 单笔 **0.09836 BNB < 旧线 0.1**（差 1.6%）不记 `_famousBigBuyLastAt`，其后 20+ 笔全为 ~0.001 尘埃单亦不到线；180s HOLD 窗从 11:36:09 那笔真大买起算 → 11:39:09 过期 → **11:39:20 放行卖出（+67%）**。机制本身工作正常：famous_hold 拦 3 次（11:36:09/11:36:58/11:39:06）+ smart_hold 拦 3 次，共推迟卖出 3 分 11 秒（peak 100%→157%）；卖后 1s 有 1.38B 非名单大买拉 35% 为后话。
+
+**裁定与改动**：用户裁定「famousBigBuyBnb=0.1 改为 0.09，因为有时候需要付 gas」——famous 发 0.1 意愿单经路由/gas 后链上净额常见 0.098x，0.1 整线把这类单全部漏记。改 `FourMemeFactorAggregator.js` `_fp.famousBigBuyBnb` 默认值 0.1→0.09（factorParams 可覆盖不变）；smart 线 0.02 刻意不动（注释对齐）。单测 `_test_since_entry_factors.cjs` K2 段换新线闭界断言 + K2a2 案源反证（0.09836 必记时刻）；`_test_factor_sell_filter` 门判侧注入因子值不受影响复跑 195/0。**生效条件=进程重启**（跑中实验须重启）；回测重跑才反映新线。
