@@ -1927,3 +1927,41 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **单测**：`_test_fp_retry_gate.cjs` 新增 E 段——E1 noteSkip 纯逻辑（skips 计数/预算不动/lastEvalAt 不动/无 pending no-op）；E2 **事故现场反证**（0xb712 真时间线重放：fire 37/26.33/0.1504 条件真→+0.8s 条件真评 FP 拒→48.0/49.2/55.0 三刻翻假全跳过→+42.8s 地平线终态，attempts 恒 1、skips=3、预算剩 1 未白烧；对照无门控=+12.8s 即耗尽〔bt-v179 实况重演〕）；E3 源码锁（门控调用点在 `_factorGateEvaluate` 之前/noteSkip/skipped 落痕/noteSkip 零 Date.now）。邻居 9 件（act_front_gate/cheat_gate_engine/cheat_detection_service/factor_sell_filter/live_buy_failure_observability/participant_profile/run_engine_graceful_stop/signal_gate_engine/signal_metadata_cache）全绿。
 
 **效果与知情点**：本票结局不变（curVs 再没回域——30s 过期终态 vs 旧形 48.0 耗尽，都是不买；FP27 大户静默卸货在 49.2 也仍命中，FP 层本就过不去），机制收益=①预算不再烧在注定零产出的翻假窗口；②堵住「FP 过+条件翻假」形状白烧 cheat/BP Jev 配额的通道；③metadata.skipped 使 attempts 偏少可归因。对 T203c 0xb6ee 救回形状零损（条件真时刻照常评）。**182 须 pull+重启实验才生效（进程态代码）；已跑/跑中实验不追溯**。
+
+## T214 强庄胚子两 FA 键+强庄重启臂 v35 P15 候选（2026-11-22 LAB 0x1a081086…7777 案；⚠命中面分析否证③线、待用户终裁臂存废）
+
+**案源与形状修正**：bt-v184（金狗集合）LAB（flap）signals 页复盘「前面交易一阵后冷却然后再起来」形状。初判「creator 底仓 61% 扛价」**有误**——钱包级逐笔还原（`scripts/tmp-1a08-creator.cjs`）：creator 首笔 0.75B 自买（117.27M 枚）→ **11~55s 分 8 笔递减卖出 0.44B** → 132s 清至 4.3% → 148s 深静默 → 283s 买回 0.25B（39.84% 首笔量）→ 295~316s 全新钱包鱼贯 0.13~0.18B/笔（71% 走 GMGN 系聚合路由）拉到毕业 +750%。真实形状=**清仓庄二次进场**非底仓庄扛价；「价格稳在发行价上方」的支撑=开盘段散户接走了 creator 的货+曲线残留深度，非庄底仓（用户「没有持有者但价格在发行价上=有持有者」的观察里那个持有者=creator 残仓 5M 枚 4.3%）。全周期现行体系零买入归因：61s P1 唯一信号被 FP26 尾段买力枯竭正确拒（当时砸盘进行中）→ 重启波可触发窗 296.0s 单 tick（holdDust 3→4 恰逢 curVs +25.3%，同秒次笔 +31.6% 出域）被 debounce 合并结构性吃掉（T132 per-tick 已于 2026-11-17 撤销）；常量锚 curVs 全程偏高 ~25 点=creator 首笔大买推高起跑线（首买价锚 vs 常量锚口径之争未单独立法，用户观察「发布价格比配置价格高不少」成立）。
+
+**用户裁定（立法动机）**：「强庄币胚子的模式：散户出清 ∧ 价格未破发 ∧ 首笔大买家底仓仍在 + 长期沉寂 + 又有流量涌入。这个场景下要求持有者扣除 dust 大于一定数量就没有任何意义，帮忙加一个从买入信号产生到最后走通的路径」+「先完成这个修改，然后还是需要看看它命中的票的情况。单纯为了一个 case 去搞一个策略还是危险的，还是绕不开分析，如果分析结果不成立还要回退」。
+
+**实现（873dec93 已 push）**：①FA 两新键：`quietExitVsLaunchPct`（最近静默段出口行可靠价 vs **T130 地板** min(常量,首买价)——刻意不含 T134 滚动最低，T170b 防洗白同款口径；出口行尘/outlier→null 宁 null 不冒充）与 `firstBigBuyerHoldPct`（首笔 ≥0.3B BUY write-once latch 大买家〔factorParams `firstBigBuyerMinBnb`〕，现净持仓÷首笔 tokens×100，**路径无关**=「底仓仍在」与「清仓回场」在键上统一为「庄此刻在场」——LAB 案源修正后此键是唯一能同时覆盖两形状的表达；无 latch→null fail-closed 真空冷却盘不适用）+FactorBuilder 白名单+单测 I 段 60 断言（含滚动最低不垫低分母反证/latch write-once/清仓 0/加仓 >100）；②deploy 脚本 v5 P15 强庄重启臂候选（T117 signalGate：quietSpan≥60s ∧ surge≥0.4 ∧ surgeSec≤30 ∧ 出口价∈[0,28.5] ∧ 现价∈(0,40] ∧ holdPct≥40 ∧ actTot≥0.1 ∧ launch 双 veto+cheatCrew，**刻意不带人气门**；maxTriggers=2+fpRetry=2）——**未部署**（命中面未过不 --commit）；③`scripts/tmp-t214-scan.cjs` 命中面扫描工具（182 跑：真 FA 重放+1s 簇 debounce 模拟+简版收益模拟〔−40% 止损/毕业/50s 停滞/窗尾强平〕）。
+
+**命中面分析（T215 三窗，2026-11-22 跑于 182）**：w1004（金狗案源窗 12h，10399 token/1673 重放）+w1012（bt-v186 窗 36h，4251 重放）+w1103（bt-v185 窗 24h，1266 重放），评「除③外全过」fire（③线值分组汇总）：
+
+| 组（每票首 fire） | n | 净 BNB | 胜率 | 三窗分布 |
+|---|---|---|---|---|
+| ③null（无 0.3B 首买 latch） | 77 | +0.971 | **48%** | +0.44/+0.42/+0.12 全正 |
+| ③[0,10)（庄清光） | 70 | +0.903 | 39% | +0.20/+0.21/+0.50 全正 |
+| ③[10,40)（LAB 带） | 6 | +0.551 | 17% | 全靠 LAB，余 5 票 −0.06 |
+| ③≥40（庄在场） | 61 | +2.106 | 31% | +0.18/**+2.00**/−0.08 |
+| 全部（③无） | 214 | **+4.531** | 39% | +1.41/+2.60/+0.52 全正 |
+
+**③线否证**：≥40 组盈利 98% 集中在 w1012 两张毕业票（뉴이재명 +1.148/개구리씨 +0.807，去 top2 后 +0.046）；w1103 该组全亏；胜率 31% 低于无③的 39% 与 null 组的 48%；LAB 是 [10,40) 孤例。**「庄在场」无跨窗分离度，是负资产**。基线四件套（散户出清+未破发+沉寂+突涌）三窗全正才是稳定面；域外带（curVs 28.5~40）=现行腿结构性买不到的独占增量（89 票 +2.73，大赢家 뉴이재명/海水过滤器〔后者 hold=0 庄清光组〕均域外）。四张大赢家（LAB/뉴이재명/개구리씨/海水过滤器）在③任何线组合下都被切掉一部分——**无③基线版全吃**。
+
+**模拟口径已知偏差（知情）**：先喂后结算=fire 买价偏低一 tick（LAB 模拟 6.327 vs 真实 debounce fire@295.2 价 6.677）；无门链（FP/AF1/cheat/BP 会再拦）；同票双 fire 只计首；老票晚期 fire（如 538622s）实跑不发生（TokenPool 淘汰）；「域内重叠」未评现行腿人气门（LAB 域内但 holdDust<4 现行腿仍不触发=非真重叠）。
+
+**待用户终裁**：A=P15 去③基线版（四件套+全域 (0,40]）→ 182 部署 v5+clone 对拍端到端（门链真调增量净额）后决定生效；B=回退整臂（FA 两键留观察，四件套攒批）；C=P15 只留域外带（28.5<curVs≤40）结构性补充版。③线两版（≥40 原案/≥30）数据均不支持。
+
+## T216 点位类型辨别与对应策略（pointType 模块）——T213b gatePolicy 泛化为引擎通用机制（2026-11-23，金狗 JG-39→JG-41 线收口案）
+
+**入口**：用户由 T213b（好散户币通路 gatePolicy 归包）提案泛化——「当因子满足某条件时，后续门控（因子门+Jev 门）一部分可开一部分可关；模块与因子过滤模块类似基于因子实现；现行普通流程收编为『普通点位』类型；未来有强庄币雏形/强庄币拉盘前期等类型」。三项裁定：①类型注册表全局维护随模块版本（包经 modules.pointType 启用）②T213b gatePolicy 迁入作首个类型 retail_golden_pit、gatePolicy 退役③Jev 门支持 skip（cheat 门跳 16 题但引擎拉黑短路保留）。
+
+**落地**：`src/market-analysis/point-type-router.js`（POINT_TYPE_VERSION='PT1'，优先级阶梯首匹配：retail_golden_pit〔黄金坑条件+policy 三键〕→ normal 兜底〔policy={} =现行全门〕；condition 复用 ConditionEvaluator；assertPointTypesValid 启动防线三防线同款）；module-registry 注册 pointType；AbstractTradingEngine per-signal `_classifyPointType`（两引擎门链块首分类一次 policy 线穿四门 ctx；metadata pointType 段含因子快照）；四门 policy 维度：factorCheckArms full/cheatOnly/skip、actFront normal/pass、cheatCheck full/skip（拉黑保留）、buyPoint full/stuffingOnly/skip。单测 point_type_router 11/11。⚠作用域事故：pointTypePolicy 误声明在 resume 块内=块外 ReferenceError（T203b 同款，bt-v193 首跑实锤「pointTypePolicy is not defined」，修复+源码锁锚 sgRecordTrigger 142/0）。
+
+**黄金坑腿口径终裁（用户三轮修正，两处我方擅自添加被撤）**：①价格域**换回 currentVsLaunchPct≤28.5 地板尺**（earlyReturn 首价尺系我方误推断非用户裁定——commit 标注错误已更正；地板尺=全引擎同口径，代价=开盘高于平台常量票的**第二波**坑出域）②回撤**撤下限只留 ≤50 上限**（30 下限系我方添加；MOYNOK 第一波坑底 dd 28.8% 差 1.2pp 案驱动裁定）③墙龄 ≤900s 无下限（量门 4-15B 做 seasoning）。MOYNOK 验证：t+75/103s 早期点非黄金坑形状（ath 33.7<40/dd 19-25/vol 3.5<4——门链豁免救不了不自触的腿）；t+535s 第一波坑底全条件通过（curVs 地板 25.7% ✓ ath 46.9% ✓ 量 5.8B ✓ dd 28.8% ✓ 无下限版）。
+
+**bt-v195 终形验证（89 票 golden-pit-35 集合）**：96 触发 → FP 作弊臂拦 16（cd400×7/arb_bot×6/act_ultra×2/launch_squad×1）→ AF1 直通 → **CD 全链拦 27（cheat×22/unhealthy×5——含案源 MOYNOK@t+535s 判 unhealthy，唯一保留的真流量闸拦下自己人）** → BP 塞单门 0 拦 → **成交 49 笔/18 票，总 PnL −0.2882B**（7 胜 11 负，最好问·九天 +0.045 最差麦当劳侠 −0.067）；卖出侧 famous_hold 仍在工作（因子卖出过滤拦 2）。门链机制端到端按设计工作。
+
+**教训**：①克隆链虫——clone 不带 --pack 时 strategyId 沿父链继承，bt-v192 实跑旧包（gatePolicy 从未生效）直到 bt-v194 显式 --pack 才真验；后续克隆一律显式 --pack。②pkill -f 自匹配杀自身 ssh shell（[9]adafdef 防自匹配）。③tmp 部署脚本 upsert 不走版本递增链（研究包可接受，正式包走 deploy-trading-strategy.cjs）。
+
+**余留**：①MOYNOK@535s CD unhealthy 判定值复核（作弊门把自己案源拦了——16 题快照待看）；②bt-v195 18 票 PnL −0.29 的分布复盘（7 胜全小赢、负票全浅亏——形状的 EV 问题回到 JG-41 结论，机制层已完整交付）；③未来类型（强庄币雏形/拉盘前期）按需追加（bump POINT_TYPE_VERSION）。工具：`scripts/tmp-deploy-golden-pit-pack.cjs`（git 外）、实验 bt-v188~195 谱系（bt-v193 stopped 留行=作用域事故现场）。
