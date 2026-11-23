@@ -621,7 +621,65 @@ console.log('K. T137 KOL HOLD 两键（sinceLastFamousBigBuySec / recentFamousSe
                 const keys = newFA().getFactorKeys();
                 assert.ok(keys.has('sinceLastFamousBigBuySec'), '探针缺 sinceLastFamousBigBuySec');
                 assert.ok(keys.has('recentFamousSellBnb'), '探针缺 recentFamousSellBnb');
+                assert.ok(keys.has('famousSellPendingSec'), '探针缺 famousSellPendingSec（T227）');
+                assert.ok(fbSrc.includes('famousSellPendingSec: factorResults.famousSellPendingSec ?? null'), 'FactorBuilder 缺 T227 透传');
             });
+        }
+        // K11 T227 状态窗卖出挂起键 famousSellPendingSec（卖挂起计时/买续命清/防回拨/晚到买不清）
+        {
+            // K11a 卖出挂起计时（无窗——区别于 recentFamousSellBnb 的 60s 窗）
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tK({ trade_type: 'sell', bnb_amount: 0.15, timestamp: T0 + 2000 }));
+                const f1 = fa.buildFactorMap('0xtoken', T0 + 2010);
+                check('K11a 卖出挂起起计 0.01s', () =>
+                    assert.strictEqual(f1.famousSellPendingSec, 0));
+                const f2 = fa.buildFactorMap('0xtoken', T0 + 62000);
+                check('K11a2 出 60s 卖窗后挂起仍在计时（recentSell=0 ∧ pend=60.0——挂起无窗）', () => {
+                    assert.strictEqual(f2.recentFamousSellBnb, 0);
+                    assert.strictEqual(f2.famousSellPendingSec, 60);
+                });
+            }
+            // K11b 买入续命清 null（任何 famous 买——小额 0.01 也续命，개구리씨 0.025 案）
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tK({ trade_type: 'sell', bnb_amount: 0.15, timestamp: T0 + 2000 }));
+                fa.processTick(tK({ bnb_amount: 0.01, timestamp: T0 + 5000 })); // 小买续命
+                const f = fa.buildFactorMap('0xtoken', T0 + 5100);
+                check('K11b famous 买入（任意金额）续命清挂起 → null', () =>
+                    assert.strictEqual(f.famousSellPendingSec, null));
+            }
+            // K11c 乱序晚到卖不回拨（defer 回推乱序同构 K3）
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tK({ trade_type: 'sell', bnb_amount: 0.15, timestamp: T0 + 5000 }));
+                fa.processTick(tK({ trade_type: 'sell', bnb_amount: 0.1, timestamp: T0 + 3000 })); // 乱序晚到
+                const f = fa.buildFactorMap('0xtoken', T0 + 6000);
+                check('K11c 晚到卖行不回拨挂起 → 1.0（按 T0+5000）', () =>
+                    assert.strictEqual(f.famousSellPendingSec, 1));
+            }
+            // K11d 晚到买（ts < 挂起时刻）不清——防 defer 乱序误续命
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tK({ trade_type: 'sell', bnb_amount: 0.15, timestamp: T0 + 5000 }));
+                fa.processTick(tK({ bnb_amount: 0.3, timestamp: T0 + 4000 })); // 到达晚但 ts 更早
+                const f = fa.buildFactorMap('0xtoken', T0 + 6000);
+                check('K11d 早于挂起的 famous 买不清挂起 → 1.0', () =>
+                    assert.strictEqual(f.famousSellPendingSec, 1));
+            }
+            // K11e 无 famous 卖 → null（fail-open 侧：状态臂继续 HOLD 由门侧 null 语义接管）
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tK({ bnb_amount: 0.3, timestamp: T0 + 3000 })); // 只买
+                const f = fa.buildFactorMap('0xtoken', T0 + 5000);
+                check('K11e 未卖过 → pend=null', () =>
+                    assert.strictEqual(f.famousSellPendingSec, null));
+            }
         }
         // K10 roster 未加载 fail-open（K 段内置复位前置段）
         {

@@ -2118,3 +2118,11 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **正式发布**：trading-standard-v1 v8→v9（ladder v38 十六腿=v34 十四+T224 黄金坑 P16+T225 独舞臂 P17）；独舞臂九键与 pointType strongbacker_solo_dance（PT19）同串；signalGate{maxTriggers:2,fpRetry:2}。初版 v35（firstBigBuyerHoldPct≥40 线）经 T215 命中面否证的教训留档：单键「庄在场」无分离度，终版=快照时序形状（唯一/留仓/卖收尾/死透/不绑卖）+门链类型化豁免。
 
 **余留**：out-of-sample 未跑（独舞腿三窗全域命中面——solodance-8 是事后池，新窗验证攒批）；개구리씨 型（短周期）与 LAB 型（慢周期）在 60Ex15/othersBuy 线上的全域分布待观察；跑中实验须重启吃 v9。
+
+## T227 famousHold 状态窗臂：famous 仍持仓 ∧ 卖出挂起未满 60s → HOLD 不限 180s（用户裁定「famous 有持续入场的话，famous 卖就没关系」；案源 개구리씨 0xa38b…7777 bt-v223 卖后 +421% 只拿到 +67%）（2026-11-23）
+
+**动机**（T226 续案）：用户「这些大票还是卖得太早，还有没有其它方法能再延迟卖出」。개구리씨 案：11:39:20 卖出（+67%）后 famous `0x5576…5e81` 全程零卖出持续买，卖后 10min 最高 +421%。方向提案 A~D 中用户选 A（时间窗→状态窗）。
+
+**侦察三轮**（182 `scripts/tmp-famhold-state-scan.cjs`，5 窗+金狗 67 token 卖出面，命中 6 票；flap quote 盘价格域坑=第一轮 -99.9% 全废，tick 域相对口径修复）：①任何卖即放 +24.9（개구리씨 单票主导）；②0.4 释放线 **-29.9 被否证**——famous 撤退全是分批小额快闪（单笔 0.01~0.16、60s 窗 ≤0.266），等达线已跌 20~28pp；③**卖后 60s 无新买 +9.4**（用户裁定形状：买入续命——개구리씨 卖 0.16 后 49s 买 0.025 续命保 +34.7 段；「卖了就消失」60s 后放——金鲨号 -7.5→+3.5 翻正、0x1a44 -20.5）。E3 深跌出口全轮 1 次、E4/E5 兜底工作正常=无锁死形状；硬出口全在门外（stallClose/毕业/止损不过 filter）+pp<50∧curVs<10 出管辖。
+
+**立法**：①FA 新键 `famousSellPendingSec`（卖出挂起秒数：`_famousSellPendAt` 单调推进防乱序回拨、famous 买入 ts≥挂起清 null 续命〔晚到买不清〕、null=无挂起）+FactorBuilder 快照透传（famousCopyWalletCircPct 同轮入白名单）；②门侧 `FACTOR_SELL_FILTER_DEFAULTS.stateNoRebuySec=60`（0=显式关）：状态臂命中=`circPct>0 ∧ recentSell<0.4 ∧ ¬(pendSec≥60)` OR 进 famousHit（cheapExit 豁免同判、时间窗臂独立并存）；null/0 全 fail-open（旧 FA 不拦）。单测：`_test_since_entry_factors` K11 六断言+K9f 扩（111/0）、`_test_factor_sell_filter` S 段 13 断言含案源反证帧（208/0）。**生效=进程重启**；对拍两臂（win1012 窗 A=默认开/B=stateNoRebuySec:0）随后补录。

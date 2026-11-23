@@ -113,6 +113,44 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     ok(judgeFactorSellFilter(c2, { profitPercent: 105, sinceLastFamousBigBuySec: 250, recentFamousSellBnb: 0.2 }).blocked === false, 'C15 覆盖线 0.2 达线放行');
 }
 
+// ── S. T227 famousHold 状态窗臂（用户裁定「famous 有持续入场的话，famous 卖就没
+//    关系」；案源 0xa38b…7777 개구리씨 bt-v223 侦察三轮：任何卖即放 +24.9 / 0.4 线
+//    -29.9 / 卖后 60s 无新买 +9.4 且可比票面更优——金鲨号 -7.5→+3.5、개구리씨 保 +34.7）──
+//    形状：famous 仍持仓（circPct>0）∧ 卖出未达撤退线 ∧ 挂起未满 stateNoRebuySec(60)
+//    → 同拦不限 180s；挂起满 60s（卖出后无 famous 新买）→ 释放。旧帧不传新键=
+//    状态臂静默关（C 组全兼容）。
+{
+    // S1 状态臂命中：时间窗臂出窗（sinceLast null）但 famous 仍持仓且无挂起 → 拦
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, famousCopyWalletCircPct: 2.5, famousSellPendingSec: null }).blocked === true, 'S1 状态臂命中（circPct>0 ∧ 无挂起 → HOLD 不限 180s）');
+    // S2 挂起未满（famous 卖过但 60s 内——观察中）→ 拦
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0.05, famousCopyWalletCircPct: 2.5, famousSellPendingSec: 30 }).blocked === true, 'S2 挂起 30s<60 → 继续 HOLD（等续命买/满窗释放）');
+    // S3 挂起恰满 → 释放（>= 边界）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, famousCopyWalletCircPct: 2.5, famousSellPendingSec: 60 }).blocked === false, 'S3 挂起 60s 恰满释放（>=，卖后无新买）');
+    // S4 撤退线释放（两臂共用 sellReleaseBnb——单笔大卖即时：60s 窗含本笔）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0.4, famousCopyWalletCircPct: 2.5, famousSellPendingSec: 5 }).blocked === false, 'S4 recentSell=0.4 达撤退线释放（개구리씨 03:45:18 卖 0.48 帧）');
+    // S5 famous 清仓/从未上车（circPct=0）→ 不拦
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, famousCopyWalletCircPct: 0, famousSellPendingSec: null }).blocked === false, 'S5 circPct=0（清仓）放行');
+    // S6 circPct null（旧 FA/键缺失）→ fail-open 放行
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, famousCopyWalletCircPct: null, famousSellPendingSec: null }).blocked === false, 'S6 circPct null fail-open（宁放行）');
+    // S7 stateNoRebuySec=0 显式关状态臂 → sinceLast null 放行（回滚 T226 前形态）
+    const cOff = normalizeFactorSellFilterConfig({ enabled: true, famousHold: { stateNoRebuySec: 0 } }).normalized;
+    ok(judgeFactorSellFilter(cOff, { profitPercent: 105, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, famousCopyWalletCircPct: 2.5, famousSellPendingSec: null }).blocked === false, 'S7 stateNoRebuySec=0 显式关状态臂');
+    // S8 时间窗臂独立工作：sinceLast 窗内 ∧ 挂起满 60s → 时间窗臂仍拦
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: 50, recentFamousSellBnb: 0, famousCopyWalletCircPct: 2.5, famousSellPendingSec: 200 }).blocked === true, 'S8 时间窗臂独立（sinceLast=50 窗内照拦——挂起满不关时间窗）');
+    // S9 cheapExit 豁免同判（T219：famous 低价建仓 ≥0.2 且已开始卖 → 照走）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0.05, famousCopyWalletCircPct: 2.5, famousSellPendingSec: 5, sinceEntryFamousNearLaunchBuyBnb: 0.25 }).blocked === false, 'S9 cheapExit 豁免同判（低价建仓止盈放行）');
+    // S10 管辖门外（pp<50 ∧ curVs<10）恒放行——状态臂不扩管辖
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 40, currentVsLaunchPct: 5, sinceLastFamousBigBuySec: 5, recentFamousSellBnb: 0, famousCopyWalletCircPct: 2.5, famousSellPendingSec: null }).blocked === false, 'S10 pp<40 ∧ curVs<5 管辖外放行（状态臂不扩管辖域）');
+    // S11 侦察案源反证帧：개구리씨 卖 0.16 后 49s（买入续命前一刻）→ 拦（保住 +34.7 段）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: 121, recentFamousSellBnb: 0.16, famousCopyWalletCircPct: 3.2, famousSellPendingSec: 49 }).blocked === true, 'S11 개구리씨 续命前帧（pend=49<60 且 sell 0.16<0.4）拦截');
+    // S12 金鲨号释放帧：卖后 61s 无新买 → 放（60s 确认期满；sinceLast 出窗——
+    // 侦察口径卖点前 180s 无大买，状态臂是唯一拦截者）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: 200, recentFamousSellBnb: 0, famousCopyWalletCircPct: 1.8, famousSellPendingSec: 61 }).blocked === false, 'S12 金鲨号释放帧（pend=61 ≥60）放行');
+    // S13 info 留痕三键（复盘载体）
+    const r = judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, famousCopyWalletCircPct: 2.5, famousSellPendingSec: null });
+    ok(r.info.famousCopyWalletCircPct === 2.5 && r.info.famousSellPendingSec === null && r.info.stateNoRebuySec === 60, 'S13 info 留痕（circPct/pendSec/stateNoRebuySec）');
+}
+
 // ── D. 事故现场反证（0x29921a53…7777 bt-v140，2026-11-03）────────
 // 原条件串 0.2 线四笔全放行；D 修（买优先于卖+0.4 线）后卖出①（pp=105.6）被拦，
 // ②③④ pp≥100∧famous 出窗（190/222/258s>180）放行——T157c 下四帧与 T157b 同判

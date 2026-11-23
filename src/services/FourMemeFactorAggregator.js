@@ -2505,6 +2505,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             _pendingBundleBlock: null,
             _famousBigBuyLastAt: null,  // T137 famous 大买（≥famousBigBuyBnb）最后时刻 ms（null=从未 → sinceLastFamousBigBuySec null → HOLD 不触发 fail-open；写点=价格段/wallet 段补跑双段，见 _noteFamousFlow）
             _famousSellEvents: [],      // T137 famous 卖出事件环 [{ts,bnb}]（recentFamousSellBnb 原料；求和交换律=defer 乱序回推无害；摊销裁剪保 5×窗）
+            _famousSellPendAt: null,    // T227 状态窗卖出挂起时刻 ms：最后 famous 卖出后未被买入续命（famous 买入清 null）——famousSellPendingSec 原料；单调推进防乱序回拨，晚到买（ts<挂起）不清（见 _noteFamousFlow）
             // T221 famous 跟单拥挤键原料（famousFollowSlotMaxWallets=全生命周期单调
             // max——「看到了就不敢上」=污点不洗；0x2a05 案簇 t+23s/fire t+411s，读环
             // 6min 保留会把簇剪掉故不走读环）：_famousFollowAnchors=活跃 famous 买锚
@@ -3082,11 +3083,21 @@ class FourMemeFactorAggregator extends EventEmitter {
      */
     _noteFamousFlow(state, isBuy, bnbAmount, ts) {
         if (isBuy) {
+            // T227 状态窗续命：不早于挂起时刻的 famous 买入撤销卖出挂起（「有持续
+            // 入场的话，famous 卖就没关系」——개구리씨 0xa38b 案 03:44:15 卖 0.16 后
+            // 03:45:04 买 0.025 续命，保住后续 +34% 段）。乱序晚到买（ts<挂起）不清。
+            if (state._famousSellPendAt !== null && ts >= state._famousSellPendAt) {
+                state._famousSellPendAt = null;
+            }
             if (!(bnbAmount >= this._fp.famousBigBuyBnb)) return;
             if (state._famousBigBuyLastAt === null || ts > state._famousBigBuyLastAt) {
                 state._famousBigBuyLastAt = ts;
             }
         } else {
+            // T227 卖出挂起单调推进（乱序晚到卖行不回拨——与 _famousBigBuyLastAt 同构）
+            if (state._famousSellPendAt === null || ts > state._famousSellPendAt) {
+                state._famousSellPendAt = ts;
+            }
             if (!(bnbAmount > 0)) return;
             const evs = state._famousSellEvents;
             evs.push({ ts, bnb: bnbAmount });
@@ -4867,6 +4878,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceLastFamousBigBuySec: state._famousBigBuyLastAt === null ? null
                 : Number(((now - state._famousBigBuyLastAt) / 1000).toFixed(1)),
             recentFamousSellBnb: Number(this._famousSellWindowBnb(state, now).toFixed(4)),
+            // T227 状态窗卖出挂起秒数（famousHold 状态臂释放载体）：null=无挂起
+            //（famous 未卖过/买入已续命）→ 状态臂继续 HOLD；数值 ≥ stateNoRebuySec
+            //（缺省 60）=卖出后无 famous 新买满窗 → 释放放行卖出。now 由入参传入。
+            famousSellPendingSec: state._famousSellPendAt === null ? null
+                : Number(Math.max(0, (now - state._famousSellPendAt) / 1000).toFixed(1)),
             // ── T183 聪明钱流两键（2026-11-18 bt-v150 0x2f17 案：smartHold 卖出
             //    过滤臂原料，T137 逐行镜像）。token 级发射：null=从未有聪明钱大买/
             //    roster 未加载 → smartHold 不命中 fail-open（无聪明钱的票零影响）；
