@@ -38,7 +38,7 @@ const POINT_TYPES = [
         condition: 'tokenAgeSec >= 160 AND tokenAgeSec <= 900 AND buyVolumeBnb >= 4 AND buyVolumeBnb <= 15 AND currentVsLaunchPct <= 28.5 '
             + 'AND athVsLaunchPct >= 40 AND athVsLaunchPct <= 100 '
             + 'AND mcapFromPeakPct <= 50 '
-            + 'AND bigBuyersCount >= 3 AND bigBuyersHeldDust >= 3 AND famousCopyWalletCircPct > 0 AND famousCopyWalletCircPct <= 10',
+            + 'AND bigBuyersCount >= 3 AND bigBuyersHeldDust >= 3 AND famousCopyWalletCircPct > 0',
         // T217：cheatCheck 规则集差集（g23NoSlowGrind=A 主判排除 slow_grind_pump+去 E
         // 通道——案源 0xa04ee1ed：唯一 strong=slowGrindPump、famous 在场自然带量入场、
         // max60 9.11x 错过）；FP 同形状臂差集（slow_pump_unload=FP8a 慢拉卸货）

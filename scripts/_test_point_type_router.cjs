@@ -24,7 +24,6 @@ const GOLDEN = {
   mcapFromPeakPct: 28.8, bigBuyersCount: 9, bigBuyersHeldDust: 7, famousCopyWalletCircPct: 0.5,
 };
 const PARTIAL = { ...GOLDEN, athVsLaunchPct: 120 }; // ATH 出带（>100）
-const FAM_TOOFAT = { ...GOLDEN, famousCopyWalletCircPct: 16.6 }; // 0xe14d 坏例真值
 
 console.log('A. classifyPointType 分类');
 {
@@ -50,10 +49,6 @@ console.log('A. classifyPointType 分类');
   });
   check('A2b 龄门负例：tokenAgeSec 159 <160 → normal（v7 用户裁定龄门收紧到 160）', () => {
     const r = classifyPointType({ ...GOLDEN, tokenAgeSec: 159 });
-    assert.strictEqual(r.type, 'normal');
-  });
-  check('A2c famous 持仓过厚负例：circPct 16.6% >10 → normal（v8 用户裁定「famous 持仓太多人也不敢买」——0xe14d 收割残仓案）', () => {
-    const r = classifyPointType(FAM_TOOFAT);
     assert.strictEqual(r.type, 'normal');
   });
   check('A3 浅回撤无下限仍命中（dd=20 ≤50 ✓ 用户裁定只有上限）', () => {
