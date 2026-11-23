@@ -711,6 +711,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 原料：静默出口价 vs T130 地板 + 首笔大买家底仓留存——详见
         // _test_signal_source_factors.cjs I 段）
         'quietExitVsLaunchPct', 'firstBigBuyerHoldPct',
+        // 2026-11-23 T225 出口时刻独舞四键（用户时序版：唯一大户/尾窗新买剔自买/
+        // 卖收尾/latch 留仓——详见 _test_signal_source_factors.cjs J 段）
+        'quietExitBigBuyers', 'quietExitTailBuyBnbEx', 'quietExitEndWithSell', 'quietExitLatchHoldPct',
         // 2026-11-23 T213 黄金坑三键（JG-41 用户形状：可靠价峰较首可靠价涨幅 +
         // 0.2B 买家队列两键——黄金坑买腿条件串主键；详见 _test_golden_pit_factors.cjs）
         'athVsLaunchPct', 'bigBuyersCount', 'bigBuyersHeldDust',

@@ -410,6 +410,67 @@ console.log('I. T214 quietExitVsLaunchPct / firstBigBuyerHoldPct（强庄重启�
     }
 }
 
+// ═══════════════ J. T225 出口时刻独舞四键 ═══════════════
+console.log('J. T225 quietExitBigBuyers/TailBuyBnbEx/EndWithSell/LatchHoldPct（用户时序版独舞）');
+{
+    const newFA3 = (factorParams) => {
+        const fa = new FourMemeFactorAggregator(
+            { fourmemeWs: { factorParams } }, { info() {}, warn() {}, error() {} });
+        fa.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', platform: 'fourmeme' });
+        return fa;
+    };
+    // 时序：大户买0.5→小户买0.1→(卖0.2 小户)→(大户卖0.1)→死寂70s→苏醒（LAB 缩影）
+    const fa = newFA3({ quietThresholdMs: 60000 });
+    fa.processTick(mkTick({ sender_address: '0big', bnb_amount: 0.5, token_amount: 800000, price_bnb: 5.0e-9, timestamp: T0 + 1000 }));
+    fa.processTick(mkTick({ sender_address: '0small', bnb_amount: 0.1, token_amount: 150000, price_bnb: 5.1e-9, timestamp: T0 + 2000 }));
+    fa.processTick(mkTick({ sender_address: '0small', trade_type: 'sell', bnb_amount: 0.05, token_amount: 75000, price_bnb: 4.9e-9, timestamp: T0 + 3000 }));
+    fa.processTick(mkTick({ sender_address: '0big', trade_type: 'sell', bnb_amount: 0.1, token_amount: 160000, price_bnb: 4.8e-9, timestamp: T0 + 4000 }));
+    fa.processTick(mkTick({ sender_address: '0new', bnb_amount: 0.45, token_amount: 60000, price_bnb: 5.2e-9, timestamp: T0 + 75000 })); // 71s 后苏醒=出口
+    const f = fa.buildFactorMap('0xtoken', T0 + 76000);
+    check('唯一大户=1（小户 0.1<0.3 不计）', () => assert.strictEqual(f.quietExitBigBuyers, 1));
+    check('尾窗(180s)新买剔自买=0.1（小户 0.1@+2s 在 75s 出口的尾窗内；大户自买剔除）', () => assert.strictEqual(f.quietExitTailBuyBnbEx, 0.1));
+    check('卖收尾=1（最后动作是大户卖@4s）', () => assert.strictEqual(f.quietExitEndWithSell, 1));
+    check('出口留仓=(800k-160k)/800k=80', () => assert.strictEqual(f.quietExitLatchHoldPct, 80.00));
+    // 变体：出口拉远到 200s（开盘 1~4s 落尾窗外）→ tailBuyEx=0（干净）
+    const fa1b = newFA3({ quietThresholdMs: 60000 });
+    fa1b.processTick(mkTick({ sender_address: '0big', bnb_amount: 0.5, token_amount: 800000, price_bnb: 5.0e-9, timestamp: T0 + 1000 }));
+    fa1b.processTick(mkTick({ sender_address: '0small', bnb_amount: 0.1, token_amount: 150000, price_bnb: 5.1e-9, timestamp: T0 + 2000 }));
+    fa1b.processTick(mkTick({ sender_address: '0big', trade_type: 'sell', bnb_amount: 0.1, token_amount: 160000, price_bnb: 4.8e-9, timestamp: T0 + 4000 }));
+    fa1b.processTick(mkTick({ sender_address: '0new', bnb_amount: 0.45, token_amount: 60000, price_bnb: 5.2e-9, timestamp: T0 + 200000 })); // 196s 死寂后拉盘
+    const f1b = fa1b.buildFactorMap('0xtoken', T0 + 201000);
+    check('出口@200s：开盘小户买落尾窗外 → tailBuyEx=0（干净）', () => assert.strictEqual(f1b.quietExitTailBuyBnbEx, 0));
+    check('出口@200s：卖收尾=1', () => assert.strictEqual(f1b.quietExitEndWithSell, 1));
+    // 变体：尾窗内有新钱包跟进买（不干净）→ tailBuyEx>0
+    const fa2 = newFA3({ quietThresholdMs: 60000 });
+    fa2.processTick(mkTick({ sender_address: '0big', bnb_amount: 0.5, token_amount: 800000, price_bnb: 5.0e-9, timestamp: T0 + 1000 }));
+    fa2.processTick(mkTick({ sender_address: '0big', trade_type: 'sell', bnb_amount: 0.1, token_amount: 160000, price_bnb: 4.8e-9, timestamp: T0 + 4000 }));
+    fa2.processTick(mkTick({ sender_address: '0follower', bnb_amount: 0.25, token_amount: 30000, price_bnb: 4.9e-9, timestamp: T0 + 100000 })); // 卖后 96s 新买跟进（尾窗内）
+    fa2.processTick(mkTick({ sender_address: '0new', bnb_amount: 0.45, token_amount: 60000, price_bnb: 5.2e-9, timestamp: T0 + 200000 })); // 又 100s 后真正拉盘（gap100s≥60s 出口）
+    const f2 = fa2.buildFactorMap('0xtoken', T0 + 201000);
+    check('变体：卖后跟进买 0.25 → tailBuyEx=0.25（脏）', () => assert.strictEqual(f2.quietExitTailBuyBnbEx, 0.25));
+    check('变体：跟进者 0.25<0.3 仍唯一大户', () => assert.strictEqual(f2.quietExitBigBuyers, 1));
+    check('变体：买收尾=0', () => assert.strictEqual(f2.quietExitEndWithSell, 0));
+    // 变体：第二大户（ZKind 形状）→ big=2
+    const fa3 = newFA3({ quietThresholdMs: 60000 });
+    fa3.processTick(mkTick({ sender_address: '0big', bnb_amount: 0.5, token_amount: 800000, price_bnb: 5.0e-9, timestamp: T0 + 1000 }));
+    fa3.processTick(mkTick({ sender_address: '0big2', bnb_amount: 0.6, token_amount: 900000, price_bnb: 5.1e-9, timestamp: T0 + 2000 }));
+    fa3.processTick(mkTick({ sender_address: '0big', trade_type: 'sell', bnb_amount: 0.1, token_amount: 160000, price_bnb: 4.8e-9, timestamp: T0 + 4000 }));
+    fa3.processTick(mkTick({ sender_address: '0new', bnb_amount: 0.45, token_amount: 60000, price_bnb: 5.2e-9, timestamp: T0 + 75000 }));
+    const f3 = fa3.buildFactorMap('0xtoken', T0 + 76000);
+    check('变体：第二大户 0.6 → big=2（ZKind 切）', () => assert.strictEqual(f3.quietExitBigBuyers, 2));
+    // 从未静默 → 四键 null
+    const fa4 = newFA3({ quietThresholdMs: 60000 });
+    fa4.processTick(mkTick({ sender_address: '0big', bnb_amount: 0.5, token_amount: 800000, price_bnb: 5.0e-9, timestamp: T0 + 1000 }));
+    fa4.processTick(mkTick({ sender_address: '0x2', bnb_amount: 0.1, token_amount: 15000, price_bnb: 5.1e-9, timestamp: T0 + 5000 }));
+    const f4 = fa4.buildFactorMap('0xtoken', T0 + 6000);
+    check('从未静默 → 四键 null', () => {
+        assert.strictEqual(f4.quietExitBigBuyers, null);
+        assert.strictEqual(f4.quietExitTailBuyBnbEx, null);
+        assert.strictEqual(f4.quietExitEndWithSell, null);
+        assert.strictEqual(f4.quietExitLatchHoldPct, null);
+    });
+}
+
 // ═══════════════ H. 源码口径断言 ═══════════════
 console.log('H. 源码口径断言（顺序/上限/时钟红线）');
 {

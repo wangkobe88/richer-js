@@ -263,6 +263,10 @@ const FACTOR_PARAM_DEFAULTS = {
     firstBigBuyerMinBnb: 0.3,    // 首笔 ≥ 此值的 BUY write-once latch 为「首笔大买家」
                                  //   （firstBigBuyerHoldPct 分母基准；与 FP 侧 0.3 级像样
                                  //   买方同线）；factorParams 可覆盖
+    // ── T225 出口快照窗（2026-11-23 用户时序版独舞：买→卖→死透→留仓→拉）──
+    quietExitActiveWinMs: 600000, // 活跃段窗（唯一大户统计：窗内累计买 ≥ firstBigBuyerMinBnb
+                                  //   的钱包数）；factorParams 可覆盖
+    quietExitTailWinMs: 180000,   // 尾窗（卖收尾后无新买跟进的判定窗；剔除 latch 自买）；可覆盖
 };
 
 // 出生窗首买 map 防御帽（launch 系复用；对倒作业票 90s 内 <1 千钱包；超帽只停
@@ -1530,6 +1534,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             // quietExitVsLaunchPct 分子。价格族仅可靠价：出口行 outlier/无可靠价 →
             // null（宁 null 不冒充，该段出口价不可知）
             state._quietExitPriceBnb = (priceReliable === true && priceBnb > 0) ? priceBnb : null;
+            // T225（2026-11-23 用户时序版独舞快照）：出口时刻四键定格——活跃段唯一大户
+            // /尾窗新买(剔 latch 自买)/卖收尾/latch 留仓。原料=_walletEvents 环
+            // （wallet 段 per-tick 恰一次 push，600s 裁剪）；latch 此刻可能未建
+            // （defer 价格段先行）→ 留仓/剔除逻辑按 null 容忍（fail-closed 方向）。
+            state._quietExitSnap = this._snapshotQuietExit(state, ts);
         }
         if (state._quietSurgeStartTs !== null && ts >= state._quietSurgeStartTs && isBuy) {
             state._quietSurgeBuyBnb += bnbAmount;
@@ -1592,6 +1601,17 @@ class FourMemeFactorAggregator extends EventEmitter {
     _applyWalletAggregation(state, tick, vars) {
         const walletAddr = tick.sender_address || tick.trader_address || null;
         const { isBuy, bnbAmount, tokenAmount, blockNumber } = vars;
+
+        // T225 出口快照原料（wallet 真值口径每行恰一次；defer 两段喂食同 latch 防双计——
+        // 本段 per-tick 恰一次）。600s 裁剪（单调 ts 头部丢弃；defer 晚到旧行插尾非单调，
+        // 读时窗过滤容错）。钱包 null 行不计（独舞判据是钱包维）。
+        if (walletAddr && bnbAmount > 0) {
+            state._walletEvents.push({ ts: tick.timestamp, w: walletAddr, buy: isBuy === true, bnb: bnbAmount });
+            const _cut = tick.timestamp - this._fp.quietExitActiveWinMs;
+            let _i = 0;
+            while (_i < state._walletEvents.length && state._walletEvents[_i].ts < _cut) _i++;
+            if (_i > 0) state._walletEvents.splice(0, _i);
+        }
 
         // T189 burst 承接冷盘 ring（wallet 终态口径每行恰一次——defer 两段喂食下
         // 价格段先到 sender 可能仍 null，挂本段保证 wallet 真值；机制关=零记录）。
@@ -2523,6 +2543,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             _firstBigBuyer: null,       // T214：首笔大买家 latch {wallet, tokens}（首笔 ≥
                                          //   firstBigBuyerMinBnb 的 BUY，write-once，wallet 真值
                                          //   口径 sender||trader）；null=从未出现该量级首买
+            _walletEvents: [],          // T225：wallet 事件环 {ts,w,buy,bnb}（出口快照原料；
+                                         //   活跃窗 600s 裁剪，晚到旧行读时窗过滤容错）
+            _quietExitSnap: null,       // T225：最近静默段出口时刻独舞快照
+                                         //   {big,tailBuyEx,endSell,latchHold}；null=从未定格
 
             _lastChainBlock: null,      // 链上序迟到水位（2026-10-14 鸡蛋案）：已见的最大
             _lastChainLogIdx: null,     // (blockNumber, log_index)——早于此的 tick 判 chainLate 不进价格链
@@ -3235,6 +3259,44 @@ class FourMemeFactorAggregator extends EventEmitter {
         } else {
             state._famousLaunchZoneSellBnb = (state._famousLaunchZoneSellBnb || 0) + bnbAmount;
         }
+    }
+
+    /**
+     * T225 出口时刻独舞快照（quiet 定格点调用；纯读 _walletEvents/_walletNetTokens/
+     * _firstBigBuyer，零副作用——「唯一大户/尾窗新买剔自买/卖收尾/latch 留仓」四键定格）。
+     * 用户时序画像（2026-11-23）：「开盘大户小户买→大户小户卖→(大户留仓)沉寂→拉盘，
+     * 盘面干净=卖出潮后无新资金跟进」。defer 边界：价格段先行时 latch 可能未建 →
+     * latchHold=null/tailBuyEx 不剔除（fail-closed 方向，快照键裸比较恒 false）。
+     */
+    _snapshotQuietExit(state, ts) {
+        const actCut = ts - this._fp.quietExitActiveWinMs;
+        const tailCut = ts - this._fp.quietExitTailWinMs;
+        // 上界=定格前一瞬（state.lastTickAt 此时仍是上一笔 ts，更新在 quiet 分支之后）：
+        // 排除苏醒本笔（拉盘动作不是「买入阶段」；非 defer 下 wallet 段已先 push 本笔）
+        const hi = state.lastTickAt;
+        const latchW = state._firstBigBuyer ? state._firstBigBuyer.wallet : null;
+        const buyByW = new Map();
+        let tailBuyEx = 0, lastBuyTs = null, lastSellTs = null;
+        for (const e of state._walletEvents) {
+            if (e.ts > hi) continue;
+            if (e.ts >= actCut && e.buy) buyByW.set(e.w, (buyByW.get(e.w) || 0) + e.bnb);
+            if (e.ts >= tailCut && e.buy && e.w !== latchW) tailBuyEx += e.bnb;
+            if (e.buy) { if (lastBuyTs === null || e.ts > lastBuyTs) lastBuyTs = e.ts; }
+            else { if (lastSellTs === null || e.ts > lastSellTs) lastSellTs = e.ts; }
+        }
+        let big = 0;
+        for (const b of buyByW.values()) if (b >= this._fp.firstBigBuyerMinBnb) big++;
+        let latchHold = null;
+        if (state._firstBigBuyer && state._firstBigBuyer.tokens > 0) {
+            latchHold = Math.round(((state._walletNetTokens.get(state._firstBigBuyer.wallet) || 0)
+                / state._firstBigBuyer.tokens) * 10000) / 100;
+        }
+        return {
+            big,
+            tailBuyEx: Math.round(tailBuyEx * 10000) / 10000,
+            endSell: (lastSellTs !== null && (lastBuyTs === null || lastSellTs > lastBuyTs)) ? 1 : 0,
+            latchHold,
+        };
     }
 
     /**
@@ -4979,6 +5041,15 @@ class FourMemeFactorAggregator extends EventEmitter {
                 const net = state._walletNetTokens.get(b.wallet) || 0;
                 return parseFloat((100 * net / b.tokens).toFixed(2));
             })(),
+            // T225 出口时刻独舞四键（快照定格 read-only；null=从未定格静默段 fail-closed）：
+            //   quietExitBigBuyers=活跃窗累计买 ≥0.3B 钱包数（=1 唯一大户）
+            //   quietExitTailBuyBnbEx=尾窗新买 BNB（剔 latch 自买；≈0=卖收尾后无新资金跟进）
+            //   quietExitEndWithSell=出口前最后动作是卖（1/0）
+            //   quietExitLatchHoldPct=出口时刻 latch 留仓 %（latch 未建=null）
+            quietExitBigBuyers: state._quietExitSnap ? state._quietExitSnap.big : null,
+            quietExitTailBuyBnbEx: state._quietExitSnap ? state._quietExitSnap.tailBuyEx : null,
+            quietExitEndWithSell: state._quietExitSnap ? state._quietExitSnap.endSell : null,
+            quietExitLatchHoldPct: state._quietExitSnap ? state._quietExitSnap.latchHold : null,
             // T184 聪明钱涌入三键（smart-inflow 备选策略原料）：ready=首个达标事件后
             //   inflowReadyHoldMs 窗内为 1（事件时刻=链尾实体首买秒，now=buildFactorMap
             //   入参禁 Date.now——回测虚拟时钟同源）；chainSize/chainBnb=事件链快照

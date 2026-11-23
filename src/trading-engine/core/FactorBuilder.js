@@ -251,6 +251,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 不落库即丢；旧 FA 无键 → null 不掩盖
     quietExitVsLaunchPct: factorResults.quietExitVsLaunchPct ?? null,
     firstBigBuyerHoldPct: factorResults.firstBigBuyerHoldPct ?? null,
+    // T225 出口时刻独舞四键（2026-11-23 用户时序版：唯一大户/尾窗新买剔自买/卖收尾/
+    // latch 留仓）——快照键不可离线重算，不落库即丢；旧 FA 无键 → null 不掩盖
+    quietExitBigBuyers: factorResults.quietExitBigBuyers ?? null,
+    quietExitTailBuyBnbEx: factorResults.quietExitTailBuyBnbEx ?? null,
+    quietExitEndWithSell: factorResults.quietExitEndWithSell ?? null,
+    quietExitLatchHoldPct: factorResults.quietExitLatchHoldPct ?? null,
     // 滚动净买窗两键（T77 2026-10-27 MUSK2028 案 W=10s）：RatioWin null=窗内零买缺
     // 近期证据 fail-closed；Bnb=窗买量观察键。FA 内存事件环不可重算（act* 先例），
     // 不落库即丢；旧 FA 无这些键 → null，不掩盖
