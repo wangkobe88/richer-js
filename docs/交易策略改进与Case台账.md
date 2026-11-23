@@ -2106,3 +2106,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **案源**（bt-v223-solodance8-armfix `ae353b9f`，token 0xa38b2d9478d8a9ed87ec0fc93ea29e3e69dc7777）：用户信号页质询「卖出点位前 11:38:02 有 famous 买入，为什么没挡住卖出」。取证：famous `0x5576…5e81`（roster 命中）11:38:03 单笔 **0.09836 BNB < 旧线 0.1**（差 1.6%）不记 `_famousBigBuyLastAt`，其后 20+ 笔全为 ~0.001 尘埃单亦不到线；180s HOLD 窗从 11:36:09 那笔真大买起算 → 11:39:09 过期 → **11:39:20 放行卖出（+67%）**。机制本身工作正常：famous_hold 拦 3 次（11:36:09/11:36:58/11:39:06）+ smart_hold 拦 3 次，共推迟卖出 3 分 11 秒（peak 100%→157%）；卖后 1s 有 1.38B 非名单大买拉 35% 为后话。
 
 **裁定与改动**：用户裁定「famousBigBuyBnb=0.1 改为 0.09，因为有时候需要付 gas」——famous 发 0.1 意愿单经路由/gas 后链上净额常见 0.098x，0.1 整线把这类单全部漏记。改 `FourMemeFactorAggregator.js` `_fp.famousBigBuyBnb` 默认值 0.1→0.09（factorParams 可覆盖不变）；smart 线 0.02 刻意不动（注释对齐）。单测 `_test_since_entry_factors.cjs` K2 段换新线闭界断言 + K2a2 案源反证（0.09836 必记时刻）；`_test_factor_sell_filter` 门判侧注入因子值不受影响复跑 195/0。**生效条件=进程重启**（跑中实验须重启）；回测重跑才反映新线。
+
+## T225 终段：独舞形态重立+正式发布并入主包（用户裁定「把这个 pointType 对应的策略正式发布，合并到系统当前的交易策略中」，2026-11-23）
+
+**重立弧线**（初版 v35 回退后，用户以四轮精确化裁定重设判据）：①时序画像（「开盘大户小户买→大户小户卖→(大户留仓)沉寂→拉盘」）②「盘面干净=卖出潮后无新资金跟进」（非开盘段安静——开盘热闹允许，ZKind 1.47B 持续接力才脏）③尾窗改 actTotalBnb60Ex15≤0.05（「一分钟活跃度=15秒活跃度」——固定 180s 尾窗对短周期票把开盘老买入盖成跟进假阳性，개구리씨 0.1175 实为开盘散户 0.1001+三尘）④大户之外总买入线 quietExitOthersBuyBnb≤0.3（湖南 0.597 闪进闪出团伙案；8 票引擎口径毕业票 max 0.267 与湖南 0.597 区间干净分）⑤拉盘波不绑卖 quietSurgeSellBnb≤0.05（ZEC 0x5bd4…7777 案：fire@135s 同秒买 0.604∧卖 0.5084 对倒绑定）⑥FP 臂豁免 fam_holding_thin+oversell_residual（개구리씨 被前者拦 ×4；残局形状与独舞语义不冲突）⑦pointType 豁免低活跃两道同源拒（actFront:pass + cheatCheck:g23NoE——E 通道判据=act=low∧sbw≠burst 与 AF1 reject_low 同一证据组合；A/L/M/N 真作弊照判）。
+
+**机制沉淀**：①FA 出口快照键族（quietExitBigBuyers/OthersBuyBnb/TailBuyBnbEx/EndWithSell/LatchHoldPct——quiet 定格点快照，上界=定格前一笔防苏醒本笔自计）+quietSurgeSellBnb（波内卖出累计）+actTotalBnb60Ex15（段值键）；②cheat-grade 规则集 g23NoE（G24@差集机制第二例）；③**FP 臂差集盲区修复**（filterArmsByClass 的 famous/tail/pvp 三族 reason 此前不经过 armExempt——只滤 arms 数组 cd 族；개구리씨 豁免无效的根因）；④solodance-8 Case 集合（8 票候选池，ec84fa49）+solodance-test-v1 对拍包（1 独舞买腿+v7 卖腿）。
+
+**验证链**（solodance-8 集合，signalGateReal 真调门链）：bt-v217（初版四件套：LAB 腿触发+FP 过+AF1 拒）→bt-v218（PT15 AF1 豁免：cheat E 拒）→bt-v220（PT17 g23NoE：LAB 全链 +225.81%）→bt-v223（PT19+臂差集修复：개구리씨 过 FP 重试 ×4 →+67.22%）→bt-v224（T226 famousHold 线 0.1→0.09：개구리씨 +138.48%）→**bt-v225（主包 v9 十六腿：+0.7286/胜率 100%/6 死盘全拦——LAB/개구리씨 与独立包 bit 一致，重叠触发的湖南/ZEC 走 normal 门链被 AF1/FP 正常拦）**。
+
+**正式发布**：trading-standard-v1 v8→v9（ladder v38 十六腿=v34 十四+T224 黄金坑 P16+T225 独舞臂 P17）；独舞臂九键与 pointType strongbacker_solo_dance（PT19）同串；signalGate{maxTriggers:2,fpRetry:2}。初版 v35（firstBigBuyerHoldPct≥40 线）经 T215 命中面否证的教训留档：单键「庄在场」无分离度，终版=快照时序形状（唯一/留仓/卖收尾/死透/不绑卖）+门链类型化豁免。
+
+**余留**：out-of-sample 未跑（独舞腿三窗全域命中面——solodance-8 是事后池，新窗验证攒批）；개구리씨 型（短周期）与 LAB 型（慢周期）在 60Ex15/othersBuy 线上的全域分布待观察；跑中实验须重启吃 v9。
