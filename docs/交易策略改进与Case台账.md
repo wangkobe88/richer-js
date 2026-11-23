@@ -2095,3 +2095,8 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **裁定与回退**：用户「每一种 pointType 还是需要一定的合理性，并且在系统中能够复现，否则这个 pointType 不能激活」+「没有好票就放弃」→ ①不立 pointType 独舞类型（point-type-router 占位注释 strongbacker_egg/pump 留档）；②deploy 脚本移除 v35 P15 强庄臂（v37 十五腿=v34 十四腿+T224 黄金坑），182 已部署 v6→v7；③FA 两观察键保留（quietExitVsLaunchPct/firstBigBuyerHoldPct 无消费者零影响，单测 I 段留防线）。
 
 **留档观察**：①LAB 与 9 张死盘的本质差异=独舞之后**观众是否进场**（LAB 295~316s 几十个新钱包 0.13~0.18B/笔、71% 走 GMGN 散户通道）——「庄独占+散户回流确认」若未来立 pointType 需加回流确认维度（涌入波新钱包数/路由占比），strongbacker 占位处续写；②四件套基线（沉寂+涌入+出口未破发）本身三窗全正但肥尾集中+晚期 fire 膨胀，如重启需票龄界与门链真调对拍；③LAB 案源全弧与 curVs 锚口径之争（首买价 vs 常量）见 T214 条目——锚上移臂未单独立法。
+
+## T224 补（2026-11-23）：类型 id 改名 + 全域对拍攒批裁定
+
+①**id 改名**（用户裁定「retail_golden_pit 也改一下吧，当前这个名字太泛了」）：`retail_golden_pit` → **`famous_holder_cold_pit`**（label 六要素 id 化：famous 入场背书+大户在场+冷寂考验+低价坑；「有买入」=机制、「二波潜力」=目标刻意不入 id）；PT13→PT14（policy/condition 零变化，id 为审计维度 bump）；主包 description 同步 → v8。历史信号行快照存 label（旧名显示正常，前端不查注册表）——数据/审计兼容由快照自包含保证。
+②**全域对拍攒批**（用户裁定「先不全窗测试，先攒修改最后整合在一起测试」）：pointType 随主包启用的 ladder 全域行为变化（retail 形状点位门链放宽）纳入攒批清单——与后续修改整合后统一对拍，本轮不单独跑主窗口。
