@@ -47,8 +47,8 @@ console.log('A. classifyPointType 分类');
     assert.strictEqual(r.type, 'normal');
     assert.deepStrictEqual(r.policy, {});
   });
-  check('A2b 龄门负例：tokenAgeSec 89 <90 → normal（v6 用户裁定「交易了一段时间，大户还是不肯卖」）', () => {
-    const r = classifyPointType({ ...GOLDEN, tokenAgeSec: 89 });
+  check('A2b 龄门负例：tokenAgeSec 159 <160 → normal（v7 用户裁定龄门收紧到 160）', () => {
+    const r = classifyPointType({ ...GOLDEN, tokenAgeSec: 159 });
     assert.strictEqual(r.type, 'normal');
   });
   check('A3 浅回撤无下限仍命中（dd=20 ≤50 ✓ 用户裁定只有上限）', () => {
