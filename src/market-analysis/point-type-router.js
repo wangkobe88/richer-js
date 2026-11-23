@@ -23,7 +23,7 @@
 
 const { ConditionEvaluator } = require('../strategies/ConditionEvaluator');
 
-const POINT_TYPE_VERSION = 'PT3'; // PT3=v8/v9 终形（龄 160-900/arb_bot_holdings 臂豁免/famous 帽撤除）；PT2=T217 观测级门控。⚠教训：v8/v9 改条件未 bump 版本号——182 跑旧 PT2 代码三天（bt-v199~201 全部中招），版本号是「启动取最新」唯一保护
+const POINT_TYPE_VERSION = 'PT4'; // PT4=v8 裁定 arb_bot_holdings 臂豁免真正落地（PT3 时期该豁免只存在于 commit 信息未写入文件——bt-v202 0xd64e 仍被拦实锤；教训二连：线值改动必须写完跑测试断言全 policy）；PT3=龄 160-900/famous 帽撤除
 
 /** 类型注册表（有序=优先级阶梯，首匹配胜出；normal 兜底恒在末位） */
 const POINT_TYPES = [
@@ -44,7 +44,7 @@ const POINT_TYPES = [
         // max60 9.11x 错过）；FP 同形状臂差集（slow_pump_unload=FP8a 慢拉卸货）
         policy: {
           factorCheckArms: 'cheatOnly',
-          factorCheckArmExempt: ['slow_pump_unload'],
+          factorCheckArmExempt: ['slow_pump_unload', 'arb_bot_holdings'],
           actFront: 'pass',
           cheatCheck: 'g23NoSlowGrind',
           buyPoint: 'stuffingOnly',

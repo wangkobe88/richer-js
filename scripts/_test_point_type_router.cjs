@@ -32,7 +32,7 @@ console.log('A. classifyPointType 分类');
     assert.strictEqual(r.type, 'retail_golden_pit');
     assert.deepStrictEqual(r.policy, {
       factorCheckArms: 'cheatOnly',
-      factorCheckArmExempt: ['slow_pump_unload'],
+      factorCheckArmExempt: ['slow_pump_unload', 'arb_bot_holdings'],
       actFront: 'pass',
       cheatCheck: 'g23NoSlowGrind',
       buyPoint: 'stuffingOnly',
