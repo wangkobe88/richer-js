@@ -1971,3 +1971,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **bt-v196（0c525f8e，89 票 × PT2）对拍 bt-v195**：信号 96→115、成交 49→**81**、CD:cheat 拦 22→**8**（「唯一 strong=slowGrindPump」14 票翻身=差集精确生效）、FP 拦 16→16（normal 语义零变化 ✓）、PnL −0.2882→−0.4287。**案源 0xa04ee1ed CD 判 healthy 买进 ✓**（06:47:17 买入——g23NoSlowGrind 下 slowGrindPump strong 不产 cheat）；**MOYNOK 同批翻身买进 +0.1405B 全场第一**（bt-v195 死在 unhealthy=act low，正是裁定③去掉的 E 通道）。用户架构观全兑现：「原始因子→FP 门结果因子 / Jev 观测档位因子 / PointType=什么情况（因子表达式）走哪些门（因子表达式），顺序只为省 Jev 配额」。
 
 **余留（与 T216 余留②汇流）**：EV 损耗集中卖腿侧——两大翻身票均被早送（MOYNOK +0.14 vs 研究 stall 2.45x；0xa04ee1ed 5 分钟离场 vs max60 9.11x）；多进 32 笔整体小亏。下一课题=「通路买进后拿不住」的卖腿复盘（含 almost 域 90s 流动性止损/卖确认窗在坑位类型的适配性）。
+
+## T217 补 2（bt-v197）：黄金坑腿 v6 龄门 ≥90s——用户判据兑现（PnL −0.4287→−0.0553 亏损砍 87%）
+
+用户裁定（2026-11-23 原话「因子中增加条件 tokenAgeSec 大于 90（交易了一段时间，大户还是不肯卖）」）：包腿+pointType 路由两处加 `tokenAgeSec >= 90`（c8a471c4，测试 89s 负例 12/12）。bt-v197（2b22253f，89 票）对照 bt-v196：BUY 信号 115→54、成交票 ~40→28、**PnL −0.4287→−0.0553（亏损砍 87%）**——90s 门切掉的正是 60~89s 年轻坑（浅亏集中带）；**全部盈利票无损保留**（MOYNOK +0.140/问·九天 +0.085/KASUMI +0.049/大表哥 +0.043），负票全部 ≤−0.061。减法只切垃圾不切肉——单窗成立，跨窗稳健性随下次整窗对拍顺带验证。黄金坑腿终形 v6：`tokenAgeSec 90-900 ∧ buyVolumeBnb 4-15 ∧ currentVsLaunchPct<=28.5（地板尺）∧ athVsLaunchPct 40-100 ∧ mcapFromPeakPct<=50（无下限）∧ bigBuyersCount>=3 ∧ bigBuyersHeldDust>=3 ∧ famousCopyWalletCircPct>0`。余留不变：卖腿早送（MOYNOK +0.14 vs 2.45x）为最大 EV 损耗源。
