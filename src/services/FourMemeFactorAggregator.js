@@ -3284,8 +3284,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (e.buy) { if (lastBuyTs === null || e.ts > lastBuyTs) lastBuyTs = e.ts; }
             else { if (lastSellTs === null || e.ts > lastSellTs) lastSellTs = e.ts; }
         }
-        let big = 0;
-        for (const b of buyByW.values()) if (b >= this._fp.firstBigBuyerMinBnb) big++;
+        let big = 0, othersBuy = 0;
+        for (const [w, b] of buyByW) { if (b >= this._fp.firstBigBuyerMinBnb) big++; if (w !== latchW) othersBuy += b; }
         let latchHold = null;
         if (state._firstBigBuyer && state._firstBigBuyer.tokens > 0) {
             latchHold = Math.round(((state._walletNetTokens.get(state._firstBigBuyer.wallet) || 0)
@@ -3296,6 +3296,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             tailBuyEx: Math.round(tailBuyEx * 10000) / 10000,
             endSell: (lastSellTs !== null && (lastBuyTs === null || lastSellTs > lastBuyTs)) ? 1 : 0,
             latchHold,
+            // T225 二修（用户指令「记录一下大户之外的总买入，不能超过一个线」——湖南
+            // 案：其它买入已经不少=庄控盘纯度维度）：活跃窗(600s)非 latch 钱包买入合计
+            othersBuy: Math.round(othersBuy * 10000) / 10000,
         };
     }
 
@@ -5056,6 +5059,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             //   quietExitEndWithSell=出口前最后动作是卖（1/0）
             //   quietExitLatchHoldPct=出口时刻 latch 留仓 %（latch 未建=null）
             quietExitBigBuyers: state._quietExitSnap ? state._quietExitSnap.big : null,
+            // T225 二修：活跃窗非 latch 买入合计（庄控盘纯度；湖南案用户指令）
+            quietExitOthersBuyBnb: state._quietExitSnap ? state._quietExitSnap.othersBuy : null,
             quietExitTailBuyBnbEx: state._quietExitSnap ? state._quietExitSnap.tailBuyEx : null,
             quietExitEndWithSell: state._quietExitSnap ? state._quietExitSnap.endSell : null,
             quietExitLatchHoldPct: state._quietExitSnap ? state._quietExitSnap.latchHold : null,

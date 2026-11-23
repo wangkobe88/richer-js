@@ -171,14 +171,14 @@ console.log('D. T225 strongbacker_solo_dance（一个钱包的独舞，2026-11-2
   const SOLO = {
     quietSpanMs: 148000, quietSurgeBuyBnb: 0.586, quietSurgeSec: 12.2, quietExitVsLaunchPct: 9.01,
     currentVsLaunchPct: 20.4, quietExitBigBuyers: 1, quietExitLatchHoldPct: 39.85,
-    quietExitEndWithSell: 1, actTotalBnb60Ex15: 0, actTotalBnb: 0.336, tokenAgeSec: 295,
+    quietExitEndWithSell: 1, actTotalBnb60Ex15: 0, quietExitOthersBuyBnb: 0.267, actTotalBnb: 0.336, tokenAgeSec: 295,
     launchBundleClusterSize: 1, launchSellBundleClusterSize: 1, launchBuyBundleWaves: 0,
     launchBuyBundleDominancePct: 0, cheatCrewBuyBnb: 0,
   };
   check('D1 LAB 形状命中独舞类型（policy 豁 AF1+cheat E 通道）', () => {
     const r = classifyPointType(SOLO);
     assert.strictEqual(r.type, 'strongbacker_solo_dance');
-    assert.deepStrictEqual(r.policy, { actFront: 'pass', cheatCheck: 'g23NoE' });
+    assert.deepStrictEqual(r.policy, { actFront: 'pass', cheatCheck: 'g23NoE', factorCheckArmExempt: ['fam_holding_thin'] });
   });
   check('D2 临门 60s 段有成交（act60Ex15 0.3，ZEC 形状）→ normal', () =>
     assert.strictEqual(classifyPointType(Object.assign({}, SOLO, { actTotalBnb60Ex15: 0.3 })).type, 'normal'));
@@ -190,5 +190,9 @@ console.log('D. T225 strongbacker_solo_dance（一个钱包的独舞，2026-11-2
     assert.strictEqual(classifyPointType(Object.assign({}, SOLO, { quietExitLatchHoldPct: 0 })).type, 'normal'));
   check('D6 出口破发（exitVs -5）→ normal', () =>
     assert.strictEqual(classifyPointType(Object.assign({}, SOLO, { quietExitVsLaunchPct: -5 })).type, 'normal'));
+  check('D7 其他买入超线（湖南 0.597 形状）→ normal', () =>
+    assert.strictEqual(classifyPointType(Object.assign({}, SOLO, { quietExitOthersBuyBnb: 0.597 })).type, 'normal'));
+  check('D8 policy 豁免 fam_holding_thin（FP 臂差集）', () =>
+    assert.deepStrictEqual(classifyPointType(SOLO).policy.factorCheckArmExempt, ['fam_holding_thin']));
 }
 console.log(`\n全部通过 ${passed}/${passed}`);
