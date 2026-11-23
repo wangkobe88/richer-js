@@ -1965,3 +1965,9 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **教训**：①克隆链虫——clone 不带 --pack 时 strategyId 沿父链继承，bt-v192 实跑旧包（gatePolicy 从未生效）直到 bt-v194 显式 --pack 才真验；后续克隆一律显式 --pack。②pkill -f 自匹配杀自身 ssh shell（[9]adafdef 防自匹配）。③tmp 部署脚本 upsert 不走版本递增链（研究包可接受，正式包走 deploy-trading-strategy.cjs）。
 
 **余留**：①MOYNOK@535s CD unhealthy 判定值复核（作弊门把自己案源拦了——16 题快照待看）；②bt-v195 18 票 PnL −0.29 的分布复盘（7 胜全小赢、负票全浅亏——形状的 EV 问题回到 JG-41 结论，机制层已完整交付）；③未来类型（强庄币雏形/拉盘前期）按需追加（bump POINT_TYPE_VERSION）。工具：`scripts/tmp-deploy-golden-pit-pack.cjs`（git 外）、实验 bt-v188~195 谱系（bt-v193 stopped 留行=作用域事故现场）。
+
+## T217 补（bt-v196 终验）：观测级门控端到端兑现——0xa04ee1ed/MOYNOK 双翻身
+
+**bt-v196（0c525f8e，89 票 × PT2）对拍 bt-v195**：信号 96→115、成交 49→**81**、CD:cheat 拦 22→**8**（「唯一 strong=slowGrindPump」14 票翻身=差集精确生效）、FP 拦 16→16（normal 语义零变化 ✓）、PnL −0.2882→−0.4287。**案源 0xa04ee1ed CD 判 healthy 买进 ✓**（06:47:17 买入——g23NoSlowGrind 下 slowGrindPump strong 不产 cheat）；**MOYNOK 同批翻身买进 +0.1405B 全场第一**（bt-v195 死在 unhealthy=act low，正是裁定③去掉的 E 通道）。用户架构观全兑现：「原始因子→FP 门结果因子 / Jev 观测档位因子 / PointType=什么情况（因子表达式）走哪些门（因子表达式），顺序只为省 Jev 配额」。
+
+**余留（与 T216 余留②汇流）**：EV 损耗集中卖腿侧——两大翻身票均被早送（MOYNOK +0.14 vs 研究 stall 2.45x；0xa04ee1ed 5 分钟离场 vs max60 9.11x）；多进 32 笔整体小亏。下一课题=「通路买进后拿不住」的卖腿复盘（含 almost 域 90s 流动性止损/卖确认窗在坑位类型的适配性）。
