@@ -501,7 +501,8 @@ const PACK_DEFINITION = {
     "factorCheck": "v1",
     "cheatCheck": "v1",
     "actFrontGate": "v1",
-    "buyPointCheck": "v1"
+    "buyPointCheck": "v1",
+    "pointType": "v1"
   }
 };
 
