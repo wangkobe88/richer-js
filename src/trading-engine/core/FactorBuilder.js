@@ -66,6 +66,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T117 信号源 t6/t7 市值回撤键（2026-11-05 买入策略整体调整）：现市值较峰市值
     // 回撤 %——信号源 fire 复盘需落库；旧 FA 无键 → null 不掩盖
     mcapFromPeakPct: factorResults.mcapFromPeakPct ?? null,
+    // T213 黄金坑三键（2026-11-23 JG-41 用户形状）：可靠价峰较首可靠价涨幅 % +
+    // 0.2B 买家队列两键——黄金坑买腿条件串主键，信号复盘需落库；旧 FA → null 不掩盖
+    athVsLaunchPct: factorResults.athVsLaunchPct ?? null,
+    bigBuyersCount: factorResults.bigBuyersCount ?? null,
+    bigBuyersHeldDust: factorResults.bigBuyersHeldDust ?? null,
     // T122 接近发行价臂（2026-11-07）：现价较首可靠价涨幅 %（BP near_launch 同口径
     // ≤+50% 含破发）——新腿条件串主键，信号复盘需落库；旧 FA/无可靠价 → null 不掩盖
     currentVsLaunchPct: factorResults.currentVsLaunchPct ?? null,
@@ -566,6 +571,8 @@ function getAvailableFactorIds() {
     // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
     'highestHolderCountSinceLastBuy', 'holderDrawdownFromHighestSinceLastBuy',
     'txVolumeU24h', 'holders', 'holdersExDust', 'tvl', 'fdv', 'marketCap', 'entryMarketCap',
+    // T213 黄金坑三键（2026-11-23）：快照白名单透传（不落库即丢）
+    'athVsLaunchPct', 'bigBuyersCount', 'bigBuyersHeldDust',
     // 价格趋势因子（固定窗口8个点）
     'trendCV', 'trendPriceUp', 'trendMedianUp', 'trendStrengthScore',
     'trendTotalReturn', 'trendRiseRatio', 'trendSlope', 'trendDataPoints',
