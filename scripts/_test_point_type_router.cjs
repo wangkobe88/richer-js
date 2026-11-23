@@ -92,6 +92,14 @@ console.log('A. classifyPointType 分类');
     const r = classifyPointType({ ...GOLDEN, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0.03 });
     assert.strictEqual(r.type, 'retail_golden_pit');
   });
+  check('A2k PT10 冷窗放宽边界：15s 0.3/30s 0.35 过线（v15 放行由冷转热波首笔）', () => {
+    const r = classifyPointType({ ...GOLDEN, actTotalBnb15s: 0.3, actTotalBnb30s: 0.35 });
+    assert.strictEqual(r.type, 'retail_golden_pit');
+  });
+  check('A2l PT10 负例：15s 0.32 >0.31 → normal（用户裁「大于 0.31 再砍」）', () => {
+    const r = classifyPointType({ ...GOLDEN, actTotalBnb15s: 0.32 });
+    assert.strictEqual(r.type, 'normal');
+  });
   check('A3 浅回撤无下限仍命中（dd=20 ≤50 ✓ 用户裁定只有上限）', () => {
     const r = classifyPointType({ ...GOLDEN, mcapFromPeakPct: 20 });
     assert.strictEqual(r.type, 'retail_golden_pit');
