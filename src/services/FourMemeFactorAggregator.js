@@ -3369,6 +3369,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             actTotalBnb15s: t15,
             actTotalBnb30s: t30,
             actTotalBnb60s: t60,
+            // T225 用户口径（2026-11-23「活跃度都集中在 15 秒内（买入点位），其它扣除
+            // 15 秒基本为 0 即可（一分钟活跃度等于 15 秒活跃度）」）：fire 前 (15s,60s]
+            // 段成交合计=t60−t15——死而复生形状「卖完后死透、直到拉盘这一刻」的直接
+            // 表达（LAB/개구리씨=0：283s/112s 拉盘首笔都落在 15s 窗内；替代
+            // quietExitTailBuyBnbEx 固定 180s 尾窗的周期重叠假阳性）
+            actTotalBnb60Ex15: t60 - t15,
             actTotalBnb90s: t90,
             actTotalBnb300s: t300,
             // T223 锚点买盘存在两键（见循环内注释；条件载体= `anchorTickIsBuy == 1
@@ -4869,6 +4875,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             actTotalBnb15s: activity.actTotalBnb15s,
             actTotalBnb30s: activity.actTotalBnb30s,
             actTotalBnb60s: activity.actTotalBnb60s,
+            // T225 段值键（用户口径「一分钟活跃度≈15 秒活跃度」：拉盘点前 (15s,60s]
+            // 段成交≈0=卖完后死透直到此刻；独舞腿/pointType 条件载体）
+            actTotalBnb60Ex15: activity.actTotalBnb60Ex15,
             actTotalBnb90s: activity.actTotalBnb90s,
             actTotalBnb300s: activity.actTotalBnb300s,
             anchorTickIsBuy: activity.anchorTickIsBuy,

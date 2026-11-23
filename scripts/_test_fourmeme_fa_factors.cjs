@@ -717,6 +717,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-11-23 T213 黄金坑三键（JG-41 用户形状：可靠价峰较首可靠价涨幅 +
         // 0.2B 买家队列两键——黄金坑买腿条件串主键；详见 _test_golden_pit_factors.cjs）
         'athVsLaunchPct', 'bigBuyersCount', 'bigBuyersHeldDust',
+        // 2026-11-23 T225 段值键（用户口径「一分钟活跃度≈15秒活跃度」：拉盘点前
+        // (15s,60s] 段成交合计——独舞腿死透判据，替代固定 180s 尾窗）
+        'actTotalBnb60Ex15',
         // 2026-11-23 T218 多粒度冷窗四键（用户提案「分时间活跃度因子」：15/30/60s
         // 三窗均 low=冷却经过考验条件载体，300s=观察键；详见 _test_activity_window_multi.cjs）
         'actTotalBnb15s', 'actTotalBnb30s', 'actTotalBnb60s', 'actTotalBnb300s',

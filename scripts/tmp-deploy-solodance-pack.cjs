@@ -12,7 +12,7 @@ const SOLO_LEG = {
     + 'AND quietExitVsLaunchPct >= 0 AND quietExitVsLaunchPct <= 28.5 '
     + 'AND currentVsLaunchPct > 0 AND currentVsLaunchPct <= 28.5 '
     + 'AND quietExitBigBuyers == 1 AND quietExitLatchHoldPct > 0 '
-    + 'AND quietExitEndWithSell == 1 AND quietExitTailBuyBnbEx <= 0.1 '
+    + 'AND quietExitEndWithSell == 1 AND actTotalBnb60Ex15 <= 0.05 '
     + 'AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15 '
     + 'AND launchBundleClusterSize < 10 AND launchSellBundleClusterSize < 10 '
     + 'AND (launchBuyBundleWaves < 2 OR launchBuyBundleDominancePct < 30) AND cheatCrewBuyBnb == 0',

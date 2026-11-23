@@ -171,7 +171,7 @@ console.log('D. T225 strongbacker_solo_dance（一个钱包的独舞，2026-11-2
   const SOLO = {
     quietSpanMs: 148000, quietSurgeBuyBnb: 0.586, quietSurgeSec: 12.2, quietExitVsLaunchPct: 9.01,
     currentVsLaunchPct: 20.4, quietExitBigBuyers: 1, quietExitLatchHoldPct: 39.85,
-    quietExitEndWithSell: 1, quietExitTailBuyBnbEx: 0, actTotalBnb: 0.336, tokenAgeSec: 295,
+    quietExitEndWithSell: 1, actTotalBnb60Ex15: 0, actTotalBnb: 0.336, tokenAgeSec: 295,
     launchBundleClusterSize: 1, launchSellBundleClusterSize: 1, launchBuyBundleWaves: 0,
     launchBuyBundleDominancePct: 0, cheatCrewBuyBnb: 0,
   };
@@ -180,8 +180,8 @@ console.log('D. T225 strongbacker_solo_dance（一个钱包的独舞，2026-11-2
     assert.strictEqual(r.type, 'strongbacker_solo_dance');
     assert.deepStrictEqual(r.policy, { actFront: 'pass' });
   });
-  check('D2 尾窗脏（tailBuy 0.3）→ normal', () =>
-    assert.strictEqual(classifyPointType(Object.assign({}, SOLO, { quietExitTailBuyBnbEx: 0.3 })).type, 'normal'));
+  check('D2 临门 60s 段有成交（act60Ex15 0.3，ZEC 形状）→ normal', () =>
+    assert.strictEqual(classifyPointType(Object.assign({}, SOLO, { actTotalBnb60Ex15: 0.3 })).type, 'normal'));
   check('D3 双大户（ZKind 形状）→ normal', () =>
     assert.strictEqual(classifyPointType(Object.assign({}, SOLO, { quietExitBigBuyers: 2 })).type, 'normal'));
   check('D4 无卖收尾（从未活过的死票）→ normal', () =>
