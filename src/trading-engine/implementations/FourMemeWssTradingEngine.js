@@ -625,6 +625,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `极著名钱包名单加载失败(fail-open, famousCopyWalletCircPct 恒 0=裸比较放行): ${e.message}`);
     }
+    // 臭名昭著钱包集合（T222 notoriousWalletCircPct 原料）：famous 同款 fail-open
+    try {
+      await FourMemeFactorAggregator.loadNotoriousWallets();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `臭名昭著钱包集合加载失败(fail-open, notoriousWalletCircPct 恒 0=放行): ${e.message}`);
+    }
     // 聪明钱名单（T183 2026-11-18 smartHold 卖出过滤臂原料）：data/kol-study/
     // smartmoney-accum.json（GMGN smartmoney 流 union 累积，signals 页 🧠 标记
     // 同源）。fail-open（famous 同向）：文件缺失/解析失败 → 空 Set →

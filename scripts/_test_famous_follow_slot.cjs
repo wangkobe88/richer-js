@@ -2,17 +2,21 @@
 /**
  * T221 famous 跟单拥挤键单测（零 DB 零网络）：
  *   famousFollowSlotMaxWallets = 每个 famous 买入事件开 2s 闭窗（含同块同行 ts），
- *   窗内非 famous 买入钱包数（去重）的全 famous 买点 max；0=无 famous 买/名单未启用
- *   fail-open（famousCopyWalletCircPct 同 0 语义）。
+ *   窗内非 famous 买入钱包数（去重）的**全生命周期单调 max**；0=无 famous 买/
+ *   名单未启用 fail-open（famousCopyWalletCircPct 同 0 语义）。
  * 口径断言（0x2a05…7777 同块 16 钱包挤爆案用户裁定「跟单算 famous 买入后 1-2 个
- * slot，远期的买入算是健康的，可以不管」）：
+ * slot，远期的买入算是健康的，可以不管」；「看到了就不敢上」=污点不洗——案簇
+ * t+23s/fire t+411s 读环 6min 保留会剪掉，故写时锚累积+读点 max(已并入, 活跃锚)）：
  *   A. 名单未启用（null/空 Set）→ 0 fail-open
  *   B. 闭窗口径：同块（同 ts）/ +1s / +2s 计入，+2.5s 出窗不计
  *   C. 全 famous 买点取 max（后一个 famous 买跟单更多 → max 跟进）
  *   D. famous 自身买不计入跟单数（famous 挤 famous 非风险）；卖行不计
- *   E. 乱序回推序无关（读点全量扫；defer 晚到行同结果）
+ *   E. 乱序回推序无关（建锚扫环补收先到行 + per-tick 落入迟到行）
  *   F. 大小写归一（roster 小写；wallet 原样进环，读点 toLowerCase 对齐）
  *   G. 探针收键（getFactorKeys 自动收，condition 可直接引用）
+ *   H. 全生命周期单调（窗口过期后 max 不洗——0x2a05 案语义）
+ *   I. 同块行先于 famous 到达（建锚扫环补收）
+ *   J. 锚容量界逐出（>16 famous 买，逐出并入 max）
  */
 'use strict';
 const assert = require('assert');
@@ -134,6 +138,54 @@ console.log('G. 探针收键');
   check('G1 famousFollowSlotMaxWallets 在键集', () => assert.ok(keys.has('famousFollowSlotMaxWallets')));
   check('G2 famousCopyWalletSupplyPct 在键集（观察键）', () => assert.ok(keys.has('famousCopyWalletSupplyPct')));
   check('G3 actTotalBnb90s 在键集', () => assert.ok(keys.has('actTotalBnb90s')));
+}
+
+console.log('H. 全生命周期单调（0x2a05 案：簇 t+23s / fire t+411s——窗口过期后 max 不洗）');
+{
+  const fa = newFA();
+  inject(fa, new Set(['FAMA']));
+  fa.processTick(mkTick({ ts: T0 + 1000, side: 'buy', w: 'FAMA', bnb: 0.3 }), {});
+  fa.processTick(mkTick({ ts: T0 + 1000, side: 'buy', w: 'w1' }), {});
+  fa.processTick(mkTick({ ts: T0 + 2000, side: 'buy', w: 'w2' }), {});
+  fa.processTick(mkTick({ ts: T0 + 3000, side: 'buy', w: 'w3' }), {});
+  // 之后 400s 的普通交易（远超环 6min 内的密集段——模拟 fire 时刻远晚于簇）
+  for (let i = 0; i < 50; i++) {
+    fa.processTick(mkTick({ ts: T0 + 10000 + i * 8000, side: 'buy', w: 'u' + i }), {});
+  }
+  const f = fa.buildFactorMap('0xtoken', T0 + 411000);
+  check('H1 簇过去 410s 后 max 仍 3（生命周期单调不随环剪掉）', () => assert.strictEqual(f.famousFollowSlotMaxWallets, 3));
+  // 后续 famous 买跟单更少 → max 不回退
+  fa.processTick(mkTick({ ts: T0 + 420000, side: 'buy', w: 'FAMA', bnb: 0.3 }), {});
+  fa.processTick(mkTick({ ts: T0 + 421000, side: 'buy', w: 'w9' }), {});
+  const f2 = fa.buildFactorMap('0xtoken', T0 + 421000);
+  check('H2 新窗跟单少（1）max 不回退仍 3', () => assert.strictEqual(f2.famousFollowSlotMaxWallets, 3));
+}
+
+console.log('I. 同块行先于 famous 到达（建锚扫环补收）');
+{
+  const fa = newFA();
+  inject(fa, new Set(['FAMA']));
+  // 同块 3 个跟单全部先于 FAMA 行到达（块内 log 序在 famous 之前）
+  fa.processTick(mkTick({ ts: T0 + 1000, side: 'buy', w: 'w1' }), {});
+  fa.processTick(mkTick({ ts: T0 + 1000, side: 'buy', w: 'w2' }), {});
+  fa.processTick(mkTick({ ts: T0 + 1000, side: 'buy', w: 'w3' }), {});
+  fa.processTick(mkTick({ ts: T0 + 1000, side: 'buy', w: 'FAMA', bnb: 0.3 }), {});
+  const f = fa.buildFactorMap('0xtoken', T0 + 1500);
+  check('I1 同块先到行经建锚环扫补收 → 3', () => assert.strictEqual(f.famousFollowSlotMaxWallets, 3));
+}
+
+console.log('J. 锚容量界逐出（>16 famous 买）');
+{
+  const fa = newFA();
+  inject(fa, new Set(['FAMA']));
+  // 第 1 个 famous 买带 5 跟单；随后 17 个 famous 买各带 0 跟单——逐出时并入 max
+  fa.processTick(mkTick({ ts: T0 + 1000, side: 'buy', w: 'FAMA', bnb: 0.3 }), {});
+  for (let i = 1; i <= 5; i++) fa.processTick(mkTick({ ts: T0 + 1000 + i * 200, side: 'buy', w: 'x' + i }), {});
+  for (let i = 0; i < 17; i++) {
+    fa.processTick(mkTick({ ts: T0 + 5000 + i * 3000, side: 'buy', w: 'FAMA', bnb: 0.3 }), {});
+  }
+  const f = fa.buildFactorMap('0xtoken', T0 + 70000);
+  check('J1 逐出并入后 max 仍 5（含已并入+活跃锚）', () => assert.strictEqual(f.famousFollowSlotMaxWallets, 5));
 }
 
 console.log(`\n全部通过 ${passed} 断言`);

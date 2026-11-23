@@ -490,6 +490,12 @@ class BacktestEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'BacktestEngine', `极著名钱包名单加载失败(fail-open, famousCopyWalletCircPct 恒 0=裸比较放行): ${e.message}`);
     }
+    // 臭名昭著钱包集合（T222 notoriousWalletCircPct 原料）：famous 同款 fail-open
+    try {
+      await FourMemeFactorAggregator.loadNotoriousWallets();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'BacktestEngine', `臭名昭著钱包集合加载失败(fail-open, notoriousWalletCircPct 恒 0=放行): ${e.message}`);
+    }
     // 聪明钱名单（T183 smartHold 卖出过滤臂原料）：与 WSS 引擎同入口同集合（parity）；
     // fail-open 同款（文件缺失/失败 → 空 Set → smartHold 恒放行）。⚠回测前视声明：
     // 名单是采集时点的静态快照，历史窗口回测引用有前视面——与 copy/sniper/famous
