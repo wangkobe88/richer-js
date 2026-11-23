@@ -2575,6 +2575,19 @@ class BacktestEngine extends AbstractTradingEngine {
         // as-of 截窗防前视；灰度 factorCheck.enabled 缺省关=fail-open 放行）
         // T203 FP 拒 → fpRetry>0 时登记 pending（后续 tick 虚拟时钟门内重评——
         // 案源 bt-v164 0xb6ee…7777 FP28 锚相位误拦；nowMs=nowTs 非墙钟）
+        // T216 点位类型辨别（模块启用才分类；null=未启用全现行）——分类一次、
+        // policy 线穿四门 ctx；metadata pointType 段（与实时引擎同构）
+        const _ptInfo = this._classifyPointType(factorResults);
+        if (_ptInfo && signalId) {
+          try {
+            await this._updateSignalMetadata(signalId, { pointType: _ptInfo });
+          } catch (updateError) {
+            this.logger.warn(this._experimentId, 'SignalGate',
+              `更新信号元数据失败 | ${token.symbol} ${updateError.message}`);
+          }
+        }
+        const pointTypePolicy = _ptInfo ? _ptInfo.policy : null;
+
         _fp4T0 = Date.now();
         const factorGate = await this._factorGateEvaluate(
           tokenAddress, gateToken, faState, signalId, {
@@ -2582,6 +2595,7 @@ class BacktestEngine extends AbstractTradingEngine {
             firePriceBnb,
             strategyName: strategy.name,
             signalCreatedAt: nowTs,
+            pointTypePolicy,
           });
         _fp4Dt = Date.now() - _fp4T0;
         if (!factorGate.pass) {
@@ -2594,7 +2608,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
         // T175/AF1 前置活跃度门（FP 之后 cheat 之前分流；anchorMs=回放 as-of 锚）
         const actFront = await this._actFrontGateEvaluate(
-          tokenAddress, gateToken, faState, signalId, { anchorMs: nowTs, factorResults });
+          tokenAddress, gateToken, faState, signalId, { anchorMs: nowTs, factorResults, pointTypePolicy });
         if (!actFront.pass) return { success: false, reason: actFront.reason };
 
         const _chT0 = Date.now();
@@ -2620,7 +2634,7 @@ class BacktestEngine extends AbstractTradingEngine {
         } else {
           cheatGate = await this._cheatGateEvaluateBinary(
             tokenAddress, gateToken, faState, signalId, strategy.signalGate,
-            { anchorMs: nowTs, factorResults });
+            { anchorMs: nowTs, factorResults, pointTypePolicy });
         }
         const _chDt = Date.now() - _chT0;
         // T189b：sbw=levels.stallBurstWave==1 才 arm T189（同实时引擎；AF1 skip
@@ -2646,6 +2660,7 @@ class BacktestEngine extends AbstractTradingEngine {
             signalCreatedAt: nowTs,
             // BP67：cheat 门 burst 判定输入 BP（activity_level burst 桶不拦）
             cheatBurst: this._cheatBurstForBp(cheatGate.info),
+            pointTypePolicy,
           });
         const _bpDt = Date.now() - _bpT0;
         const _preFp4 = _fp4T0 - _segT0; // fire 日志→FP4 调用前的同步段

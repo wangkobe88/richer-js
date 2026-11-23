@@ -457,6 +457,15 @@ class AbstractTradingEngine extends ITradingEngine {
     // modules 版本键 → 具体代码版本（未知模块名/版本键 throw 拒启——绝不静默跑错代次）
     const { resolveModules } = require('../../market-analysis/module-registry');
     const modulesResolved = await resolveModules(def.modules);
+    // T216 pointType 启动防线：类型 condition 全量校验（未知因子/语法 throw 拒启——
+    // 三防线同款；分类层坏=全部门控路由错，绝不静默）
+    if (def.modules && def.modules.pointType) {
+      const { assertPointTypesValid } = require('../../market-analysis/point-type-router');
+      const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
+      assertPointTypesValid(new FourMemeFactorAggregator({}).getFactorKeys());
+      this._logger.info(this._experimentId, this.constructor.name,
+        `🧭 pointType 模块启用 | ${require('../../market-analysis/point-type-router').POINT_TYPE_VERSION}`);
+    }
     this._strategyDefinition = def;
     this._strategyResolved = {
       id: data.id,
@@ -1735,6 +1744,17 @@ class AbstractTradingEngine extends ITradingEngine {
    *   与重锚 vsLaunch 取值）
    */
   async _cheatGateEvaluateBinary(tokenAddress, token, faState, signalId, signalGate, ctx = {}) {
+    // T216 类型级门控：cheatCheck='skip' → 跳 16 题 Jev 判定（引擎拉黑短路在门链
+    // 外层=保留；unhealthy 重判语义随 skip 一并跳过）
+    if (ctx.pointTypePolicy && ctx.pointTypePolicy.cheatCheck === 'skip') {
+      const info = { status: 'policy_pass', policy: 'cheatCheck:skip', levels: { stallBurstWave: null } };
+      if (signalId) {
+        try { await this._updateSignalMetadata(signalId, { cheatCheck: info }); } catch (e) {
+          this.logger.warn(this._experimentId, 'SignalGate', `更新信号元数据失败 | ${token.symbol || tokenAddress.slice(0, 10)} ${e.message}`);
+        }
+      }
+      return { pass: true, info };
+    }
     if (!this._cheatCheckService || !this._cheatCheckService.enabled) {
       // 配置矛盾（signalGate 腿在跑但策略包 modules.cheatCheck 缺席）——检测层
       // 不可用不拦买点，fail-open 放行进 BP（cheatCheckCondition 版 skipped 同向；warn 留痕）
@@ -1855,6 +1875,16 @@ class AbstractTradingEngine extends ITradingEngine {
    * 门 catch 放行刻意不同向）。ctx.anchorMs=回测 as-of 锚（生产不传=现状）。
    */
   async _bpGateEvaluate(tokenAddress, token, faState, signalId, signalGate, ctx = {}) {
+    // T216 类型级门控：buyPoint='skip' → BP 整门直通（policy_pass 留痕）
+    if (ctx.pointTypePolicy && ctx.pointTypePolicy.buyPoint === 'skip') {
+      const info = { status: 'policy_pass', policy: 'buyPoint:skip' };
+      if (signalId) {
+        try { await this._updateSignalMetadata(signalId, { buyPoint: info }); } catch (e) {
+          this.logger.warn(this._experimentId, 'SignalGate', `更新信号元数据失败 | ${token.symbol || tokenAddress.slice(0, 10)} ${e.message}`);
+        }
+      }
+      return { pass: true, reason: null, info };
+    }
     const passLevels = Array.isArray(signalGate.bpPassLevels) && signalGate.bpPassLevels.length > 0
       ? signalGate.bpPassLevels : ['good', 'neutral'];
     let info;
@@ -1889,8 +1919,8 @@ class AbstractTradingEngine extends ITradingEngine {
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
           // BP67：cheat 门 burst 判定输入（activity_level burst 桶证据行；null=无证据不注入）
           ...(ctx.cheatBurst ? { cheatBurst: ctx.cheatBurst } : {}),
-          // T213b 好散户币通路包策略：BP 只评塞单门（盘型/点位/活跃度/筹码全放行）
-          ...(this._gatePolicyForChain()?.buyPoint === 'stuffingOnly' ? { stuffingOnly: true } : {}),
+          // T216 类型级门控：BP 只评塞单门（盘型/点位/活跃度/筹码全放行）
+          ...(ctx.pointTypePolicy?.buyPoint === 'stuffingOnly' ? { stuffingOnly: true } : {}),
         });
         if (res && res.status === 'assessed') {
           const bucket = res.assessment?.bucket ?? null;
@@ -1996,16 +2026,29 @@ class AbstractTradingEngine extends ITradingEngine {
    * 用通道）。metadata 落 factorCheck 段。ctx.anchorMs=回测 as-of 锚（同 BP 门）。
    */
   /**
-   * T213b 好散户币通路包策略：门链接纳策略（gatePolicy 归包 definition）。
-   * null=现行全门语义 bit 不变；形状 {factorCheckArms:'cheatOnly',
-   * actFront:'pass', buyPoint:'stuffingOnly'} 由 retail-good-path-v1 等包携带。
+   * T216 点位类型辨别与对应策略（pointType 模块）：信号 fire 时刻纯因子分类。
+   * 包携带 modules.pointType 才启用；返回 null=未启用=门链全现行 bit 不变。
+   * 引擎启动防线（assertPointTypesValid）在 _resolveStrategyPack 尾部。
    */
-  _gatePolicyForChain() {
-    const def = this._strategyDefinition || null;
-    return (def && def.gatePolicy) || null;
+  _classifyPointType(factorResults) {
+    if (!this._strategyResolved || !this._strategyResolved.modules || !this._strategyResolved.modules.pointType) {
+      return null;
+    }
+    const { classifyPointType } = require('../../market-analysis/point-type-router');
+    return classifyPointType(factorResults);
   }
 
   async _factorGateEvaluate(tokenAddress, token, faState, signalId, ctx = {}) {
+    // T216 类型级门控：factorCheckArms='skip' → FP 整门直通（policy_pass 留痕）
+    if (ctx.pointTypePolicy && ctx.pointTypePolicy.factorCheckArms === 'skip') {
+      const info = { status: 'policy_pass', policy: 'factorCheckArms:skip' };
+      if (signalId) {
+        try { await this._updateSignalMetadata(signalId, { factorCheck: info }); } catch (e) {
+          this.logger.warn(this._experimentId, 'SignalGate', `更新信号元数据失败 | ${token.symbol || tokenAddress.slice(0, 10)} ${e.message}`);
+        }
+      }
+      return { pass: true, reason: null, info };
+    }
     const svc = this._buyPointCheckService;
     let info;
     let pass = true;
@@ -2031,8 +2074,8 @@ class AbstractTradingEngine extends ITradingEngine {
           strategyName: ctx.strategyName ?? null,
         }, {
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
-          // T213b 包策略：FP 只留严重作弊臂
-          ...(this._gatePolicyForChain()?.factorCheckArms === 'cheatOnly' ? { armClass: 'cheat' } : {}),
+          // T216 类型级门控：FP 只留严重作弊臂
+          ...(ctx.pointTypePolicy?.factorCheckArms === 'cheatOnly' ? { armClass: 'cheat' } : {}),
         });
         const _fp4Dt = Date.now() - _fp4T0;
         if (_fp4Dt > 300) this.logger.info(this._experimentId, 'SignalGate',
@@ -2115,9 +2158,9 @@ class AbstractTradingEngine extends ITradingEngine {
     if (this._actFrontGateEnabled !== true || !this._cheatCheckService || !this._cheatCheckService.enabled) {
       return { pass: true, skipCheat: false, info: null };
     }
-    // T213b 好散户币通路包策略：actFront='pass' → AF1 直通（坑位时刻天然低活跃，
-    // 活跃度要求随包撤；cheat 门照走——skipCheat 恒 false）
-    if (this._gatePolicyForChain()?.actFront === 'pass') {
+    // T216 类型级门控：actFront='pass' → AF1 直通（坑位时刻天然低活跃，
+    // 活跃度要求随类型撤；cheat 门照走——skipCheat 恒 false）
+    if (ctx.pointTypePolicy && ctx.pointTypePolicy.actFront === 'pass') {
       const info = { status: 'policy_pass', policy: 'actFront:pass' };
       if (signalId) {
         try {

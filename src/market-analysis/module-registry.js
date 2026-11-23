@@ -52,6 +52,10 @@ const REGISTRY = {
             },
         },
     },
+    // 点位类型辨别与对应策略（T216——纯因子分类层，门链接纳策略路由）
+    pointType: {
+        v1: { resolve: () => require('./point-type-router').POINT_TYPE_VERSION },
+    },
 };
 
 const MODULE_NAMES = Object.freeze(Object.keys(REGISTRY));

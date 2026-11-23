@@ -78,8 +78,8 @@ const silentLogger = { info: () => {}, warn: () => {}, error: () => {}, debug: (
 async function testA() {
     console.log('\n━━━ A. module-registry 版本注册表 ━━━');
 
-    check('A1 MODULE_NAMES 恰四模块', JSON.stringify(MODULE_NAMES) ===
-        JSON.stringify(['factorCheck', 'cheatCheck', 'actFrontGate', 'buyPointCheck']),
+    check('A1 MODULE_NAMES 恰五模块（T216 +pointType 点位类型路由）', JSON.stringify(MODULE_NAMES) ===
+        JSON.stringify(['factorCheck', 'cheatCheck', 'actFrontGate', 'buyPointCheck', 'pointType']),
         JSON.stringify(MODULE_NAMES));
 
     check('A2 assertModuleKey 已注册键通过',

@@ -726,8 +726,8 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
   ok('signalGateReal 门链挂点（signal 落库后先记账→FP 门→作弊门→BP 门；T203 后记账/FP 包在 if(!opts.resume)——FP 重试续跑不重复记账不重评 FP）',
     BT.includes('strategy.signalGate && this._signalGateReal') &&
     BT.includes('if (!opts.resume) {\n        this._sgRecordTrigger(tokenAddress, strategy.id);'));
-  ok('signalGateReal 两门 anchorMs=nowTs 虚拟时刻透传（service lte 截窗防前视；T175/AF1 后 cheat 调用在 else 分支缩进+2）',
-    BT.includes('strategy.signalGate,\n            { anchorMs: nowTs, factorResults })') &&
+  ok('signalGateReal 两门 anchorMs=nowTs 虚拟时刻透传（service lte 截窗防前视；T216 后 cheat ctx 增 pointTypePolicy）',
+    BT.includes('strategy.signalGate,\n            { anchorMs: nowTs, factorResults, pointTypePolicy })') &&
     BT.includes('anchorMs: nowTs,'));
   ok('signalGateReal AF1 前置门挂点（FP 后 cheat 前+skipCheat 分支）',
     BT.includes('await this._actFrontGateEvaluate(') &&

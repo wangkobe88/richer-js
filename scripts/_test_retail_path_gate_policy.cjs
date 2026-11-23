@@ -66,7 +66,7 @@ console.log('B. evaluateFactorPreBuy armClass 端到端（最小快照）');
   });
 }
 
-console.log('C. validatePack gatePolicy 白名单');
+console.log('C. validatePack gatePolicy 退役（T216 迁 modules.pointType）');
 {
   const mk = (gp) => ({
     buyLegs: [{ action: 'buy', condition: 'tokenAgeSec >= 15', cards: 1 }],
@@ -74,8 +74,11 @@ console.log('C. validatePack gatePolicy 白名单');
     ...(gp ? { gatePolicy: gp } : {}),
   });
   check('C1 无 gatePolicy=合法（现状包不受影响）', () => assert.strictEqual(validatePack(mk(null)).valid, true));
-  check('C2 三键合法值过', () => assert.strictEqual(validatePack(mk({ factorCheckArms: 'cheatOnly', actFront: 'pass', buyPoint: 'stuffingOnly' })).valid, true));
-  check('C3 未知键拒', () => assert.strictEqual(validatePack(mk({ nope: 1 })).valid, false));
-  check('C4 非法值拒', () => assert.strictEqual(validatePack(mk({ actFront: 'skip' })).valid, false));
+  check('C2 携带 gatePolicy=拒（退役引导迁移 pointType 模块）', () => {
+    const r = validatePack(mk({ factorCheckArms: 'cheatOnly', actFront: 'pass', buyPoint: 'stuffingOnly' }));
+    assert.strictEqual(r.valid, false);
+    assert.ok(r.errors.some((e) => String(e).includes('已退役')));
+  });
+  check('C3 空对象 gatePolicy 同拒', () => assert.strictEqual(validatePack(mk({})).valid, false));
 }
 console.log(`\n全部通过 ${passed}/${passed}`);

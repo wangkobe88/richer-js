@@ -2468,6 +2468,19 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         if (!opts.resume) {
         this._sgRecordTrigger(tokenAddress, strategy.id);
 
+        // T216 点位类型辨别（模块启用才分类；null=未启用全现行）——分类一次、
+        // policy 线穿四门 ctx；metadata pointType 段（类型+版本+condition 引用因子快照）
+        const _ptInfo = this._classifyPointType(factorResults);
+        if (_ptInfo && signalId) {
+          try {
+            await this._updateSignalMetadata(signalId, { pointType: _ptInfo });
+          } catch (updateError) {
+            this.logger.warn(this._experimentId, 'SignalGate',
+              `更新信号元数据失败 | ${token.symbol} ${updateError.message}`);
+          }
+        }
+        const pointTypePolicy = _ptInfo ? _ptInfo.policy : null;
+
         // T143 因子购买前检查门（FP1，门链最前——纯代码零 Jev，被拒票不烧 cheat/BP
         // 配额；灰度 factorCheck.enabled 缺省关=fail-open 放行进 cheat 门）
         // T203 FP 拒 → fpRetry>0 时登记 pending（后续 tick 门内重评——案源
@@ -2477,6 +2490,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             firePriceBnb,
             strategyName: strategy.name,
             signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
+            pointTypePolicy,
           });
         if (!factorGate.pass) {
           await this._fpRetryOnReject(tokenAddress, strategy, signalId, {
@@ -2490,7 +2504,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         // T175/AF1 前置活跃度门（FP 之后 cheat 之前分流：low/ultra∧非burst 拒、
         // burst 豁免/high 跳过 cheat 直进 BP、mid/检测层故障照走 cheat 全链）
         const actFront = await this._actFrontGateEvaluate(
-          tokenAddress, token, faState, signalId, { factorResults });
+          tokenAddress, token, faState, signalId, { factorResults, pointTypePolicy });
         if (!actFront.pass) return { success: false, reason: actFront.reason };
 
         let cheatGate;
@@ -2516,7 +2530,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           }
         } else {
           cheatGate = await this._cheatGateEvaluateBinary(
-            tokenAddress, token, faState, signalId, strategy.signalGate, { factorResults });
+            tokenAddress, token, faState, signalId, strategy.signalGate, { factorResults, pointTypePolicy });
           if (!cheatGate.pass) return { success: false, reason: cheatGate.reason };
           if (cheatGate.info && signalId) {
             try {
@@ -2544,6 +2558,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
             // BP67：cheat 门 burst 判定输入 BP（activity_level burst 桶不拦）
             cheatBurst: this._cheatBurstForBp(cheatGate.info),
+            pointTypePolicy,
           });
         if (!bpGate.pass) return { success: false, reason: bpGate.reason };
       }

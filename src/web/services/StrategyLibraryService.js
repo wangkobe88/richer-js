@@ -18,14 +18,11 @@
 /**
  * 策略包 definition 形状常量（与 DDL CHECK / 引擎 _resolveStrategyPack 对齐）
  */
-const PACK_TOP_KEYS = ['buyLegs', 'sellLegs', 'stallClose', 'burstCooldown', 'modules', 'gatePolicy'];
+const PACK_TOP_KEYS = ['buyLegs', 'sellLegs', 'stallClose', 'burstCooldown', 'modules'];
 
-// T213b 好散户币通路包策略：门链接纳策略白名单（值域 fail-fast——未知值拒入库）
-const GATE_POLICY_KEYS = {
-    factorCheckArms: ['cheatOnly'],
-    actFront: ['pass'],
-    buyPoint: ['stuffingOnly'],
-};
+// T216 gatePolicy 退役（迁 pointType 模块——类型注册表全局维护，用户裁定 2026-11-23）：
+// 包携带该段=400 引导迁移
+const RETIRED_PACK_KEYS = { gatePolicy: '已退役（T216 迁 modules.pointType 类型路由——门控策略改由 point-type-router 注册表维护）' };
 
 const _intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
 const _numInRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
@@ -257,17 +254,7 @@ function validatePack(definition) {
         errors.push(...validateBurstCooldownSection(definition.burstCooldown));
     }
     if (definition.gatePolicy !== undefined && definition.gatePolicy !== null) {
-        if (typeof definition.gatePolicy !== 'object' || Array.isArray(definition.gatePolicy)) {
-            errors.push('gatePolicy 段形状非法（须为对象：{factorCheckArms|actFront|buyPoint: 白名单值}）');
-        } else {
-            for (const [k, v] of Object.entries(definition.gatePolicy)) {
-                if (!GATE_POLICY_KEYS[k]) {
-                    errors.push(`gatePolicy.${k}: 未知策略键（可用：${Object.keys(GATE_POLICY_KEYS).join('/')}）`);
-                } else if (!GATE_POLICY_KEYS[k].includes(v)) {
-                    errors.push(`gatePolicy.${k}: 非法值 "${v}"（可用：${GATE_POLICY_KEYS[k].join('/')}）`);
-                }
-            }
-        }
+        errors.push(`gatePolicy: ${RETIRED_PACK_KEYS.gatePolicy}`);
     }
     if (definition.modules !== undefined && definition.modules !== null) {
         const { assertModuleKey, MODULE_NAMES } = require('../../market-analysis/module-registry');
