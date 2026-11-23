@@ -110,6 +110,14 @@ console.log('A. classifyPointType 分类');
     const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 30.13, earlyReturn: 16 });
     assert.strictEqual(r.type, 'normal');
   });
+  check('A2o PT13 负例：earlyReturn 12 <15 但 curVs 94.12 >33.5 → normal（0x2c3fdb 极端背离票）', () => {
+    const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 94.12, earlyReturn: 12 });
+    assert.strictEqual(r.type, 'normal');
+  });
+  check('A2p PT13 边界：curVs 33.5 恰过线（≤）', () => {
+    const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 33.5, earlyReturn: 12 });
+    assert.strictEqual(r.type, 'retail_golden_pit');
+  });
   check('A3 浅回撤无下限仍命中（dd=20 ≤50 ✓ 用户裁定只有上限）', () => {
     const r = classifyPointType({ ...GOLDEN, mcapFromPeakPct: 20 });
     assert.strictEqual(r.type, 'retail_golden_pit');
