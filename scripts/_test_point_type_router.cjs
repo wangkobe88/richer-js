@@ -27,7 +27,7 @@ const PARTIAL = { ...GOLDEN, athVsLaunchPct: 120 }; // ATH 出带（>100）
 
 console.log('A. classifyPointType 分类');
 {
-  check('A1 黄金坑因子表命中（MOYNOK t+562s 第一波坑底真值：curVs 25.7/dd 28.8 无下限版）', () => {
+  check('A1 黄金坑因子表命中（MOYNOK t+562s 真值；v6 起加龄门 ≥90——tokenAgeSec 600 过线）', () => {
     const r = classifyPointType(GOLDEN);
     assert.strictEqual(r.type, 'retail_golden_pit');
     assert.deepStrictEqual(r.policy, {
@@ -46,6 +46,10 @@ console.log('A. classifyPointType 分类');
     const r = classifyPointType(PARTIAL);
     assert.strictEqual(r.type, 'normal');
     assert.deepStrictEqual(r.policy, {});
+  });
+  check('A2b 龄门负例：tokenAgeSec 89 <90 → normal（v6 用户裁定「交易了一段时间，大户还是不肯卖」）', () => {
+    const r = classifyPointType({ ...GOLDEN, tokenAgeSec: 89 });
+    assert.strictEqual(r.type, 'normal');
   });
   check('A3 浅回撤无下限仍命中（dd=20 ≤50 ✓ 用户裁定只有上限）', () => {
     const r = classifyPointType({ ...GOLDEN, mcapFromPeakPct: 20 });

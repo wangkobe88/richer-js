@@ -35,7 +35,7 @@ const POINT_TYPES = [
         // （首价尺 ≤+28.5%），量 4-15B，≥3 尘线大买家在场 + famous 持有。
         // 与 retail-good-path-v1 买腿条件同款但独立维护（腿=何时触发，类型=触发后
         // 怎么走门——两者演化节奏不同）。
-        condition: 'tokenAgeSec <= 900 AND buyVolumeBnb >= 4 AND buyVolumeBnb <= 15 AND currentVsLaunchPct <= 28.5 '
+        condition: 'tokenAgeSec >= 90 AND tokenAgeSec <= 900 AND buyVolumeBnb >= 4 AND buyVolumeBnb <= 15 AND currentVsLaunchPct <= 28.5 '
             + 'AND athVsLaunchPct >= 40 AND athVsLaunchPct <= 100 '
             + 'AND mcapFromPeakPct <= 50 '
             + 'AND bigBuyersCount >= 3 AND bigBuyersHeldDust >= 3 AND famousCopyWalletCircPct > 0',
