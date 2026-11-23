@@ -102,13 +102,13 @@ console.log('A. classifyPointType 分类');
     const r = classifyPointType({ ...GOLDEN, actTotalBnb15s: 0.32 });
     assert.strictEqual(r.type, 'normal');
   });
-  check('A2m PT11 负例：curVs 30.13 地板尺出域 ∧ earlyReturn 8 ≥5 → normal（双尺都不过）', () => {
-    const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 30.13, earlyReturn: 8 });
-    assert.strictEqual(r.type, 'normal');
-  });
-  check('A2n PT11 正例：curVs 30.13 但 earlyReturn −0.9 破发 → 过（MOYNOK 波首笔形状）', () => {
-    const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 30.13, earlyReturn: -0.9 });
+  check('A2m PT12 正例：curVs 30.13 ∧ earlyReturn 8.2 <15 → 过（MOYNOK 波首笔引擎真值形状）', () => {
+    const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 30.13, earlyReturn: 8.2 });
     assert.strictEqual(r.type, 'retail_golden_pit');
+  });
+  check('A2n PT12 负例：curVs 30.13 ∧ earlyReturn 16 ≥15 → normal（双尺都不过）', () => {
+    const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 30.13, earlyReturn: 16 });
+    assert.strictEqual(r.type, 'normal');
   });
   check('A3 浅回撤无下限仍命中（dd=20 ≤50 ✓ 用户裁定只有上限）', () => {
     const r = classifyPointType({ ...GOLDEN, mcapFromPeakPct: 20 });

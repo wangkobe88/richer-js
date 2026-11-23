@@ -23,7 +23,7 @@
 
 const { ConditionEvaluator } = require('../strategies/ConditionEvaluator');
 
-const POINT_TYPE_VERSION = 'PT11'; // PT11=T223 补 2 价格域双尺 OR（用户裁定 2026-11-23「给 currentVsLaunchPct 条件增加一个或，如果 earlyReturn 小于 5% 也可以」：地板尺 ≤28.5 ∨ 首价尺 <5 含破发——MOYNOK 波首笔 earlyReturn −0.9%/地板尺 30.13 案：破发位的第一笔像样买盘不是拉高） // PT10=T223 补 冷窗线放宽（用户裁定 2026-11-23「15 秒窗大于 0.31 再砍好了——由冷转热的第一笔买入可能比较大，如果大的话反而好」+「30 秒窗也得稍微变大一点」：15s 0.12→0.31 / 30s 0.25→0.4——MOYNOK 波首笔 0.13 近失案；嵌套约束 15s≤30s 窗值恒成立故 30s 必须同抬且留余量；60s 0.5/90s 1.0 不动） // PT9=T223 锚点买盘存在门（用户提案「买入点是个买入 或 15s 内有 ≥0.03B 买→死寂不回弹概率大降」+「所有后面要上涨的币都需要有买入」——死寂点不买、等第一笔像样买盘落地〔被挡票更晚点位重 fire=反弹确认等价形式〕；线值用户裁 2026-11-23） // PT8=T222 臭名昭著钱包门 notoriousWalletCircPct≤30（用户点名 bf00 大割「真的用户看到就想躲」；线值用户裁定 2026-11-23：拦 0x37d131 38.9/0xfc305b 43.2/0xcc6b2e 50.3 垄断档，MOYNOK 18.7 距线 11 点安全）+T221 跟单键改全生命周期单调 max 语义（0x2a05 簇 t+23s/fire t+411s 读环剪掉案；≤8 线值不变） // PT7=90s 冷窗 ≤1.0（用户裁定 2026-11-23「是否 1.5 分钟好一些」→选 ≤1.0——0x53691a 盘子刚冷一分钟不够，冷窗扩到 90s 线放宽到 1.0 避过杀正票）+ famous 跟单拥挤门 ≤8（用户裁定「跟单算 famous 买入后 1-2 个 slot」——0x2a05 同块 16 钱包挤爆案，MOYNOK 买点前 4/金鲨号 0 分界） // PT6=v11 冷窗线值收紧（15s≤0.12/30s≤0.25/60s≤0.5——用户裁定「15 秒没有什么特殊的，1 分钟内都要低」；杀 0xa04ee1 类退潮热买） // PT4=v8 裁定 arb_bot_holdings 臂豁免真正落地（PT3 时期该豁免只存在于 commit 信息未写入文件——bt-v202 0xd64e 仍被拦实锤；教训二连：线值改动必须写完跑测试断言全 policy）；PT3=龄 160-900/famous 帽撤除
+const POINT_TYPE_VERSION = 'PT12'; // PT12=T223 补 3 价格域双尺 OR 线值修正（用户裁定 2026-11-23「那就 earlyReturn < 15」：v16 线 5 实测差 3.2 点——MOYNOK 波首笔引擎真值 earlyReturn=+8.2%〔flap 非 BNB quote 盘换算后口径，−0.9 系我方 quote 域价直除错算〕、地板尺 30.13，两尺背离 22 点；由冷转热第一笔像样买盘不该被地板尺拦） // PT11=T223 补 2 价格域双尺 OR（用户裁定 2026-11-23「给 currentVsLaunchPct 条件增加一个或，如果 earlyReturn 小于 5% 也可以」：地板尺 ≤28.5 ∨ 首价尺 <5——MOYNOK 波首笔案首版线值） // PT10=T223 补 冷窗线放宽（用户裁定 2026-11-23「15 秒窗大于 0.31 再砍好了——由冷转热的第一笔买入可能比较大，如果大的话反而好」+「30 秒窗也得稍微变大一点」：15s 0.12→0.31 / 30s 0.25→0.4——MOYNOK 波首笔 0.13 近失案；嵌套约束 15s≤30s 窗值恒成立故 30s 必须同抬且留余量；60s 0.5/90s 1.0 不动） // PT9=T223 锚点买盘存在门（用户提案「买入点是个买入 或 15s 内有 ≥0.03B 买→死寂不回弹概率大降」+「所有后面要上涨的币都需要有买入」——死寂点不买、等第一笔像样买盘落地〔被挡票更晚点位重 fire=反弹确认等价形式〕；线值用户裁 2026-11-23） // PT8=T222 臭名昭著钱包门 notoriousWalletCircPct≤30（用户点名 bf00 大割「真的用户看到就想躲」；线值用户裁定 2026-11-23：拦 0x37d131 38.9/0xfc305b 43.2/0xcc6b2e 50.3 垄断档，MOYNOK 18.7 距线 11 点安全）+T221 跟单键改全生命周期单调 max 语义（0x2a05 簇 t+23s/fire t+411s 读环剪掉案；≤8 线值不变） // PT7=90s 冷窗 ≤1.0（用户裁定 2026-11-23「是否 1.5 分钟好一些」→选 ≤1.0——0x53691a 盘子刚冷一分钟不够，冷窗扩到 90s 线放宽到 1.0 避过杀正票）+ famous 跟单拥挤门 ≤8（用户裁定「跟单算 famous 买入后 1-2 个 slot」——0x2a05 同块 16 钱包挤爆案，MOYNOK 买点前 4/金鲨号 0 分界） // PT6=v11 冷窗线值收紧（15s≤0.12/30s≤0.25/60s≤0.5——用户裁定「15 秒没有什么特殊的，1 分钟内都要低」；杀 0xa04ee1 类退潮热买） // PT4=v8 裁定 arb_bot_holdings 臂豁免真正落地（PT3 时期该豁免只存在于 commit 信息未写入文件——bt-v202 0xd64e 仍被拦实锤；教训二连：线值改动必须写完跑测试断言全 policy）；PT3=龄 160-900/famous 帽撤除
 
 /** 类型注册表（有序=优先级阶梯，首匹配胜出；normal 兜底恒在末位） */
 const POINT_TYPES = [
@@ -35,7 +35,7 @@ const POINT_TYPES = [
         // （首价尺 ≤+28.5%），量 4-15B，≥3 尘线大买家在场 + famous 持有。
         // 与 retail-good-path-v1 买腿条件同款但独立维护（腿=何时触发，类型=触发后
         // 怎么走门——两者演化节奏不同）。
-        condition: 'tokenAgeSec >= 160 AND tokenAgeSec <= 900 AND buyVolumeBnb >= 4 AND buyVolumeBnb <= 15 AND (currentVsLaunchPct <= 28.5 OR earlyReturn < 5) '
+        condition: 'tokenAgeSec >= 160 AND tokenAgeSec <= 900 AND buyVolumeBnb >= 4 AND buyVolumeBnb <= 15 AND (currentVsLaunchPct <= 28.5 OR earlyReturn < 15) '
             + 'AND athVsLaunchPct >= 40 AND athVsLaunchPct <= 100 '
             + 'AND mcapFromPeakPct <= 50 '
             + 'AND bigBuyersCount >= 3 AND bigBuyersHeldDust >= 3 AND famousCopyWalletCircPct > 0 '
