@@ -458,6 +458,23 @@ console.log('J. T225 quietExitBigBuyers/TailBuyBnbEx/EndWithSell/LatchHoldPct（
     fa3.processTick(mkTick({ sender_address: '0new', bnb_amount: 0.45, token_amount: 60000, price_bnb: 5.2e-9, timestamp: T0 + 75000 }));
     const f3 = fa3.buildFactorMap('0xtoken', T0 + 76000);
     check('变体：第二大户 0.6 → big=2（ZKind 切）', () => assert.strictEqual(f3.quietExitBigBuyers, 2));
+    // T225 四修：surge 波内卖出累计（对倒拦截——ZEC 同 slot 绑卖案）
+    {
+        const fa5 = newFA3({ quietThresholdMs: 5000 });
+        fa5.processTick(mkTick({ sender_address: '0big', bnb_amount: 0.5, token_amount: 800000, price_bnb: 5.0e-9, timestamp: T0 + 1000 }));
+        fa5.processTick(mkTick({ sender_address: '0pull', bnb_amount: 0.51, token_amount: 60000, price_bnb: 5.2e-9, timestamp: T0 + 15000 }));
+        fa5.processTick(mkTick({ sender_address: '0wash', trade_type: 'sell', bnb_amount: 0.5084, token_amount: 50000, price_bnb: 5.3e-9, timestamp: T0 + 15000 }));
+        const f5 = fa5.buildFactorMap('0xtoken', T0 + 15200);
+        check('ZEC 形状：同 slot 绑卖 → surgeSell=0.5084（surgeBuy=0.51）', () => {
+            assert.strictEqual(Math.round(f5.quietSurgeBuyBnb * 10000) / 10000, 0.51);
+            assert.strictEqual(Math.round(f5.quietSurgeSellBnb * 10000) / 10000, 0.5084);
+        });
+        const fa6 = newFA3({ quietThresholdMs: 5000 });
+        fa6.processTick(mkTick({ sender_address: '0big', bnb_amount: 0.5, token_amount: 800000, price_bnb: 5.0e-9, timestamp: T0 + 1000 }));
+        fa6.processTick(mkTick({ sender_address: '0pull', bnb_amount: 0.45, token_amount: 60000, price_bnb: 5.2e-9, timestamp: T0 + 15000 }));
+        const f6 = fa6.buildFactorMap('0xtoken', T0 + 15200);
+        check('LAB 形状：纯买拉盘 → surgeSell=0', () => assert.strictEqual(f6.quietSurgeSellBnb, 0));
+    }
     // 从未静默 → 四键 null
     const fa4 = newFA3({ quietThresholdMs: 60000 });
     fa4.processTick(mkTick({ sender_address: '0big', bnb_amount: 0.5, token_amount: 800000, price_bnb: 5.0e-9, timestamp: T0 + 1000 }));
@@ -490,7 +507,7 @@ console.log('H. 源码口径断言（顺序/上限/时钟红线）');
         assert.ok(/quietSurgeSec: state\._quietSurgeStartTs !== null\s*\?\s*Math\.max\(0, \(now - state\._quietSurgeStartTs\) \/ 1000\) : null/.test(src), 'quietSurgeSec 读 now 入参形状变化');
     });
     check('surge 累计带 ts guard（乱序晚到不污染新波）', () => {
-        assert.ok(src.includes('ts >= state._quietSurgeStartTs && isBuy'), 'ts guard 缺失');
+        assert.ok(src.includes('ts >= state._quietSurgeStartTs') && src.includes('if (isBuy) state._quietSurgeBuyBnb += bnbAmount'), 'ts guard/买卖分流形状变化（T225 四修双累计）');
     });
     check('mcapFromPeakPct 三条件门（supply/现价/峰）', () => {
         assert.ok(src.includes('state.totalSupply > 0 && currentPriceBnb > 0 && state.highestPriceBnb > 0'), '三条件门形状变化');

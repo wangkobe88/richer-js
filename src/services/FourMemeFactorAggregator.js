@@ -1530,6 +1530,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             state._quietSpanMs = ts - state.lastTickAt;
             state._quietSurgeStartTs = ts;
             state._quietSurgeBuyBnb = 0;
+            state._quietSurgeSellBnb = 0;
             // T214（2026-11-22 LAB 案）：定格出口行（=本笔苏醒 tick）可靠价——
             // quietExitVsLaunchPct 分子。价格族仅可靠价：出口行 outlier/无可靠价 →
             // null（宁 null 不冒充，该段出口价不可知）
@@ -1540,8 +1541,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             // （defer 价格段先行）→ 留仓/剔除逻辑按 null 容忍（fail-closed 方向）。
             state._quietExitSnap = this._snapshotQuietExit(state, ts);
         }
-        if (state._quietSurgeStartTs !== null && ts >= state._quietSurgeStartTs && isBuy) {
-            state._quietSurgeBuyBnb += bnbAmount;
+        if (state._quietSurgeStartTs !== null && ts >= state._quietSurgeStartTs) {
+            // T225 四修：波内买入/卖出分开累计（对倒拦截：拉盘买单与卖单同 slot 绑定
+            // =ZEC 0x5bd4…7777 案用户裁定「这种形态应该被拦截」）
+            if (isBuy) state._quietSurgeBuyBnb += bnbAmount;
+            else state._quietSurgeSellBnb += bnbAmount;
         }
 
         // Math.max 防回拨（2026-10-14 鸡蛋案）：迟到旧 tick 的 ts 会把 lastTickAt 拉回
@@ -2537,6 +2541,9 @@ class FourMemeFactorAggregator extends EventEmitter {
                                          //   值域 {0}∪[quietThresholdMs,∞)，0=从无静默证据）
             _quietSurgeStartTs: null,   // 当前 surge 波起点 ts（静默段后苏醒第一笔；null=从未开波）
             _quietSurgeBuyBnb: 0,       // 当前 surge 波累计买入 BNB（新静默段开新波时清零）
+            _quietSurgeSellBnb: 0,       // T225 四修：当前 surge 波累计卖出 BNB（对倒拦截
+                                         //   载体——ZEC 案同 slot 买 0.6∧卖 0.508 绑定；fire
+                                         //   时刻读=波内到此刻的卖出）
             _quietExitPriceBnb: null,   // T214：最近静默段出口行（苏醒第一笔）可靠价——
                                          //   quietExitVsLaunchPct 分子；null=从未定格/出口行
                                          //   无可靠价（价格族仅可靠价，宁 null 不冒充）
@@ -5025,6 +5032,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             //   虚拟时钟同源；从未开波 → null）
             quietSpanMs: state._quietSpanMs,
             quietSurgeBuyBnb: state._quietSurgeBuyBnb,
+            // T225 四修：波内卖出累计（fire 时刻读；0=纯买拉盘，>线=对倒绑定）
+            quietSurgeSellBnb: state._quietSurgeSellBnb,
             quietSurgeSec: state._quietSurgeStartTs !== null
                 ? Math.max(0, (now - state._quietSurgeStartTs) / 1000) : null,
             // T214 强庄胚子两键（2026-11-22 LAB 0x1a08…7777 案，ladder v35 强庄重启臂
