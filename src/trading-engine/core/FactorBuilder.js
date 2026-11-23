@@ -225,6 +225,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T133（2026-11-10）「低活跃度」判据键：10s 窗总成交额 buy+sell（买腿量门
     // >=0.1 / 卖臂 low 区死寂清仓 <0.1）——同 act* 族不落库即丢；旧 FA → null 不掩盖
     actTotalBnb: factorResults.actTotalBnb ?? null,
+    // T218 多粒度冷窗四键（黄金坑腿「三窗均 low」条件载体；300s 观察键）
+    actTotalBnb15s: factorResults.actTotalBnb15s ?? null,
+    actTotalBnb30s: factorResults.actTotalBnb30s ?? null,
+    actTotalBnb60s: factorResults.actTotalBnb60s ?? null,
+    actTotalBnb300s: factorResults.actTotalBnb300s ?? null,
     actTrades: factorResults.actTrades ?? null,
     actTraders: factorResults.actTraders ?? null,
     actBuyers: factorResults.actBuyers ?? null,

@@ -187,6 +187,9 @@ const FACTOR_PARAM_DEFAULTS = {
     // ── 交易活跃度滑窗（2026-10-15，取代同日删除的 cycle 分桶路由）──
     activityWinMs: 10000,        // act* 8 键窗口（用户裁定：新发布 Meme，10s 已不小）；
                                  //   原料 _activityEvents 事件环，读点 _activityFactors 单趟派生
+    activityWinLongMs: 360000,   // T218 多粒度冷窗保留窗（actTotalBnb300s 300s 窗 +
+                                 //   60s 裁剪余量）——_pruneActivityEvents cutoff 取
+                                 //   max(2×activityWinMs, 本值)，环内存上限随之放大
     // ── T137 KOL HOLD 两键（2026-11-13 KOL 研究：pp≥100 ∧ famous 仍在入场 →
     //    延缓该卡卖出吃到高点；V2 触发口径「120s 内有 ≥0.1B famous 买」+2.32）──
     famousBigBuyBnb: 0.1,        // sinceLastFamousBigBuySec 的 famous 大买判定线（BNB）；
@@ -2755,7 +2758,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         const evts = state._activityEvents;
         const floor = Math.max(this._fp.netBuyWinTrades, this._fp.netBuyWinLongTrades, 32);
         if (evts.length <= floor + 32) return;
-        const cutoff = now - 2 * this._fp.activityWinMs;
+        const cutoff = now - Math.max(2 * this._fp.activityWinMs, this._fp.activityWinLongMs);
         let i = 0;
         const maxCut = evts.length - floor;
         while (i < maxCut && evts[i].ts < cutoff) i++;
@@ -3141,7 +3144,24 @@ class FourMemeFactorAggregator extends EventEmitter {
         const cutoff = now - this._fp.activityWinMs;
         let buyBnb = 0, sellBnb = 0, trades = 0, newTraders = 0;
         const traders = new Set(), buyers = new Set(), sellers = new Set();
+        // T218 多粒度冷窗（2026-11-23 用户提案「分时间活跃度因子」）：同环单趟累计
+        // 15/30/60/300s 四窗买卖合计金额——「买点前 15/30/1min 均 low=冷却经过考验」
+        // 条件载体（300s=观察键）；窗口半开 [now-W, now)；四窗累计先于 10s 窗
+        // 过滤（300s 窗需要 10s 外的行）。e.ts 未来行不可达（defer 乱序回推行 ts
+        // 恒=链上过去时刻），与 act 10s 窗同款无上界容忍
+        let t15 = 0, t30 = 0, t60 = 0, t300 = 0;
+        const W15 = now - 15000, W30 = now - 30000, W60 = now - 60000, W300 = now - 300000;
         for (const e of state._activityEvents) {
+            if (e.ts >= W300) {
+                t300 += e.bnb;
+                if (e.ts >= W60) {
+                    t60 += e.bnb;
+                    if (e.ts >= W30) {
+                        t30 += e.bnb;
+                        if (e.ts >= W15) t15 += e.bnb;
+                    }
+                }
+            }
             if (e.ts < cutoff) continue;
             trades++;
             if (e.buy) buyBnb += e.bnb; else sellBnb += e.bnb;
@@ -3157,6 +3177,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             actSellBnb: sellBnb,
             actNetBnb: buyBnb - sellBnb,
             actTotalBnb: buyBnb + sellBnb,
+            actTotalBnb15s: t15,
+            actTotalBnb30s: t30,
+            actTotalBnb60s: t60,
+            actTotalBnb300s: t300,
             actTrades: trades,
             actTraders: traders.size,
             actBuyers: buyers.size,
@@ -4614,6 +4638,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             actSellBnb: activity.actSellBnb,
             actNetBnb: activity.actNetBnb,
             actTotalBnb: activity.actTotalBnb,
+            // T218 多粒度冷窗四键（2026-11-23 用户提案：15/30/60s 三窗均 low=
+            // 冷却经过考验——黄金坑腿条件载体；300s=观察键不进条件）
+            actTotalBnb15s: activity.actTotalBnb15s,
+            actTotalBnb30s: activity.actTotalBnb30s,
+            actTotalBnb60s: activity.actTotalBnb60s,
+            actTotalBnb300s: activity.actTotalBnb300s,
             actTrades: activity.actTrades,
             actTraders: activity.actTraders,
             actBuyers: activity.actBuyers,

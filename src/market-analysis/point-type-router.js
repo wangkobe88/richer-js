@@ -23,7 +23,7 @@
 
 const { ConditionEvaluator } = require('../strategies/ConditionEvaluator');
 
-const POINT_TYPE_VERSION = 'PT4'; // PT4=v8 裁定 arb_bot_holdings 臂豁免真正落地（PT3 时期该豁免只存在于 commit 信息未写入文件——bt-v202 0xd64e 仍被拦实锤；教训二连：线值改动必须写完跑测试断言全 policy）；PT3=龄 160-900/famous 帽撤除
+const POINT_TYPE_VERSION = 'PT5'; // PT5=T218 三窗冷门（15/30/60s 均 low——用户提案「冷了一段时间的考验」；宽松线 0.1/0.3/1.0） // PT4=v8 裁定 arb_bot_holdings 臂豁免真正落地（PT3 时期该豁免只存在于 commit 信息未写入文件——bt-v202 0xd64e 仍被拦实锤；教训二连：线值改动必须写完跑测试断言全 policy）；PT3=龄 160-900/famous 帽撤除
 
 /** 类型注册表（有序=优先级阶梯，首匹配胜出；normal 兜底恒在末位） */
 const POINT_TYPES = [
@@ -38,7 +38,8 @@ const POINT_TYPES = [
         condition: 'tokenAgeSec >= 160 AND tokenAgeSec <= 900 AND buyVolumeBnb >= 4 AND buyVolumeBnb <= 15 AND currentVsLaunchPct <= 28.5 '
             + 'AND athVsLaunchPct >= 40 AND athVsLaunchPct <= 100 '
             + 'AND mcapFromPeakPct <= 50 '
-            + 'AND bigBuyersCount >= 3 AND bigBuyersHeldDust >= 3 AND famousCopyWalletCircPct > 0',
+            + 'AND bigBuyersCount >= 3 AND bigBuyersHeldDust >= 3 AND famousCopyWalletCircPct > 0 '
+            + 'AND actTotalBnb15s <= 0.1 AND actTotalBnb30s <= 0.3 AND actTotalBnb60s <= 1.0',
         // T217：cheatCheck 规则集差集（g23NoSlowGrind=A 主判排除 slow_grind_pump+去 E
         // 通道——案源 0xa04ee1ed：唯一 strong=slowGrindPump、famous 在场自然带量入场、
         // max60 9.11x 错过）；FP 同形状臂差集（slow_pump_unload=FP8a 慢拉卸货）

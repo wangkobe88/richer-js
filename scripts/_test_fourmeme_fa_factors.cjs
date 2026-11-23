@@ -714,6 +714,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-11-23 T213 黄金坑三键（JG-41 用户形状：可靠价峰较首可靠价涨幅 +
         // 0.2B 买家队列两键——黄金坑买腿条件串主键；详见 _test_golden_pit_factors.cjs）
         'athVsLaunchPct', 'bigBuyersCount', 'bigBuyersHeldDust',
+        // 2026-11-23 T218 多粒度冷窗四键（用户提案「分时间活跃度因子」：15/30/60s
+        // 三窗均 low=冷却经过考验条件载体，300s=观察键；详见 _test_activity_window_multi.cjs）
+        'actTotalBnb15s', 'actTotalBnb30s', 'actTotalBnb60s', 'actTotalBnb300s',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删
