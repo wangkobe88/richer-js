@@ -20,33 +20,37 @@ let passed = 0;
 function check(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exit(1); } }
 
 const GOLDEN = {
-  tokenAgeSec: 600, buyVolumeBnb: 8, earlyReturn: 19, athVsLaunchPct: 76.9,
-  mcapFromPeakPct: 33, bigBuyersCount: 9, bigBuyersHeldDust: 7, famousCopyWalletCircPct: 0.5,
+  tokenAgeSec: 600, buyVolumeBnb: 8, currentVsLaunchPct: 25.7, athVsLaunchPct: 76.9,
+  mcapFromPeakPct: 28.8, bigBuyersCount: 9, bigBuyersHeldDust: 7, famousCopyWalletCircPct: 0.5,
 };
-const PARTIAL = { ...GOLDEN, mcapFromPeakPct: 20 }; // 回撤不足
+const PARTIAL = { ...GOLDEN, athVsLaunchPct: 120 }; // ATH 出带（>100）
 
 console.log('A. classifyPointType 分类');
 {
-  check('A1 黄金坑因子表命中 retail_golden_pit（policy 三键+snapshot 8 因子）', () => {
+  check('A1 黄金坑因子表命中（MOYNOK t+562s 第一波坑底真值：curVs 25.7/dd 28.8 无下限版）', () => {
     const r = classifyPointType(GOLDEN);
     assert.strictEqual(r.type, 'retail_golden_pit');
     assert.deepStrictEqual(r.policy, { factorCheckArms: 'cheatOnly', actFront: 'pass', buyPoint: 'stuffingOnly' });
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
-    for (const k of ['tokenAgeSec', 'buyVolumeBnb', 'earlyReturn', 'athVsLaunchPct', 'mcapFromPeakPct', 'bigBuyersCount', 'bigBuyersHeldDust', 'famousCopyWalletCircPct']) {
+    for (const k of ['tokenAgeSec', 'buyVolumeBnb', 'currentVsLaunchPct', 'athVsLaunchPct', 'mcapFromPeakPct', 'bigBuyersCount', 'bigBuyersHeldDust', 'famousCopyWalletCircPct']) {
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
     }
   });
-  check('A2 条件不满足（回撤不足）→ normal 兜底 policy={}', () => {
+  check('A2 条件不满足（ATH 出带）→ normal 兜底 policy={}', () => {
     const r = classifyPointType(PARTIAL);
     assert.strictEqual(r.type, 'normal');
     assert.deepStrictEqual(r.policy, {});
   });
-  check('A3 null 因子表 → normal（fail-safe 不误配）', () => {
+  check('A3 浅回撤无下限仍命中（dd=20 ≤50 ✓ 用户裁定只有上限）', () => {
+    const r = classifyPointType({ ...GOLDEN, mcapFromPeakPct: 20 });
+    assert.strictEqual(r.type, 'retail_golden_pit');
+  });
+  check('A4 null 因子表 → normal（fail-safe 不误配）', () => {
     const r = classifyPointType({});
     assert.strictEqual(r.type, 'normal');
   });
-  check('A4 评估异常容错（非数值比较炸）→ 不命中该类型走 normal', () => {
-    const r = classifyPointType({ tokenAgeSec: 'x', buyVolumeBnb: 8, earlyReturn: 1, athVsLaunchPct: 50, mcapFromPeakPct: 40, bigBuyersCount: 5, bigBuyersHeldDust: 4, famousCopyWalletCircPct: 0.1 });
+  check('A5 评估异常容错（非数值比较炸）→ 不命中该类型走 normal', () => {
+    const r = classifyPointType({ tokenAgeSec: 'x', buyVolumeBnb: 8, currentVsLaunchPct: 1, athVsLaunchPct: 50, mcapFromPeakPct: 40, bigBuyersCount: 5, bigBuyersHeldDust: 4, famousCopyWalletCircPct: 0.1 });
     assert.strictEqual(r.type, 'normal');
   });
 }
