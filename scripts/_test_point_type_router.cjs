@@ -31,6 +31,8 @@ const GOLDEN = {
   notoriousWalletCircPct: 18.7,
   // PT9 锚点买盘存在（金鲨号形状：锚 tick 是买 0.006B → A 分支过；B 分支 ≥0.03）
   anchorTickIsBuy: 1, anchor15sMaxBuyBnb: 0.006,
+  // PT11 价格域双尺（A 分支地板尺过线即够；earlyReturn 键须在快照）
+  earlyReturn: 25.7,
 };
 const PARTIAL = { ...GOLDEN, athVsLaunchPct: 120 }; // ATH 出带（>100）
 
@@ -47,7 +49,7 @@ console.log('A. classifyPointType 分类');
       buyPoint: 'stuffingOnly',
     });
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
-    for (const k of ['tokenAgeSec', 'buyVolumeBnb', 'currentVsLaunchPct', 'athVsLaunchPct', 'mcapFromPeakPct', 'bigBuyersCount', 'bigBuyersHeldDust', 'famousCopyWalletCircPct', 'actTotalBnb90s', 'famousFollowSlotMaxWallets', 'notoriousWalletCircPct', 'anchorTickIsBuy', 'anchor15sMaxBuyBnb']) {
+    for (const k of ['tokenAgeSec', 'buyVolumeBnb', 'currentVsLaunchPct', 'athVsLaunchPct', 'mcapFromPeakPct', 'bigBuyersCount', 'bigBuyersHeldDust', 'famousCopyWalletCircPct', 'actTotalBnb90s', 'famousFollowSlotMaxWallets', 'notoriousWalletCircPct', 'anchorTickIsBuy', 'anchor15sMaxBuyBnb', 'earlyReturn']) {
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
     }
   });
@@ -99,6 +101,14 @@ console.log('A. classifyPointType 分类');
   check('A2l PT10 负例：15s 0.32 >0.31 → normal（用户裁「大于 0.31 再砍」）', () => {
     const r = classifyPointType({ ...GOLDEN, actTotalBnb15s: 0.32 });
     assert.strictEqual(r.type, 'normal');
+  });
+  check('A2m PT11 负例：curVs 30.13 地板尺出域 ∧ earlyReturn 8 ≥5 → normal（双尺都不过）', () => {
+    const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 30.13, earlyReturn: 8 });
+    assert.strictEqual(r.type, 'normal');
+  });
+  check('A2n PT11 正例：curVs 30.13 但 earlyReturn −0.9 破发 → 过（MOYNOK 波首笔形状）', () => {
+    const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 30.13, earlyReturn: -0.9 });
+    assert.strictEqual(r.type, 'retail_golden_pit');
   });
   check('A3 浅回撤无下限仍命中（dd=20 ≤50 ✓ 用户裁定只有上限）', () => {
     const r = classifyPointType({ ...GOLDEN, mcapFromPeakPct: 20 });
