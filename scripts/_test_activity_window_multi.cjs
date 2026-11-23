@@ -69,6 +69,40 @@ console.log('A. 窗口边界精确值');
   });
 }
 
+console.log('A+. T223 锚点买盘存在两键');
+{
+  const fa = newFA();
+  const NOW = T0 + 300000;
+  // 15s 窗内两笔买（0.05/0.08）+ 一笔卖；max ts 行=卖（NOW-9000）→ 锚是卖
+  fa.processTick(mkTick({ timestamp: NOW - 14000, trader_address: 'wA', bnb_amount: 0.05 }), {});
+  fa.processTick(mkTick({ timestamp: NOW - 10000, trader_address: 'wB', bnb_amount: 0.08 }), {});
+  fa.processTick(mkTick({ timestamp: NOW - 9000, trader_address: 'wC', trade_type: 'sell', bnb_amount: 0.1 }), {});
+  const f = fa.buildFactorMap('0xtoken', NOW);
+  check('A+1 anchor15sMaxBuyBnb=窗内最大单笔买 0.08', () => assert.strictEqual(f.anchor15sMaxBuyBnb, 0.08));
+  check('A+2 锚 tick（max ts 行）是卖 → anchorTickIsBuy=0', () => assert.strictEqual(f.anchorTickIsBuy, 0));
+  // 更晚一笔买 → 锚是买
+  fa.processTick(mkTick({ timestamp: NOW - 8000, trader_address: 'wD', bnb_amount: 0.2 }), {});
+  const f2 = fa.buildFactorMap('0xtoken', NOW);
+  check('A+3 锚 tick 换成买 → 1', () => assert.strictEqual(f2.anchorTickIsBuy, 1));
+  // 无行 → 两键 0（fail-closed）
+  const fa3 = newFA();
+  const f3 = fa3.buildFactorMap('0xtoken', T0 + 1000);
+  check('A+4 无行 → anchorTickIsBuy=0 / maxBuy=0', () => {
+    assert.strictEqual(f3.anchorTickIsBuy, 0);
+    assert.strictEqual(f3.anchor15sMaxBuyBnb, 0);
+  });
+  // 乱序回推序无关（max ts / 最大值聚合）
+  const fa4 = newFA();
+  fa4.processTick(mkTick({ timestamp: NOW - 5000, trader_address: 'wX', bnb_amount: 0.04 }), {});
+  fa4.processTick(mkTick({ timestamp: NOW - 14000, trader_address: 'wY', bnb_amount: 0.03 }), {});
+  fa4.processTick(mkTick({ timestamp: NOW - 10000, trader_address: 'wZ', trade_type: 'sell', bnb_amount: 0.1 }), {});
+  const f4 = fa4.buildFactorMap('0xtoken', NOW);
+  check('A+5 乱序喂入同结论（maxBuy=0.04/锚买）', () => {
+    assert.strictEqual(f4.anchor15sMaxBuyBnb, 0.04);
+    assert.strictEqual(f4.anchorTickIsBuy, 1);
+  });
+}
+
 console.log('B. 与 act 10s 窗同环同源');
 {
   const fa = newFA();

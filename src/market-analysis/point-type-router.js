@@ -23,7 +23,7 @@
 
 const { ConditionEvaluator } = require('../strategies/ConditionEvaluator');
 
-const POINT_TYPE_VERSION = 'PT8'; // PT8=T222 臭名昭著钱包门 notoriousWalletCircPct≤30（用户点名 bf00 大割「真的用户看到就想躲」；线值用户裁定 2026-11-23：拦 0x37d131 38.9/0xfc305b 43.2/0xcc6b2e 50.3 垄断档，MOYNOK 18.7 距线 11 点安全）+T221 跟单键改全生命周期单调 max 语义（0x2a05 簇 t+23s/fire t+411s 读环剪掉案；≤8 线值不变） // PT7=90s 冷窗 ≤1.0（用户裁定 2026-11-23「是否 1.5 分钟好一些」→选 ≤1.0——0x53691a 盘子刚冷一分钟不够，冷窗扩到 90s 线放宽到 1.0 避过杀正票）+ famous 跟单拥挤门 ≤8（用户裁定「跟单算 famous 买入后 1-2 个 slot」——0x2a05 同块 16 钱包挤爆案，MOYNOK 买点前 4/金鲨号 0 分界） // PT6=v11 冷窗线值收紧（15s≤0.12/30s≤0.25/60s≤0.5——用户裁定「15 秒没有什么特殊的，1 分钟内都要低」；杀 0xa04ee1 类退潮热买） // PT4=v8 裁定 arb_bot_holdings 臂豁免真正落地（PT3 时期该豁免只存在于 commit 信息未写入文件——bt-v202 0xd64e 仍被拦实锤；教训二连：线值改动必须写完跑测试断言全 policy）；PT3=龄 160-900/famous 帽撤除
+const POINT_TYPE_VERSION = 'PT9'; // PT9=T223 锚点买盘存在门（用户提案「买入点是个买入 或 15s 内有 ≥0.03B 买→死寂不回弹概率大降」+「所有后面要上涨的币都需要有买入」——死寂点不买、等第一笔像样买盘落地〔被挡票更晚点位重 fire=反弹确认等价形式〕；线值用户裁 2026-11-23） // PT8=T222 臭名昭著钱包门 notoriousWalletCircPct≤30（用户点名 bf00 大割「真的用户看到就想躲」；线值用户裁定 2026-11-23：拦 0x37d131 38.9/0xfc305b 43.2/0xcc6b2e 50.3 垄断档，MOYNOK 18.7 距线 11 点安全）+T221 跟单键改全生命周期单调 max 语义（0x2a05 簇 t+23s/fire t+411s 读环剪掉案；≤8 线值不变） // PT7=90s 冷窗 ≤1.0（用户裁定 2026-11-23「是否 1.5 分钟好一些」→选 ≤1.0——0x53691a 盘子刚冷一分钟不够，冷窗扩到 90s 线放宽到 1.0 避过杀正票）+ famous 跟单拥挤门 ≤8（用户裁定「跟单算 famous 买入后 1-2 个 slot」——0x2a05 同块 16 钱包挤爆案，MOYNOK 买点前 4/金鲨号 0 分界） // PT6=v11 冷窗线值收紧（15s≤0.12/30s≤0.25/60s≤0.5——用户裁定「15 秒没有什么特殊的，1 分钟内都要低」；杀 0xa04ee1 类退潮热买） // PT4=v8 裁定 arb_bot_holdings 臂豁免真正落地（PT3 时期该豁免只存在于 commit 信息未写入文件——bt-v202 0xd64e 仍被拦实锤；教训二连：线值改动必须写完跑测试断言全 policy）；PT3=龄 160-900/famous 帽撤除
 
 /** 类型注册表（有序=优先级阶梯，首匹配胜出；normal 兜底恒在末位） */
 const POINT_TYPES = [
@@ -41,7 +41,8 @@ const POINT_TYPES = [
             + 'AND bigBuyersCount >= 3 AND bigBuyersHeldDust >= 3 AND famousCopyWalletCircPct > 0 '
             + 'AND actTotalBnb15s <= 0.12 AND actTotalBnb30s <= 0.25 AND actTotalBnb60s <= 0.5 '
             + 'AND actTotalBnb90s <= 1.0 AND famousFollowSlotMaxWallets <= 8 '
-            + 'AND notoriousWalletCircPct <= 30',
+            + 'AND notoriousWalletCircPct <= 30 '
+            + 'AND (anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03)',
         // T217：cheatCheck 规则集差集（g23NoSlowGrind=A 主判排除 slow_grind_pump+去 E
         // 通道——案源 0xa04ee1ed：唯一 strong=slowGrindPump、famous 在场自然带量入场、
         // max60 9.11x 错过）；FP 同形状臂差集（slow_pump_unload=FP8a 慢拉卸货）

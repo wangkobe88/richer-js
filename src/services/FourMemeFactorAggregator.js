@@ -3265,7 +3265,17 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 恒=链上过去时刻），与 act 10s 窗同款无上界容忍
         let t15 = 0, t30 = 0, t60 = 0, t90 = 0, t300 = 0;
         const W15 = now - 15000, W30 = now - 30000, W60 = now - 60000, W90 = now - 90000, W300 = now - 300000;
+        // T223 锚点买盘存在两键（2026-11-23 用户提案「买入点是个买入 或 15s 内有
+        // 一笔还算说的过去的买入 → 完全死寂不回弹概率大降」；用户后续点明机制
+        // 精髓=「所有后面要上涨的币都需要有买入」——被挡票在更晚点位重 fire 即
+        // 「等第一笔像样买盘落地再买」的反弹确认等价形式）：anchorTickIsBuy=环中
+        // max ts 行（=锚 tick，链上最新）是买入 1/0（无行=0 fail-closed）；
+        // anchor15sMaxBuyBnb=15s 窗内最大单笔买入额（0=无买有证据零值）。同趟
+        // 扫描零额外成本；乱序回推无害（max ts/最大值均为序无关聚合）
+        let t15MaxBuy = 0, maxTsBuy = 0, maxTsSeen = -Infinity;
         for (const e of state._activityEvents) {
+            if (e.ts > maxTsSeen) { maxTsSeen = e.ts; maxTsBuy = e.buy ? 1 : 0; }
+            if (e.buy && e.ts >= W15 && e.bnb > t15MaxBuy) t15MaxBuy = e.bnb;
             if (e.ts >= W300) {
                 t300 += e.bnb;
                 if (e.ts >= W90) {
@@ -3299,6 +3309,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             actTotalBnb60s: t60,
             actTotalBnb90s: t90,
             actTotalBnb300s: t300,
+            // T223 锚点买盘存在两键（见循环内注释；条件载体= `anchorTickIsBuy == 1
+            // OR anchor15sMaxBuyBnb >= 0.03`）
+            anchorTickIsBuy: maxTsBuy,
+            anchor15sMaxBuyBnb: t15MaxBuy,
             actTrades: trades,
             actTraders: traders.size,
             actBuyers: buyers.size,
@@ -4795,6 +4809,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             actTotalBnb60s: activity.actTotalBnb60s,
             actTotalBnb90s: activity.actTotalBnb90s,
             actTotalBnb300s: activity.actTotalBnb300s,
+            anchorTickIsBuy: activity.anchorTickIsBuy,
+            anchor15sMaxBuyBnb: activity.anchor15sMaxBuyBnb,
             actTrades: activity.actTrades,
             actTraders: activity.actTraders,
             actBuyers: activity.actBuyers,

@@ -27,6 +27,10 @@ const GOLDEN = {
   // PT7 两键（v12 腿同款）：90s 冷窗 ≤1.0（MOYNOK 锚 90s≈0.18 过线）；
   // famous 跟单 ≤8（MOYNOK 买点前 4 过线；0x2a05 同块 16 钱包案为负例）
   actTotalBnb90s: 0.18, famousFollowSlotMaxWallets: 4,
+  // PT8 臭名昭著钱包 ≤30（MOYNOK bf00 18.7 过线；0x37d131 38.9 案源为负例）
+  notoriousWalletCircPct: 18.7,
+  // PT9 锚点买盘存在（金鲨号形状：锚 tick 是买 0.006B → A 分支过；B 分支 ≥0.03）
+  anchorTickIsBuy: 1, anchor15sMaxBuyBnb: 0.006,
 };
 const PARTIAL = { ...GOLDEN, athVsLaunchPct: 120 }; // ATH 出带（>100）
 
@@ -43,7 +47,7 @@ console.log('A. classifyPointType 分类');
       buyPoint: 'stuffingOnly',
     });
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
-    for (const k of ['tokenAgeSec', 'buyVolumeBnb', 'currentVsLaunchPct', 'athVsLaunchPct', 'mcapFromPeakPct', 'bigBuyersCount', 'bigBuyersHeldDust', 'famousCopyWalletCircPct', 'actTotalBnb90s', 'famousFollowSlotMaxWallets']) {
+    for (const k of ['tokenAgeSec', 'buyVolumeBnb', 'currentVsLaunchPct', 'athVsLaunchPct', 'mcapFromPeakPct', 'bigBuyersCount', 'bigBuyersHeldDust', 'famousCopyWalletCircPct', 'actTotalBnb90s', 'famousFollowSlotMaxWallets', 'notoriousWalletCircPct', 'anchorTickIsBuy', 'anchor15sMaxBuyBnb']) {
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
     }
   });
@@ -66,6 +70,26 @@ console.log('A. classifyPointType 分类');
   });
   check('A2e PT7 边界：跟单恰 8 过线（≤）', () => {
     const r = classifyPointType({ ...GOLDEN, famousFollowSlotMaxWallets: 8 });
+    assert.strictEqual(r.type, 'retail_golden_pit');
+  });
+  check('A2f PT8 负例：bf00 流通占比 38.9 >30 → normal（0x37d131 案源）', () => {
+    const r = classifyPointType({ ...GOLDEN, notoriousWalletCircPct: 38.9 });
+    assert.strictEqual(r.type, 'normal');
+  });
+  check('A2g PT8 边界：bf00 恰 30 过线（≤）', () => {
+    const r = classifyPointType({ ...GOLDEN, notoriousWalletCircPct: 30 });
+    assert.strictEqual(r.type, 'retail_golden_pit');
+  });
+  check('A2h PT9 负例：锚非买 ∧ 15s 最大买 0.01 <0.03 → normal（完全死寂点）', () => {
+    const r = classifyPointType({ ...GOLDEN, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0.01 });
+    assert.strictEqual(r.type, 'normal');
+  });
+  check('A2i PT9 正例：锚非买但 15s 内 0.05 像样买 → 过', () => {
+    const r = classifyPointType({ ...GOLDEN, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0.05 });
+    assert.strictEqual(r.type, 'retail_golden_pit');
+  });
+  check('A2j PT9 边界：15s 最大买恰 0.03 过线（≥）', () => {
+    const r = classifyPointType({ ...GOLDEN, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0.03 });
     assert.strictEqual(r.type, 'retail_golden_pit');
   });
   check('A3 浅回撤无下限仍命中（dd=20 ≤50 ✓ 用户裁定只有上限）', () => {

@@ -231,6 +231,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     actTotalBnb60s: factorResults.actTotalBnb60s ?? null,
     actTotalBnb90s: factorResults.actTotalBnb90s ?? null,
     actTotalBnb300s: factorResults.actTotalBnb300s ?? null,
+    // T223 锚点买盘存在两键（锚 tick 是否买入 + 15s 窗最大单笔买额——「完全死寂
+    // 不回弹点」对策：死寂点不买、等第一笔像样买盘落地；与 act 同环同趟不落库即丢）
+    anchorTickIsBuy: factorResults.anchorTickIsBuy ?? null,
+    anchor15sMaxBuyBnb: factorResults.anchor15sMaxBuyBnb ?? null,
     actTrades: factorResults.actTrades ?? null,
     actTraders: factorResults.actTraders ?? null,
     actBuyers: factorResults.actBuyers ?? null,

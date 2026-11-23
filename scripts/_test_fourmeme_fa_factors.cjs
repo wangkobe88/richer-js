@@ -719,9 +719,15 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'actTotalBnb15s', 'actTotalBnb30s', 'actTotalBnb60s', 'actTotalBnb300s',
         // 2026-11-23 T218b/T220/T221 三键：90s 冷窗键（用户裁定「是否 1.5 分钟好
         // 一些」→≤1.0，与 15/30/60 同族）；famous 总供应占比观察键（3%/5% 帽已否证
-        // 不进门）；famous 跟单拥挤键（famous 买后 2s 窗非 famous 买入钱包 max ≤8——
-        // 详见 _test_famous_follow_slot.cjs）
+        // 不进门）；famous 跟单拥挤键（famous 买后 2s 窗非 famous 买入钱包数全生命
+        // 周期单调 max ≤8——详见 _test_famous_follow_slot.cjs）
         'actTotalBnb90s', 'famousCopyWalletSupplyPct', 'famousFollowSlotMaxWallets',
+        // 2026-11-23 T222 臭名昭著钱包总流通持仓占比（用户点名 bf00 大割集合合计
+        // 正净持仓 ÷ 流通 ×100；0 语义——详见 _test_notorious_wallet.cjs）
+        'notoriousWalletCircPct',
+        // 2026-11-23 T223 锚点买盘存在两键（锚 tick 是否买入 + 15s 窗最大单笔买额——
+        // 「完全死寂不回弹点」对策；详见 _test_activity_window_multi.cjs A+ 段）
+        'anchorTickIsBuy', 'anchor15sMaxBuyBnb',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删
