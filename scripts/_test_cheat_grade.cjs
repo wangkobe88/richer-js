@@ -767,8 +767,8 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
   // ═══════════════ T217 观测级门控规则集（g23NoSlowGrind 差集） ═══════════════
   {
     const { CHEAT_RULESET_IDS } = require('../src/market-analysis/cheat-grade');
-    ok(JSON.stringify(CHEAT_RULESET_IDS) === JSON.stringify(['g23', 'g23NoSlowGrind']),
-      'T217 规则集清单恰两枚（未知规则集 throw 由下方负例覆盖）');
+    ok(JSON.stringify(CHEAT_RULESET_IDS) === JSON.stringify(['g23', 'g23NoSlowGrind', 'g23NoE']),
+      'T217/T225 规则集清单恰三枚（未知规则集 throw 由下方负例覆盖）');
 
     // 案源复刻：唯一 strong=slow_grind_pump（0xa04ee1ed 形状——wash none/sbw none）
     const mkSlowGrind = () => { const o = baseObs(); withExt(o, 'slow_grind_pump', 'strong'); return o; };
@@ -778,6 +778,31 @@ CD122 批次五人工改 unhealthy 已出偏差表——机器 E 通道与人工
     const rg = grade(mkSlowGrind(), { anchorSellCount: 1, ruleset: 'g23NoSlowGrind' });
     ok(rg.grade === 'healthy', 'T217 差集：slow_grind_pump strong 不产 cheat（famous 自然带量≠虚假拉盘）');
     ok(rg.version === 'G24@g23NoSlowGrind', 'T217 差集：version 带 @ruleset 标记（审计可辨）');
+
+  // ═══════════════ T225 独舞差集规则集 g23NoE（E 通道不产 unhealthy） ═══════════════
+  {
+    // E：act=low ∧ sbw≠burst → g23 unhealthy / g23NoE 放行
+    const mkLow2 = () => { const o = baseObs(); o.activityLevel.bucket = 'low'; return o; };
+    ok(grade(mkLow2(), { anchorSellCount: 1 }).grade === 'unhealthy'
+      && grade(mkLow2(), { anchorSellCount: 1 }).reasons.some((x) => x.code === 'E_low_activity'),
+      'T225 g23（现行）：act=low∧sbw≠burst → E_low_activity unhealthy');
+    const ge = grade(mkLow2(), { anchorSellCount: 1, ruleset: 'g23NoE' });
+    ok(ge.grade === 'healthy' && !ge.reasons.some((x) => x.code === 'E_low_activity'),
+      'T225 g23NoE：E 通道不产 unhealthy（独舞形状锚前窗天然低活跃）');
+    ok(ge.version === 'G24@g23NoE', 'T225 g23NoE：version 带 @ruleset 标记');
+    // A 真作弊照判（豁免面只到 E）
+    const mkCheat2 = () => { const o = baseObs(); withExt(o, 'wash_pair', 'strong'); return o; };
+    ok(grade(mkCheat2(), { anchorSellCount: 1, ruleset: 'g23NoE' }).grade === 'cheat',
+      'T225 g23NoE：A 主判 wash_pair strong 照 cheat（真作弊不豁免）');
+    // M ultra 照判
+    const mkUltra2 = () => { const o = baseObs(); o.activityLevel.bucket = 'ultra'; return o; };
+    ok(grade(mkUltra2(), { anchorSellCount: 1, ruleset: 'g23NoE' }).grade === 'unhealthy',
+      'T225 g23NoE：M ultra 照 unhealthy（协同出货豁免面外）');
+    // 未知规则集 throw 负例
+    let threw = false;
+    try { grade(mkLow2(), { anchorSellCount: 1, ruleset: 'g23NoWhatever' }); } catch (e) { threw = true; }
+    ok(threw, 'T225 未知规则集 throw（fail-loud）');
+  }
 
     // 差集只去 slowGrind：washPair strong 照旧 cheat（拉黑联动语义保留）
     const mkWash = () => { const o = baseObs(); withExt(o, 'wash_pair', 'strong'); withExt(o, 'slow_grind_pump', 'strong'); return o; };

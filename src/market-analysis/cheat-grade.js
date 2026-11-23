@@ -502,7 +502,7 @@ const PHEN_IDS = PHENOMENON_IDS; // [equal_amount_split, coordinated_sell_back, 
 //                 max60 9.11x 错过）②E 通道（act=low∧sbw≠burst→unhealthy）去除
 //                 ——与该类型 AF1 pass 矛盾；L/M/A 其余码/CD379 豁免链/CD383
 //                 burst 臂/CD380 不豁免臂/cheat 拉黑联动全部照旧
-const CHEAT_RULESET_IDS = ['g23', 'g23NoSlowGrind'];
+const CHEAT_RULESET_IDS = ['g23', 'g23NoSlowGrind', 'g23NoE'];
 
 
 /** 八主判题：三现象 + EXT 剔 sbw（cr/sbw=辅助判定不进主判；wash_pair D3.28
@@ -582,6 +582,11 @@ function gradeObservation(observation, extras = {}) {
     throw new Error(`[cheat-grade] 未知规则集 ${JSON.stringify(ex.ruleset)}（可用：${CHEAT_RULESET_IDS.join('/')}）`);
   }
   const noSlowGrind = ruleset === 'g23NoSlowGrind';
+  // T225 独舞差集（用户裁定「这一个 pointType 豁免 act=low∧sbw=none」）：E 通道
+  // 判据=act=low∧sbw≠burst——与 AF1 reject_low 同一证据组合，死而复生形状锚前窗
+  // 天然如此（bt-v217/218 实证 LAB 唯一卡点链=AF1→E 两道同源拒）；A/L/M/N 等
+  // 真作弊通道照判，豁免面刻意只到 E
+  const noE = ruleset === 'g23NoE';
   const ph = obs.phenomena || {};
   const ext = obs.extLevels || {};
   const lv = {};
@@ -646,7 +651,7 @@ function gradeObservation(observation, extras = {}) {
   // 尘埃流量/卖出引发 → Jev 判 none，E 恢复拦截）。案史：G8 定线时 17 票
   // sbw=burst 豁免挡住的全是自己人（14 票 Jev act 已判 low）——退役后该防线
   // 由 D3.67 题面四判轴接棒，E_low_activity_weak_burst 码随臂退役（历史行留档）
-  if (act === 'low' && sbw !== 'burst' && !noSlowGrind) {
+  if (act === 'low' && sbw !== 'burst' && !noSlowGrind && !noE) {
     // T205/G23 阶段前提（金狗 GWC 案，灰度 enableActStageCold）：未火过
     // （锚前 ATH<80）的票 low 不产 unhealthy——「前期活跃度检测不重要，火过
     // 一段时间后 low=流动性失去才拦」；ath 缺席 null=照拦（isColdStage false）

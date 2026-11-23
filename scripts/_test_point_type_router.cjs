@@ -175,10 +175,10 @@ console.log('D. T225 strongbacker_solo_dance（一个钱包的独舞，2026-11-2
     launchBundleClusterSize: 1, launchSellBundleClusterSize: 1, launchBuyBundleWaves: 0,
     launchBuyBundleDominancePct: 0, cheatCrewBuyBnb: 0,
   };
-  check('D1 LAB 形状命中独舞类型（policy 只豁 AF1）', () => {
+  check('D1 LAB 形状命中独舞类型（policy 豁 AF1+cheat E 通道）', () => {
     const r = classifyPointType(SOLO);
     assert.strictEqual(r.type, 'strongbacker_solo_dance');
-    assert.deepStrictEqual(r.policy, { actFront: 'pass' });
+    assert.deepStrictEqual(r.policy, { actFront: 'pass', cheatCheck: 'g23NoE' });
   });
   check('D2 临门 60s 段有成交（act60Ex15 0.3，ZEC 形状）→ normal', () =>
     assert.strictEqual(classifyPointType(Object.assign({}, SOLO, { actTotalBnb60Ex15: 0.3 })).type, 'normal'));
