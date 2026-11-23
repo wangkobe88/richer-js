@@ -58,7 +58,7 @@ function withExt(obs, id, bucket) { obs.extLevels[id] = bucket; return obs; }
 function grade(obs, extras) { return gradeObservation(obs, extras || { anchorSellCount: null }); }
 
 function main() {
-  ok(CHEAT_GRADE_RULES_VERSION === 'G24', '版本常量 G24（T217 规则集化：extras.ruleset 维度——g23=现行语义零改动〔normal〕/g23NoSlowGrind=retail_golden_pit 差集〔A 主判排除 slow_grind_pump+去 E 通道，案源 0xa04ee1ed famous 带量 9.11x 错过；用户三裁定〕；G23=T205 E 通道阶段前提；G1-G22 演进史见作弊台账）');
+  ok(CHEAT_GRADE_RULES_VERSION === 'G24', '版本常量 G24（T217 规则集化：extras.ruleset 维度——g23=现行语义零改动〔normal〕/g23NoSlowGrind=famous_holder_cold_pit 差集〔A 主判排除 slow_grind_pump+去 E 通道，案源 0xa04ee1ed famous 带量 9.11x 错过；用户三裁定〕；G23=T205 E 通道阶段前提；G1-G22 演进史见作弊台账）');
   ok(MAIN_IDS.length === 8 && !MAIN_IDS.includes('creator_front_run') && !MAIN_IDS.includes('stall_burst_wave')
     && MAIN_IDS.includes('wash_pair') && !MAIN_IDS.includes('holdings_balance')
     && !MAIN_IDS.includes('burst_spike_concentration') && !MAIN_IDS.includes('strong_backer_pressure'),

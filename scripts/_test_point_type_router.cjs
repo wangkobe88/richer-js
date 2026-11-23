@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * T216 点位类型辨别与对应策略（pointType 模块）单测（零 DB 零网络）：
- *   A. classifyPointType：黄金坑因子表命中 retail_golden_pit（policy/snapshot 全键）；
+ *   A. classifyPointType：黄金坑因子表命中 famous_holder_cold_pit（policy/snapshot 全键）；
  *      不命中→normal 兜底（policy={}）；条件部分满足不命中；评估异常 fail-safe 走 normal
  *   B. assertPointTypesValid：FA 真键集全过；未知因子 throw；policy 非法维度/值 throw；
  *      normal 必须末位
@@ -40,7 +40,7 @@ console.log('A. classifyPointType 分类');
 {
   check('A1 黄金坑因子表命中（MOYNOK t+562s 真值；v6 起加龄门 ≥90——tokenAgeSec 600 过线）', () => {
     const r = classifyPointType(GOLDEN);
-    assert.strictEqual(r.type, 'retail_golden_pit');
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
     assert.deepStrictEqual(r.policy, {
       factorCheckArms: 'cheatOnly',
       factorCheckArmExempt: ['slow_pump_unload', 'arb_bot_holdings'],
@@ -72,7 +72,7 @@ console.log('A. classifyPointType 分类');
   });
   check('A2e PT7 边界：跟单恰 8 过线（≤）', () => {
     const r = classifyPointType({ ...GOLDEN, famousFollowSlotMaxWallets: 8 });
-    assert.strictEqual(r.type, 'retail_golden_pit');
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
   });
   check('A2f PT8 负例：bf00 流通占比 38.9 >30 → normal（0x37d131 案源）', () => {
     const r = classifyPointType({ ...GOLDEN, notoriousWalletCircPct: 38.9 });
@@ -80,7 +80,7 @@ console.log('A. classifyPointType 分类');
   });
   check('A2g PT8 边界：bf00 恰 30 过线（≤）', () => {
     const r = classifyPointType({ ...GOLDEN, notoriousWalletCircPct: 30 });
-    assert.strictEqual(r.type, 'retail_golden_pit');
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
   });
   check('A2h PT9 负例：锚非买 ∧ 15s 最大买 0.01 <0.03 → normal（完全死寂点）', () => {
     const r = classifyPointType({ ...GOLDEN, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0.01 });
@@ -88,15 +88,15 @@ console.log('A. classifyPointType 分类');
   });
   check('A2i PT9 正例：锚非买但 15s 内 0.05 像样买 → 过', () => {
     const r = classifyPointType({ ...GOLDEN, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0.05 });
-    assert.strictEqual(r.type, 'retail_golden_pit');
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
   });
   check('A2j PT9 边界：15s 最大买恰 0.03 过线（≥）', () => {
     const r = classifyPointType({ ...GOLDEN, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0.03 });
-    assert.strictEqual(r.type, 'retail_golden_pit');
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
   });
   check('A2k PT10 冷窗放宽边界：15s 0.3/30s 0.35 过线（v15 放行由冷转热波首笔）', () => {
     const r = classifyPointType({ ...GOLDEN, actTotalBnb15s: 0.3, actTotalBnb30s: 0.35 });
-    assert.strictEqual(r.type, 'retail_golden_pit');
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
   });
   check('A2l PT10 负例：15s 0.32 >0.31 → normal（用户裁「大于 0.31 再砍」）', () => {
     const r = classifyPointType({ ...GOLDEN, actTotalBnb15s: 0.32 });
@@ -104,7 +104,7 @@ console.log('A. classifyPointType 分类');
   });
   check('A2m PT12 正例：curVs 30.13 ∧ earlyReturn 8.2 <15 → 过（MOYNOK 波首笔引擎真值形状）', () => {
     const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 30.13, earlyReturn: 8.2 });
-    assert.strictEqual(r.type, 'retail_golden_pit');
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
   });
   check('A2n PT12 负例：curVs 30.13 ∧ earlyReturn 16 ≥15 → normal（双尺都不过）', () => {
     const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 30.13, earlyReturn: 16 });
@@ -116,11 +116,11 @@ console.log('A. classifyPointType 分类');
   });
   check('A2p PT13 边界：curVs 33.5 恰过线（≤）', () => {
     const r = classifyPointType({ ...GOLDEN, currentVsLaunchPct: 33.5, earlyReturn: 12 });
-    assert.strictEqual(r.type, 'retail_golden_pit');
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
   });
   check('A3 浅回撤无下限仍命中（dd=20 ≤50 ✓ 用户裁定只有上限）', () => {
     const r = classifyPointType({ ...GOLDEN, mcapFromPeakPct: 20 });
-    assert.strictEqual(r.type, 'retail_golden_pit');
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
   });
   check('A4 null 因子表 → normal（fail-safe 不误配）', () => {
     const r = classifyPointType({});
@@ -163,7 +163,7 @@ console.log('C. 引擎未启用路径（_classifyPointType null 语义）');
     const fake = Object.create(AbstractTradingEngine.prototype);
     fake._strategyResolved = { modules: { pointType: POINT_TYPE_VERSION } };
     const r = fake._classifyPointType(GOLDEN);
-    assert.strictEqual(r.type, 'retail_golden_pit');
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
   });
 }
 console.log(`\n全部通过 ${passed}/${passed}`);
