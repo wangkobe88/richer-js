@@ -23,7 +23,7 @@
 
 const { ConditionEvaluator } = require('../strategies/ConditionEvaluator');
 
-const POINT_TYPE_VERSION = 'PT2'; // PT2=T217 观测级门控（cheatCheck 规则集化 g23/g23NoSlowGrind/skip + factorCheckArmExempt 臂差集）
+const POINT_TYPE_VERSION = 'PT3'; // PT3=v8/v9 终形（龄 160-900/arb_bot_holdings 臂豁免/famous 帽撤除）；PT2=T217 观测级门控。⚠教训：v8/v9 改条件未 bump 版本号——182 跑旧 PT2 代码三天（bt-v199~201 全部中招），版本号是「启动取最新」唯一保护
 
 /** 类型注册表（有序=优先级阶梯，首匹配胜出；normal 兜底恒在末位） */
 const POINT_TYPES = [
