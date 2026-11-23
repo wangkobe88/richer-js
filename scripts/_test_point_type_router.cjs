@@ -22,6 +22,8 @@ function check(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); }
 const GOLDEN = {
   tokenAgeSec: 600, buyVolumeBnb: 8, currentVsLaunchPct: 25.7, athVsLaunchPct: 76.9,
   mcapFromPeakPct: 28.8, bigBuyersCount: 9, bigBuyersHeldDust: 7, famousCopyWalletCircPct: 0.5,
+  // T218 三窗冷门（MOYNOK bt-v204 引擎锚真值 0.072/0.174/0.180——v11 线 0.12/0.25/0.5 过）
+  actTotalBnb15s: 0.072, actTotalBnb30s: 0.174, actTotalBnb60s: 0.180,
 };
 const PARTIAL = { ...GOLDEN, athVsLaunchPct: 120 }; // ATH 出带（>100）
 
