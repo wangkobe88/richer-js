@@ -93,21 +93,22 @@ function effectiveStallExtension(ext, { currentVsLaunchPct, currentVsFloorPct })
 }
 
 /**
- * T219 大户在场豁免（2026-11-23 用户裁定「断流卖出策略，加个限制，有大户在场，
- * 不断流卖出（否则与我们的理念违背）」+「≥3 个普通大户，但是一个特大户也行」
- * +「全局生效」）：stallClose 判定时刻 factors 在场证据——
+ * T219 大户在场豁免（2026-11-23 用户裁定立、同日 bt-v206 对拍否证后**缺省关
+ * 留档**）：stallClose 判定时刻 factors 在场证据——
  *   bigBuyersHeldDust ≥ minDustHolders（缺省 3，与黄金坑入场线同值）
- *   ∨ top1HolderCircPct ≥ top1CircPct（缺省 30%——特大户单钱包占流通 30%+，
- *     T198 arb_bot 持筹线同量级）。
- * 语义：断流期 FA state 冻结（无新 tick），因子=最后一笔交易时刻快照——「大户
- * 还没走」as-of 正确（没有新交易=没有新卖出）。证据缺失 fail-closed 不豁免
- * （stall 是保护机制，豁免证据缺席宁卖）。
- * 全局生效=两引擎 stall 判定点无配置开关直接判（显式 bigHolderExempt:false 关）。
+ *   ∨ top1HolderCircPct ≥ top1CircPct（缺省 30%——特大户单钱包占流通 30%+）。
+ * 对拍（bt-v206 vs v205）：流动性止损卖行 16→0、PnL +0.8443→+0.5449——豁免
+ * 全面关掉 stall 逃生门，「大户在场」在坏票上是残局（残仓大户卡死盘），14 票
+ * 变坏（−0.36）远超 4 票变好（+0.065，MOYNOK/大表哥等真拿住票）；用户裁定
+ * 「回退大户持仓断流卖出豁免吧」。缺省 null=关（行为=T219 前）；显式
+ * `bigHolderExempt: true`（默认 3/30）或对象覆盖可恢复。
+ * 语义（开启时）：断流期 FA state 冻结，因子=最后一笔交易时刻快照——「大户
+ * 还没走」as-of 正确；证据缺失 fail-closed 不豁免（stall 是保护机制）。
  * @param {object|null} cfg stallClose 段
  */
 function normalizeStallBigHolderExempt(cfg) {
     const b = cfg && cfg.bigHolderExempt;
-    if (b === false) return null; // 显式关
+    if (b !== true && !(b && typeof b === 'object')) return null; // 缺省关
     const c = b && typeof b === 'object' ? b : {};
     const d = Number(c.minDustHolders);
     const t = Number(c.top1CircPct);

@@ -531,12 +531,13 @@ console.log('E2. 回测引擎延长臂（虚拟时钟 + 检测时点 asOf parity
 // ═══════════════ T219 大户在场豁免 ═══════════════
 {
   const { normalizeStallBigHolderExempt, stallBigHolderExempt } = require('../src/trading-engine/core/stall-close-almost-launch.js');
-  check('T219 缺省启用（缺段=开 3/30）', () => {
-    const n = normalizeStallBigHolderExempt({ stallMs: 50000 });
-    assert.deepStrictEqual(n, { minDustHolders: 3, top1CircPct: 30 });
-  });
-  check('T219 显式 false 关 → null', () => {
+  check('T219 缺省关（bt-v206 对拍否证后回退——缺段=null=T219 前行为）', () => {
+    assert.strictEqual(normalizeStallBigHolderExempt({ stallMs: 50000 }), null);
     assert.strictEqual(normalizeStallBigHolderExempt({ bigHolderExempt: false }), null);
+  });
+  check('T219 显式 true 开（默认 3/30）', () => {
+    const n = normalizeStallBigHolderExempt({ bigHolderExempt: true });
+    assert.deepStrictEqual(n, { minDustHolders: 3, top1CircPct: 30 });
   });
   check('T219 覆盖值', () => {
     const n = normalizeStallBigHolderExempt({ bigHolderExempt: { minDustHolders: 5, top1CircPct: 40 } });
