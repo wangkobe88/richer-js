@@ -1975,3 +1975,11 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 ## T217 补 2（bt-v197）：黄金坑腿 v6 龄门 ≥90s——用户判据兑现（PnL −0.4287→−0.0553 亏损砍 87%）
 
 用户裁定（2026-11-23 原话「因子中增加条件 tokenAgeSec 大于 90（交易了一段时间，大户还是不肯卖）」）：包腿+pointType 路由两处加 `tokenAgeSec >= 90`（c8a471c4，测试 89s 负例 12/12）。bt-v197（2b22253f，89 票）对照 bt-v196：BUY 信号 115→54、成交票 ~40→28、**PnL −0.4287→−0.0553（亏损砍 87%）**——90s 门切掉的正是 60~89s 年轻坑（浅亏集中带）；**全部盈利票无损保留**（MOYNOK +0.140/问·九天 +0.085/KASUMI +0.049/大表哥 +0.043），负票全部 ≤−0.061。减法只切垃圾不切肉——单窗成立，跨窗稳健性随下次整窗对拍顺带验证。黄金坑腿终形 v6：`tokenAgeSec 90-900 ∧ buyVolumeBnb 4-15 ∧ currentVsLaunchPct<=28.5（地板尺）∧ athVsLaunchPct 40-100 ∧ mcapFromPeakPct<=50（无下限）∧ bigBuyersCount>=3 ∧ bigBuyersHeldDust>=3 ∧ famousCopyWalletCircPct>0`。余留不变：卖腿早送（MOYNOK +0.14 vs 2.45x）为最大 EV 损耗源。
+
+## T217 补 3（bt-v199 v8 双裁定）：famous 持仓上限 + arb 豁免——**首次正收益**（+0.0228）
+
+用户双裁定（2026-11-23）：①「这一类型也豁免 arb_bot_holdings」（0xd64e 案 41% 机器单笔坐筹 6x 右尾——被动库存≠主动坐庄）②「famous 不能持仓太多，否则人也不敢买」上线 `famousCopyWalletCircPct <= 10`（用户裁线 10%，0xe14d 收割残仓 16.6% 死票锚定）。两处同步（2a368fd1，负例 16.6→normal 13/13）。
+
+**bt-v199（608b8f75）对照 bt-v198**：BUY 54→**9**、成交 28→8 票、**PnL −0.0553→+0.0228（首次转正）**、亏损面全压分币级（最差 −0.006）；盈利 4 票=币安会飞 +0.012/羊百亿 +0.009/大表哥 +0.008/Laura +0.004。定向验证：0xe14d（famous 16.6%）**零信号 ✓**；0xd64e 零信号——**绑定约束=famous 41.28% >10**（41% 坐筹的 wash_trader `0x7a23…` 同时在 famous 名单=标签交叉分析的四只三挂钱包之一，famous 上限与 arb 豁免撞车、前者先生效，顺带兜住 famous 名单卫生问题；墙龄 123<160 双保险）。v9 存活信号 famous 全落 5~10% 带。
+
+**黄金坑腿 v8 终形**：`tokenAgeSec 160-900 ∧ buyVolumeBnb 4-15 ∧ currentVsLaunchPct≤28.5（地板尺）∧ athVsLaunchPct 40-100 ∧ mcapFromPeakPct≤50 ∧ bigBuyersCount≥3 ∧ bigBuyersHeldDust≥3 ∧ famousCopyWalletCircPct (0,10]`；policy=`FP cheatOnly+臂豁免〔slow_pump_unload/arb_bot_holdings〕/AF1 pass/CD g23NoSlowGrind/BP stuffingOnly`。版本谱系 v1→v8：v5 地板尺回迁/v6 龄 90/v7 龄 160/v8 famous 帽+arb 豁免。
