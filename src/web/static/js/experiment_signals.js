@@ -3582,6 +3582,9 @@ class ExperimentSignals {
       const factorCheckInfo = metadata.factorCheck || null;
       // T175/AF1 前置活跃度门（第 2 层·Jev 3 题分流——2026-11-18；灰度关=段缺席不渲染）
       const actFrontGateInfo = metadata.actFrontGate || null;
+      // T216/T217 点位类型辨别（⓪层——信号 fire 后纯因子分类，类型路由后续门；
+      // 段缺席=包未启用 pointType 模块=全门现行）
+      const pointTypeInfo = metadata.pointType || null;
 
       // 门链触发行（2026-11-18 五层化）：触发行 + 五层门链 pipeline 总览
       // （①信号触发→②因子检查→③活跃度→④作弊→⑤BP 买点——T175/AF1 后门链为
@@ -3596,6 +3599,10 @@ class ExperimentSignals {
         off: 'bg-gray-100 text-gray-500 border-gray-300',
       };
       const gateLayerState = (kind, info) => {
+        if (kind === 'ptype') {
+          if (!info) return { cls: 'off', icon: '—', text: '未启用·全门现行', title: '包未启用 pointType 模块：不分类，四门按现行全链跑' };
+          return { cls: 'skip', icon: '🧭', text: info.label || info.type || '?', title: `点位类型 ${info.type}（${info.version || ''}）——按类型策略路由后续门` };
+        }
         if (kind === 'signal') return { cls: 'ok', icon: '✅', text: '已触发', title: '触发条件 fire 且信号落库' };
         if (!info) {
           return (kind === 'factor' || kind === 'actfront')
@@ -3649,6 +3656,40 @@ class ExperimentSignals {
         }
         return { cls: 'off', icon: '—', text: '—', title: '' };
       };
+      // T216/T217 ⓪类型通路明细卡：类型徽章 + policy 门控 chips + 分类因子快照
+      let pointTypeHtml = '';
+      if (pointTypeInfo) {
+        const pt = pointTypeInfo;
+        const pol = pt.policy || {};
+        const POLICY_CHIPS = {
+          factorCheckArms: { cheatOnly: ['FP：只留作弊臂', 'FP 只评严重作弊类臂（效果提升类全撤）'], skip: ['FP：直通', 'FP 整门跳过'] },
+          actFront: { pass: ['AF1：直通', '前置活跃度门直通（坑位天然低活跃）'] },
+          cheatCheck: { g23: ['CD：g23 规则集', '作弊门现行 G 语义'], g23NoSlowGrind: ['CD：g23NoSlowGrind', '差集规则集：slowGrindPump strong 不拦+去 E 通道（famous 自然带量≠虚假拉盘）'], skip: ['CD：跳过', '跳 16 题 Jev（拉黑短路保留）'] },
+          buyPoint: { stuffingOnly: ['BP：只评塞单门', 'BP 只评塞单门（≥8 等额同块 stuffing）'], skip: ['BP：直通', 'BP 整门跳过'] },
+        };
+        const chips = [];
+        for (const [dim, variants] of Object.entries(POLICY_CHIPS)) {
+          const v = pol[dim] ? variants[pol[dim]] : null;
+          if (v) chips.push(`<span class="px-1.5 py-0.5 rounded border border-indigo-400 bg-indigo-900 text-indigo-100 text-xs" title="${this._escapeHtml(v[1])}">${this._escapeHtml(v[0])}</span>`);
+        }
+        if (Array.isArray(pol.factorCheckArmExempt) && pol.factorCheckArmExempt.length) {
+          chips.push(`<span class="px-1.5 py-0.5 rounded border border-amber-400 bg-amber-100 text-amber-900 text-xs" title="FP 臂差集（T217）：这些臂本类型不拦">FP 臂豁免 ${pol.factorCheckArmExempt.map((c) => this._escapeHtml(c)).join(',')}</span>`);
+        }
+        const snapKeys = Object.keys(pt.snapshot || {});
+        const snapHtml = snapKeys.length
+          ? `<details class="mt-1"><summary class="text-xs text-gray-400 cursor-pointer">分类因子快照（${snapKeys.length} 键）</summary><div class="flex flex-wrap gap-1 mt-1">${snapKeys.map((k) => `<span class="px-1.5 py-0.5 rounded border border-gray-600 bg-gray-900 text-gray-200 text-xs font-mono">${this._escapeHtml(k)}=<b class="text-emerald-300">${this._escapeHtml(String(pt.snapshot[k]))}</b></span>`).join('')}</div></details>`
+          : '';
+        pointTypeHtml = `
+        <div class="mb-2 border-l-4 border-indigo-500 pl-2">
+          <div class="flex items-center flex-wrap gap-2 text-xs">
+            <span class="text-indigo-200 font-semibold">🧭 点位类型通路</span>
+            <span class="px-2 py-0.5 rounded-full border border-indigo-400 bg-indigo-900 text-indigo-100 font-bold">${this._escapeHtml(pt.label || pt.type || '?')} <code class="text-indigo-300">${this._escapeHtml(pt.type || '')}</code></span>
+            <span class="text-gray-500">${this._escapeHtml(pt.version || '')}</span>
+            ${chips.join(' ')}
+          </div>
+          ${snapHtml}
+        </div>`;
+      }
       let signalGateHtml = '';
       if (signalGateInfo) {
         const sg = signalGateInfo;
@@ -3664,6 +3705,8 @@ class ExperimentSignals {
             ${sg.cheatRecheck != null ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">cheatRecheck=${sg.cheatRecheck ? 'true（unhealthy 每信号重判）' : 'false（unhealthy 粘滞秒回省配额）'}</span>` : ''}
           </div>
           <div class="flex items-center flex-wrap gap-1.5 mt-1">
+            ${pipeSeg('⓪', '类型通路', gateLayerState('ptype', pointTypeInfo))}
+            <span class="text-gray-600 text-xs">→</span>
             ${pipeSeg('①', '信号触发', gateLayerState('signal', null))}
             <span class="text-gray-600 text-xs">→</span>
             ${pipeSeg('②', '因子检查', gateLayerState('factor', factorCheckInfo))}
@@ -3674,7 +3717,7 @@ class ExperimentSignals {
             <span class="text-gray-600 text-xs">→</span>
             ${pipeSeg('⑤', 'BP 买点', gateLayerState('bp', buyPointInfo))}
           </div>
-          <div class="text-xs text-gray-700 mt-0.5">五层都过才买；③活跃度 high/burst 豁免时⏭跳过④作弊门直进⑤；②③灰度关=直通、④⑤段缺席=前层已拒未到达</div>
+          <div class="text-xs text-gray-700 mt-0.5">类型+五层：⓪分类定路由（未启用=全门现行）；五层都过才买；③活跃度 high/burst 豁免时⏭跳过④作弊门直进⑤；②③灰度关=直通、④⑤段缺席=前层已拒未到达</div>
         </div>
         `;
       }
@@ -4143,6 +4186,11 @@ class ExperimentSignals {
           const showG = exempt && exempt.originalGrade ? exempt.originalGrade : g;
           // 活跃度桶徽章（2026-11-09 用户要求放判定结果旁边——原来只在 16 题明细
           // 折叠里可见，cheat/unhealthy 豁免判读须一眼对照 activity 档位）
+          // T217 观测级门控：门决策 grade 由类型规则集重评（观测行落原始 grade）——
+          // 分叉时展示「规则集 g23NoSlowGrind：原判 X → 门决策 Y」
+          const rsBadge = cheatCheckInfo.ruleset && cheatCheckInfo.rawGrade && cheatCheckInfo.rawGrade !== g
+            ? `<span class="text-xs px-2 py-1 rounded-full border border-indigo-400 bg-indigo-200 text-indigo-900 font-bold" title="T217 观测级门控：本类型携带差集规则集，原始观测 grade 与门决策 grade 分叉">🧭 规则集 ${this._escapeHtml(String(cheatCheckInfo.ruleset))}：原判 ${this._escapeHtml(String(cheatCheckInfo.rawGrade))} → 门决策 ${this._escapeHtml(String(g))}</span>`
+            : '';
           const actBucket = (cheatCheckInfo.buckets && cheatCheckInfo.buckets.activityLevel) || null;
           const actBadge = actBucket
             ? `<span class="text-xs px-2 py-1 rounded-full border ${gateBucketClass(actBucket)}">活跃度 ${this._escapeHtml(String(actBucket))}</span>`
@@ -4165,7 +4213,7 @@ class ExperimentSignals {
           const deniedBadge = denied
             ? `<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">豁免失效（${this._escapeHtml(denied)}·原判保持）</span>`
             : '';
-          const gBadge = showG === 'cheat'
+          const gBadge = rsBadge + (showG === 'cheat'
             ? `<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 cheat（检测判定${exempt ? '' : '：拉黑不再交易+持仓清仓'}）</span>${exemptBadge}${deniedBadge}`
             : (showG === 'unhealthy'
               ? `<span class="text-xs px-2 py-1 bg-amber-200 text-amber-900 rounded-full font-bold">⚠️ unhealthy（检测判定）</span>${exemptBadge}${deniedBadge}`
@@ -4173,7 +4221,7 @@ class ExperimentSignals {
                 ? (executionReason === 'cheat_gate_unhealthy'
                   ? '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">⚠️ unhealthy（本信号拒·cheatRecheck 腿下个买信号自动重判）</span>'
                   : '<span class="text-xs px-2 py-1 bg-amber-200 text-amber-900 rounded-full">⚠️ unhealthy（本信号已重判·条件放行）</span>')
-                : `<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full">✅ healthy（粘滞保持·条件放行）</span>`));
+                : `<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full">✅ healthy（粘滞保持·条件放行）</span>`)));
           const codes = (cheatCheckInfo.reasons || []).map((r) => r.code).filter(Boolean).join(', ');
           // CD158 来源位：cached=同题集版本粘滞秒回（零 Jev）；graded=本信号真析；
           // reused=旧形状（增量门重用，历史行）
@@ -4277,6 +4325,7 @@ class ExperimentSignals {
             </div>
           </div>
           ${strategyConfigHtml}
+          ${pointTypeHtml}
           ${signalGateHtml}
           ${factorGateHtml}
           ${actFrontGateHtml}
