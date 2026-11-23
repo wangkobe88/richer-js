@@ -32,6 +32,19 @@ class TokenTicksPage {
     this._smartProfiles = null; // addr → { twitterUsername, tags, hits, usd }（可缺席）
     this._smartRosterPromise = null;
 
+    // ⚙️ 机器钱包名单（/api/rosters/arb-bot-wallets，gmgn_wallet_profiles tags
+    // arbitrager/sandwich_bot/wash_trader——T198/FP30 arbBot 集同口径）：
+    // 价格图机器钱包操作标记（与 signals 页同款）；null=未加载/失败（零标记 fail-open）。
+    // 优先级链尾：famous > 聪明钱 > 机器（交集钱包行归上层标记防双计）
+    this._arbBotWallets = null;
+    this._arbBotProfiles = null; // addr → { tags, buyCount, sellCount, tokenNum, winrate, realizedProfitUsd }
+    this._arbBotRosterPromise = null;
+
+    // 🎯 钱包聚焦（与 signals 页同款）：点击气泡=聚焦该钱包全部交易（其它灰淡、
+    // 命中放大 1.4x + 聚焦信息条），再点/点空白/✕ 取消；null=未聚焦。
+    // 时间窗/筛选切换重渲染后聚焦跟随（新数据集对象重建，缩放重放+统计按新窗重算）
+    this._walletFocus = null;
+
     // BP 测试集点位（?bp=<setName> 直达；2026-11-05 BP3）
     this.bpSetName = new URLSearchParams(window.location.search).get('bp') || '';
     this.bpPoints = null;      // 当前 token 的点位（[{pointId, source, signalInfo, anchorTickCount, forwardReturns, ladder, ...}]）
@@ -71,9 +84,9 @@ class TokenTicksPage {
     await this._waitForChartJS();
 
     this._loadTokenInfo();
-    // ⭐famous/🧠聪明钱 名单先就位（图表标记依赖；memoized，失败=空集零标记 fail-open；
-    // 必须在 _loadBpSets 之前——?bp= 直达路径内部会直接画图，晚到名单会漏标记）
-    await Promise.all([this.ensureFamousRoster(), this.ensureSmartRoster()]);
+    // ⭐famous/🧠聪明钱/⚙️机器 名单先就位（图表标记依赖；memoized，失败=空集零标记
+    // fail-open；必须在 _loadBpSets 之前——?bp= 直达路径内部会直接画图，晚到名单会漏标记）
+    await Promise.all([this.ensureFamousRoster(), this.ensureSmartRoster(), this.ensureArbBotRoster()]);
     await this._loadBpSets();   // BP 点位先到（图叠画依赖 bpPoints 已就位）
     await this._loadChartData();
     await this._loadTableData();
@@ -169,6 +182,28 @@ class TokenTicksPage {
     return this._smartRosterPromise;
   }
 
+  /** ⚙️ 拉取机器钱包名单（memoized；失败也 memoize 成空 Set——缺席不阻塞主图，仅零标记） */
+  ensureArbBotRoster() {
+    if (this._arbBotWallets) return Promise.resolve(this._arbBotWallets);
+    if (!this._arbBotRosterPromise) {
+      this._arbBotRosterPromise = fetch('/api/rosters/arb-bot-wallets')
+        .then(r => (r.ok ? r.json() : null))
+        .then(json => {
+          const wallets = (json?.success && Array.isArray(json.data?.wallets)) ? json.data.wallets : [];
+          this._arbBotWallets = new Set(wallets.map(w => String(w).toLowerCase()));
+          this._arbBotProfiles = json?.data?.profiles || null;
+          console.log(`⚙️ 机器钱包名单加载: ${this._arbBotWallets.size} 址 (GMGN 画像 arbBot 集)`);
+          return this._arbBotWallets;
+        })
+        .catch(err => {
+          console.warn('⚠️ 机器钱包名单加载失败，价格图将无机器标记:', err);
+          this._arbBotWallets = new Set();
+          return this._arbBotWallets;
+        });
+    }
+    return this._arbBotRosterPromise;
+  }
+
   /** ⭐ famous 钱包显示名：@twitter_username 优先 → twitter_name → GMGN name → null */
   _famousLabel(wallet) {
     const p = this._famousProfiles && this._famousProfiles[wallet];
@@ -237,6 +272,25 @@ class TokenTicksPage {
         };
       },
       this._famousWallets);
+  }
+
+  /** ⚙️ 机器钱包操作点位（橙=买/棕=卖）：优先级链尾——exclude = famous ∪ 聪明钱
+   * （交集钱包行归上层人肉标记，机器标记只覆盖增量钱包）。stats=30d 画像 */
+  _buildArbBotPoints(tickData) {
+    const exclude = new Set([
+      ...(this._famousWallets || []),
+      ...(this._smartWallets || []),
+    ]);
+    return this._buildRosterMarkPoints(
+      tickData, this._arbBotWallets, '_arbbot',
+      (w) => {
+        const p = this._arbBotProfiles && this._arbBotProfiles[w];
+        return {
+          tags: (p && Array.isArray(p.tags)) ? p.tags : [],
+          stats: p || null, // 30d 画像：buyCount/sellCount/tokenNum/winrate/realizedProfitUsd
+        };
+      },
+      exclude);
   }
 
   // ── BP 测试集点位（set JSON 本地文件；182 构建后 scp 回本地）──
@@ -559,14 +613,17 @@ class TokenTicksPage {
     const ctx = canvas.getContext('2d');
     const buys = [], sells = [];
     const MIN_BNB = 0.005; // 小额 tick 价格精度不足（与信号页散点图同口径）
-    // ⭐famous/🧠聪明钱 操作点位（与 signals 页同款：独立气泡叠最顶层，
-    // 主 buys/sells 剔除已标记行防双计——图例计数/悬停双气泡）
+    // ⭐famous/🧠聪明钱/⚙️机器 操作点位（与 signals 页同款：独立气泡叠最顶层，
+    // 主 buys/sells 剔除已标记行防双计——图例计数/悬停双气泡；优先级链
+    // famous > 聪明钱 > 机器，交集钱包行归上层防双计）
     const famousMarks = this._buildFamousPoints(tickData);
     const smartMarks = this._buildSmartPoints(tickData);
+    const arbbotMarks = this._buildArbBotPoints(tickData);
     const markedKeys = new Set([
       ...famousMarks.buyPoints, ...famousMarks.sellPoints,
       ...smartMarks.buyPoints, ...smartMarks.sellPoints,
-    ].map(p => `${p.x}|${(p._famous || p._smart).wallet}`));
+      ...arbbotMarks.buyPoints, ...arbbotMarks.sellPoints,
+    ].map(p => `${p.x}|${(p._famous || p._smart || p._arbbot).wallet}`));
     for (const tick of tickData) {
       const bnbAmount = parseFloat(tick.bnb_amount) || 0;
       if (bnbAmount < MIN_BNB) continue;
@@ -579,48 +636,85 @@ class TokenTicksPage {
       const point = { x: timestamp, y: priceUsd, r: this._mapRadius(bnbAmount), _raw: tick };
       if (tick.trade_type === 'buy') buys.push(point); else sells.push(point);
     }
+    // 🎯 钱包聚焦（与 signals 页同款）：气泡颜色走 scriptable——聚焦激活时非该钱包
+    // 气泡统一灰淡、命中气泡原色加浓（alpha→1）；BP 点位（无钱包语义）保持原色不受影响。
+    // 窗口切换重渲染后 scriptable 读 this._walletFocus 实时值，颜色自动跟随无需重建。
+    const FOCUS_DIM_BG = 'rgba(148,163,184,0.10)';
+    const FOCUS_DIM_BORDER = 'rgba(148,163,184,0.22)';
+    const focusBg = (base, hi) => ctx => {
+      if (!this._walletFocus) return base;
+      const w = this._pointWallet(ctx.raw);
+      return w == null ? base : (w === this._walletFocus ? hi : FOCUS_DIM_BG);
+    };
+    const focusBd = (base, hi) => ctx => {
+      if (!this._walletFocus) return base;
+      const w = this._pointWallet(ctx.raw);
+      return w == null ? base : (w === this._walletFocus ? hi : FOCUS_DIM_BORDER);
+    };
+
     this.chart = new Chart(ctx, {
       type: 'bubble',
       data: { datasets: [
-        // ⭐famous 独立气泡（金=买/紫=卖）+ 🧠聪明钱独立气泡（青=买/粉=卖）：
-        // 与 signals 页同款配色；Chart.js 倒序绘制——排最前=叠在普通气泡顶层
-        // （famous 优先，交集钱包行已归 famous 跳过聪明钱标记防双计）
+        // ⭐famous 独立气泡（金=买/紫=卖）+ 🧠聪明钱独立气泡（青=买/粉=卖）+
+        // ⚙️机器独立气泡（橙=买/棕=卖）：与 signals 页同款配色；Chart.js 倒序绘制
+        // ——排最前=叠在普通气泡顶层（famous > 聪明钱 > 机器，交集钱包行归上层防双计）
         {
           label: `⭐Famous买 (${famousMarks.buyPoints.length})`,
           data: famousMarks.buyPoints,
-          backgroundColor: 'rgba(250,204,21,0.9)',
-          borderColor: '#b45309',
+          backgroundColor: focusBg('rgba(250,204,21,0.9)', 'rgba(250,204,21,1)'),
+          borderColor: focusBd('#b45309', '#fbbf24'),
           borderWidth: 1.5,
         },
         {
           label: `⭐Famous卖 (${famousMarks.sellPoints.length})`,
           data: famousMarks.sellPoints,
-          backgroundColor: 'rgba(192,132,252,0.9)',
-          borderColor: '#6b21a8',
+          backgroundColor: focusBg('rgba(192,132,252,0.9)', 'rgba(192,132,252,1)'),
+          borderColor: focusBd('#6b21a8', '#c084fc'),
           borderWidth: 1.5,
         },
         {
           label: `🧠聪明钱买 (${smartMarks.buyPoints.length})`,
           data: smartMarks.buyPoints,
-          backgroundColor: 'rgba(14,165,233,0.9)',
-          borderColor: '#0c4a6e',
+          backgroundColor: focusBg('rgba(14,165,233,0.9)', 'rgba(14,165,233,1)'),
+          borderColor: focusBd('#0c4a6e', '#38bdf8'),
           borderWidth: 1.5,
         },
         {
           label: `🧠聪明钱卖 (${smartMarks.sellPoints.length})`,
           data: smartMarks.sellPoints,
-          backgroundColor: 'rgba(244,114,182,0.9)',
-          borderColor: '#831843',
+          backgroundColor: focusBg('rgba(244,114,182,0.9)', 'rgba(244,114,182,1)'),
+          borderColor: focusBd('#831843', '#f472b6'),
+          borderWidth: 1.5,
+        },
+        {
+          label: `⚙️机器买 (${arbbotMarks.buyPoints.length})`,
+          data: arbbotMarks.buyPoints,
+          backgroundColor: focusBg('rgba(249,115,22,0.9)', 'rgba(249,115,22,1)'),
+          borderColor: focusBd('#7c2d12', '#fb923c'),
+          borderWidth: 1.5,
+        },
+        {
+          label: `⚙️机器卖 (${arbbotMarks.sellPoints.length})`,
+          data: arbbotMarks.sellPoints,
+          backgroundColor: focusBg('rgba(180,83,9,0.9)', 'rgba(180,83,9,1)'),
+          borderColor: focusBd('#fdba74', '#fdba74'),
           borderWidth: 1.5,
         },
         // BP 点位紧随名单标记之后、主气泡之前：倒序绘制下仍压在普通气泡上层
         // （排尾部会被几百个半透明气泡堆叠近似不透明地埋掉，实测橙三角零像素）
         ...this._bpScatterDatasets(tickData),
-        { label: `Buy (${buys.length})`, data: buys, backgroundColor: 'rgba(34,197,94,0.65)', borderColor: 'rgba(22,163,74,0.9)', borderWidth: 1 },
-        { label: `Sell (${sells.length})`, data: sells, backgroundColor: 'rgba(239,68,68,0.65)', borderColor: 'rgba(220,38,38,0.9)', borderWidth: 1 },
+        { label: `Buy (${buys.length})`, data: buys, backgroundColor: focusBg('rgba(34,197,94,0.65)', 'rgba(34,197,94,0.95)'), borderColor: focusBd('rgba(22,163,74,0.9)', 'rgba(34,197,94,1)'), borderWidth: 1 },
+        { label: `Sell (${sells.length})`, data: sells, backgroundColor: focusBg('rgba(239,68,68,0.65)', 'rgba(239,68,68,0.95)'), borderColor: focusBd('rgba(220,38,38,0.9)', 'rgba(248,113,113,1)'), borderWidth: 1 },
       ] },
       options: {
         responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+        // 🎯 钱包聚焦：点击气泡=聚焦/取消该钱包（其它气泡灰淡）；点空白=取消；
+        // 悬停气泡 cursor=pointer 提示可点。图例区点击走图例自身显隐逻辑，不触发。
+        onClick: (evt, elements, chart) => this._handleBubbleClick(evt, elements, chart),
+        onHover: (evt, elements) => {
+          const target = evt.native && evt.native.target;
+          if (target) target.style.cursor = (elements && elements.length) ? 'pointer' : 'default';
+        },
         plugins: {
           legend: { display: true, position: 'top', labels: { boxWidth: 12, padding: 12 } },
           tooltip: { callbacks: {
@@ -650,6 +744,24 @@ class TokenTicksPage {
                 lines.push(`钱包: ${f.wallet.slice(0, 8)}…${f.wallet.slice(-6)}`);
                 return lines;
               }
+              // ⚙️ 机器钱包气泡：画像标签+30d 统计+钱包地址+金额（T198 arbBot 集）
+              if (item.raw._arbbot) {
+                const f = item.raw._arbbot;
+                const lines = [
+                  `⚙️机器钱包 ${f.tradeType || ''} | ${f.bnb.toFixed(4)} BNB`,
+                  `Price: $${item.raw.y.toExponential(3)}`,
+                ];
+                if (f.tags && f.tags.length) lines.push(`标签: ${f.tags.join(',')}`);
+                const s = f.stats;
+                if (s && (s.buyCount || s.sellCount)) {
+                  const win = s.winrate != null ? `胜率${Math.round(s.winrate * 100)}%` : '';
+                  const pnl = s.realizedProfitUsd != null
+                    ? `已实现${s.realizedProfitUsd >= 0 ? '+' : '−'}$${Math.abs(s.realizedProfitUsd) >= 1000 ? (Math.abs(s.realizedProfitUsd) / 1000).toFixed(1) + 'k' : Math.abs(s.realizedProfitUsd).toFixed(0)}` : '';
+                  lines.push(`30d: 买${s.buyCount}/卖${s.sellCount} · ${s.tokenNum}票 ${win ? '· ' + win : ''} ${pnl}`.trimEnd());
+                }
+                lines.push(`钱包: ${f.wallet.slice(0, 8)}…${f.wallet.slice(-6)}`);
+                return lines;
+              }
               const bp = this._bpTooltip(item);
               if (bp) return bp;
               const raw = item.raw._raw;
@@ -666,6 +778,136 @@ class TokenTicksPage {
         },
       },
     });
+
+    // 🎯 钱包聚焦：重渲染（时间窗/筛选切换）后数据集是新建对象——气泡缩放需重放，
+    // 聚焦条统计也按新窗口重算（本页单 token，无 signals 页切票清除场景）
+    this._applyWalletFocusScale(this.chart);
+    this._refreshWalletFocusChip();
+  }
+
+  // ── 🎯 钱包聚焦（与 signals 页同款，仅气泡图；K 线 scatter 点无 r 不参与）──
+
+  /** 点位 → 钱包地址（小写；无钱包语义返回 null）。口径 = sender||trader
+   * （与 FA/名单标记构建器一致——解析失败回退 trader=聚合路由，点它=聚焦
+   * 全部路由行，与绘制口径诚实一致）。BP 点位无钱包语义返回 null——点击
+   * 不聚焦、聚焦不变灰。 */
+  _pointWallet(pt) {
+    if (!pt || typeof pt !== 'object') return null;
+    if (pt._famous) return pt._famous.wallet || null;
+    if (pt._smart) return pt._smart.wallet || null;
+    if (pt._arbbot) return pt._arbbot.wallet || null;
+    if (pt._raw) return (pt._raw.sender_address || pt._raw.trader_address || '').toLowerCase() || null;
+    return null;
+  }
+
+  /** 点位 → {side:'buy'|'sell', bnb:number}（聚焦条统计用；非 tick 点返回 null） */
+  _pointSideBnb(pt) {
+    if (pt._famous || pt._smart || pt._arbbot) {
+      const m = pt._famous || pt._smart || pt._arbbot;
+      return { side: m.tradeType === '买' ? 'buy' : 'sell', bnb: Number(m.bnb) || 0 };
+    }
+    if (pt._raw) {
+      return { side: pt._raw.trade_type === 'buy' ? 'buy' : 'sell', bnb: parseFloat(pt._raw.bnb_amount) || 0 };
+    }
+    return null;
+  }
+
+  /** 点击：气泡 → 聚焦/切换取消该钱包；空白 → 取消聚焦 */
+  _handleBubbleClick(evt, elements, chart) {
+    // 图例区点击走图例自身显隐逻辑，不当空白处理（防点击图例误清聚焦）
+    const lg = chart.legend;
+    if (lg && evt.x >= lg.left && evt.x <= lg.right && evt.y >= lg.top && evt.y <= lg.bottom) return;
+    const el = elements && elements[0];
+    if (!el) {
+      if (this._walletFocus) this._clearWalletFocus();
+      return;
+    }
+    const ds = chart.data.datasets[el.datasetIndex];
+    const pt = ds && Array.isArray(ds.data) ? ds.data[el.index] : null;
+    const w = this._pointWallet(pt);
+    if (!w) return; // BP 点位等无钱包点位：不聚焦也不打断现有聚焦
+    if (this._walletFocus === w) { this._clearWalletFocus(); return; }
+    this._setWalletFocus(w);
+  }
+
+  _setWalletFocus(wallet) {
+    this._walletFocus = wallet;
+    this._applyWalletFocusScale(this.chart);
+    if (this.chart) this.chart.update();
+    this._refreshWalletFocusChip();
+  }
+
+  _clearWalletFocus() {
+    if (!this._walletFocus) { this._refreshWalletFocusChip(); return; }
+    this._walletFocus = null;
+    this._applyWalletFocusScale(this.chart);
+    if (this.chart) this.chart.update();
+    this._refreshWalletFocusChip();
+  }
+
+  /** 聚焦气泡放大 1.4x（在灰淡背景上视觉跳出）；取消时还原。bubble 的 r 在点
+   * 数据上（非 option），首次缩放前把原值记到 _rBase——窗口切换重建数据集后
+   * 新点无 _rBase 自动补记，取消时精确还原。BP scatter 点 typeof r !== 'number'
+   * 天然跳过。 */
+  _applyWalletFocusScale(chart) {
+    if (!chart) return;
+    const on = !!this._walletFocus;
+    for (const ds of (chart.data.datasets || [])) {
+      if (!Array.isArray(ds.data)) continue;
+      for (const pt of ds.data) {
+        if (!pt || typeof pt !== 'object' || typeof pt.r !== 'number') continue;
+        const w = this._pointWallet(pt);
+        if (w == null) continue;
+        if (pt._rBase == null) pt._rBase = pt.r;
+        pt.r = (on && w === this._walletFocus)
+          ? Math.max(pt._rBase * 1.4, pt._rBase + 2)
+          : pt._rBase;
+      }
+    }
+  }
+
+  /** 聚焦信息条：钱包地址 + GMGN 跳转 + 买/卖笔数与 BNB + 净买 + 首末笔时刻——
+   * 直接回答「这个钱包啥时候建仓、啥时候卖」。统计基于当前画出的点位（与用户
+   * 所见同口径：famous/聪明钱/机器标记点已从主数据集剔重，不会双计）。 */
+  _refreshWalletFocusChip() {
+    const chip = document.getElementById('wallet-focus-chip');
+    if (!chip) return;
+    if (!this._walletFocus || !this.chart) {
+      chip.classList.add('hidden');
+      chip.innerHTML = '';
+      return;
+    }
+    const stats = { buyN: 0, sellN: 0, buyBnb: 0, sellBnb: 0, firstMs: null, lastMs: null };
+    for (const ds of (this.chart.data.datasets || [])) {
+      if (!Array.isArray(ds.data)) continue;
+      for (const pt of ds.data) {
+        if (!pt || typeof pt !== 'object') continue;
+        if (this._pointWallet(pt) !== this._walletFocus) continue;
+        const sb = this._pointSideBnb(pt);
+        if (!sb) continue;
+        if (sb.side === 'buy') { stats.buyN++; stats.buyBnb += sb.bnb; }
+        else { stats.sellN++; stats.sellBnb += sb.bnb; }
+        if (stats.firstMs == null || pt.x < stats.firstMs) stats.firstMs = pt.x;
+        if (stats.lastMs == null || pt.x > stats.lastMs) stats.lastMs = pt.x;
+      }
+    }
+    const w = this._walletFocus;
+    const net = stats.buyBnb - stats.sellBnb;
+    const fmtT = ms => ms == null ? '-' : new Date(ms).toLocaleString('zh-CN', { hour12: false });
+    chip.innerHTML = `
+      <span>🎯</span>
+      <span class="font-mono text-gray-100" title="${w}">${w.slice(0, 10)}…${w.slice(-8)}</span>
+      <a href="https://gmgn.ai/bsc/address/${w}" target="_blank"
+         class="text-blue-400 hover:text-blue-300 underline" title="GMGN 查看该钱包">GMGN ↗</a>
+      <span class="text-green-400">买 ${stats.buyN} 笔 / ${stats.buyBnb.toFixed(3)} BNB</span>
+      <span class="text-red-400">卖 ${stats.sellN} 笔 / ${stats.sellBnb.toFixed(3)} BNB</span>
+      <span class="${net >= 0 ? 'text-green-400' : 'text-red-400'}">净买 ${net >= 0 ? '+' : '−'}${Math.abs(net).toFixed(3)} BNB</span>
+      <span class="text-gray-400">首笔 ${fmtT(stats.firstMs)} · 末笔 ${fmtT(stats.lastMs)}</span>
+      <button id="wallet-focus-clear" class="px-2 py-0.5 bg-gray-600 hover:bg-gray-500 rounded text-xs text-white">✕ 取消</button>
+      <span class="text-xs text-gray-500">再点该钱包气泡或点空白处也可取消</span>`;
+    chip.classList.remove('hidden');
+    const clearBtn = document.getElementById('wallet-focus-clear');
+    if (clearBtn) clearBtn.addEventListener('click', () => this._clearWalletFocus());
   }
 
   /** tick 气泡半径映射（BNB 交易额 → 3~15px，对数刻度；与信号页同口径） */
@@ -763,6 +1005,24 @@ class TokenTicksPage {
                 lines.push(`钱包: ${f.wallet.slice(0, 8)}…${f.wallet.slice(-6)}`);
                 return lines;
               }
+              // ⚙️ 机器钱包点位：画像标签+30d 统计+钱包地址+金额（与散点图同款）
+              if (it.raw._arbbot) {
+                const f = it.raw._arbbot;
+                const lines = [
+                  `⚙️机器钱包 ${f.tradeType || ''} | ${f.bnb.toFixed(4)} BNB`,
+                  `Price: $${it.raw.y.toExponential(3)}`,
+                ];
+                if (f.tags && f.tags.length) lines.push(`标签: ${f.tags.join(',')}`);
+                const s = f.stats;
+                if (s && (s.buyCount || s.sellCount)) {
+                  const win = s.winrate != null ? `胜率${Math.round(s.winrate * 100)}%` : '';
+                  const pnl = s.realizedProfitUsd != null
+                    ? `已实现${s.realizedProfitUsd >= 0 ? '+' : '−'}$${Math.abs(s.realizedProfitUsd) >= 1000 ? (Math.abs(s.realizedProfitUsd) / 1000).toFixed(1) + 'k' : Math.abs(s.realizedProfitUsd).toFixed(0)}` : '';
+                  lines.push(`30d: 买${s.buyCount}/卖${s.sellCount} · ${s.tokenNum}票 ${win ? '· ' + win : ''} ${pnl}`.trimEnd());
+                }
+                lines.push(`钱包: ${f.wallet.slice(0, 8)}…${f.wallet.slice(-6)}`);
+                return lines;
+              }
               // BP 点位（此前落 OHLC 分支打 $undefined——路由到专属 tooltip）
               const bp = this._bpTooltip(it);
               if (bp) return bp;
@@ -782,11 +1042,13 @@ class TokenTicksPage {
       },
     });
 
-    // ⭐famous/🧠聪明钱 + BP 点位叠画（candlestick 控制器 mixed scatter 兼容性未知——
-    // 失败只 warn 不伤 K 线本体；三角 scatter 与 signals 页 K 线同款配色，famous 优先防双计）
+    // ⭐famous/🧠聪明钱/⚙️机器 + BP 点位叠画（candlestick 控制器 mixed scatter 兼容性未知——
+    // 失败只 warn 不伤 K 线本体；三角 scatter 与 signals 页 K 线同款配色，famous > 聪明钱 >
+    // 机器优先级链防双计）
     try {
       const famousMarks = this._buildFamousPoints(tickData);
       const smartMarks = this._buildSmartPoints(tickData);
+      const arbbotMarks = this._buildArbBotPoints(tickData);
       const rosterDs = [
         { label: `⭐Famous买 (${famousMarks.buyPoints.length})`, data: famousMarks.buyPoints, type: 'scatter',
           pointStyle: 'triangle', pointRadius: 8, pointHoverRadius: 10,
@@ -800,6 +1062,12 @@ class TokenTicksPage {
         { label: `🧠聪明钱卖 (${smartMarks.sellPoints.length})`, data: smartMarks.sellPoints, type: 'scatter',
           pointStyle: 'triangle', rotation: 180, pointRadius: 8, pointHoverRadius: 10,
           backgroundColor: 'rgba(244,114,182,0.95)', borderColor: '#831843', borderWidth: 1.5 },
+        { label: `⚙️机器买 (${arbbotMarks.buyPoints.length})`, data: arbbotMarks.buyPoints, type: 'scatter',
+          pointStyle: 'triangle', pointRadius: 8, pointHoverRadius: 10,
+          backgroundColor: 'rgba(249,115,22,0.95)', borderColor: '#7c2d12', borderWidth: 1.5 },
+        { label: `⚙️机器卖 (${arbbotMarks.sellPoints.length})`, data: arbbotMarks.sellPoints, type: 'scatter',
+          pointStyle: 'triangle', rotation: 180, pointRadius: 8, pointHoverRadius: 10,
+          backgroundColor: 'rgba(180,83,9,0.95)', borderColor: '#fdba74', borderWidth: 1.5 },
       ];
       const bpDs = this._bpScatterDatasets(tickData);
       const overlay = [...rosterDs, ...bpDs];

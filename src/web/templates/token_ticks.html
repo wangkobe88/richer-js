@@ -144,7 +144,10 @@
             <div id="chart-wrapper" class="bg-gray-800 rounded-lg border border-gray-700 mb-4">
                 <div class="p-4 border-b border-gray-700">
                     <h2 class="text-lg font-semibold text-white">价格走势（Tick Bubble Chart · 前 5000 笔）</h2>
+                    <span class="text-xs text-gray-400">每点=一笔链上交易 · 气泡大小=BNB 交易额 · 绿买红卖 · ⭐金/紫=famous · 🧠青/粉=聪明钱 · ⚙️橙/棕=机器钱包（悬停看 30d 画像）· 🎯点击气泡=聚焦该钱包交易（其它变浅，再点/点空白取消）</span>
                 </div>
+                <!-- 🎯 钱包聚焦条（点击气泡=高亮该钱包全部交易、其它钱包变浅；再点/点空白/✕ 取消） -->
+                <div id="wallet-focus-chip" class="hidden px-4 py-2 border-b border-gray-700 text-sm flex flex-wrap items-center gap-x-3 gap-y-1"></div>
                 <div class="chart-container">
                     <canvas id="tick-chart"></canvas>
                 </div>
@@ -195,6 +198,6 @@
         </main>
     </div>
 
-    <script src="/static/js/token-ticks.js?v=1.8"></script>
+    <script src="/static/js/token-ticks.js?v=1.9"></script>
 </body>
 </html>
