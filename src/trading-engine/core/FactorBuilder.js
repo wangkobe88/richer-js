@@ -127,10 +127,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // fire 时刻值，序列不可重建；旧 FA/历史信号 → null 不掩盖
     sinceLastFamousBigBuySec: factorResults.sinceLastFamousBigBuySec ?? null,
     recentFamousSellBnb: factorResults.recentFamousSellBnb ?? null,
-    // T227 famousHold 状态窗两键（famous 仍持仓 ∨ 卖出挂起秒数）：HOLD 触发/释放
-    // 复盘需 fire 时刻值，序列不可重建；旧 FA/历史信号 → null 不掩盖
+    // T227 famousHold 状态窗键族（famous 仍持仓 / 任意买新入场判据 / 卖出挂起观察）：
+    // HOLD 触发/释放复盘需 fire 时刻值，序列不可重建；旧 FA/历史信号 → null 不掩盖
     famousCopyWalletCircPct: factorResults.famousCopyWalletCircPct ?? null,
     famousSellPendingSec: factorResults.famousSellPendingSec ?? null,
+    sinceLastFamousAnyBuySec: factorResults.sinceLastFamousAnyBuySec ?? null,
     // T183 聪明钱流两键（2026-11-18 smartHold 卖出过滤臂载体，T137 镜像）：
     // 聪明钱大买最后时刻距今秒数+60s 窗聪明钱卖出合计——HOLD 复盘需 fire 时刻值
     //（名单=smartmoney-accum.json 静态快照，历史信号行重放兼容 null 不掩盖）

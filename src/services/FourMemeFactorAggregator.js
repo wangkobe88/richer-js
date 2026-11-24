@@ -2504,6 +2504,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             _maxEqualBundleWallets: 0,
             _pendingBundleBlock: null,
             _famousBigBuyLastAt: null,  // T137 famous 大买（≥famousBigBuyBnb）最后时刻 ms（null=从未 → sinceLastFamousBigBuySec null → HOLD 不触发 fail-open；写点=价格段/wallet 段补跑双段，见 _noteFamousFlow）
+            _famousAnyBuyLastAt: null,  // T227d 任意金额 famous 买最后时刻 ms（sinceLastFamousAnyBuySec 原料——状态窗「新入场」判据不限金额：止盈后小买回归也算入场，개구리씨 03:48:03 买 0.132 案）
             _famousSellEvents: [],      // T137 famous 卖出事件环 [{ts,bnb}]（recentFamousSellBnb 原料；求和交换律=defer 乱序回推无害；摊销裁剪保 5×窗）
             _famousSellPendAt: null,    // T227 状态窗卖出挂起时刻 ms：最后 famous 卖出后未被买入续命（famous 买入清 null）——famousSellPendingSec 原料；单调推进防乱序回拨，晚到买（ts<挂起）不清（见 _noteFamousFlow）
             // T221 famous 跟单拥挤键原料（famousFollowSlotMaxWallets=全生命周期单调
@@ -3088,6 +3089,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 03:45:04 买 0.025 续命，保住后续 +34% 段）。乱序晚到买（ts<挂起）不清。
             if (state._famousSellPendAt !== null && ts >= state._famousSellPendAt) {
                 state._famousSellPendAt = null;
+            }
+            // T227d 任意金额 famous 买最后时刻（新入场判据——在大买线 early-return
+            // 之前推进，止盈后小买回归也算入场；乱序同构 Math.max 单调）
+            if (state._famousAnyBuyLastAt === null || ts > state._famousAnyBuyLastAt) {
+                state._famousAnyBuyLastAt = ts;
             }
             if (!(bnbAmount >= this._fp.famousBigBuyBnb)) return;
             if (state._famousBigBuyLastAt === null || ts > state._famousBigBuyLastAt) {
@@ -4878,6 +4884,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceLastFamousBigBuySec: state._famousBigBuyLastAt === null ? null
                 : Number(((now - state._famousBigBuyLastAt) / 1000).toFixed(1)),
             recentFamousSellBnb: Number(this._famousSellWindowBnb(state, now).toFixed(4)),
+            // T227d 状态窗新入场判据：距最近任意金额 famous 买的秒数（null=从未有
+            // famous 买 → 配合 circPct=0 状态臂不命中 fail-open）。用户裁定「止盈也
+            // 很常见……只要有新入场的即可」——释放只看本键出窗，不看卖出金额。
+            sinceLastFamousAnyBuySec: state._famousAnyBuyLastAt === null ? null
+                : Number(((now - state._famousAnyBuyLastAt) / 1000).toFixed(1)),
             // T227 状态窗卖出挂起秒数（famousHold 状态臂释放载体）：null=无挂起
             //（famous 未卖过/买入已续命）→ 状态臂继续 HOLD；数值 ≥ stateNoRebuySec
             //（缺省 60）=卖出后无 famous 新买满窗 → 释放放行卖出。now 由入参传入。

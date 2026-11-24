@@ -118,10 +118,12 @@ const FACTOR_SELL_FILTER_DEFAULTS = Object.freeze({
     // famous 卖出释放线（BNB）：60s 窗内 famous 卖出合计 ≥ 此值=撤退信号压倒
     // 买入证据（T157 D 修：0.2→0.4，famous 买卖并存时买优先于卖）
     sellReleaseBnb: 0.4,
-    // T227 状态窗释放窗（秒）：famous 卖出挂起（卖出后无 famous 新买入）满此窗
-    // → 状态臂释放放行卖出；0=显式关状态臂（「有持续入场的话，famous 卖就没
-    // 关系」——买入即时续命撤销挂起；缺省 60=侦察三轮对拍形状，개구리씨 案源）
-    stateNoRebuySec: 60,
+    // T227d 状态窗释放窗（秒）：距最近**任意金额** famous 买入超过此值=近期无新
+    // 入场 → 状态臂释放放行卖出；0=显式关状态臂。用户裁定「止盈也很常见……只要
+    // 有新入场的即可」——卖出金额（0.4 线）在状态臂中退役，释放唯一判据=本窗出
+    //（缺省 180 与时间窗臂同窗；개구리씨 案 03:45:18 卖 0.48 后 03:48:03 买 0.132
+    // 回归续命，吃到 03:49 主升 +116.5% vs 挂起形状 +34.7）
+    releaseNoBuySec: 180,
 });
 
 /** smartHold 默认阈值（T183：famousHold 同窗同释放线；大买线在 FA smartBigBuyBnb） */
@@ -438,22 +440,21 @@ function judgeFactorSellFilter(config, factors, leg) {
     const famousCheapExit = fh.cheapExitBuyBnb > 0
         && typeof nearBuy === 'number' && Number.isFinite(nearBuy) && nearBuy >= fh.cheapExitBuyBnb
         && typeof recentSell === 'number' && Number.isFinite(recentSell) && recentSell > 0;
-    // T227 状态窗臂（用户裁定「famous 有持续入场的话，famous 卖就没关系」）：famous
-    // 仍持仓（famousCopyWalletCircPct > 0）∧ 卖出未达撤退线 ∧ 卖出挂起未满
-    // stateNoRebuySec（null=无挂起/买入已续命 → 继续 HOLD；≥60=卖出后无新买 → 释放）
-    // → 同拦不限 180s 时间窗。null/0 语义全部 fail-open：circPct 缺席（旧 FA）不拦；
-    // stateNoRebuySec=0 显式关。cheapExit 豁免同判（低价建仓止盈照走）。
+    // T227d 状态窗臂（用户裁定「止盈也很常见……只要有新入场的即可」）：famous
+    // 仍持仓（famousCopyWalletCircPct > 0）∧ 近期有新入场（sinceLastFamousAnyBuySec
+    // ≤ releaseNoBuySec——任意金额买，卖出金额不构成释放）→ 同拦不限 180s 时间窗。
+    // null/0 语义全部 fail-open：circPct/anyBuySec 缺席（旧 FA）不拦；
+    // releaseNoBuySec=0 显式关。cheapExit 豁免同判（低价建仓止盈照走）。
     const famousCirc = factors ? factors.famousCopyWalletCircPct : undefined;
-    const sellPendSec = factors ? factors.famousSellPendingSec : undefined;
+    const sinceAnyBuy = factors ? factors.sinceLastFamousAnyBuySec : undefined;
     info.famousCopyWalletCircPct = famousCirc ?? null;
-    info.famousSellPendingSec = sellPendSec ?? null;
-    info.stateNoRebuySec = fh.stateNoRebuySec;
-    const famousStateHit = fh.stateNoRebuySec > 0
+    info.sinceLastFamousAnyBuySec = sinceAnyBuy ?? null;
+    info.releaseNoBuySec = fh.releaseNoBuySec;
+    const famousStateHit = fh.releaseNoBuySec > 0
         && typeof famousCirc === 'number' && Number.isFinite(famousCirc) && famousCirc > 0
-        && !_released(recentSell, fh.sellReleaseBnb)
-        && !(typeof sellPendSec === 'number' && Number.isFinite(sellPendSec) && sellPendSec >= fh.stateNoRebuySec);
+        && _freshWithin(sinceAnyBuy, fh.releaseNoBuySec);
     const famousHit = !famousCheapExit
-        && !_released(recentSell, fh.sellReleaseBnb)
+        && (!_released(recentSell, fh.sellReleaseBnb) || famousStateHit)
         && (_freshWithin(sinceLast, fh.maxSinceBuySec) || famousStateHit);
     // smartHold 命中（T183 镜像）：聪明钱 180s 内大买且 60s 卖出未达释放线
     let smartHit = false;

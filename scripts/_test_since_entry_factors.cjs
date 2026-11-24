@@ -681,6 +681,54 @@ console.log('K. T137 KOL HOLD 两键（sinceLastFamousBigBuySec / recentFamousSe
                     assert.strictEqual(f.famousSellPendingSec, null));
             }
         }
+        // K12 T227d 任意买键 sinceLastFamousAnyBuySec（新入场判据不限金额——小买也推进）
+        {
+            // K12a 小买（0.025 < 0.09 大买线）也推进 anyBuy
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tK({ bnb_amount: 0.025, timestamp: T0 + 3000 }));
+                const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+                check('K12a 小买 0.025 推进 anyBuy=1.0 而大买键 null', () => {
+                    assert.strictEqual(f.sinceLastFamousAnyBuySec, 1);
+                    assert.strictEqual(f.sinceLastFamousBigBuySec, null);
+                });
+            }
+            // K12b 大买推进双键
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tK({ bnb_amount: 0.3, timestamp: T0 + 3000 }));
+                const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+                check('K12b 大买推进双键（anyBuy=bigBuy=1.0）', () => {
+                    assert.strictEqual(f.sinceLastFamousAnyBuySec, 1);
+                    assert.strictEqual(f.sinceLastFamousBigBuySec, 1);
+                });
+            }
+            // K12c 混合时序：大买早+小买晚 → anyBuy 按晚者
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tK({ bnb_amount: 0.3, timestamp: T0 + 2000 }));
+                fa.processTick(tK({ bnb_amount: 0.01, timestamp: T0 + 5000 }));
+                const f = fa.buildFactorMap('0xtoken', T0 + 6000);
+                check('K12c anyBuy 按 5s 小买（1.0）、bigBuy 按 2s 大买（4.0）', () => {
+                    assert.strictEqual(f.sinceLastFamousAnyBuySec, 1);
+                    assert.strictEqual(f.sinceLastFamousBigBuySec, 4);
+                });
+            }
+            // K12d 卖出不推进 anyBuy + 探针含键
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tK({ trade_type: 'sell', bnb_amount: 0.2, timestamp: T0 + 3000 }));
+                const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+                check('K12d 卖出不推进 anyBuy（null）+ 探针含键', () => {
+                    assert.strictEqual(f.sinceLastFamousAnyBuySec, null);
+                    assert.ok(newFA().getFactorKeys().has('sinceLastFamousAnyBuySec'), '探针缺 sinceLastFamousAnyBuySec');
+                });
+            }
+        }
         // K10 roster 未加载 fail-open（K 段内置复位前置段）
         {
             FourMemeFactorAggregator.setFamousCopyWalletsForTest(null);

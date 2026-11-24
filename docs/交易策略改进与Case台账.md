@@ -2128,3 +2128,11 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **立法**：①FA 新键 `famousSellPendingSec`（卖出挂起秒数：`_famousSellPendAt` 单调推进防乱序回拨、famous 买入 ts≥挂起清 null 续命〔晚到买不清〕、null=无挂起）+FactorBuilder 快照透传（famousCopyWalletCircPct 同轮入白名单）；②门侧 `FACTOR_SELL_FILTER_DEFAULTS.stateNoRebuySec=60`（0=显式关）：状态臂命中=`circPct>0 ∧ recentSell<0.4 ∧ ¬(pendSec≥60)` OR 进 famousHit（cheapExit 豁免同判、时间窗臂独立并存）；null/0 全 fail-open（旧 FA 不拦）。单测：`_test_since_entry_factors` K11 六断言+K9f 扩（111/0）、`_test_factor_sell_filter` S 段 13 断言含案源反证帧（208/0）。**生效=进程重启**；对拍两臂（win1012 窗 A=默认开/B=stateNoRebuySec:0）随后补录。
 
 **T227 对拍补录（win1012 36h 窗两臂，同包 solodance-test-v1 v1）**：A 臂（状态臂默认开）100→**100.6982（+0.70%）** vs B 臂（stateNoRebuySec:0）100→**100.6129（+0.61%）**=净增 **+0.0853**，全部来自案源本尊 개구리씨：B 臂 03:41:12 起四腿分批全清 0.477（+138.5%——T226 新线 0.09 时间窗贡献，两臂同享）；A 臂状态臂续拦到 03:45:24（释放链=famous 03:44:15 卖 0.16 挂起→03:45:04 买 0.025 续命→03:45:18 卖 0.48 达撤退线，**与侦察反事实 E1_big_sell 逐秒吻合**）三腿全清 0.5627（**+181.4%**）。Giggle 英雄两臂 bit 一致（+171.5%）零扰动、无新增亏损票。⚠单窗单票贡献（案源本尊兑现）——生产分布待观察，与侦察 6 票（金鲨号翻正/0x1a44 小亏）合成完整证据链。
+
+## T227d 状态窗释放语义修正：卖出金额退役，唯一释放判据=180s 无任何 famous 新入场（用户裁定「止盈也很常见，但是它们止盈没关系，只要有新入场的即可」）（2026-11-24）
+
+**用户纠错**：T227 首版「03:45:18 卖 0.48 达撤退线释放」不对——链上取证 famous 03:45:18 卖 0.4805 后 **03:48:03 买 0.1316 回归**+三笔小买（03:48:22/30/36），03:48~49 拉到 5.93e-8（比 03:45:18 高 159%）。大额卖出=波段止盈非撤退，只要近期还有新入场就不该放。
+
+**侦察对照（同 6 票，释放=sinceAnyBuy>180）**：개구리씨 **+116.5**（hold 到 03:49:04 断流出口 3.68e-8，吃到主升）vs 挂起形状 +34.7；**其余 5 票全部卖点即释放（Δ ±3 内）**——卖点时 180s 无 famous 买的票状态臂零干预（旧形状 0x1a44 -20.5/0x0888 -22.4 的拖尾代价消失）。形态极干净：机制只在「famous 还在买」的票上工作。
+
+**修法**：①FA 新键 `sinceLastFamousAnyBuySec`（任意金额 famous 买最后时刻——小买 0.025/0.01 也推进，在大买线 early-return 之前；乱序 Math.max 单调）；②状态臂=`circPct>0 ∧ anyBuySec ≤ releaseNoBuySec(180)`，**压制 0.4 撤退线**（famousHit=(¬released ∨ stateHit) ∧ (sinceLast 窗内 ∨ stateHit)）；配置键 stateNoRebuySec→**releaseNoBuySec**（缺省 180，0=关——无存量配置安全改名）；famousSellPendingSec 键保留纯观察（门侧不再消费）；③FactorBuilder 透传 anyBuySec。单测 K12 四断言（115/0）+S 段重写 15 断言（210/0，S3=撤退线被新入场压制的案源靶心）。时间窗臂/cheapExit 语义不变。
