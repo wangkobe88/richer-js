@@ -4,8 +4,9 @@
  *   athVsLaunchPct / bigBuyersCount / bigBuyersHeldDust
  * 口径断言（JG-41 用户形状）：
  *   A. athVsLaunchPct = 可靠价全时峰/首可靠价 −1 ×100（null=未见可靠价 fail-closed）
- *   B. bigBuyersCount：累计买 ≥0.2B 只进不出；bigBuyersHeldDust：队列内净持仓 > 尘门
- *      （token 域常量=holderDustBnb/首可靠价）的人数；入队点初评+成员跨界 ±1 恰一次
+ *   B. bigBuyersCount：累计买 ≥0.19B（T231 默认 0.2→0.19，参数可覆盖）只进不出；
+ *      bigBuyersHeldDust：队列内净持仓 > 尘门（token 域常量=holderDustBnb/首可靠价）
+ *      的人数；入队点初评+成员跨界 ±1 恰一次
  *   C. 乱序重放收敛（defer wallet 段乱序回推语义）
  *   D. 探针收键（getFactorKeys 自动收，condition 可直接引用）
  */
@@ -61,7 +62,7 @@ console.log('B. 大买家队列两键');
 {
   const fa = newFA();
   const NOW = T0 + 60000;
-  // wA 两笔 0.15+0.10=0.25 入队；wB 0.30 入队；wC 0.19 不入队
+  // wA 两笔 0.15+0.10=0.25 入队；wB 0.30 入队；wC/wD/wE 见 B5~B7（默认线 0.19 边界+覆盖）
   fa.processTick(mkTick({ ts: NOW - 9000, side: 'buy', bnb: 0.15, tok: 1.5e8, px: PX, w: 'wA' }), {});
   fa.processTick(mkTick({ ts: NOW - 8000, side: 'buy', bnb: 0.30, tok: 3.0e8, px: PX, w: 'wB' }), {});
   const f1 = fa.buildFactorMap('0xtoken', NOW - 7000);
@@ -88,18 +89,33 @@ console.log('B. 大买家队列两键');
   check('B4 wB 回尘线上 held 1→2', () => {
     assert.strictEqual(f4.bigBuyersHeldDust, 2);
   });
-  // wC 0.19 不入队；加一笔 0.02 → 0.21 入队但净持仓 < 尘线（0.21B 买在 1e-9 = 2.1e8 > 尘线……
-  // 换构造：wC 买 0.19B 后全卖，再买 0.02 → 累计 0.21 入队、净持仓 2e7 > 尘线 1.5e7 会 held——
-  // 为构造「入队即不 held」用参数覆盖尘线更直接：
+  // T231 默认线 0.19：单笔 0.19 入队（0x4509 双胞胎回场累计 0.1975 案反证——
+  // 类整数线被 GAS 压线错过；0.19 恰线含入）
+  const fa3 = newFA();
+  fa3.processTick(mkTick({ ts: NOW - 9000, side: 'buy', bnb: 0.19, tok: 1.9e8, px: PX, w: 'wD' }), {});
+  const h = fa3.buildFactorMap('0xtoken', NOW - 8000);
+  check('B5 默认线 0.19：单笔 0.19 入队 count=1 held=1', () => {
+    assert.strictEqual(h.bigBuyersCount, 1);
+    assert.strictEqual(h.bigBuyersHeldDust, 1);
+  });
+  check('B6 默认线边界：0.189 不入队', () => {
+    const fa4 = newFA();
+    fa4.processTick(mkTick({ ts: NOW - 9000, side: 'buy', bnb: 0.189, tok: 1.89e8, px: PX, w: 'wE' }), {});
+    const h2 = fa4.buildFactorMap('0xtoken', NOW - 8000);
+    assert.strictEqual(h2.bigBuyersCount, 0);
+    assert.strictEqual(h2.bigBuyersHeldDust, 0);
+  });
+  // 参数覆盖仍生效：显式 0.2 覆盖时 0.19 不入队（加一笔 0.02 → 0.21 入队但净持仓
+  // 2.1e8 < 尘线 5e8〔holderDustBnb 0.5 覆盖〕→ held 不增）
   const fa2 = newFA({ bigBuyerCohortMinBnb: 0.2, holderDustBnb: 0.5 });
   fa2.processTick(mkTick({ ts: NOW - 9000, side: 'buy', bnb: 0.19, tok: 1.9e8, px: PX, w: 'wC' }), {});
   fa2.processTick(mkTick({ ts: NOW - 8000, side: 'buy', bnb: 0.02, tok: 2e7, px: PX, w: 'wC' }), {});
   const g = fa2.buildFactorMap('0xtoken', NOW - 7000);
-  check('B5 入队即低于尘线：count+1 held 不增', () => {
+  check('B7 显式 0.2 覆盖：0.19 不入队、0.21 入队即低于尘线（count+1 held 不增）', () => {
     assert.strictEqual(g.bigBuyersCount, 1);
     assert.strictEqual(g.bigBuyersHeldDust, 0);
   });
-  check('B6 参数覆盖生效（bigBuyerCohortMinBnb/holderDustBnb）', () => assert.ok(true));
+  check('B8 参数覆盖生效（bigBuyerCohortMinBnb/holderDustBnb）', () => assert.ok(true));
 }
 
 console.log('C. 乱序重放收敛（同钱包序列乱序喂食）');

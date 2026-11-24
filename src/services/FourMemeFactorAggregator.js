@@ -197,7 +197,10 @@ const FACTOR_PARAM_DEFAULTS = {
     famousBigBuyBnb: 0.09,       // sinceLastFamousBigBuySec 的 famous 大买判定线（BNB）；
     //   T226 0.1→0.09（用户裁定「有时候需要付 gas」）：famous 发 0.1 意愿单经路由/
     //   gas 后链上净额常见 0.098x——0xa38b…7777 案源 0.09836 差 1.6% 没续上 HOLD 窗；
-    bigBuyerCohortMinBnb: 0.2,   // T213 黄金坑大买家队列线：累计买入 ≥ 此值（BNB）入队
+    bigBuyerCohortMinBnb: 0.19,  // T213 黄金坑大买家队列线：累计买入 ≥ 此值（BNB）入队；
+                                 //   T231 0.2→0.19（2026-11-24 用户裁定：类整数额度线会被
+                                 //   GAS 压线错过——0x4509…7777 双胞胎回场累计 0.1975 差
+                                 //   0.0025 被 0.2 卡在队列外；同族先例 T226 famousBigBuyBnb）
                                  //   研究口径 fb 收集同线；factorParams 可覆盖
     famousSellWinMs: 60000,      // recentFamousSellBnb 滑窗（释放臂「60s 内 famous 卖出
                                  //   合计 ≥0.2」的原料窗）
@@ -1774,7 +1777,7 @@ class FourMemeFactorAggregator extends EventEmitter {
                 state._buyerAddresses.add(addr);
                 state._buyerVolume.set(addr, (state._buyerVolume.get(addr) || 0) + bnbAmount);
                 // T213 黄金坑大买家队列入队（write-once，累计买单调不减=只进不出）：
-                // 累计买入首次 ≥ bigBuyerCohortMinBnb（默认 0.2 BNB）→ bigBuyersCount+1，
+                // 累计买入首次 ≥ bigBuyerCohortMinBnb（默认 0.19 BNB）→ bigBuyersCount+1，
                 // 并以入队时刻净持仓一次性初评 held（> 尘门 → bigBuyersHeldDust+1）；
                 // 后续加减仓的跨界由 wallet 段队列成员门接手。卖不入队（累计买不减）
                 if (!state._bigBuyerCohort.has(addr)
@@ -2504,7 +2507,7 @@ class FourMemeFactorAggregator extends EventEmitter {
                                    // 增量维护，与 holderCount 跨 0 同构同点）
             _bigBuyerCohort: new Set(), // T213 黄金坑大买家队列：累计买 ≥ bigBuyerCohortMinBnb
                                    // 的钱包（write-once 只进不出——累计买单调不减）
-            bigBuyersCount: 0,     // T213 队列人数（buyVolumeBnb 分母以外的「0.2B 级买家数」）
+            bigBuyersCount: 0,     // T213 队列人数（buyVolumeBnb 分母以外的「0.19B 级买家数」）
             bigBuyersHeldDust: 0,  // T213 队列中净持仓 > 尘门（_holderDustTokens 同线）的人数
                                    // （入队点初评 + wallet 段队列成员跨尘门 ±1，两处合计恰一次）
 
@@ -4853,7 +4856,7 @@ class FourMemeFactorAggregator extends EventEmitter {
                 ? parseFloat((100 * (1 - currentPriceBnb / state.highestPriceBnb)).toFixed(2)) : null,
             // T213 黄金坑三键（2026-11-23 JG-41 用户形状）：athVsLaunchPct=可靠价全时峰
             // 较首可靠价涨幅 %（与 cheat 快照 athVsLaunchPct 键同名同情，但本键为 FA 实时
-            // 层、回测可重放；null=未见可靠价 fail-closed）。bigBuyers 两键=0.2B 级买家
+            // 层、回测可重放；null=未见可靠价 fail-closed）。bigBuyers 两键=0.19B 级买家
             // 队列（bigBuyersCount 分母/bigBuyersHeldDust 尘线在场数，增量维护任意序收敛；
             // 尘线=holderDustBnb 同线 token 域常量——与研究的锚点现价折算略有出入，稳定性优先）
             athVsLaunchPct: (state._relHighestPriceBnb > 0 && state._relFirstPriceBnb > 0)

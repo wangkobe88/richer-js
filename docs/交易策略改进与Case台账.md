@@ -2222,3 +2222,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **形状**：`factorSellFilter.machineHold`（缺省开 `{minNetBuyBnb:0.2, maxChg30Pct:0}`，enabled:false 单关）——命中=`machineNetBuy180 ≥ 0.2 ∧ chg30Pct ≤ 0` → HOLD；释放=两腿任一翻转（净流回落/动量转正）自动出臂，机器静默 180s 由流环窗自然衰减归零。**实现**：FA 机器名单（config/rosters/machine-wallets.json，GMGN dex_bot/arbitrager/sandwich_bot 标签 609 址静态快照，加载 fail-open 同 smart）+ 流环 `_machineFlowRing`（买正卖负符号流，**写点挂 _applyWalletAggregation 恰计一次段**——直推/ defer 两路径唯一汇合点，⚠教训：processTick 全量区+聚合段双写点=双计，首版 N1 断言 0.8 暴露后删 processTick 点）+ `machineNetBuy180`（180s 窗净额，0=无机器行有证据零值；尘行照收探针口径）+ FactorBuilder 透传；filter 臂挂序 pump>famous>smart>**machine**>recovery，留痕 rule='machine_hold'。单测 FA N 段 7 断言（133/0）+ filter U 段 13 断言（235/0）。对拍（金狗集合 A=默认/B=machineHold:false）随后补录。
 
 **T228k 对拍补录（bt-v237 两臂，金狗 31 票）**：A（machineHold 开）104.1977 vs B（关）104.5531 账 −0.355，**归因=A 臂零命中（machine_hold 拦截行 0）**——「机器回调吸筹」形状卖点在 win 探针样本（n=8 +158.5% 桶）不在金狗集合卖点时序；**A/B 差异全系 Jev 噪声**（躺赢人生 B 臂买进 +0.359/A 臂未买进——买腿两臂相同、BP/cheat 门 LLM 判定三翻同族）。**裁定：臂保留生效**（fail-open 零成本，真实价值面=更广窗生产分布观察；金狗集合无该形状）。
+
+## T231 黄金坑臂两改：队列线 0.2→0.19 + 龄上界撤除（2026-11-24；案源=0x4509…7777「下雨了」flap 票——T211 案源同票）
+
+**裁定链**：用户问「famous_holder_cold_pit 能不能买入 0x4509…7777」→ 本地逐 tick FA 重放（生产同款名单加载+flap totalSupply 1e9）证 19 合取项全程无一刻全真，相邻三 tick 各差一项：15:02:21（双胞胎清仓卖 tick：age 905+锚非买+bbh 2）→ **15:02:26**（famous 0xffbd5a03/0xc2dee6ab 同步回场首买各 0.0494：age 910+bbh 2——其余全过，含 act 四窗 0.30 贴线、锚买 0.0494、famC 6.44、curVs 12.3）→ 15:02:30（累计 0.2222 双双入队 bbh 2→4：age 914+act15s 0.40 超 0.31）。engine 实证 ladder 腿同一时刻 15:02:21.2 P10/15:02:26.2 P1 开火、15:03:12.2 P2 成交——买点=回场本身，臂错过纯属形状失配。用户裁定两条：①「把 0.2 阈值改为 0.19（尽量不要用这种类整数额度作为阈值，因为有时候要付 GAS）」②「年龄没必要要求小于 900——很简单的道理，这个模式空窗期时间长一些根本没关系，可以大幅度拓宽下年龄阈值」。
+
+**形状**：①FA `bigBuyerCohortMinBnb` 默认 0.2→0.19（参数可覆盖不变）——案源双胞胎回场三笔累计恰 0.1975，差 0.0025 被 0.2 类整数线卡在队列外 4 秒（bbh 2→4 推迟到 15:02:30；0.19 线 15:02:26 即入队）；同族先例 T226 famousBigBuyBnb 0.1→0.09（0xa38b 0.09836 案）。②黄金坑臂条件串 `tokenAgeSec <= 900` 整段撤除（下界 160 保留）——案源坑长 12 分 10 秒整段断流（14:48:16 最后一笔买→14:50:11 最后 sell→15:02:21 下一笔），famous 回场落在旧窗口关闭后 10 秒。剩余龄约束=买量带 [4,15B] 事实封顶（长命票买量自然出带）。
+
+**实现**：FA 默认值+三处口径注释；point-type-router famous_holder_cold_pit condition 同撤（**PT19→PT20**，腿=何时触发/类型=触发后怎么走门——两处必须同改）；deploy-trading-strategy PACK_DEFINITION p16 腿 condition 同撤+description 补 T231；单测 golden_pit_factors（默认线 0.19 边界：0.19 入队/0.189 不入队/显式 0.2 覆盖仍生效）+ point_type_router（A2b2 age 910/A2b3 age 3600 命中正例）；docs/当前最优买卖策略.md 黄金坑章节同步（条件全文/龄门判据/大买家 bullet）。旧包条目 retail-good-path-v1 不随改（gatePolicy 已退役无引用实验）。
+
+**验证**：本地重放 0x4509 逐 tick——改后 **15:02:26 时刻 19/19 全真 fire**（curVs 12.3/锚 0.0494/act 四窗 0.30/bbh 4〔0.19 线入队〕/famC 6.44/athVs 99.05 贴带上缘）；fire 后 pointType=famous_holder_cold_pit policy（FP cheatOnly+臂豁免/AF1 pass/CD g23NoSlowGrind/BP stuffingOnly）→ 门链路径完整；fire 价 5.04e-9 较毕业价 2.9e-8 潜在 ×5.7（卖出链行为待回测实证）。
+
+**余留**：①端到端回测（金狗集合或 0x4509 单票 bt 克隆跑 v14）验证实际成交与卖出链；②0.19 线的广面影响（更老票 bbh 普遍 +N——stallClose bigHolderExempt 缺省关不受影响〔T219 已否证回退〕，开启时 bbh 口径同变需知情）；③买量带 [4,15B] 成为新的龄事实上限——若将来还要救更长命票需另案放宽；④bt-v159 类端到端对拍时 0x4509 臂 fire 点（15:02:26）与 ladder P1 fire 点（15:02:26.2）同秒竞发——p16 maxTriggers=1 且 ladder 已先买时 buyPhase first 语义下 p16 不重复买，实际行为以回测为准。

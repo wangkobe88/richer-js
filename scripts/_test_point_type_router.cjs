@@ -38,7 +38,7 @@ const PARTIAL = { ...GOLDEN, athVsLaunchPct: 120 }; // ATH 出带（>100）
 
 console.log('A. classifyPointType 分类');
 {
-  check('A1 黄金坑因子表命中（MOYNOK t+562s 真值；v6 起加龄门 ≥90——tokenAgeSec 600 过线）', () => {
+  check('A1 黄金坑因子表命中（MOYNOK t+562s 真值；龄门 v6 起 ≥90→v7 收紧 ≥160——tokenAgeSec 600 过线）', () => {
     const r = classifyPointType(GOLDEN);
     assert.strictEqual(r.type, 'famous_holder_cold_pit');
     assert.deepStrictEqual(r.policy, {
@@ -61,6 +61,14 @@ console.log('A. classifyPointType 分类');
   check('A2b 龄门负例：tokenAgeSec 159 <160 → normal（v7 用户裁定龄门收紧到 160）', () => {
     const r = classifyPointType({ ...GOLDEN, tokenAgeSec: 159 });
     assert.strictEqual(r.type, 'normal');
+  });
+  check('A2b2 T231 正例：tokenAgeSec 910 无上界 → 命中（0x4509 超长坑案：famous 双胞胎回场在旧 900s 窗关闭后 10s）', () => {
+    const r = classifyPointType({ ...GOLDEN, tokenAgeSec: 910 });
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
+  });
+  check('A2b3 T231 正例：tokenAgeSec 3600（1h 老票）→ 命中（龄上界已撤除，剩余龄约束=买量带）', () => {
+    const r = classifyPointType({ ...GOLDEN, tokenAgeSec: 3600 });
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
   });
   check('A2c PT7 负例：90s 冷窗 1.4 >1.0 → normal（0x53691a 刚冷一分钟不够案）', () => {
     const r = classifyPointType({ ...GOLDEN, actTotalBnb90s: 1.4 });
