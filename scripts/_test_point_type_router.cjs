@@ -238,10 +238,15 @@ console.log('E. T236 slow_develop_early（缓慢发育潜力币早期点位，20
     // 一姐 0xfc23…7777 锚真值形状（bt-v254 扫描口径）
     athVsLaunchPct: 39.9, sinceLaunchTrades: 26, bundledAvgTradeBnb300: 0.1893,
   };
-  check('E1 一姐形状命中（policy 只豁 AF1，cheat/BP 照走）', () => {
+  check('E1 一姐形状命中（PT35 全豁+塞单门 policy：FP skip/AF1 pass/cheat skip/BP stuffingOnly）', () => {
     const r = classifyPointType(SLOW);
     assert.strictEqual(r.type, 'slow_develop_early');
-    assert.deepStrictEqual(r.policy, { actFront: 'pass' });
+    assert.deepStrictEqual(r.policy, {
+      factorCheckArms: 'skip',
+      actFront: 'pass',
+      cheatCheck: 'skip',
+      buyPoint: 'stuffingOnly',
+    });
     for (const k of ['athVsLaunchPct', 'sinceLaunchTrades', 'bundledAvgTradeBnb300']) {
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
     }
