@@ -347,13 +347,13 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
   // ── win[W] 族（资金口径不滤 outlier；人数类剔伪钱包；无钱包行计量不计人）──
   const win = {};
   for (const W of BP_WINDOWS) {
-    let buyBnb = 0, sellBnb = 0, buyN = 0, sellN = 0;
+    let buyBnb = 0, sellBnb = 0, buyN = 0, sellN = 0, maxBuyBnb = 0;
     const buyers = new Set(), sellers = new Set();
     for (const t of ticks) {
       if (!bpInWin(t, tEnd, W)) continue;
       const bnb = t.bnb || 0;
       const isBuy = t.side === 'BUY';
-      if (isBuy) { buyBnb += bnb; buyN++; } else { sellBnb += bnb; sellN++; }
+      if (isBuy) { buyBnb += bnb; buyN++; if (bnb > maxBuyBnb) maxBuyBnb = bnb; } else { sellBnb += bnb; sellN++; }
       if (t.wallet && !isRouterWallet(t.wallet)) (isBuy ? buyers : sellers).add(t.wallet);
     }
     win[W] = {
@@ -362,6 +362,9 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
       buySharePct: buyBnb + sellBnb > 0 ? +((buyBnb / (buyBnb + sellBnb)) * 100).toFixed(1) : null,
       ticksPerMin: +(((buyN + sellN) / W) * 60).toFixed(2),
       buyers: buyers.size, sellers: sellers.size,
+      // FP47b 臂 A 反例区分腿原料：窗内最大单笔买入（零买=0 有证据零值；
+      // 「近窗像样买单」判据=含单笔 ≥0.19 BNB 的换手盘不落臂 A）
+      maxBuyBnb: +maxBuyBnb.toFixed(4),
     };
   }
   // 全窗首见买入钱包（剔伪钱包）→ newBuyers=首买 dt 落在窗内的钱包数

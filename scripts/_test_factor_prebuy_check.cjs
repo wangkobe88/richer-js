@@ -193,7 +193,7 @@ console.log('DP. FP23 相邻双块捆绑砸盘尾承接（T190/0x2b63 ASCEND 案
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'dump_pair_low_absorption');
     assert.deepStrictEqual(r.arms, ['dump_pair_low_absorption']);
-    assert.strictEqual(r.version, 'FP46');
+    assert.strictEqual(r.version, 'FP47');
     const g = r.gates.find(x => x.id === 'dump_pair');
     assert.ok(g, 'gates 须含 dump_pair 门');
     assert.strictEqual(g.hit, true);
@@ -206,7 +206,7 @@ console.log('E. 主入口组合');
   check('E1 全过 → pass=true reason=null', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.2994, 0.1, 0.2994, 100)] }));
     assert.strictEqual(r.pass, true); assert.strictEqual(r.reason, null);
-    assert.strictEqual(r.version, 'FP46'); assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.version, 'FP47'); assert.deepStrictEqual(r.arms, []);
   });
   check('E2 PVP 拒 → reason=pvp_no_big_participation（臂序最先）', () => {
     const r = M.evaluateFactorPreBuy(SNAP({ wallets: [W(0.1, 0, 0.1, 10)] }));
@@ -317,7 +317,7 @@ console.log('F. T144 活跃度门（judgeActivityLevel——BP act 题整题迁�
     const bd = { bundledBlock: { buyBnb: 0.5 } }; // 捆绑 0.5>0.3=像样买方（PVP 过）
     const r = M.evaluateFactorPreBuy(SNAPA({ idlePct: 72, ticksPerMin: 12, spanSec: 300, tickCount: 60, buyMedianBnb: 0.03, throughputBnbPerMin: 0.5 }, {}, bd));
     assert.strictEqual(r.reason, 'act_low');
-    assert.strictEqual(r.version, 'FP46');
+    assert.strictEqual(r.version, 'FP47');
     const r2 = M.evaluateFactorPreBuy(SNAPA({ idlePct: 5, ticksPerMin: 60, spanSec: 300, tickCount: 300, buyMedianBnb: 0.1, throughputBnbPerMin: 5 }, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }, bd));
     assert.strictEqual(r2.reason, 'cd400_dump_no_absorption'); // act null 照走 CD 臂
   });
@@ -870,7 +870,7 @@ console.log('P. FP11 famous 早窗快闪双支臂（T171：bt-v141 거침없이/
     assert.ok(g.line.includes('10s') && g.line.includes('顺位≤5'), g.line);
   });
   check('P13 版本 FP17（T180 首两波大部队迁入；FP16=大周期 burst 残局）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46'); // FP32=T201 大户推迟臂迁入（ladder v34 G2）；FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47'); // FP32=T201 大户推迟臂迁入（ladder v34 G2）；FP20=T167d FP10 豁免换轨（末卖后流通谷值≤9%）；FP19=T167c；FP18=T182；FP17=T180
   });
 }
 
@@ -1104,7 +1104,7 @@ console.log('T. FP17 首两波大部队×高占比（T180 自 ladder v32 迁入�
     assert.strictEqual(r.pass, false);
     assert.strictEqual(r.reason, 'launch_squad_dominance');
     assert.ok(r.arms.includes('launch_squad_dominance'));
-    assert.strictEqual(r.version, 'FP46');
+    assert.strictEqual(r.version, 'FP47');
   });
   check('T2 有机热门盘 wave≥8 但 dom<30 → 放（da405bd0 wave13 dom0 实证——占比轴保护赢家）', () => {
     const r = M.evaluateFactorPreBuy(LS(13, 0));
@@ -1199,7 +1199,7 @@ console.log('U. FP19 尾部接刀臂（T182）');
     assert.strictEqual(g2.hit, false);
   });
   check('U10 版本（FP40=FP26 深破豁免；FP39=tail_dip 深破豁免）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
   });
 }
 
@@ -1248,7 +1248,7 @@ console.log('V. T187/FP21 持有者打散臂（筹码结构维度：posH≥25 �
     assert.strictEqual(M.armHolderScatter(CH(29, 28, 50).buyDerived), true);
   });
   check('V10 版本 FP21（T187 持有者打散；豁免=top1≥45 ∨ 前2≥60）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
   });
 }
 
@@ -1310,7 +1310,7 @@ console.log('W. T188/FP22 持仓均等作弊仓臂（HHI<0.10 团伙分仓指纹
     assert.ok(Math.abs(hhi([50, 25, 25]) - 0.375) < 1e-12);
   });
   check('W8 版本 FP22（T188 持仓均等作弊仓臂）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
   });
   // ── FP41 实体口径豁免腿（JG-31：捆绑购买=一个钱包——门的对象是实质主体非钱包数；W9~W12） ──
   const CH2E = (hhi, entHhi, posH, circ = 20) => SNAP({ buyDerived: { chip: { holderHHI: hhi, holderHHIEntities: entHhi, posHolderCount: posH, top1HoldCircPct: 20, top1Top2HoldCircPct: 35, circSupplyPct: circ }, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: { nearTail10BuyN: 3 } } });
@@ -1395,7 +1395,7 @@ console.log('X. FP26/T193 尾段买力枯竭+卖压在场（bt-v158 因子分析
     assert.strictEqual(g2.hit, false);
   });
   check('X7 版本（T193 尾段买力枯竭+卖压在场，T194 后顺延 FP27）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
   });
 }
 
@@ -1462,7 +1462,7 @@ console.log('Y. FP27/T194 大户静默卸货（未走完周期庄提前离场—
     assert.strictEqual(g2.hit, false);
   });
   check('Y8 版本（T194 大户静默卸货，T195 后顺延 FP28）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
   });
   check('Y9 T230/FP45 换手豁免（用户裁定「拦截 top 持有者砸盘，但这个 case 其实就是换个手」）：卖出大户均为窗内净买入者（minRatio≥1）→ 不拦；纯卖方 minRatio=0 → 照拦；null 证据缺席不豁免', () => {
     // 案源 GWC 0xb712…7777 07:53:16.2：bhs 0.2091/ath 43.5/minRatio 3.11 → 豁免
@@ -1569,7 +1569,7 @@ console.log('Z. FP28/T195 早窗启动失败死盘（bt-v162 热窗首测立法�
     assert.strictEqual(g2.hit, false);
   });
   check('Z9 版本 FP28（T195 早窗启动失败死盘）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
   });
   // ── FP43/T209 换手豁免腿（2026-11-22 登天猫 0xf38f48cf…7777 案，用户裁定
   //    「launch_fail_dead 门，做跟大户买入门同样的豁免」——FP42 三键原样镜像）──
@@ -1679,7 +1679,7 @@ console.log('AA. FP29/T197 分仓出货残局盘（CI/MOLLY 工厂盘取证立�
     assert.strictEqual(g2.hit, false);
   });
   check('AA7 版本（T197 分仓出货残局盘，T198 后顺延 FP30；FP46 沉寂豁免）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
   });
   check('AA8 FP46/T235 沉寂豁免（超卖距锚 ≥55s=洗筹已结束不拦）：55 恰线豁免/54 保持拦/null 保持拦；3beb 案值 (1.448,8,58) 不拦', () => {
     assert.strictEqual(M.armOversellResidual(Z29(1.10, 8, null, 55).buyDerived), false, '55 恰线豁免');
@@ -1749,7 +1749,7 @@ console.log('AB. FP30/T198 机器持筹垄断（arbBot 组净持筹占在场流�
     assert.strictEqual(g2.hit, false);
   });
   check('AB7 版本（T198 机器持筹垄断，T198b 流通腿后 FP36）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
   });
   // T198b/FP36 流通腿豁免（2026-11-21 案源 0x2ee9…7777：镜像 sandwich_bot 瞬时
   // 库存误读；四窗深跌分离 0 vs 15，线 16.5=FP22 同线，null 不豁免保持拦）
@@ -1837,7 +1837,7 @@ console.log('AC. FP31/T200 fam_holding_thin 中等跟单豁免（slot 级 U 型�
     assert.strictEqual(M.FAM_THIN_FOLLOW_EXEMPT_MAX_BNB, 0.2);
   });
   check('AC6 版本 FP31（T200 中等跟单豁免）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
   });
 }
 
@@ -1907,7 +1907,7 @@ console.log('AD. FP32/T201 大户买入推迟（ladder v34 G2 迁入——행복
     assert.strictEqual(M.BIG_BUY_DEFER_EXEMPT_LATER_HOLDERS, 2);
   });
   check('AD7 版本 FP42（JG-32f big_buy_defer 换手豁免；FP41 实体口径豁免）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
     assert.strictEqual(M.BIG_BUY_DEFER_TIER079_BNB, 0.79);
     assert.strictEqual(M.BIG_BUY_DEFER_TIER1_BNB, 1);
     assert.strictEqual(M.BIG_BUY_DEFER_SEC_TIER079, 45);
@@ -2227,7 +2227,7 @@ console.log('AI. FP39 tail_dip_knife 深破豁免（一姐 0xfc23…7777 案 JG-
     assert.ok(g.value.includes('-11.21'), 'value 应含破发%: ' + g.value);
   });
   check('AI8 版本钉（FP40=FP26 同款深破豁免）', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
   });
 }
 
@@ -2287,8 +2287,212 @@ console.log('AJ. FP40 tail_no_buyer_pressure 深破豁免（一姐案 JG-18 续�
     assert.strictEqual(r.pass, true);
     assert.deepStrictEqual(r.arms, []);
   });
-  check('AJ7 版本钉死 FP40', () => {
-    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP46');
+  check('AJ7 版本钉死 FP47', () => {
+    assert.strictEqual(M.FACTOR_PREBUY_VERSION, 'FP47');
+  });
+}
+
+console.log('AK. FP47 entry_shape 两因子化（malicious_dump + crash 数值判序）');
+{
+  const MD_BD = (dumpBlock, extra) => ({ dumpBlock, dump2Block: null, totalVolumeBnb: 5, ...(extra || {}) });
+  const DROW = (o) => ({ block: 1, sellBnb: 0.8, dropPct: -12, sellers: 5, topSellerPct: 25, followBuyRatio: 0.3, followBuyBnb: 0.24, secToAnchor: 25, ...(o || {}) });
+
+  check('AK1 四腿全中 → hit single_legs（承接腿=完整窗 ratio 口径）', () => {
+    const r = M.judgeMaliciousDump(MD_BD(DROW()));
+    assert.strictEqual(r.hit, true);
+    assert.strictEqual(r.branch, 'single_legs');
+    assert.strictEqual(r.trace.followKind, 'ratio');
+  });
+  check('AK2 腿①卖额 0.4 不足 → 不 hit（候选预筛 0.3 线宽于四腿 0.5 的反证——候选行必须自验）', () => {
+    assert.strictEqual(M.judgeMaliciousDump(MD_BD(DROW({ sellBnb: 0.4 }))).hit, false);
+  });
+  check('AK3 腿②跌幅 -8 不足 → 不 hit', () => {
+    assert.strictEqual(M.judgeMaliciousDump(MD_BD(DROW({ dropPct: -8 }))).hit, false);
+  });
+  check('AK4 腿③卖方 2 阵列不足 → 不 hit', () => {
+    assert.strictEqual(M.judgeMaliciousDump(MD_BD(DROW({ sellers: 2 }))).hit, false);
+  });
+  check('AK5 腿④承接比 0.6 在场 → 不 hit（砸掉的货有人接=正常换手/出货反锚）', () => {
+    assert.strictEqual(M.judgeMaliciousDump(MD_BD(DROW({ followBuyRatio: 0.6 }))).hit, false);
+  });
+  check('AK6 单鲸版（1.2B/40% 卖方 2 不要求阵列）→ hit single_whale', () => {
+    const r = M.judgeMaliciousDump(MD_BD(DROW({ sellBnb: 1.2, topSellerPct: 40, sellers: 2 })));
+    assert.strictEqual(r.hit, true);
+    assert.strictEqual(r.branch, 'single_whale');
+  });
+  check('AK7 贴锚臂（ratio null+距锚 3s+已见买入 13%）→ hit（BP82 第四腿替代）', () => {
+    const r = M.judgeMaliciousDump(MD_BD(DROW({ sellBnb: 1.9, topSellerPct: 40, followBuyRatio: null, followBuyBnb: 0.24, secToAnchor: 3 })));
+    assert.strictEqual(r.hit, true);
+    assert.strictEqual(r.trace.followKind, 'anchor');
+  });
+  check('AK8 贴锚臂承接形成（已见买入 40%）→ 不 hit', () => {
+    assert.strictEqual(M.judgeMaliciousDump(MD_BD(DROW({ sellBnb: 1.9, topSellerPct: 40, followBuyRatio: null, followBuyBnb: 0.76, secToAnchor: 3 }))).hit, false);
+  });
+  check('AK9 证据缺席（ratio null+距锚秒数 null）→ 不 hit（宁漏不误伤）', () => {
+    assert.strictEqual(M.judgeMaliciousDump(MD_BD(DROW({ followBuyRatio: null, secToAnchor: null }))).hit, false);
+  });
+  check('AK10 BP78 总成交额豁免（tv=20 恰线非贴锚）→ exempt dump_total_volume', () => {
+    const r = M.judgeMaliciousDump(MD_BD(DROW(), { totalVolumeBnb: 20 }));
+    assert.strictEqual(r.hit, false);
+    assert.strictEqual(r.exempt, 'dump_total_volume');
+  });
+  check('AK11 BP82 贴锚收紧（tv=20 但两条承接腿均 null=贴锚形状）→ 照 hit 不吃豁免', () => {
+    const r = M.judgeMaliciousDump(MD_BD(DROW({ sellBnb: 1.9, topSellerPct: 40, followBuyRatio: null, followBuyBnb: 0.24, secToAnchor: 3 }), { totalVolumeBnb: 20 }));
+    assert.strictEqual(r.hit, true);
+    assert.strictEqual(r.exempt, null);
+  });
+  check('AK12 相邻两块臂四腿 → hit pair_legs', () => {
+    const r = M.judgeMaliciousDump({ dumpBlock: null, dump2Block: DROW(), totalVolumeBnb: 5 });
+    assert.strictEqual(r.hit, true);
+    assert.strictEqual(r.branch, 'pair_legs');
+  });
+  check('AK13 bd null / 砸块行缺席 → 不 hit', () => {
+    assert.strictEqual(M.judgeMaliciousDump(null).hit, false);
+    assert.strictEqual(M.judgeMaliciousDump({}).hit, false);
+  });
+
+  const CR_BD = (o) => ({ chg5Pct: null, chg10Pct: null, recentDip5Pct: null, recentDip5SecAgo: null, recentDip5UnrecoveredPct: null, activity: {}, win: { 120: { buyBnb: 0, sellBnb: 0, maxBuyBnb: 0 } }, ...(o || {}) });
+  check('AK14 急跌进行时（chg5=-22 chg10=-20 同深差 2）→ hit momentum', () => {
+    const r = M.judgeCrashNumeric(CR_BD({ chg5Pct: -22, chg10Pct: -20 }));
+    assert.strictEqual(r.hit, true);
+    assert.strictEqual(r.branch, 'momentum');
+  });
+  check('AK15 同深差超线（-22 vs -12 差 10=有铺垫下跌）→ 非急跌进行时', () => {
+    const r = M.judgeCrashNumeric(CR_BD({ chg5Pct: -22, chg10Pct: -12 }));
+    assert.notStrictEqual(r.branch, 'momentum');
+    assert.strictEqual(r.hit, false);
+  });
+  check('AK16 ①反弹两件套判序在前（chg5 转正+未收复收窄，即使 chg10 深同）→ rebound_kit 放行', () => {
+    const r = M.judgeCrashNumeric(CR_BD({ chg5Pct: 2, chg10Pct: -22, recentDip5UnrecoveredPct: -11 }));
+    assert.strictEqual(r.hit, false);
+    assert.strictEqual(r.branch, 'rebound_kit');
+  });
+  check('AK17 摆点轴三腿（上升腿 ≥60s∧≥20% 形态前提）→ hit swing', () => {
+    const r = M.judgeCrashNumeric(CR_BD({
+      secSinceSwingHigh: 23, currentVsSwingHighPct: -32, swingRiseSec: 180, swingRisePct: 55,
+    }));
+    assert.strictEqual(r.hit, true);
+    assert.strictEqual(r.branch, 'swing');
+  });
+  check('AK18 摆点轴形态前提不过（上升腿 30s=秒级开盘脉冲）→ 不走摆点轴/余波域', () => {
+    const r = M.judgeCrashNumeric(CR_BD({
+      secSinceSwingHigh: 23, currentVsSwingHighPct: -32, swingRiseSec: 30, swingRisePct: 55,
+    }));
+    assert.notStrictEqual(r.branch, 'swing');
+    assert.notStrictEqual(r.branch, 'wave_aftermath');
+    assert.strictEqual(r.hit, false);
+  });
+  check('AK19 打断余波域（摆高停旧+深段 -19.7 距 15s 未收复 -29）→ hit wave_aftermath', () => {
+    const r = M.judgeCrashNumeric(CR_BD({
+      swingRiseSec: 375, swingRisePct: 70, recentDip5Pct: -19.7, recentDip5SecAgo: 15, recentDip5UnrecoveredPct: -29,
+    }));
+    assert.strictEqual(r.hit, true);
+    assert.strictEqual(r.branch, 'wave_aftermath');
+  });
+  check('AK20 臂 B ②买入力在场（尾10s 3笔×0.12B）→ arm_b_buyforce 放行（0.1 级买家仍在接）', () => {
+    const r = M.judgeCrashNumeric(CR_BD({
+      chg5Pct: -3, chg10Pct: -12, recentDip5Pct: -27, recentDip5SecAgo: 7, recentDip5UnrecoveredPct: -42,
+      activity: { nearTail10BuyN: 3, nearTail10BuyBnb: 0.12 },
+    }));
+    assert.strictEqual(r.hit, false);
+    assert.strictEqual(r.branch, 'arm_b_buyforce');
+  });
+  check('AK21 臂 B ③深段坐实（买力不在场+未收复 -29.8）→ hit arm_b', () => {
+    const r = M.judgeCrashNumeric(CR_BD({
+      chg5Pct: -3.9, chg10Pct: -12, recentDip5Pct: -27, recentDip5SecAgo: 7, recentDip5UnrecoveredPct: -29.8,
+      activity: { nearTail10BuyN: 0, nearTail10BuyBnb: 0 },
+    }));
+    assert.strictEqual(r.hit, true);
+    assert.strictEqual(r.branch, 'arm_b');
+  });
+  check('AK22 臂 B 未收复收窄（-15）+买力不在场 → arm_b_pass 不坐实（Jev 兜底）', () => {
+    const r = M.judgeCrashNumeric(CR_BD({
+      chg5Pct: -3, chg10Pct: -12, recentDip5Pct: -27, recentDip5SecAgo: 7, recentDip5UnrecoveredPct: -15,
+      activity: { nearTail10BuyN: 0, nearTail10BuyBnb: 0 },
+    }));
+    assert.strictEqual(r.hit, false);
+    assert.strictEqual(r.branch, 'arm_b_pass');
+  });
+  check('AK23 臂 A 尾段路径（尾10s 买归零+卖 0.8 推进）→ hit arm_a', () => {
+    const r = M.judgeCrashNumeric(CR_BD({
+      chg5Pct: -4, chg10Pct: -12,
+      activity: { nearTail10BuyN: 0, nearTail10BuyBnb: 0, nearTail10SellBnb: 0.8 },
+    }));
+    assert.strictEqual(r.hit, true);
+    assert.strictEqual(r.branch, 'arm_a');
+  });
+  check('AK24 臂 A 近窗延展路径（近 120s 买 0.04 纯小单+卖 1.2）→ hit arm_a', () => {
+    const r = M.judgeCrashNumeric(CR_BD({
+      chg5Pct: -4, chg10Pct: -12, activity: {},
+      win: { 120: { buyBnb: 0.04, sellBnb: 1.2, maxBuyBnb: 0.04 } },
+    }));
+    assert.strictEqual(r.hit, true);
+    assert.strictEqual(r.branch, 'arm_a');
+  });
+  check('AK25 臂 A 反例区分（近窗买 0.5 级含 0.25 单笔=换手在场）→ 不落臂 A', () => {
+    const r = M.judgeCrashNumeric(CR_BD({
+      chg5Pct: -4, chg10Pct: -12, activity: { nearTail10BuyN: 0, nearTail10BuyBnb: 0, nearTail10SellBnb: 0.8 },
+      win: { 120: { buyBnb: 0.5, sellBnb: 0.6, maxBuyBnb: 0.25 } },
+    }));
+    assert.strictEqual(r.hit, false);
+  });
+  check('AK26 尾段单笔大额不弱（0.5B 单笔 N=1 非纯尘）→ 臂 A 尾段路径不立', () => {
+    const r = M.judgeCrashNumeric(CR_BD({
+      chg5Pct: -4, chg10Pct: -12,
+      activity: { nearTail10BuyN: 1, nearTail10BuyBnb: 0.5, nearTail10SellBnb: 0.8 },
+    }));
+    assert.strictEqual(r.hit, false);
+  });
+  check('AK27 bd null → 不 hit', () => {
+    assert.strictEqual(M.judgeCrashNumeric(null).hit, false);
+  });
+
+  check('AK28 链级 md 命中 → arms=[malicious_dump]+trace 留痕', () => {
+    const r = M.evaluateFactorPreBuy(SNAP({
+      wallets: [W(0.5, 0, 0.5, 10)],
+      buyDerived: {
+        bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: {},
+        dumpBlock: DROW(), dump2Block: null, totalVolumeBnb: 5,
+      },
+      cheatDerived: {},
+    }));
+    assert.strictEqual(r.pass, false);
+    assert.deepStrictEqual(r.arms, ['malicious_dump']);
+    assert.strictEqual(r.trace.maliciousDump.branch, 'single_legs');
+  });
+  check('AK29 链级 crash 命中 → arms=[crash_numeric]', () => {
+    const r = M.evaluateFactorPreBuy(SNAP({
+      wallets: [W(0.5, 0, 0.5, 10)],
+      buyDerived: {
+        bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: {},
+        chg5Pct: -22, chg10Pct: -20,
+      },
+      cheatDerived: {},
+    }));
+    assert.strictEqual(r.pass, false);
+    assert.deepStrictEqual(r.arms, ['crash_numeric']);
+  });
+  check('AK30 链级 BP78 豁免 → pass 且 trace.maliciousDump.exempt 留痕', () => {
+    const r = M.evaluateFactorPreBuy(SNAP({
+      wallets: [W(0.5, 0, 0.5, 10)],
+      buyDerived: {
+        bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: {},
+        dumpBlock: DROW(), dump2Block: null, totalVolumeBnb: 20,
+      },
+      cheatDerived: {},
+    }));
+    assert.strictEqual(r.pass, true);
+    assert.deepStrictEqual(r.arms, []);
+    assert.strictEqual(r.trace.maliciousDump.exempt, 'dump_total_volume');
+  });
+  check('AK31 未命中票 trace 形状 bit 不变（无 maliciousDump/crashNumeric 键）', () => {
+    const r = M.evaluateFactorPreBuy(SNAP({
+      wallets: [W(0.5, 0, 0.5, 10)],
+      buyDerived: { bundledBlock: null, win: { 30: { buyBnb: 0.5, buyN: 5 } }, activity: {} },
+      cheatDerived: {},
+    }));
+    assert.strictEqual('maliciousDump' in r.trace, false);
+    assert.strictEqual('crashNumeric' in r.trace, false);
   });
 }
 
