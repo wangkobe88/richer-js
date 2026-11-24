@@ -2214,3 +2214,9 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **流轴探针（5 窗 58 卖点）**：presence 轴（首入）此前已否证（mean −0.4）→ **流轴（180s 净买额）明显更好**：PartA 净吸筹臂（hold 到净流翻负）hit 26 Δ mean **+14.4**/med −2.3/15 负（正尾 中文房间 +266.7/0x40ef +145.1/쿠우타 +88.8/AGI +53.0/MOYNOK +46.4；负尾 M4GA −67.6/神龙犬 −40.9/牛屁 −38.1）；PartB 净买额分桶单调：≤0→+50.1%、(0,0.05)→+46.9%、[0.05,0.2)→+68.4%、**≥0.2B→+104.5%**；买占比无判别。**高危活跃度混淆**（大额净买⇔爆发波⇔动量）——立法前须活跃度匹配对照（actTotalBnb180 分层 × 机器流正负）。工具 tmp-kuwota-machine-forensic.cjs、tmp-machine-flow-scan.cjs。
 
 **T228j 补：活跃度匹配对照通过（2026-11-24）**：PartD——actTotalBnb180 ≥1B 层内 mNet>0 vs ≤0 = **+69.7% vs +52.6%（+17pp 分离，下尾 −34.2 vs −42.2 更浅）**——机器净流入在活跃度之上携带独立信息，系五条 raw 信号线中**首个通过混淆对照**。**立法前余留**：①第二窗交叉验证（金狗 29 卖点+win1012 独立窗，≥0.2B 桶复测）②臂形状收窄（阈值 ≥0.2 把命中面从 26 收到 9 好桶，负尾金狗票 牛屁 −38.1/神龙犬 −40.9 须被阈值剔出）③动量维未交叉控（chg30 与机器流可能重叠，立法形状建议含 chg 正动量合取）。候选臂形状：卖点 180s 机器净买 ≥0.2B ∧ chg30>0 → hold 到净流翻负/机器静默 180s。
+
+## T228k machineHold 机器回调吸筹 hold 臂立法（2026-11-24 用户「好，立法吧」）
+
+**裁定链**：用户曲线上观察「机器钱包很活跃」→ 法医 쿠우타（14 机器钱包选择性吸筹：02:51 单分钟 2.14B×17 净买洪流、终态 12 钱包净多头）→ 流轴探针（presence 轴否证后改 flow 轴）→ **活跃度匹配对照通过**（≥1B 层 mNet>0 vs ≤0 +38pp）→ **chg30 交叉控定形**（≥0.2B∧chg30≤0 桶 +158.5%/−19.0% vs 追高桶 +45.0%/−46.1%——机器在回调中接货=选择性吸筹，追高=散户化）→ 第二窗复验（win 样本复现+金狗样本弱正 n=3）。
+
+**形状**：`factorSellFilter.machineHold`（缺省开 `{minNetBuyBnb:0.2, maxChg30Pct:0}`，enabled:false 单关）——命中=`machineNetBuy180 ≥ 0.2 ∧ chg30Pct ≤ 0` → HOLD；释放=两腿任一翻转（净流回落/动量转正）自动出臂，机器静默 180s 由流环窗自然衰减归零。**实现**：FA 机器名单（config/rosters/machine-wallets.json，GMGN dex_bot/arbitrager/sandwich_bot 标签 609 址静态快照，加载 fail-open 同 smart）+ 流环 `_machineFlowRing`（买正卖负符号流，**写点挂 _applyWalletAggregation 恰计一次段**——直推/ defer 两路径唯一汇合点，⚠教训：processTick 全量区+聚合段双写点=双计，首版 N1 断言 0.8 暴露后删 processTick 点）+ `machineNetBuy180`（180s 窗净额，0=无机器行有证据零值；尘行照收探针口径）+ FactorBuilder 透传；filter 臂挂序 pump>famous>smart>**machine**>recovery，留痕 rule='machine_hold'。单测 FA N 段 7 断言（133/0）+ filter U 段 13 断言（235/0）。对拍（金狗集合 A=默认/B=machineHold:false）随后补录。

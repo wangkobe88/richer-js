@@ -135,6 +135,14 @@ const SMART_HOLD_DEFAULTS = Object.freeze({
     releaseNoBuySec: 180,  // T228 状态臂释放窗（秒）：距最近任意 smart 买入超此值=无新入场 → 释放
 });
 
+/** machineHold 默认阈值（T228k 2026-11-24 流轴探针立法：机器钱包在回调中净吸筹
+ *  ≥0.2B〔180s 窗〕∧ chg30≤0 → HOLD——用户观察「机器钱包很活跃」+法医 쿠우타
+ *  选择性吸筹+活跃度匹配对照通过；minNetBuyBnb 可覆盖、enabled:false 单关。 */
+const MACHINE_HOLD_DEFAULTS = Object.freeze({
+    minNetBuyBnb: 0.2,   // 180s 机器净买下限（BNB，≥0.2 桶 +104.5%/回调版 +158.5% 探针线）
+    maxChg30Pct: 0,      // chg30 上限（≤0=回调/横盘中接货；>0=追高放行——探针交叉控）
+});
+
 /** recoveryHold 默认阈值（T185 2026-11-18，案源 bt-v153 0x89aa…7777：4s 闪砸 -44%
  * 后 V 反 +211% 被 bypass 卖在半山腰——用户裁定「debounce 确认后，如果是暴跌后
  * 价格低（买入价格区间，或者略高）且正在回涨（=我们的买入策略要买的点位），就
@@ -191,8 +199,8 @@ function normalizeFactorSellFilterConfig(raw) {
         return { error: `factorSellFilter 必须是对象（键：enabled/famousHold/smartHold/recoveryHold/pumpArmHold），实际 ${JSON.stringify(raw)}` };
     }
     for (const k of Object.keys(raw)) {
-        if (k !== 'enabled' && k !== 'famousHold' && k !== 'smartHold' && k !== 'recoveryHold' && k !== 'pumpArmHold') {
-            return { error: `factorSellFilter 未知键 "${k}"（仅支持 enabled/famousHold/smartHold/recoveryHold/pumpArmHold）` };
+        if (k !== 'enabled' && k !== 'famousHold' && k !== 'smartHold' && k !== 'recoveryHold' && k !== 'pumpArmHold' && k !== 'machineHold') {
+            return { error: `factorSellFilter 未知键 "${k}"（仅支持 enabled/famousHold/smartHold/recoveryHold/pumpArmHold/machineHold）` };
         }
     }
     if (raw.enabled === undefined || raw.enabled === null) {
@@ -211,6 +219,8 @@ function normalizeFactorSellFilterConfig(raw) {
         if (rh0.error) return { error: rh0.error };
         const pa0 = _normalizePumpArmHold(raw.pumpArmHold);
         if (pa0.error) return { error: pa0.error };
+        const mh0 = _normalizeMachineHold(raw.machineHold);
+        if (mh0.error) return { error: mh0.error };
         return {
             normalized: {
                 enabled: true,
@@ -218,6 +228,7 @@ function normalizeFactorSellFilterConfig(raw) {
                 smartHold: sh0.normalized,
                 recoveryHold: rh0.normalized,
                 pumpArmHold: pa0.normalized,
+                machineHold: mh0.normalized,
             },
         };
     }
@@ -243,7 +254,9 @@ function normalizeFactorSellFilterConfig(raw) {
     if (rh.error) return { error: rh.error };
     const pa = _normalizePumpArmHold(raw.pumpArmHold);
     if (pa.error) return { error: pa.error };
-    return { normalized: { enabled: true, famousHold: out, smartHold: sh.normalized, recoveryHold: rh.normalized, pumpArmHold: pa.normalized } };
+    const mh = _normalizeMachineHold(raw.machineHold);
+    if (mh.error) return { error: mh.error };
+    return { normalized: { enabled: true, famousHold: out, smartHold: sh.normalized, recoveryHold: rh.normalized, pumpArmHold: pa.normalized, machineHold: mh.normalized } };
 }
 
 /** pumpArmHold 段归一化（T186）：省略/null=默认开（用户裁定「这一臂卖出默认过滤掉」）；
@@ -287,6 +300,35 @@ function _normalizeSmartHold(raw) {
         }
         if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
             return { error: `factorSellFilter.smartHold.${k} 非法值 ${JSON.stringify(v)}（须有限数 ≥0）` };
+        }
+        out[k] = v;
+    }
+    return { normalized: out };
+}
+
+/** machineHold 段归一化（T228k）：省略/null=全默认开；{enabled:false}=单关；
+ *  键校验同 smartHold（minNetBuyBnb ≥0；maxChg30Pct 任意有限数——可为负）。 */
+function _normalizeMachineHold(raw) {
+    if (raw == null) {
+        return { normalized: { enabled: true, ...MACHINE_HOLD_DEFAULTS } };
+    }
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+        return { error: `factorSellFilter.machineHold 必须是对象（enabled/${Object.keys(MACHINE_HOLD_DEFAULTS).join('/')}），实际 ${JSON.stringify(raw)}` };
+    }
+    const out = { enabled: true, ...MACHINE_HOLD_DEFAULTS };
+    for (const [k, v] of Object.entries(raw)) {
+        if (k === 'enabled') {
+            if (typeof v !== 'boolean') {
+                return { error: `factorSellFilter.machineHold.enabled 非法值 ${JSON.stringify(v)}（须 bool）` };
+            }
+            out.enabled = v;
+            continue;
+        }
+        if (!(k in MACHINE_HOLD_DEFAULTS)) {
+            return { error: `factorSellFilter.machineHold 未知键 "${k}"（仅支持 enabled/${Object.keys(MACHINE_HOLD_DEFAULTS).join('/')}）` };
+        }
+        if (typeof v !== 'number' || !Number.isFinite(v)) {
+            return { error: `factorSellFilter.machineHold.${k} 非法值 ${JSON.stringify(v)}（须有限数）` };
         }
         out[k] = v;
     }
@@ -355,6 +397,7 @@ function judgeFactorSellFilter(config, factors, leg) {
     const sh = config && config.smartHold;
     const rh = config && config.recoveryHold;
     const ph = config && config.pumpArmHold;
+    const mh = config && config.machineHold;
     if (!fh) return { blocked: false, rule: null, info: null };
     const pp = factors ? factors.profitPercent : undefined;
     const sinceLast = factors ? factors.sinceLastFamousBigBuySec : undefined;
@@ -364,6 +407,8 @@ function judgeFactorSellFilter(config, factors, leg) {
     const peakPct = factors ? factors.peakProfitPct : undefined;
     const curVsLaunch = factors ? factors.currentVsLaunchPct : undefined;
     const chg5 = factors ? factors.chg5Pct : undefined;
+    const chg30 = factors ? factors.chg30Pct : undefined;
+    const machNet = factors ? factors.machineNetBuy180 : undefined;
     const nearBuy = factors ? factors.sinceEntryFamousNearLaunchBuyBnb : undefined;
     const info = {
         profitPercent: pp ?? null,
@@ -395,6 +440,12 @@ function judgeFactorSellFilter(config, factors, leg) {
         recoveryMaxLaunchPct: rh ? rh.maxLaunchPct : null,
         recoveryMinChg5Pct: rh ? rh.minChg5Pct : null,
         pumpArmHoldEnabled: !!(ph && ph.enabled),
+        // T228k machineHold 判据段（机器回调吸筹 hold——零 Jev 零网络，流轴探针立法）
+        machineHoldEnabled: !!(mh && mh.enabled),
+        machineNetBuy180: machNet ?? null,
+        chg30Pct: chg30 ?? null,
+        machineMinNetBuyBnb: mh ? mh.minNetBuyBnb : null,
+        machineMaxChg30Pct: mh ? mh.maxChg30Pct : null,
     };
     // T185 recoveryHold 命中（**独立管辖**：peakProfitPct ≥ minPeakProfitPct 本身
     // 即管辖——与 T157c「管辖判定=pp 本身」同构但换锚到峰值武装门）：
@@ -477,8 +528,18 @@ function judgeFactorSellFilter(config, factors, leg) {
         smartHit = (!_released(smartRecentSell, sh.sellReleaseBnb) || smartStateHit)
             && (_freshWithin(smartSinceLast, sh.maxSinceBuySec) || smartStateHit);
     }
+    // T228k machineHold 命中（机器回调吸筹）：180s 机器净买 ≥ minNetBuyBnb ∧
+    // chg30 ≤ maxChg30Pct（回调/横盘中接货=选择性吸筹；追高放行）。null 语义
+    // fail-open：machNet null（旧 FA）/chg30 null（未见可靠价）不拦——宁卖不冒充
+    // 吸筹证据；0=窗内无机器行/净额归零（有证据零值自然不命中）。
+    let machineHit = false;
+    if (mh && mh.enabled) {
+        machineHit = typeof machNet === 'number' && Number.isFinite(machNet) && machNet >= mh.minNetBuyBnb
+            && typeof chg30 === 'number' && Number.isFinite(chg30) && chg30 <= mh.maxChg30Pct;
+    }
     if (famousHit) return { blocked: true, rule: 'famous_hold', info };
     if (smartHit) return { blocked: true, rule: 'smart_hold', info };
+    if (machineHit) return { blocked: true, rule: 'machine_hold', info };
     if (recoveryHit) return { blocked: true, rule: 'recovery_hold', info };
     // 放行：出窗/撤退达线/两臂均无在场证据（sinceLast null=从未有大买 fail-open）
     return { blocked: false, rule: null, info };
@@ -487,6 +548,7 @@ function judgeFactorSellFilter(config, factors, leg) {
 module.exports = {
     FACTOR_SELL_FILTER_DEFAULTS,
     SMART_HOLD_DEFAULTS,
+    MACHINE_HOLD_DEFAULTS,
     RECOVERY_HOLD_DEFAULTS,
     PUMP_ARM_SIGNATURE_FACTOR,
     normalizeFactorSellFilterConfig,

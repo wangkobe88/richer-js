@@ -192,6 +192,8 @@ const FACTOR_PARAM_DEFAULTS = {
                                  //   max(2×activityWinMs, 本值)，环内存上限随之放大
     // ── T137 KOL HOLD 两键（2026-11-13 KOL 研究：pp≥100 ∧ famous 仍在入场 →
     //    延缓该卡卖出吃到高点；V2 触发口径「120s 内有 ≥0.1B famous 买」+2.32）──
+    machineFlowWinMs: 180000,    // T228k machineNetBuy180 窗（180s——流轴探针口径）
+    machineFlowMarginMs: 60000,  // T228k 机器流环裁剪余量（窗+60s）
     famousBigBuyBnb: 0.09,       // sinceLastFamousBigBuySec 的 famous 大买判定线（BNB）；
     //   T226 0.1→0.09（用户裁定「有时候需要付 gas」）：famous 发 0.1 意愿单经路由/
     //   gas 后链上净额常见 0.098x——0xa38b…7777 案源 0.09836 差 1.6% 没续上 HOLD 窗；
@@ -356,6 +358,8 @@ let _notoriousLoadPromise = null;
 // ——smartHold 恒放行不锁死卖出，与 web 端点 file_missing 同款语义）。静态快照
 // 语义（进程启动加载一次，累积器更新须重启实验进程，famous roster 同款）。
 let _smartMoneyWallets = null;
+let _machineWallets = null;
+let _machineWalletsLoadPromise = null;   // T228k 机器钱包名单（GMGN dex_bot/arbitrager/sandwich_bot 标签静态快照，见 loadMachineWallets）
 let _smartMoneyLoadPromise = null;
 // ── sybil 大簇钱包并集（2026-10-20 乌龟案用户裁定；簇合计口径）──
 // 来源=config/rosters/sybil-clusters.json（scripts/build-sybil-clusters.cjs 从
@@ -936,10 +940,54 @@ class FourMemeFactorAggregator extends EventEmitter {
         }
     }
 
+    /**
+     * T228k 机器钱包名单加载（config/rosters/machine-wallets.json，{wallets:[]} 静态快照——
+     * 2026-11-24 用户观察+流轴探针立法：机器净吸筹（回调中接货）hold 臂原料。
+     * 文件缺失=空 Set（恒放行 fail-open）；schema 不符 throw（调用方 warn）。
+     */
+    static async loadMachineWallets() {
+        if (_machineWallets) return _machineWallets;
+        if (_machineWalletsLoadPromise) return _machineWalletsLoadPromise;
+        _machineWalletsLoadPromise = (async () => {
+            const fs = require('fs');
+            const path = require('path');
+            const dataPath = path.resolve(__dirname, '..', '..', 'config', 'rosters', 'machine-wallets.json');
+            let parsed = null;
+            try {
+                parsed = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+            } catch (e) {
+                if (e.code === 'ENOENT') {
+                    this._logInfo(`机器钱包名单未配置（${dataPath} 缺失），machineHold 卖出过滤臂恒放行`);
+                    _machineWallets = new Set();
+                    return _machineWallets;
+                }
+                throw e;
+            }
+            if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.wallets)) {
+                throw new Error(`[FourMemeFA] loadMachineWallets: 名单 schema 不符（${dataPath} 无 wallets 数组）`);
+            }
+            _machineWallets = new Set(parsed.wallets.filter(w => typeof w === 'string' && w).map(w => w.toLowerCase()));
+            this._logInfo(`加载机器钱包名单: ${_machineWallets.size} 个（${dataPath}，v${parsed.version ?? '?'}）`);
+            return _machineWallets;
+        })();
+        try {
+            return await _machineWalletsLoadPromise;
+        } finally {
+            _machineWalletsLoadPromise = null;
+        }
+    }
+
     /** 测试专用：注入聪明钱集合（loader 同口径小写归一）。传 null 还原「未加载」态；
      * 空 Set=「已加载但名单为空」（smart 流键恒 null → smartHold 不命中）。 */
     static setSmartMoneyWalletsForTest(setOrNullOrUndefined) {
         _smartMoneyWallets = setOrNullOrUndefined === null
+            ? null
+            : new Set([...setOrNullOrUndefined].map(a => String(a).toLowerCase()));
+    }
+
+    /** T228k 机器名单 test setter（smart 同款——单测复位防污染）。 */
+    static setMachineWalletsForTest(setOrNullOrUndefined) {
+        _machineWallets = setOrNullOrUndefined === null
             ? null
             : new Set([...setOrNullOrUndefined].map(a => String(a).toLowerCase()));
     }
@@ -1215,6 +1263,9 @@ class FourMemeFactorAggregator extends EventEmitter {
                 state._smartAnyBuyLastAt = ts;
             }
         }
+        // ── T228k 机器流环写点注：挂 _applyWalletAggregation（恰计一次段——直推
+        //    路径 processTick !deferWallet 直调、defer 路径 applyWalletTick 补调，
+        //    同段两次挂点会双写符号流）──
         // 全史路由买入累计（tradesRouterPct 分子，T70）：恒累计无窗无冻结——买点时刻
         // 实时值，慢热票 90s 后散户路由买盘照样抬升占比（与 early 窗冻结版对照）
         if (isBuy && tick.trader_address
@@ -1795,6 +1846,19 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (state._smartAnyBuyLastAt === null || tick.timestamp > state._smartAnyBuyLastAt) {
                 state._smartAnyBuyLastAt = tick.timestamp;
             }
+        }
+
+        // ── T228k 机器流环写点（_applyWalletAggregation 恰计一次段：直推路径
+        //    processTick !deferWallet 直调、defer 路径 applyWalletTick 补调——本段
+        //    是两路径唯一汇合点，天然恰计一次；尘行也收〔探针口径全行〕）──
+        if (_machineWallets && _machineWallets.size > 0
+            && walletAddr && _machineWallets.has(walletAddr) && bnbAmount > 0) {
+            const ring = state._machineFlowRing;
+            ring.push({ ts: tick.timestamp, b: isBuy ? bnbAmount : -bnbAmount });
+            const cutoff = tick.timestamp - (this._fp.machineFlowWinMs + this._fp.machineFlowMarginMs);
+            let i = 0;
+            while (i < ring.length && ring[i].ts < cutoff) i++;
+            if (i > 0) ring.splice(0, i);
         }
 
         // ── T184 涌入状态机写点②（defer 专属补跑，T183 同款防双计：smartBotEligible
@@ -2556,6 +2620,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             _smartBigBuyLastAt: null,   // T183 聪明钱大买（≥smartBigBuyBnb）最后时刻 ms（null=从未/名单空 → sinceLastSmartBigBuySec null → smartHold 不命中 fail-open；双段写点同 famous，见 _noteSmartFlow）
             _smartSellEvents: [],       // T183 聪明钱卖出事件环 [{ts,bnb}]（recentSmartSellBnb 原料；求和交换律=乱序无害；摊销裁剪保 5×窗）
             _smartAnyBuyLastAt: null,   // T228 任意金额 smart 买最后时刻 ms（smartHold 状态臂「新入场」判据——T227d 镜像：小买/尘买也推进，写点=全量区尘门豁免+applyWalletTick 无门补跑）
+            _machineFlowRing: [],       // T228k 机器钱包流环 [{ts,b}]（b=±bnb 符号流，machineNetBuy180 原料；写点=全量区+applyWalletTick 无门补跑〔defer 价格段 wallet=路由不在名单=天然跳过，恰计一次〕；摊销裁剪 180s 窗+60s 余量）
             _inflowEntities: new Map(), // T184 涌入实体表 wallet→entity（首笔 ≥inflowMinFirstBnb 的名单钱包买入建实体；同块同额镜像成员共享实体引用=镜像簇；entity={ts,blk,price,amt,firstTok,boughtTok,soldTok}——SI-5 在场腿原料）
             _inflowEventAt: null,       // T184 首个达标事件时刻 ms（write-once 锁存幂等；null=未达标/名单未加载）
             _inflowChainSize: 0,        // T184 事件链实体数快照（发射观察键原料）
@@ -4956,6 +5021,18 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceLastSmartBigBuySec: state._smartBigBuyLastAt === null ? null
                 : Number(((now - state._smartBigBuyLastAt) / 1000).toFixed(1)),
             recentSmartSellBnb: Number(this._smartSellWindowBnb(state, now).toFixed(4)),
+            // ── T228k 机器净买窗键（machineHold 卖出过滤臂原料，2026-11-24 流轴探针
+            //    立法）：180s 机器钱包净买 BNB（买正卖负，符号流环求和）。0=窗内无机器
+            //    行/净额归零（有证据零值）；roster 未加载 → 本键恒 0（名单空 Set 语义
+            //    同 smart——文件缺失 fail-open 放行不锁死卖出）──
+            machineNetBuy180: (() => {
+                const cutoff = now - this._fp.machineFlowWinMs;
+                let net = 0;
+                for (const e of state._machineFlowRing) {
+                    if (e.ts >= cutoff) net += e.b;
+                }
+                return Number(net.toFixed(4));
+            })(),
             // ── T228 smartHold 状态臂键族（T227d 逐行镜像）：smartCopyWalletCircPct=
             //    smart 单钱包最大正净持仓 ÷ 流通（0=名单空/无命中放行）；smartAnyBuy=
             //    距最近任意金额 smart 买的秒数（null=从未买 → 状态臂不命中 fail-open；

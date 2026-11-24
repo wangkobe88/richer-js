@@ -1100,5 +1100,102 @@ console.log('M. T183 聪明钱流两键（sinceLastSmartBigBuySec / recentSmartS
     }
 }
 
+// ═══════════════ N. T228k 机器净买窗键 machineNetBuy180（machineHold 臂原料）═══════════════
+// 机器钱包流环（买正卖负符号流，180s 窗）：machineHold 卖出过滤臂——「机器在回调中
+// 净吸筹 ≥0.2B ∧ chg30≤0 → HOLD」（2026-11-24 流轴探针立法：活跃度匹配对照通过）。
+console.log('N. T228k 机器流环（machineNetBuy180）');
+{
+    const MAC = '0xmachine1111111111111111111111111111111111';
+    let liN = 0;
+    const tN = (o) => mkTick(Object.assign({
+        sender_address: MAC, price_bnb: 0.00001, bnb_amount: 0.3, timestamp: T0 + 3000,
+    }, o, { tx_hash: '0xn' + (++liN), log_index: liN }));
+    FourMemeFactorAggregator.setMachineWalletsForTest(new Set([MAC]));
+    try {
+        // N1 符号流净额：买 0.3 + 买 0.2 − 卖 0.1 = 0.4
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tN({ bnb_amount: 0.3, timestamp: T0 + 2000 }));
+            fa.processTick(tN({ bnb_amount: 0.2, timestamp: T0 + 2500 }));
+            fa.processTick(tN({ trade_type: 'sell', bnb_amount: 0.1, token_amount: 100, timestamp: T0 + 3000 }));
+            const f = fa.buildFactorMap('0xtoken', T0 + 3500);
+            check('N1 买 0.3+0.2−卖 0.1 → machineNetBuy180=0.4', () =>
+                assert.strictEqual(f.machineNetBuy180, 0.4));
+        }
+        // N2 窗边界：读点回推 180s 外剔除（margin 保留不影响读点过滤）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tN({ bnb_amount: 1.0, timestamp: T0 + 1000 })); // 读点 180.5s 前=窗外
+            fa.processTick(tN({ bnb_amount: 0.25, timestamp: T0 + 150000 })); // 窗内
+            const f = fa.buildFactorMap('0xtoken', T0 + 181500);
+            check('N2a 窗外 1.0 剔除 → 0.25', () =>
+                assert.strictEqual(f.machineNetBuy180, 0.25));
+            const f2 = fa.buildFactorMap('0xtoken', T0 + 150000 + 181000);
+            check('N2b 全部出窗 → 0（有证据零值非 null）', () =>
+                assert.strictEqual(f2.machineNetBuy180, 0));
+        }
+        // N3 尘行也收（探针口径全行；machineHold 不设尘门）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tN({ bnb_amount: 0.00098, timestamp: T0 + 2000 }));
+            const f = fa.buildFactorMap('0xtoken', T0 + 3000);
+            check('N3 尘买 0.00098 计入 → 0.001', () =>
+                assert.strictEqual(f.machineNetBuy180, 0.001));
+        }
+        // N4 defer 双段恰计一次（价格段路由假值跳过+wallet 段补跑）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            const raw = tN({ bnb_amount: 0.3, timestamp: T0 + 3000, sender_address: null });
+            fa.processTick(raw, { deferWallet: true, emitFactors: false });
+            const mid = fa.buildFactorMap('0xtoken', T0 + 4000);
+            check('N4a defer 价格段（路由假值）不计 → 0', () =>
+                assert.strictEqual(mid.machineNetBuy180, 0));
+            fa.applyWalletTick({ ...raw, sender_address: MAC, price_accepted: false }, { emitFactors: false });
+            const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+            check('N4b applyWalletTick 真 sender 补跑恰计一次 → 0.3', () =>
+                assert.strictEqual(f.machineNetBuy180, 0.3));
+        }
+        // N5 名单未加载/空 → 恒 0（fail-open 放行）+ 探针收键 + FactorBuilder 透传
+        {
+            FourMemeFactorAggregator.setMachineWalletsForTest(new Set());
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tN({ timestamp: T0 + 2000 }));
+            const f = fa.buildFactorMap('0xtoken', T0 + 3000);
+            check('N5a 空名单 → 0（有证据零值）', () =>
+                assert.strictEqual(f.machineNetBuy180, 0));
+            FourMemeFactorAggregator.setMachineWalletsForTest(null);
+            const fa2 = newFA();
+            fa2.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa2.processTick(tN({ timestamp: T0 + 2000 }));
+            const f2 = fa2.buildFactorMap('0xtoken', T0 + 3000);
+            check('N5b 未加载 → 0', () =>
+                assert.strictEqual(f2.machineNetBuy180, 0));
+            check('N5c 探针含 machineNetBuy180 + FactorBuilder 透传', () => {
+                assert.ok(newFA().getFactorKeys().has('machineNetBuy180'), '探针缺 machineNetBuy180');
+                const fb = read('src/trading-engine/core/FactorBuilder.js');
+                assert.ok(fb.includes('machineNetBuy180: factorResults.machineNetBuy180'), 'FactorBuilder 缺 machineNetBuy180');
+            });
+            FourMemeFactorAggregator.setMachineWalletsForTest(new Set([MAC]));
+        }
+        // N6 卖额超过买额 → 净负（释放方向：净流翻负）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tN({ bnb_amount: 0.2, timestamp: T0 + 2000 }));
+            fa.processTick(tN({ trade_type: 'sell', bnb_amount: 0.5, token_amount: 100, timestamp: T0 + 3000 }));
+            const f = fa.buildFactorMap('0xtoken', T0 + 3500);
+            check('N6 机器净卖 → 负值（释放判据=净流翻负）', () =>
+                assert.strictEqual(f.machineNetBuy180, -0.3));
+        }
+    } finally {
+        FourMemeFactorAggregator.setMachineWalletsForTest(null); // 复位
+    }
+}
+
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
 process.exit(failed ? 1 : 0);

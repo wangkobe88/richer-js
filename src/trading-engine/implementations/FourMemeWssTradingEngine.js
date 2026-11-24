@@ -641,6 +641,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `聪明钱名单加载失败(fail-open, smartHold 卖出过滤臂恒放行): ${e.message}`);
     }
+    // 机器钱包名单（T228k 2026-11-24 流轴探针立法 machineHold 卖出过滤臂原料）：
+    // config/rosters/machine-wallets.json（GMGN dex_bot/arbitrager/sandwich_bot 标签
+    // 静态快照 609 址）。fail-open 同 smart：文件缺失 → 空 Set → machineNetBuy180
+    // 恒 0 → 臂不命中放行不锁死卖出。静态快照更新须重启实验进程
+    try {
+      await FourMemeFactorAggregator.loadMachineWallets();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `机器钱包名单加载失败(fail-open, machineHold 卖出过滤臂恒放行): ${e.message}`);
+    }
     // sybil 大簇钱包并集（2026-10-20 乌龟案用户裁定）：sybilClusterHolderCircPct 原料。
     // fail-open 同 famous（新门未启用=零影响）：文件缺失 → 空集合；加载抛错 → 保持
     // 空——两者因子恒 0=裸比较 <35 放行（2026-10-22 去 NULL 同批）

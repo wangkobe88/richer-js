@@ -341,6 +341,41 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     ok(r2.info.smartCopyWalletCircPct === 2.5 && r2.info.sinceLastSmartAnyBuySec === 14 && r2.info.smartReleaseNoBuySec === 180, 'T12 info 留痕（smartCirc/anyBuy/releaseNoBuySec）');
 }
 
+// ── U. T228k machineHold 机器回调吸筹臂判定树（2026-11-24 流轴探针立法）────
+// 形状：180s 机器净买 ≥0.2B ∧ chg30≤0（回调/横盘中接货=选择性吸筹）→ HOLD；
+// 追高（chg30>0）放行——探针交叉控：≥0.2B∧chg30≤0 桶 +158.5% vs 追高桶 +45%。
+// null 语义 fail-open：net/chg30 缺席（旧 FA/未见可靠价）不拦；0=窗内无机器行。
+{
+    // U1 命中：net 0.3 ∧ chg30 −2 → 拦 rule=machine_hold
+    const r = judgeFactorSellFilter(CFG, { profitPercent: 105, machineNetBuy180: 0.3, chg30Pct: -2 });
+    ok(r.blocked === true && r.rule === 'machine_hold', 'U1 机器回调吸筹命中 rule=machine_hold');
+    // U2 阈值恰 0.2 过（>=）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, machineNetBuy180: 0.2, chg30Pct: -5 }).blocked === true, 'U2 net=0.2 恰线拦截（>=）');
+    // U3 追高放行（chg30>0）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, machineNetBuy180: 0.5, chg30Pct: 3 }).blocked === false, 'U3 chg30>0 追高放行（探针交叉控）');
+    // U4 chg30 恰 0 拦（<=）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, machineNetBuy180: 0.3, chg30Pct: 0 }).blocked === true, 'U4 chg30=0 恰线拦截（<=）');
+    // U5/U6 null fail-open
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, machineNetBuy180: null, chg30Pct: -2 }).blocked === false, 'U5 net null fail-open（旧 FA 放行）');
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, machineNetBuy180: 0.3, chg30Pct: null }).blocked === false, 'U6 chg30 null fail-open（未见可靠价放行）');
+    // U7 net 0（无机器行/净归零）→ 放行
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, machineNetBuy180: 0, chg30Pct: -2 }).blocked === false, 'U7 net=0 放行（有证据零值）');
+    // U8 enabled:false 单关
+    const cOff = normalizeFactorSellFilterConfig({ enabled: true, machineHold: { enabled: false } }).normalized;
+    ok(judgeFactorSellFilter(cOff, { profitPercent: 105, machineNetBuy180: 0.3, chg30Pct: -2 }).blocked === false, 'U8 machineHold.enabled=false 单关');
+    // U9 minNetBuyBnb 覆盖（0.5：0.3 不拦）
+    const cOv = normalizeFactorSellFilterConfig({ enabled: true, machineHold: { minNetBuyBnb: 0.5 } }).normalized;
+    ok(judgeFactorSellFilter(cOv, { profitPercent: 105, machineNetBuy180: 0.3, chg30Pct: -2 }).blocked === false, 'U9 覆盖 minNetBuyBnb 0.5：0.3 放行');
+    ok(judgeFactorSellFilter(cOv, { profitPercent: 105, machineNetBuy180: 0.6, chg30Pct: -2 }).blocked === true, 'U10 覆盖后 0.6 拦截');
+    // U11 管辖外恒放行（状态臂不扩管辖域）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 40, currentVsLaunchPct: 5, machineNetBuy180: 0.3, chg30Pct: -2 }).blocked === false, 'U11 pp<50 管辖外放行');
+    // U12 双中 famous 优先（留痕序）
+    const both = judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastFamousBigBuySec: 30, recentFamousSellBnb: 0, machineNetBuy180: 0.3, chg30Pct: -2 });
+    ok(both.blocked === true && both.rule === 'famous_hold', 'U12 双中 famous 优先留痕');
+    // U13 info 留痕三键
+    ok(r.info.machineNetBuy180 === 0.3 && r.info.chg30Pct === -2 && r.info.machineMinNetBuyBnb === 0.2 && r.info.machineMaxChg30Pct === 0 && r.info.machineHoldEnabled === true, 'U13 info 留痕（net/chg30/阈值/enabled）');
+}
+
 // ── J. T183 pump 臂签名管辖（pump-imbalance-exit 腿无论 pp 过门）──────────
 // 案源：bt-v150 0x2f17 P5 腿（realHoldDuration>=30 AND sinceEntryNetBuyRatio>=90
 // AND sinceEntryBuyBnb>=1）pp=57.5<100 被 T157c 管辖门放走 → 全清后卖后 +350%。
