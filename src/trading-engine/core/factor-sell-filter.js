@@ -97,7 +97,7 @@
 
 'use strict';
 
-// T232 stall 断流卖腿签名（recoveryHold 对 stall 腿放行——见 judge 内注释）
+// T233 stall 断流卖腿签名（recoveryHold 对 stall 腿放行——见 judge 内注释）
 const { STALL_SIGNATURE_FACTOR } = require('./stall-sell-leg');
 
 /** famousHold/smartHold 默认阈值（T137 研究线 180s + T157 D 修释放线 0.4；T211
@@ -433,7 +433,7 @@ function judgeFactorSellFilter(config, factors, leg) {
             const condText = legConditionText(leg);
             return !!(condText && condText.includes(PUMP_ARM_SIGNATURE_FACTOR));
         })(),
-        // T232 stall 断流卖腿签名（recoveryHold 对 stall 腿放行——冻结形状永久拦截
+        // T233 stall 断流卖腿签名（recoveryHold 对 stall 腿放行——冻结形状永久拦截
         // 风险；与 pump 签名互斥：sinceEntryNetBuyRatio 与 idleSec 条件文本无交集）
         stallArmJurisdiction: (() => {
             const condText = legConditionText(leg);
@@ -465,7 +465,7 @@ function judgeFactorSellFilter(config, factors, leg) {
     // 缺席不拦——低位回涨证据不全宁卖不冒充「买点」
     let recoveryHit = false;
     if (rh && rh.enabled && !info.stallArmJurisdiction) {
-        // T232：stall 断流卖腿不享 recoveryHold 拦截——recoveryHold 三键
+        // T233：stall 断流卖腿不享 recoveryHold 拦截——recoveryHold 三键
         // （peakProfitPct/currentVsLaunchPct/chg5Pct）全价格系，断流期冻结：末 tick
         // 若恰处「峰≥80 ∧ 低位 ∧ 回涨」形状会**永久**拦截 stall 卖腿（流动性死亡≠
         // 「买点」，T185 语义前提=活跃市场）。famous/smart/machine 臂时间键随 now

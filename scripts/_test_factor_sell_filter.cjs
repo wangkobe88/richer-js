@@ -641,4 +641,30 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     'T219 低价建仓达标但 famous 还没卖 → 照拦（止盈还没开始）');
 }
 
+// ═══════════════ T233 stall 签名腿管辖（2026-11-24 stallClose 腿化）═══════════════
+// 断流卖出现在是普通卖腿（condition 引用 idleSecSinceLastSubstantialTick），照常进
+// factorSellFilter 统一过滤。保命语义核心=recoveryHold 豁免：recoveryHold 三键
+// （peakProfitPct/currentVsLaunchPct/chg5Pct）全价格冻结，断流期永不衰减会永久
+// 拦截断流票（保命语义降级）——T185 语义前提=活跃市场，断流票不适用 → stall 签名
+// 腿跳过 recovery 臂。famous/smart/machine 臂时间键随 now 走钟自然衰减，照拦不豁免
+// （180s 内大户在场先不卖= T219 精神）。
+{
+    const { buildStallLegCondition } = require('../src/trading-engine/core/stall-sell-leg');
+    const STALL_LEG_STR = { id: 'stallClose', name: '流动性止损', condition: buildStallLegCondition(), cards: 'all', bypassDebounce: true };
+    const frozen = { profitPercent: 20, currentVsLaunchPct: 5, peakProfitPct: 120, chg5Pct: 3 };
+    const r1 = judgeFactorSellFilter(CFG, frozen, STALL_LEG_STR);
+    ok(r1.blocked === false && r1.info.stallArmJurisdiction === true,
+        'T233a 冻结 recovery 形状 + stall 腿 → 豁免放行（保命不永久拦）');
+    ok(judgeFactorSellFilter(CFG, frozen, { id: 'p7', name: 'P7', condition: 'profitPercent > 100' }).rule === 'recovery_hold',
+        'T233b 同形状 + 普通腿 → recoveryHold 照拦（豁免只对 stall 签名）');
+    const STALL_LEG_AST = { id: 'stallClose', condition: { type: 'AND' }, conditionText: buildStallLegCondition() };
+    ok(judgeFactorSellFilter(CFG, frozen, STALL_LEG_AST).info.stallArmJurisdiction === true,
+        'T233c AST 腿 conditionText 签名识别（引擎实跑形状）');
+    // famous 状态臂照拦 stall 腿（时间键衰减不永久锁死）
+    const rF = judgeFactorSellFilter(CFG, { profitPercent: 105, currentVsLaunchPct: 50, sinceLastFamousAnyBuySec: 100, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, famousCopyWalletCircPct: 2.5 }, STALL_LEG_STR);
+    ok(rF.blocked === true && rF.rule === 'famous_hold', 'T233d famous 状态臂拦 stall 腿（anyBuy 100s 在窗）');
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, currentVsLaunchPct: 50, sinceLastFamousAnyBuySec: 300, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, famousCopyWalletCircPct: 2.5 }, STALL_LEG_STR).blocked === false,
+        'T233e famous anyBuy 出窗 300s → 放行（自然衰减）');
+}
+
 console.log(`✅ _test_factor_sell_filter 全部 ${passed} 断言通过`);

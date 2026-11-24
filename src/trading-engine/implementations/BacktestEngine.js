@@ -27,7 +27,6 @@
 
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
-const { resolveStallCloseExtension, effectiveStallExtension, normalizeStallBigHolderExempt, stallBigHolderExempt } = require('../core/stall-close-almost-launch.js');
 const { isStallSellLeg, DEFAULT_STALLED_SCAN_AFTER_SEC, stallTriggerContext } = require('../core/stall-sell-leg');
 const { BURST_COOLDOWN_DEFAULTS, evaluateBurstCooldown } = require('../core/burst-cooldown-exit');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
@@ -804,29 +803,9 @@ class BacktestEngine extends AbstractTradingEngine {
         `| 持仓扫描=${this._stopLossScanMs != null ? this._stopLossScanMs / 1000 + 's(虚拟时钟)' : '未配置（仅 tick 路径）'}`);
     }
 
-    // 6.7b 流动性止损（T104，与实时引擎同配置 stallClose 段）：断流持仓距上一笔
-    //     链上成交 > stallMs 全清。回测形态差异：挂主循环 processTick **之前**、虚拟
-    //     时钟 1s 节流（=实时 1s 墙钟定时器的回放等价）——本 token 空窗以它自己的
-    //     下一 tick 到达为时钟推进点，feed 后 lastTickAt 已推进会漏检自己的空窗；
-    //     全市场静默期时钟冻结，任何 token 的下一 tick 都是检测点（回放可达的最好
-    //     等价）。不配段 = 关闭（存量回测实验零变化）。
-    // T202 策略库二期：stallClose/burstCooldown 归策略包 definition（与实时引擎
-    // 同源 this._strategyDefinition——parity 红线天然一致）；实验 config 顶层段不再消费
-    const _sc = (this._strategyDefinition && this._strategyDefinition.stallClose) || {};
-    const _scMs = Number(_sc.stallMs);
-    this._stallCloseMs = Number.isFinite(_scMs) && _scMs > 0 ? _scMs : null;
-    // T118 断流足额门（与实时引擎同配置同判据，回测 parity 红线）：微量成交不算
-    // 流动性证据，水位切 FA lastSubstantialTickAt；缺省 null=原口径零变化
-    const _scMin = Number(_sc.minTickBnb);
-    this._stallCloseMinTickBnb = Number.isFinite(_scMin) && _scMin > 0 ? _scMin : null;
-    if (this._stallCloseMinTickBnb != null) this._factorAggregator.setSubstantialTickBnb(this._stallCloseMinTickBnb);
-    // T170+T170b 域断流延长（与实时引擎同配置同判据，回测 parity 红线；两档：
-    // almost_launch 90s 缺省 + 破发档 180s——纯函数/口径详见 core/stall-close-almost-launch.js）
-    this._stallCloseExt = resolveStallCloseExtension(_sc, this._stallCloseMs);
-    // T219 大户在场豁免（与实时引擎同判据，回测 parity 红线）
-    this._stallBigHolderExempt = normalizeStallBigHolderExempt(_sc);
-    this._lastStallScanTs = null;
-    // T232 stall 断流卖腿驱动（回测侧，与实时同款）：存在 stall 签名卖腿 → 主循环
+    // 6.7b 流动性止损已随 T233 腿化退役（2026-11-24）——stallClose 段由
+    // _resolveStrategyPack fail-fast 拒启；断流卖出=stall 签名卖腿。
+    // T233 stall 断流卖腿驱动（回测侧，与实时同款）：存在 stall 签名卖腿 → 主循环
     // 1s 节流驱动启用（评估全部卖腿——补「回测断流票其它卖腿永不评估」的 parity
     // 缺口向 live 对齐）；与旧 stallClose 机制互斥共存（v13 包走旧、v14 包走新）
     const _btSellLegs = this._strategyEngine ? this._strategyEngine.getAllStrategies().filter(x => x.action === 'sell') : [];
@@ -842,13 +821,6 @@ class BacktestEngine extends AbstractTradingEngine {
     if (this._stalledSellLegScanEnabled) {
       this.logger.info(this._experimentId, 'BacktestEngine',
         `⏱️ 断流卖腿 1s 驱动已启用(回测) | stall 腿=${_btStallLegs.length} 预扫门=${this._stalledScanAfterSec}s（虚拟时钟）`);
-    }
-    if (this._stallCloseMs != null) {
-      this.logger.info(this._experimentId, 'BacktestEngine',
-        `🛡️ 流动性止损已启用(回测) | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓` +
-        `${this._stallCloseMinTickBnb != null ? `（足额门≥${this._stallCloseMinTickBnb}BNB）` : ''}（虚拟时钟 1s 节流扫描）` +
-        `${this._stallCloseExt.almostLaunchMs != null ? `｜almost_launch 域(≤+10%)延长到${this._stallCloseExt.almostLaunchMs / 1000}s` : ''}` +
-        `${this._stallCloseExt.breakdownMs != null ? `｜破发域(vs配置/首买价≤-5%)延长到${this._stallCloseExt.breakdownMs / 1000}s` : ''}）`);
     }
 
     // 6.9b T189 burst 承接冷盘（与实时引擎同配置同判据，回测 parity 红线；虚拟时钟
@@ -1807,18 +1779,7 @@ class BacktestEngine extends AbstractTradingEngine {
         }
         perf.other += Date.now() - _p0;
 
-        // 流动性止损扫描（T104）：必须在 processTick **之前**——本 token 空窗以它
-        // 自己的下一 tick 到达为检测点，feed 后 lastTickAt 已推进会漏检自己的空窗。
-        // 虚拟时钟 1s 节流 = 实时 1s 墙钟定时器等价（检测时点 lastTickAt+stallMs，
-        // 因子 asOf 取该时点——价格冻结在空窗前末 tick，卖价与实时墙钟检测同价；
-        // trade 时间戳=当前 tickTs 晚到一会儿=回放时钟粒度，价格口径零分叉）
-        if (this._stallCloseMs != null &&
-            (this._lastStallScanTs === null || tickTs - this._lastStallScanTs >= 1000)) {
-          this._lastStallScanTs = tickTs;
-          await this._scanStallClose(tickTs);
-        }
-
-        // T232 stall 断流卖腿驱动（虚拟时钟 1s 节流，stallClose 同位同摆位——
+        // T233 stall 断流卖腿驱动（虚拟时钟 1s 节流，stallClose 同位同摆位——
         // processTick 之前）：预扫门超时持仓 buildFactorMap(tickTs) → 卖腿全链
         if (this._stalledSellLegScanEnabled &&
             (this._lastStalledSellLegScanTs === null || tickTs - this._lastStalledSellLegScanTs >= 1000)) {
@@ -3176,122 +3137,11 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 流动性止损卖出（T104，实时 _emitStallCloseSell 的回放版）：_emitStopLossSell
-   * 同构全清链（cards='all'→sellPct=1，bypass 立即路径）；回测签名多 nowTs。
-   * @param {{ms:number,tier:string}|null} extTier T170/T170b 档位（null=域外原阈值；
-   *   信号名显示实际生效阈值——T170b 起延长臂卖出不再冒充基础阈值）
-   */
-  async _emitStallCloseSell(token, factors, stalledMs, nowTs, extTier = null) {
-    const effSec = Math.round((extTier ? extTier.ms : this._stallCloseMs) / 1000);
-    const tierTag = extTier == null ? '' : (extTier.tier === 'breakdown' ? '·破发域延长' : '·almost_launch域延长');
-    const strategy = {
-      id: 'stallClose',
-      name: `流动性止损-无成交超时(${effSec}s${tierTag}` +
-        `${this._stallCloseMinTickBnb != null ? `,≥${this._stallCloseMinTickBnb}BNB` : ''})`,
-      action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
-      priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
-      // T170b 断流上下文（signals 页展示「断流: Ns·档位」；stalledSec=距末足额成交）
-      stallCloseInfo: { stalledSec: Math.round(stalledMs / 1000), tier: extTier ? extTier.tier : null, effectiveSec: effSec },
-    };
-    this.logger.info(this._experimentId, 'StallClose',
-      `${token.symbol || token.token.slice(0, 10)} 触发${strategy.name}(回放) | 已无成交 ${Math.round(stalledMs / 1000)}s | profitPercent=${factors.profitPercent?.toFixed(1)}%`);
-    return this._emitSellSignal(token, strategy, factors, nowTs, null);
-  }
-
-  /**
-   * 流动性止损扫描（虚拟时钟版，T104，主循环 1s 节流驱动）：nowTs 距 lastTickAt
-   * > stallMs 的持仓全清。因子 asOf=lastTickAt+stallMs（检测时点——价格冻结在
-   * 空窗前末 tick，与实时墙钟检测同价）；lastTickAt 缺失 fail-open（首 tick 前
-   * 无证据不卖）。串行逐 token await（对齐实时与 _scanHoldingsStopLoss）。
-   */
-  /**
-   * T189 burst 承接冷盘扫描（虚拟时钟版，与实时引擎同判据；主循环 1s 节流驱动）：
-   * per 持仓票回溯视图 → 状态机 → sell=bypass 全清 / release=解除。因子 asOf=
-   * 检测时点 tickTs（与 stallClose 的检测点重锚同语义）。
-   */
-  async _scanBurstCooldown(nowTs) {
-    if (this._burstCooldown == null) return;
-    for (const holding of this._getAllHoldings()) {
-      const tokenAddress = holding.tokenAddress;
-      if (!tokenAddress) continue;
-      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
-      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
-      if (!token || token.status !== 'bought') continue;
-      const view = this._factorAggregator.getBurstCooldownView(tokenAddress, this._burstCooldown);
-      if (!view) continue;
-      const verdict = evaluateBurstCooldown(view, nowTs, this._burstCooldown);
-      if (!verdict) continue;
-      if (verdict.action === 'release') {
-        this._factorAggregator.clearBurstCooldown(tokenAddress);
-        continue;
-      }
-      const factors = this._factorAggregator.buildFactorMap(tokenAddress, nowTs);
-      if (!factors) continue;
-      await this._emitBurstCooldownSell(token, factors, verdict, nowTs);
-    }
-  }
-
-  /** T189 卖出（回测版，stallClose 回放版同构：bypass 立即全清） */
-  async _emitBurstCooldownSell(token, factors, verdict, nowTs) {
-    const strategy = {
-      id: 'burstCooldown',
-      name: `burst承接冷盘(${verdict.batch === 'w1'
-        ? `${this._burstCooldown.check1Sec}s承接${verdict.info.w1Bnb}<${this._burstCooldown.check1MinAbsorbBnb}B`
-        : verdict.batch === 'w2-fast'
-          ? `段内承接枯竭${this._burstCooldown.check2ConfirmSec}s`
-          : `${this._burstCooldown.check2Sec}s承接${verdict.info.w2Bnb}<${this._burstCooldown.check2MinAbsorbBnb}B`})`,
-      action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
-      priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
-      burstCooldownInfo: { ...verdict.info, reason: verdict.reason },
-    };
-    this.logger.info(this._experimentId, 'BurstCooldown',
-      `${token.symbol || token.token.slice(0, 10)} 触发${strategy.name}(回放) | 波成员=${verdict.info.crewSize} 承接w1=${verdict.info.w1Bnb}B/w2=${verdict.info.w2Bnb}B | profitPercent=${factors.profitPercent?.toFixed(1)}%`);
-    return this._emitSellSignal(token, strategy, factors, nowTs, null);
-  }
-
-  async _scanStallClose(nowTs) {
-    if (this._stallCloseMs == null) return;
-    for (const holding of this._getAllHoldings()) {
-      const tokenAddress = holding.tokenAddress;
-      if (!tokenAddress) continue;
-      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
-      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
-      if (!token || token.status !== 'bought') continue;
-      const st = this._factorAggregator.getTokenState(tokenAddress);
-      // T118 足额门（与实时引擎同判据）：开启 → 水位切 lastSubstantialTickAt，
-      // null fail-open 不卖；关闭 → lastTickAt 原口径
-      const lastTickAt = this._stallCloseMinTickBnb != null
-        ? (st ? st.lastSubstantialTickAt : null)
-        : (st ? st.lastTickAt : null);
-      if (lastTickAt == null) continue;
-      if (nowTs - lastTickAt <= this._stallCloseMs) continue;
-      let factors = this._factorAggregator.buildFactorMap(tokenAddress, lastTickAt + this._stallCloseMs);
-      if (!factors) continue;
-      // T170+T170b 域断流延长（与实时引擎同判据）：档位判定吃基础检测时点因子
-      // （断流期 state 冻结，价格键与延长点无差）——almost_launch（curVs≤+10）→
-      // 90s 档；破发档（floorPct=现价 vs min(常量,首买价) 无滚动最低 ≤−5）→ 180s 档。
-      // 延长窗耗尽真卖时检测点重锚到生效档阈值点（实时墙钟 fire 时刻 ≈
-      // lastTickAt+档阈值的回放等价——时间键 parity）。
-      const extTier = effectiveStallExtension(this._stallCloseExt, factors);
-      if (extTier != null && nowTs - lastTickAt <= extTier.ms) continue;
-      // T219 大户在场豁免（与实时引擎同判据——断流期 state 冻结 as-of 正确；
-      // 证据缺失 fail-closed 照卖）
-      if (stallBigHolderExempt(factors, this._stallBigHolderExempt)) continue;
-      // 仅域内票耗尽延长窗时重锚（fire 时刻 stalledMs>阈值已被上面 continue 蕴含）；
-      // 域外/缺证据票保持 T104 基础检测点（asOf=lastTickAt+stallMs parity 红线零变化）
-      if (extTier != null) {
-        factors = this._factorAggregator.buildFactorMap(tokenAddress, lastTickAt + extTier.ms) || factors;
-      }
-      await this._emitStallCloseSell(token, factors, nowTs - lastTickAt, nowTs, extTier);
-    }
-  }
-
-  /**
-   * T232 stall 断流卖腿驱动（回测，虚拟时钟）：主循环 1s 节流调用。与实时同款——
+   * T233 stall 断流卖腿驱动（回测，虚拟时钟）：主循环 1s 节流调用。与实时同款——
    * 预扫门（lastTickAt 全量口径）后 buildFactorMap(tickTs) → _evaluateSellPathAt
    * 走卖腿→filter→bypass 全链。评估全部卖腿（与 live 对齐，补既有 parity 缺口）。
    * asOf 语义：nowTs=虚拟时钟扫描时刻（断流期价格键冻结，与旧机制检测点同价；
-   * 时间键快照差 sub-静默窗，见 T232 方案论证）。
+   * 时间键快照差 sub-静默窗，见 T233 方案论证）。
    */
   async _scanStalledSellLegs(tickTs) {
     if (!this._stalledSellLegScanEnabled) return;
@@ -3356,7 +3206,7 @@ class BacktestEngine extends AbstractTradingEngine {
    * tickIdentity 双命名支持）
    */
   async _evaluateSellPath(token, factors, tick) {
-    // T232：nowTs 参数化——断流驱动（_scanStalledSellLegs）在无 tick 的虚拟时刻
+    // T233：nowTs 参数化——断流驱动（_scanStalledSellLegs）在无 tick 的虚拟时刻
     // 评估时走 _evaluateSellPathAt(token, factors, tickTs)，per-tick 路径委托本处
     return this._evaluateSellPathAt(token, factors, tick.timestamp, tick);
   }
@@ -3508,10 +3358,8 @@ class BacktestEngine extends AbstractTradingEngine {
             holdDuration: signal.holdDuration,
             ...signal.factors,
             // T170b stallClose 断流上下文（显式白名单透传——signals 页「断流: Ns·档位」）；
-            // T232 stall 签名腿：从触发时刻因子快照重建同形状上下文（前端零改动）
-            ...(strategy.stallCloseInfo
-              ? { stallClose: strategy.stallCloseInfo }
-              : (isStallSellLeg(strategy) ? { stallClose: stallTriggerContext(factors) } : {})),
+            // T233 stall 签名腿：从触发时刻因子快照重建同形状上下文（前端零改动）
+            ...(isStallSellLeg(strategy) ? { stallClose: stallTriggerContext(factors) } : {}),
           },
           createdAt: signal.timestamp,
         });

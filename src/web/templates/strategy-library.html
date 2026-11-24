@@ -47,7 +47,7 @@
                 <div>
                     <h1 class="text-2xl font-bold text-gray-800">📚 策略库（交易策略包）</h1>
                     <p class="text-sm text-gray-500 mt-1">
-                        条目 = 完整交易策略包（T202 策略库二期）：买/卖腿 + 断流/冷盘卖出（stallClose/burstCooldown）+
+                        条目 = 完整交易策略包（T202 策略库二期）：买/卖腿（断流卖出=卖腿·T233 腿化）+ 冷盘卖出（burstCooldown）+
                         四检测模块版本（因子过滤/cheat/AF1/BP）。实验只存策略 ID 引用本库，引擎启动取最新版本——
                         改库重启实验即生效；对比实验=换一个包。
                     </p>
@@ -77,7 +77,8 @@
                     </button>
                 </div>
                 <p class="text-xs text-gray-500">
-                    读旧实验 config：strategiesConfig 腿 → buyLegs/sellLegs；顶层 stallClose/burstCooldown → 机制段；
+                    读旧实验 config：strategiesConfig 腿 → buyLegs/sellLegs；顶层 stallClose 激活 → 注入标准断流卖腿（T233
+                    腿化；stallMs 等旧参数不复刻，可在卖腿编辑器改条件）；burstCooldown → 机制段；
                     fourmemeWs 门链旗（cheatCheck.enabled/actFrontGate.enabled/buyPointCheck.enabled+factorCheck.enabled）
                     → modules（勾过的模块落 v1）。确认后保存成策略包条目。
                 </p>
@@ -111,27 +112,13 @@
                     <p class="text-xs text-gray-500 mt-1">四个都不勾=全关（纯盘面裸跑）；版本清单来自代码注册表（/module-versions）</p>
                 </div>
 
-                <!-- 断流/冷盘卖出（归包） -->
+                <!-- 冷盘卖出（归包）+ 断流卖出说明（T233 已腿化=卖腿） -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     <div class="border border-gray-200 rounded-lg p-3">
-                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                            <input type="checkbox" id="lib-sc-enabled" class="rounded">
-                            🛑 断流卖出（stallClose）
-                        </label>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div><label class="block text-xs text-gray-600 mb-0.5">断流毫秒门（必填）</label>
-                                <input type="number" id="lib-sc-stall-ms" placeholder="50000" min="1000" max="3600000" step="500"
-                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
-                            <div><label class="block text-xs text-gray-600 mb-0.5">足额门 BNB（0=关）</label>
-                                <input type="text" id="lib-sc-min-tick-bnb" placeholder="0.02"
-                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
-                            <div><label class="block text-xs text-gray-600 mb-0.5">almost 域延长 ms</label>
-                                <input type="number" id="lib-sc-almost" placeholder="90000" min="0" max="3600000" step="500"
-                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
-                            <div><label class="block text-xs text-gray-600 mb-0.5">破发域延长 ms（0/空=关）</label>
-                                <input type="number" id="lib-sc-breakdown" placeholder="" min="0" max="3600000" step="500"
-                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs"></div>
-                        </div>
+                        <p class="text-sm font-medium text-gray-700 mb-1">🛑 断流卖出（stallClose）</p>
+                        <p class="text-xs text-gray-500">已随 T233 腿化为普通卖腿：条件引用
+                            <code class="text-xs">idleSecSinceLastSubstantialTick</code>（55s/almost 域 90s），
+                            在下方「📉 卖出腿」编辑器里添加/编辑；包顶层 stallClose 段已退役（保存会被 400 拦截）。</p>
                     </div>
                     <div class="border border-gray-200 rounded-lg p-3">
                         <label class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
@@ -255,8 +242,9 @@
                 const modBadges = Object.keys(MODULE_LABELS).map((k) => (def.modules || {})[k]
                     ? `<span class="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">${MODULE_LABELS[k]}:${def.modules[k]}</span>`
                     : `<span class="px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-400">${MODULE_LABELS[k]}:关</span>`).join(' ');
+                const hasStallLeg = (def.sellLegs || []).some((l) => (l.condition || '').includes('idleSecSinceLastSubstantialTick'));
                 const mechBits = [];
-                mechBits.push(def.stallClose ? `断流 on(${Math.round((def.stallClose.stallMs || 0) / 1000)}s)` : '断流 off');
+                mechBits.push(def.stallClose ? '断流 旧段(已退役)' : (hasStallLeg ? '断流腿 on' : '断流腿 off'));
                 mechBits.push(def.burstCooldown != null ? '冷盘 on' : '冷盘 off');
                 const card = document.createElement('div');
                 card.className = 'bg-white border border-gray-200 rounded-lg p-4';
@@ -334,23 +322,12 @@
         }
 
         function resetMechForm() {
-            $('lib-sc-enabled').checked = false;
-            for (const id of ['lib-sc-stall-ms', 'lib-sc-min-tick-bnb', 'lib-sc-almost', 'lib-sc-breakdown',
-                'lib-bc-c1', 'lib-bc-a1', 'lib-bc-cf', 'lib-bc-c2', 'lib-bc-a2']) $(id).value = '';
+            for (const id of ['lib-bc-c1', 'lib-bc-a1', 'lib-bc-cf', 'lib-bc-c2', 'lib-bc-a2']) $(id).value = '';
             $('lib-bc-enabled').checked = false;
         }
 
         function fillMechForm(def) {
             resetMechForm();
-            const sc = def.stallClose;
-            if (sc) {
-                const active = typeof sc.stallMs === 'number' && sc.stallMs > 0;
-                $('lib-sc-enabled').checked = active;
-                if (Number.isFinite(sc.stallMs) && sc.stallMs > 0) $('lib-sc-stall-ms').value = sc.stallMs;
-                if (Number.isFinite(sc.minTickBnb)) $('lib-sc-min-tick-bnb').value = sc.minTickBnb;
-                if (Number.isFinite(sc.almostLaunchStallMs)) $('lib-sc-almost').value = sc.almostLaunchStallMs;
-                if (Number.isFinite(sc.breakdownStallMs)) $('lib-sc-breakdown').value = sc.breakdownStallMs;
-            }
             if (def.burstCooldown != null) {
                 $('lib-bc-enabled').checked = true;
                 const map = [['lib-bc-c1', 'check1Sec'], ['lib-bc-a1', 'check1MinAbsorbBnb'],
@@ -391,18 +368,6 @@
 
         function collectMechSections() {
             const def = {};
-            if ($('lib-sc-enabled').checked) {
-                const ms = parseInt($('lib-sc-stall-ms').value);
-                if (!Number.isFinite(ms) || ms <= 0) throw new Error('stallClose 勾选但断流毫秒门未填/非法（段在而 stallMs 未配=机制关，假启用比默认值更危险）');
-                const sc = { stallMs: ms };
-                const minVal = parseFloat($('lib-sc-min-tick-bnb').value);
-                if (Number.isFinite(minVal)) sc.minTickBnb = minVal;
-                const almost = parseInt($('lib-sc-almost').value);
-                if (Number.isFinite(almost)) sc.almostLaunchStallMs = almost;
-                const brk = parseInt($('lib-sc-breakdown').value);
-                if (Number.isFinite(brk)) sc.breakdownStallMs = brk;
-                def.stallClose = sc;
-            }
             if ($('lib-bc-enabled').checked) {
                 const bc = {};
                 const c1 = parseInt($('lib-bc-c1').value); if (Number.isFinite(c1)) bc.check1Sec = c1;
@@ -722,6 +687,16 @@
                 const buyLegs = (sc.buyStrategies || []).map(stripLegacy);
                 const sellLegs = (sc.sellStrategies || []).map(stripLegacy);
                 if (!buyLegs.length || !sellLegs.length) throw new Error(`该实验腿不全（买${buyLegs.length}/卖${sellLegs.length}）——策略包要求两侧非空`);
+                // T233：旧实验顶层 stallClose 激活（段在且 stallMs>0）→ 注入标准断流卖腿（旧 stallMs/足额门参数
+                // 不复刻——标准腿 55s/almost 域 90s，需要调整可在卖腿编辑器改条件；段未激活=原样不注入）
+                const scActive = config.stallClose && typeof config.stallClose.stallMs === 'number' && config.stallClose.stallMs > 0;
+                if (scActive && !sellLegs.some((l) => (l.condition || '').includes('idleSecSinceLastSubstantialTick'))) {
+                    sellLegs.unshift({
+                        id: 'stallClose', name: '流动性止损-无成交超时(55s，almost_launch域90s)', priority: 0,
+                        cards: 'all', bypassDebounce: true, stalledScanAfterSec: 45,
+                        condition: '(idleSecSinceLastSubstantialTick >= 90 AND currentVsLaunchPct <= 10) OR (idleSecSinceLastSubstantialTick >= 55 AND (currentVsLaunchPct > 10 OR currentVsLaunchPct IS NULL))',
+                    });
+                }
                 // 机制段直迁；门链旗 → modules（勾过=启用 v1）
                 const ws = config.fourmemeWs || config.flapWs || config.gangWs || {};
                 const modules = {};
@@ -734,13 +709,13 @@
                 $('lib-expected-version').value = '';
                 const expName = $('import-experiment-select').selectedOptions[0]?.textContent?.split('（')[0] || expId.slice(0, 8);
                 $('lib-name').value = `${expName}-pack`;
-                $('lib-description').value = `从旧实验 ${expId} 迁移（买${buyLegs.length}/卖${sellLegs.length} 腿）`;
+                $('lib-description').value = `从旧实验 ${expId} 迁移（买${buyLegs.length}/卖${sellLegs.length} 腿${scActive ? '，含注入标准断流卖腿' : ''}）`;
                 formBuyLegs = buyLegs;
                 formSellLegs = sellLegs;
                 renderFormLegs('lib-buy-legs', formBuyLegs, 'buy');
                 renderFormLegs('lib-sell-legs', formSellLegs, 'sell');
                 renderModuleRows(modules);
-                fillMechForm({ stallClose: config.stallClose, burstCooldown: config.burstCooldown });
+                fillMechForm({ burstCooldown: config.burstCooldown });
                 showForm(`从旧实验迁移（确认后保存成策略包）`);
             } catch (e) {
                 alert(`组包失败: ${e.message}`);

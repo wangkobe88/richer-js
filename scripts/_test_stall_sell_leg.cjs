@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** T232 stall 断流卖出腿化单测（2026-11-24）：stall 卖腿条件真值表 / FA 水位键 /
+/** T233 stall 断流卖出腿化单测（2026-11-24）：stall 卖腿条件真值表 / FA 水位键 /
  *  两引擎 1s 驱动 / factorSellFilter 集成（recoveryHold 冻结形状反证）/ 信号形状 /
  *  新旧机制共存。零 DB 零网络（FA 直推 + 引擎 prototype harness）。 */
 'use strict';

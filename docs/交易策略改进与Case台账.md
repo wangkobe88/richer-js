@@ -2255,8 +2255,10 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **验证（已兑现，bt-v240）**：16 票 / 胜率 87.5% / **+5.5668**（vs bt-v237 基线 +4.2489 = **+1.3179**）——**MOYNOK 买回 +0.4521 ✅（带卖不拦兑现）、0x4509 保持 +1.3179 ✅、쿠우타 也买回 +0.1249（Jev 噪声归位）**；16 票=v238 原 15 票+0x4509 纯增量，**零误伤**。T231+T232 全链四改端到端收官：0.19 队列线/龄上界撤除/act15s 0.4/买侧差额 0.15-0.12。
 
-## T232 stallClose 断流卖出腿化（2026-11-24 用户裁定「将断流卖出策略同样使用因子表达式进行表达，作为卖出臂的一部分……同样进入卖出臂的过滤检测」）
+## T233 stallClose 断流卖出腿化（2026-11-24 用户裁定「将断流卖出策略同样使用因子表达式进行表达，作为卖出臂的一部分……同样进入卖出臂的过滤检测」；案号说明：T232 已被黄金坑臂冷窗线占用——本条目正式号 **T233**，过程稿/早先提交中写 T232 处均指本条目）
 
 **架构**：stallClose 从引擎独立机制（1s 扫描+直构造 strategy+绕过 filter）改造为**策略包普通卖腿**：`(idleSecSinceLastSubstantialTick >= 90 AND currentVsLaunchPct <= 10) OR (idleSecSinceLastSubstantialTick >= 55 AND (currentVsLaunchPct > 10 OR currentVsLaunchPct IS NULL))`，id='stallClose'/priority 0/cards all/bypassDebounce（保命形状，T228i 铁律）；FA 新键 idleSecSinceLastSubstantialTick（足额水位，factorParams.substantialTickBnb 缺省 0.01 自注入）；两引擎 1s 断流驱动（45s 预扫门+评估全部卖腿——回测顺带补「断流票其它卖腿永不评估」parity 缺口）；factorSellFilter stall 签名 → **recoveryHold 对 stall 腿放行**（三键价格冻结会永久拦的保命反证），famous/smart/machine 臂照常（时间键自然衰减 ≤180s）；signal metadata 同形状迁移（前端零改动）；T219 豁免退役（bt-v206 否证）、破发档不回迁（d345c 否证）。
 
 **对拍（金狗 31 票，A=v17 stall 腿 vs B=v16 对照条目）**：A 105.5165 vs B 105.5010（B 两轮逐位同=零 Jev 翻转）**+0.0155**；**stall 行时点 6 行中 5 行 Δ=0s**，唯一差异 LAB +75s=famous_hold 拦 stall 腿（anyBuy 121→128→>180 自然衰减放行——「大户在场先不卖」兑现，75s 后照卖）。事故两件：①require 锚文本 .js 后缀漏插（isStallSellLeg ReferenceError）②预扫门用全量 lastTickAt 被尘埃喂饱致驱动饿死（BIBI +89s——改足额水位同旧判据修复）。单测 `_test_stall_sell_leg` 42 断言（真值表/水位/驱动/filter 反证/共存）；回归 94/235/133/41/44/52/24 全绿。
+
+**P2 清理（对拍通过后，2026-11-24）**：删两引擎旧 stallClose 机制（定时器/`_emitStallCloseSell`/`_scanStallClose`/持仓字段）+删 `core/stall-close-almost-launch.js`（史注并入 stall-sell-leg.js）+删 `_test_stall_close.cjs`；StrategyLibraryService 删 validateStallCloseSection、stallClose 进 RETIRED_PACK_KEYS（400 引导）；**引擎 fail-fast**（`_resolveStrategyPack` 见 definition 携带 stallClose → throw「[T233] 已退役」——v16 及更早残留包静默失保命防线）；前端：strategy-library 删 stallClose 表单段（改卖腿签名检测列表徽章）+旧实验导入激活 stallClose → 注入标准断流卖腿（旧 stallMs 参数不复刻）+create/experiment_detail 包卡徽章同改；`_test_strategy_pack` B9-B12 换 RETIRED+stall 腿键校验、C8 引擎 fail-fast 断言（45 绿）；`_test_factor_sell_filter` T233a-e 追加（240 绿）；deploy 脚本 dry-run 过（16 买/19 卖）。experiment_signals.js metadata.stallClose 读取形状保留零改动。

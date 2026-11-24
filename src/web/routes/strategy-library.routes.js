@@ -77,7 +77,7 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ success: false, error: 'name 必填' });
         }
         if (definition === undefined) {
-            return res.status(400).json({ success: false, error: 'definition 必填（策略包：buyLegs/sellLegs/stallClose/burstCooldown/modules）' });
+            return res.status(400).json({ success: false, error: 'definition 必填（策略包：buyLegs/sellLegs/burstCooldown/modules——断流卖出=T233 腿化卖腿）' });
         }
         const item = await service.create({ name, description, definition });
         res.status(201).json({ success: true, data: item });
@@ -101,7 +101,7 @@ router.put('/:id', async (req, res) => {
             return res.status(400).json({ success: false, error: 'expectedVersion 必填（乐观并发）' });
         }
         if (definition === undefined) {
-            return res.status(400).json({ success: false, error: 'definition 必填（策略包：buyLegs/sellLegs/stallClose/burstCooldown/modules）' });
+            return res.status(400).json({ success: false, error: 'definition 必填（策略包：buyLegs/sellLegs/burstCooldown/modules——断流卖出=T233 腿化卖腿）' });
         }
         const item = await service.update(req.params.id, { name, description, definition, expectedVersion });
         res.json({ success: true, data: item });

@@ -466,6 +466,14 @@ class AbstractTradingEngine extends ITradingEngine {
       this._logger.info(this._experimentId, this.constructor.name,
         `🧭 pointType 模块启用 | ${require('../../market-analysis/point-type-router').POINT_TYPE_VERSION}`);
     }
+    // T233 stallClose 段退役 fail-fast（2026-11-24 腿化）：v16 及更早包携带 stallClose
+    // 段 → 拒启防静默失去断流保护（危险方向——stall 卖腿是新的唯一载体）
+    if (def.stallClose) {
+      throw new Error(
+        `[T233] 策略包 ${data.name} v${data.version} 携带已退役段 stallClose——断流卖出已腿化` +
+        `（stall 签名卖腿 condition 含 idleSecSinceLastSubstantialTick）。` +
+        `请将包升级为 stall 卖腿形态（deploy-trading-strategy.cjs 最新版产物）`);
+    }
     this._strategyDefinition = def;
     this._strategyResolved = {
       id: data.id,
@@ -476,7 +484,7 @@ class AbstractTradingEngine extends ITradingEngine {
     };
     this._logger.info(this._experimentId, this.constructor.name,
       `📦 策略包解析 | ${data.name} v${data.version} | 买${def.buyLegs.length}/卖${def.sellLegs.length} 腿` +
-      ` | stallClose=${def.stallClose ? 'on' : 'off'} burstCooldown=${def.burstCooldown != null ? 'on' : 'off'}` +
+      ` | burstCooldown=${def.burstCooldown != null ? 'on' : 'off'}` +
       ` | modules=${Object.entries(modulesResolved).map(([k, v]) => `${k}:${v}`).join(' ') || '无（四门全关）'}`);
     // 审计写回（best-effort）：整 config 替换，竞态窗口=启动瞬间 web 端同改 config
     // （实际不存在）；失败方向=丢审计不丢交易

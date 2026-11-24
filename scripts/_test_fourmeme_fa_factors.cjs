@@ -674,7 +674,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // vs min(常量,首买价)，ladder v22 豁免臂主键；详见 _test_launch_bundle_factors S/T 段）
         'launchConstVsPct', 'launchMinVsFloorPct',
         // 2026-11-18 T170b 破发档断流延长锚（现价 vs min(常量,首买价) 无滚动最低
-        // ——stallClose 破发档 180s 主键；详见 _test_stall_close.cjs E 段）
+        // ——stallClose 破发档 180s 主键；旧机制已随 T233 腿化退役，键保留）
         'currentVsFloorPct',
         // 2026-11-15 T143 因子购买前检查门两键（FA 独立投影通道 setFactorPreBuyFactors；
         // 落地时本白名单漏登，T145 补）
@@ -703,7 +703,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'sinceLastFamousAnyBuySec', 'famousSellPendingSec',
         'smartCopyWalletCircPct', 'sinceLastSmartAnyBuySec',
         'machineNetBuy180',
-        // 2026-11-24 T232 stall 断流卖腿水位键（距上笔足额 tick 秒数——stallClose
+        // 2026-11-24 T233 stall 断流卖腿水位键（距上笔足额 tick 秒数——stallClose
         // 腿化：factorParams.substantialTickBnb 缺省 0.01 自注入）
         'idleSecSinceLastSubstantialTick',
         // 2026-11-17 T161 famous 发行价上方域 (10,60] 三键（Qmini 0x7008466b 案

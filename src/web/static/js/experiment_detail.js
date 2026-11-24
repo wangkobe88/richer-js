@@ -997,8 +997,9 @@ class ExperimentDetail {
       const box = document.getElementById('pack-def-box');
       if (!result.success || !box) throw new Error(result.error || '加载失败');
       const def = result.data.definition || {};
+      const hasStallLeg = (def.sellLegs || []).some((l) => (l.condition || '').includes('idleSecSinceLastSubstantialTick'));
       const mechBits = [];
-      mechBits.push(def.stallClose ? `断流卖出 on（${Math.round((def.stallClose.stallMs || 0) / 1000)}s）` : '断流卖出 off');
+      mechBits.push(def.stallClose ? '断流卖出 旧段(已退役)' : (hasStallLeg ? '断流卖出 on（卖腿）' : '断流卖出 off'));
       mechBits.push(def.burstCooldown != null ? '冷盘卖出 on' : '冷盘卖出 off');
       box.innerHTML = `
         <p class="mb-1">${mechBits.join(' ｜ ')}（当前库 v${result.data.version}${strategyResolved && result.data.version !== strategyResolved.version ? '，实验启动时解析的是 v' + strategyResolved.version : ''}）</p>

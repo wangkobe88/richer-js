@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // 交易策略包部署脚本（T202 策略库二期，2026-11-20 立）——策略库唯一正式部署通道：
-// 条目 = 完整交易策略包（买/卖腿 + stallClose/burstCooldown + 四检测模块版本键）。
+// 条目 = 完整交易策略包（买/卖腿〔断流卖出=T233 腿化 stall 卖腿〕 + burstCooldown + 四检测模块版本键）。
 //
 // 内容来源（provenance，双源烘焙）：
 //  * 买 14 腿 = ladder **v39**（v34 十四腿，T201 大户推迟已迁 FP32；v38/T224 黄金坑+v38/T225 独舞两臂并入；v39/T229 十四腿价格门早回场 OR 臂——详见 ENTRY_DESC 与台账 T229）——逐字取自退役前
 //    deploy-signal-source-strategies.cjs 的 LEGS 产物（bt-v163 模板仍带 v33 条件串，
 //    G2 未迁出，故买腿不走模板提取）；cards:4 为烘焙时按「卡牌张数入包」裁定统一补
 //    （旧链由 clone Tier1 自动补，张数恒 4——bt-v163 实跑腿同值，bit 等价）。
-//  * 卖 18 腿 + stallClose{55s,足额0.01} + burstCooldown{} 全默认 = bt-v163-all-arms-48h-
+//  * 卖 18 腿 + stallClose{55s,足额0.01}（T233 起腿化为 stall 签名卖腿——55s/almost 域 90s）
+//    + burstCooldown{} 全默认 = bt-v163-all-arms-48h-
 //    win1003（7d60bc05-8c4e-4f0d-993c-6f2d02428ea7，2026-11-20 现行最优模板）config 逐字提取
 //    （16 条现行 + T161 famous-trim 两段）；提取规范化一处：卖腿「profitPercent > 100」
 //    cards='1'（字符串）烘焙为数字 1（引擎 normalizeCards 等价归一，非策略变化）。
@@ -332,14 +333,14 @@ const PACK_DEFINITION = {
       "cooldownSec": null,
       "maxExecutions": null,
       "stalledScanAfterSec": 45,
-      "description": "T104/T118/T170b/T228i 断流卖出腿化（T232 2026-11-24 用户裁定「断流卖出……同样使用因子表达式进行表达，作为卖出臂的一部分……同样进入卖出臂的过滤检测」）：距上笔足额成交 ≥55s 全清（almost_launch 域 curVs≤+10 延长到 90s；破发档 d345c 否证不回迁）；idleSec 水位 null=阈值未注入 fail-closed 不触发；bypassDebounce=true 是机制成立前提（空窗零 tick 确认窗永不凑齐）；priority 0 全卖腿最高=保命方向（T228i 铁律：永久保留只可条件化调参）；进入 factorSellFilter 统一过滤（famous/smart/machine 状态臂可拦 ≤180s 自然衰减=大户在场先不卖；recoveryHold 对 stall 签名放行防冻结永久拦）；T219 大户豁免退役（bt-v206 否证）。驱动=45s 预扫门+1s 评估（两引擎同款）"
+      "description": "T104/T118/T170b/T228i 断流卖出腿化（T233 2026-11-24 用户裁定「断流卖出……同样使用因子表达式进行表达，作为卖出臂的一部分……同样进入卖出臂的过滤检测」）：距上笔足额成交 ≥55s 全清（almost_launch 域 curVs≤+10 延长到 90s；破发档 d345c 否证不回迁）；idleSec 水位 null=阈值未注入 fail-closed 不触发；bypassDebounce=true 是机制成立前提（空窗零 tick 确认窗永不凑齐）；priority 0 全卖腿最高=保命方向（T228i 铁律：永久保留只可条件化调参）；进入 factorSellFilter 统一过滤（famous/smart/machine 状态臂可拦 ≤180s 自然衰减=大户在场先不卖；recoveryHold 对 stall 签名放行防冻结永久拦）；T219 大户豁免退役（bt-v206 否证）。驱动=45s 预扫门+1s 评估（两引擎同款）"
     },
     {
       "cards": "all",
       "priority": 2,
       "condition": "profitPercent <= -40",
       "cooldownSec": null,
-      "description": "止损臂-40（2026-11-04 用户指令：原 P0(-50)/P2(-35) 两臂阈值交叠——-35 恒先触发致 -50 成死腿，裁定两臂全删合并为单一 -40）：fire 时刻成本锚起算浮亏达 40% 全清；profitPercent null（无锚）→ 恒 false fail-closed 同 P0 口径；maxExecutions 刻意不设（卖出失败每轮重试直到清仓）；minTicks 8 继承原 -35 主止损确认门；断流冻结票归 stallClose（30s，T104 复活）管",
+      "description": "止损臂-40（2026-11-04 用户指令：原 P0(-50)/P2(-35) 两臂阈值交叠——-35 恒先触发致 -50 成死腿，裁定两臂全删合并为单一 -40）：fire 时刻成本锚起算浮亏达 40% 全清；profitPercent null（无锚）→ 恒 false fail-closed 同 P0 口径；maxExecutions 刻意不设（卖出失败每轮重试直到清仓）；minTicks 8 继承原 -35 主止损确认门；断流冻结票归 stall 断流卖腿（T233 腿化，55s）管",
       "sellDebounce": {
         "minTicks": 8
       },
@@ -527,7 +528,8 @@ async function main() {
   const buyN = PACK_DEFINITION.buyLegs.length, sellN = PACK_DEFINITION.sellLegs.length;
   const mods = Object.entries(PACK_DEFINITION.modules).map(([k, v]) => k + ':' + v).join(' ');
   console.log('条目: ' + ENTRY_NAME);
-  console.log('内容: 买 ' + buyN + ' 腿 / 卖 ' + sellN + ' 腿 | stallClose=' + JSON.stringify(PACK_DEFINITION.stallClose)
+  console.log('内容: 买 ' + buyN + ' 腿 / 卖 ' + sellN + ' 腿 | 断流卖出=stall 卖腿（' +
+    (PACK_DEFINITION.sellLegs.some((l) => (l.condition || '').includes('idleSecSinceLastSubstantialTick')) ? '在包' : '不在包') + '）'
     + ' | burstCooldown=' + (PACK_DEFINITION.burstCooldown ? JSON.stringify(PACK_DEFINITION.burstCooldown) : '(关——2026-11-22 金狗伤害临时关闭)') + ' | modules=' + mods);
   for (const [i, l] of PACK_DEFINITION.buyLegs.entries()) {
     console.log('  📈 P' + (l.priority ?? '-') + ' cards=' + (l.cards ?? '-') + ' mt=' + ((l.signalGate && l.signalGate.maxTriggers) ?? '-') + ': ' + (l.condition || '').slice(0, 72));

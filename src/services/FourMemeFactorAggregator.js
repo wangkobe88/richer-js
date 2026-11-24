@@ -265,7 +265,7 @@ const FACTOR_PARAM_DEFAULTS = {
     launchBundleWinMs: 90000,    // 出生窗宽（首买簇累计+冻结）
     // ── T117 信号源 t7 静默段（2026-11-05 买入策略整体调整：跌到底沉寂后突然放量）──
     quietThresholdMs: 60000,     // 静默段判定阈：相邻 tick 间隔 ≥ 此值 = 一段沉寂
-    substantialTickBnb: 0.01,    // T232 stall 卖腿足额水位门（替代 stallClose.minTickBnb；
+    substantialTickBnb: 0.01,    // T233 stall 卖腿足额水位门（替代 stallClose.minTickBnb；
                                  //   0.01=现包值；0/负=关 → 水位恒 null → stall 腿死
                                  //   fail-closed「关=放弃断流保护」）
                                  //   （quietSpanMs 定格 + surge 波重置）；factorParams 可覆盖
@@ -480,7 +480,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 回迁批 1 因子参数（默认值 ← config.factorParams 覆盖）
         this._fp = Object.assign({}, FACTOR_PARAM_DEFAULTS, this._config.factorParams || {});
 
-        // T118/T232 断流足额门水位：阈值 factorParams.substantialTickBnb 自注入
+        // T118/T233 断流足额门水位：阈值 factorParams.substantialTickBnb 自注入
         //   （缺省 0.01；引擎 stallClose.minTickBnb 旧调用 P1 期间后调覆盖，值相同）。
         //   仅 advance lastSubstantialTickAt 水位——lastTickAt 全量口径零变化，
         //   idleSecSinceLastTick/act* 滑窗等所有既有消费者不受影响
@@ -5297,7 +5297,7 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             // E 组：断流防御（无 tick 记录 → null）
             idleSecSinceLastTick: state.lastTickAt !== null ? Math.max((now - state.lastTickAt) / 1000, 0) : null,
-            // T232 stall 卖腿水位键（2026-11-24 stallClose 腿化）：距上笔足额 tick
+            // T233 stall 卖腿水位键（2026-11-24 stallClose 腿化）：距上笔足额 tick
             // 秒数（lastSubstantialTickAt 水位，阈值=substantialTickBnb factorParam）。
             // null=水位缺失（阈值未注入/本进程未见足额 tick）→ 比较恒 false
             // fail-closed 不触发；断流期随 now 入参走钟（实时墙钟/回测虚拟钟）

@@ -18,40 +18,17 @@
 /**
  * 策略包 definition 形状常量（与 DDL CHECK / 引擎 _resolveStrategyPack 对齐）
  */
-const PACK_TOP_KEYS = ['buyLegs', 'sellLegs', 'stallClose', 'burstCooldown', 'modules'];
+const PACK_TOP_KEYS = ['buyLegs', 'sellLegs', 'burstCooldown', 'modules'];
 
-// T216 gatePolicy 退役（迁 pointType 模块——类型注册表全局维护，用户裁定 2026-11-23）：
-// 包携带该段=400 引导迁移
-const RETIRED_PACK_KEYS = { gatePolicy: '已退役（T216 迁 modules.pointType 类型路由——门控策略改由 point-type-router 注册表维护）' };
+// 退役段（携带=400 引导迁移）：T216 gatePolicy 迁 modules.pointType；T233 stallClose
+// 腿化（断流卖出=stall 签名卖腿，引擎 _resolveStrategyPack fail-fast 双防线）
+const RETIRED_PACK_KEYS = {
+  gatePolicy: '已退役（T216 迁 modules.pointType 类型路由——门控策略改由 point-type-router 注册表维护）',
+  stallClose: '已退役（T233 腿化——断流卖出改为 stall 签名卖腿〔condition 含 idleSecSinceLastSubstantialTick〕，请将包升级为 stall 卖腿形态）',
+};
 
 const _intInRange = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
 const _numInRange = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
-
-/**
- * stallClose 段校验（T202 起归策略包；规则与创建页时代 web-server 校验逐字一致）：
- * 段在则 stallMs 必填正整数；minTickBnb（足额门，0=关）；
- * almostLaunchStallMs/breakdownStallMs（两档域延长，0=臂关，T170c 破发档缺省关）
- * @returns {string[]} 错误清单（空=通过）
- */
-function validateStallCloseSection(sc) {
-    const errors = [];
-    if (typeof sc !== 'object' || sc === null || Array.isArray(sc)) {
-        return ['stallClose 段形状非法（须为对象）'];
-    }
-    if (!_intInRange(sc.stallMs, 1000, 3600000)) {
-        errors.push('stallClose.stallMs 须为整数 [1000,3600000]（断流毫秒门，段启用必填）');
-    }
-    if (sc.minTickBnb !== undefined && !_numInRange(sc.minTickBnb, 0, 1)) {
-        errors.push('stallClose.minTickBnb 须为数值 [0,1]（足额门 BNB，0=关）');
-    }
-    if (sc.almostLaunchStallMs !== undefined && !_intInRange(sc.almostLaunchStallMs, 0, 3600000)) {
-        errors.push('stallClose.almostLaunchStallMs 须为整数 [0,3600000]（almost_launch 域延长毫秒，0=臂关）');
-    }
-    if (sc.breakdownStallMs !== undefined && !_intInRange(sc.breakdownStallMs, 0, 3600000)) {
-        errors.push('stallClose.breakdownStallMs 须为整数 [0,3600000]（破发域延长毫秒，0/缺省=臂关 T170c）');
-    }
-    return errors;
-}
 
 /**
  * burstCooldown 段校验（T202 起归策略包；五键全可选，段在场即启用 {}=全默认；
@@ -219,10 +196,11 @@ function validateLegs(side, legs) {
 /**
  * 策略包 definition 校验（纯函数，service.create/update 与库页「从实验导入」
  * 共用同一校验，避免双路径漂移）：
- *   - definition 须为对象；顶层键白名单 buyLegs/sellLegs/stallClose/burstCooldown/
+ *   - definition 须为对象；顶层键白名单 buyLegs/sellLegs/burstCooldown/
  *     modules（未知键 400——静默忽略=包内容跑非所配，fail-fast 纪律）
  *   - buyLegs/sellLegs 非空数组 → validateLegs('buy'/'sell', …) 逐腿校验
- *   - stallClose/burstCooldown 段可选；在场则形状校验（引擎直读键，脏值入库即拦）
+ *   - 退役段（RETIRED_PACK_KEYS：stallClose/gatePolicy）携带=400 引导迁移
+ *   - burstCooldown 段可选；在场则形状校验（引擎直读键，脏值入库即拦）
  *   - modules 可选（缺省=四门全关）；每键经 module-registry assertModuleKey
  *     （未知模块名/版本键 400——引擎侧同口径拒启）
  * @param {Object} definition
@@ -230,7 +208,7 @@ function validateLegs(side, legs) {
  */
 function validatePack(definition) {
     if (typeof definition !== 'object' || definition === null || Array.isArray(definition)) {
-        return { valid: false, errors: ['definition 须为对象（策略包：buyLegs/sellLegs/stallClose/burstCooldown/modules）'] };
+        return { valid: false, errors: ['definition 须为对象（策略包：buyLegs/sellLegs/burstCooldown/modules）'] };
     }
     const errors = [];
     const unknownKeys = Object.keys(definition).filter((k) => !PACK_TOP_KEYS.includes(k));
@@ -248,7 +226,7 @@ function validatePack(definition) {
         errors.push(...validateLegs('sell', definition.sellLegs).errors);
     }
     if (definition.stallClose !== undefined && definition.stallClose !== null) {
-        errors.push(...validateStallCloseSection(definition.stallClose));
+        errors.push(`stallClose: ${RETIRED_PACK_KEYS.stallClose}`);
     }
     if (definition.burstCooldown !== undefined && definition.burstCooldown !== null) {
         errors.push(...validateBurstCooldownSection(definition.burstCooldown));
@@ -442,6 +420,5 @@ module.exports = {
     StrategyLibraryService,
     validateLegs,
     validatePack,
-    validateStallCloseSection,
     validateBurstCooldownSection,
 };

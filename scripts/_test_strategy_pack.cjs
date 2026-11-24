@@ -2,7 +2,8 @@
  * T202 策略库二期单测（2026-11-20）——零 DB 零网络：
  *   A. module-registry：版本注册表（未知模块名/版本键 fail-fast；v1 解析为
  *      现行具体版本常量；null→{}）
- *   B. validatePack：策略包 definition 校验（顶层键白名单/两侧腿/stallClose/
+ *   B. validatePack：策略包 definition 校验（顶层键白名单/两侧腿/RETIRED 段（stallClose
+ *      T233 腿化退役）/burstCooldown/modules 版本键）
  *      burstCooldown/modules）
  *   C. _resolveStrategyPack 三分支：旧内嵌腿拒启（不前向兼容）/缺包拒启/
  *      definition 非法拒启/modules 未知键拒启/成功缓存+strategyResolved 写回
@@ -47,7 +48,7 @@ dbManager.client = activeDb.client;
 // ═══ 被测模块（打桩后 require）═══
 const { assertModuleKey, resolveModules, listModuleVersions, MODULE_NAMES } =
     require('../src/market-analysis/module-registry');
-const { validatePack, validateStallCloseSection, validateBurstCooldownSection } =
+const { validatePack, validateBurstCooldownSection } =
     require('../src/web/services/StrategyLibraryService');
 const { AbstractTradingEngine } = require('../src/trading-engine/core/AbstractTradingEngine');
 const factoryMod = require('../src/trading-engine/factories/ExperimentFactory');
@@ -120,7 +121,6 @@ function testB() {
     const goodPack = {
         buyLegs: [goodBuyLeg],
         sellLegs: [goodSellLeg],
-        stallClose: { stallMs: 50000, minTickBnb: 0.02, almostLaunchStallMs: 90000 },
         burstCooldown: {},
         modules: { factorCheck: 'v1', cheatCheck: 'v1', actFrontGate: 'v1', buyPointCheck: 'v1' },
     };
@@ -145,12 +145,20 @@ function testB() {
     check('B8 未知因子腿拦截（三防线入库位）',
         !badFactor.valid && badFactor.errors.length > 0, JSON.stringify(badFactor.errors));
 
-    const noStallMs = validateStallCloseSection({});
-    check('B9 stallClose 缺 stallMs → 错误', noStallMs.length > 0, JSON.stringify(noStallMs));
-    check('B10 stallClose stallMs 越界（999）→ 错误', validateStallCloseSection({ stallMs: 999 }).length > 0);
-    check('B11 stallClose 合法（stallMs+almost 延长）→ 通过',
-        validateStallCloseSection({ stallMs: 50000, almostLaunchStallMs: 90000 }).length === 0);
-    check('B12 stallClose 非对象 → 错误', validateStallCloseSection('x').length > 0);
+    const retiredStall = validatePack({ ...goodPack, stallClose: { stallMs: 50000 } });
+    check('B9 顶层 stallClose（v16 及更早形状）→ RETIRED 错误引导腿化（T233）',
+        !retiredStall.valid && retiredStall.errors.some((e) => e.includes('stallClose') && e.includes('T233')),
+        JSON.stringify(retiredStall.errors));
+
+    const stallLeg = {
+        priority: 0, cards: 'all', bypassDebounce: true, stalledScanAfterSec: 45,
+        condition: '(idleSecSinceLastSubstantialTick >= 90 AND currentVsLaunchPct <= 10) OR (idleSecSinceLastSubstantialTick >= 55 AND (currentVsLaunchPct > 10 OR currentVsLaunchPct IS NULL))',
+    };
+    check('B10 stall 签名卖腿（条件引用 idleSecSinceLastSubstantialTick 新键）→ 通过三防线',
+        validatePack({ ...goodPack, sellLegs: [goodSellLeg, stallLeg] }).valid);
+    check('B11 stall 腿 stalledScanAfterSec=45 形状 → 通过', validatePack({ ...goodPack, sellLegs: [stallLeg] }).valid);
+    check('B12 stallClose 非对象（字符串）→ 同样 RETIRED 拦截',
+        validatePack({ ...goodPack, stallClose: 'x' }).valid === false);
 
     check('B13 burstCooldown 死配置（check2Sec<=check1Sec）→ 错误',
         validateBurstCooldownSection({ check1Sec: 15, check2Sec: 15 }).some((e) => e.includes('必须大于')));
@@ -176,7 +184,6 @@ async function testC() {
     const def = {
         buyLegs: [{ priority: 1, cards: 4, condition: 'tradeCount >= 6' }],
         sellLegs: [{ priority: 2, cards: 'all', condition: 'profitPercent <= -40' }],
-        stallClose: { stallMs: 50000, minTickBnb: 0.02 },
         burstCooldown: {},
         modules: { factorCheck: 'v1', cheatCheck: 'v1', actFrontGate: 'v1', buyPointCheck: 'v1' },
     };
@@ -268,6 +275,12 @@ async function testC() {
             factoryMod.ExperimentFactory.getInstance = origGI;
         }
     }
+
+    // C8 stallClose 退役段引擎 fail-fast（双防线第二道：库层已 400，直插/残留行也拦）
+    activeDb.packRow = { id: '00000000-0000-0000-0000-000000000005', name: 'v16-残留', version: 16,
+        definition: { ...JSON.parse(JSON.stringify(def)), stallClose: { stallMs: 50000 } } };
+    await throwsWithAsync('C8 definition 携带 stallClose → 引擎 fail-fast（T233）',
+        () => call(fakeThis({ strategyId: activeDb.packRow.id })), '[T233]');
 }
 
 // ═══════════════ D. _buildStrategyConfig ═══════════════

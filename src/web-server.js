@@ -669,10 +669,9 @@ class RicherJsWebServer {
           flapWs,
           // gangWs（2026-10-27 gang 接入：gang 单平台实验的 ws 段覆盖，同 flapWs 语义）
           gangWs,
-          // 断流/冷盘卖出（2026-11-20 用户需求「断流卖出机制作为实验配置项」）：
-          // 引擎级保命卖出双腿顶层段——stallClose（T104/T118/T170）与 burstCooldown
-          // （T189/T189b）。创建页有输入 UI（勾选=写段/不勾=段缺席），virtual/live/
-          // 回测三态同读（回测不剥离——引擎虚拟时钟同构实现）
+          // stallClose（T104/T118/T170；2026-11-24 T233 腿化=包内 stall 签名卖腿）与
+          // burstCooldown（T189/T189b）：引擎级保命卖出——均为策略包内容，实验层
+          // 携带即 400（见下方拒收分支）；此处解构仅为拒收判断
           stallClose,
           burstCooldown
         } = req.body;
@@ -843,13 +842,13 @@ class RicherJsWebServer {
           };
         }
 
-        // T202 策略库二期（2026-11-20）：stallClose/burstCooldown 归策略包
-        // definition（断流/冷盘卖出=交易策略本体）——实验层不再接受这两段，
-        // 携带即 400（静默忽略=复制旧实验后行为大变，fail-fast 纪律）
+        // T202 策略库二期（2026-11-20）：stallClose/burstCooldown 归策略包 definition
+        // （断流卖出 2026-11-24 T233 腿化=包内 stall 签名卖腿；冷盘卖出=机制段）——
+        // 实验层不再接受这两段，携带即 400（静默忽略=复制旧实验后行为大变，fail-fast 纪律）
         if (stallClose !== undefined || burstCooldown !== undefined) {
           return res.status(400).json({
             success: false,
-            error: 'stallClose/burstCooldown 已归策略包（T202 策略库二期：策略包 definition 携带断流/冷盘卖出），实验层不再接受这两段'
+            error: 'stallClose/burstCooldown 已归策略包（T202 策略库二期：断流卖出=包内 stall 卖腿〔T233〕，冷盘卖出=definition burstCooldown），实验层不再接受这两段'
           });
         }
 

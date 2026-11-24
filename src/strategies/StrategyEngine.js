@@ -445,7 +445,7 @@ class StrategyEngine {
                         const n = Number(config.cooldownSec);
                         return Number.isFinite(n) && n > 0 ? n : null;
                     })(),
-                    // T232 stall 断流驱动预扫门（秒）：仅 stall 签名卖腿消费（isStallSellLeg）；
+                    // T233 stall 断流驱动预扫门（秒）：仅 stall 签名卖腿消费（isStallSellLeg）；
                     // 正数否则 null=驱动用缺省 DEFAULT_STALLED_SCAN_AFTER_SEC
                     stalledScanAfterSec: (() => {
                         const n = Number(config.stalledScanAfterSec);

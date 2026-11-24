@@ -781,16 +781,16 @@
                 </div>
 
                 <!-- 交易策略包（T202 策略库二期，2026-11-20）：实验只存策略 ID——
-                     策略包=买/卖腿+断流/冷盘卖出+四检测模块版本（因子过滤/cheat/
-                     AF1/BP），从策略库选择；卡牌张数在包腿上、每卡 BNB 额度=实验层
-                     （下方卡牌仓位输入）。调整包内容到策略库页 -->
+                     策略包=买/卖腿（断流卖出=卖腿·T233）+冷盘卖出+四检测模块版本
+                     （因子过滤/cheat/AF1/BP），从策略库选择；卡牌张数在包腿上、
+                     每卡 BNB 额度=实验层（下方卡牌仓位输入）。调整包内容到策略库页 -->
                 <div class="border border-gray-200 rounded-lg p-3" id="strategy-pack-section">
                     <div class="flex items-center justify-between mb-2">
                         <div>
                             <h2 class="text-lg font-semibold text-gray-800">📦 交易策略包</h2>
                             <p class="text-xs text-gray-500 mt-0.5">
                                 策略唯一来源=策略库（实验只存策略 ID，引擎启动解析当前版本）。
-                                包含买/卖腿、断流/冷盘卖出、检测模块版本；调整包内容请到
+                                包含买/卖腿（断流卖出=卖腿）、冷盘卖出、检测模块版本；调整包内容请到
                                 <a href="/strategy-library" target="_blank" class="text-indigo-600 underline">策略库页</a>
                             </p>
                         </div>
@@ -968,8 +968,9 @@
                     </p>
                 </div>
 
-                <!-- 断流/冷盘卖出已随 T202 策略库二期归策略包 definition（stallClose/burstCooldown
-                     在所选包内配置，包信息卡可见启用状态）；实验层不再承载这两段 -->
+                <!-- 断流卖出已随 T233 腿化=策略包卖腿（condition 含 idleSecSinceLastSubstantialTick），
+                     冷盘卖出已随 T202 策略库二期归策略包 definition（burstCooldown 在所选包内配置，
+                     包信息卡可见启用状态）；实验层不再承载这两段 -->
 
                 <!-- 条件表达式帮助器 -->
                 <div class="border border-blue-200 bg-blue-50 rounded-lg p-3">
@@ -1989,9 +1990,9 @@
             const modBadges = Object.keys(modNames).map((k) => mods[k]
                 ? `<span class="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 mr-1 mb-1">${modNames[k]}:${mods[k]}</span>`
                 : `<span class="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-400 mr-1 mb-1">${modNames[k]}:关</span>`).join('');
+            const hasStallLeg = (def.sellLegs || []).some((l) => (l.condition || '').includes('idleSecSinceLastSubstantialTick'));
             const mechBits = [];
-            if (def.stallClose) mechBits.push(`断流卖出 on（${Math.round((def.stallClose.stallMs || 0) / 1000)}s${def.stallClose.minTickBnb != null ? `·足额≥${def.stallClose.minTickBnb}B` : ''}）`);
-            else mechBits.push('断流卖出 off');
+            mechBits.push(def.stallClose ? '断流卖出 旧段(已退役)' : (hasStallLeg ? '断流卖出 on（卖腿）' : '断流卖出 off'));
             mechBits.push(def.burstCooldown != null ? '冷盘卖出 on' : '冷盘卖出 off');
             info.innerHTML = `
                 <div class="border border-gray-200 rounded-md p-2 bg-gray-50">
