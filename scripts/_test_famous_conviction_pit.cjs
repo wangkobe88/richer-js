@@ -40,7 +40,7 @@ function resetRosters() {
 let tickSeq = 0;
 function mkTick(o) {
   return {
-    token_address: '0xtoken', trade_type: o.side, trader_address: null, sender_address: o.w,
+    token_address: o.token_address || '0xtoken', trade_type: o.side, trader_address: null, sender_address: o.w,
     price_bnb: o.px ?? 1e-9, price_usd: 5, bnb_amount: o.bnb, token_amount: o.tok ?? 1e8,
     block_number: o.bn ?? Math.floor((o.ts - T0) / 1000), log_index: o.li ?? (tickSeq++),
     timestamp: o.ts, tx_hash: '0xtx' + (tickSeq), price_outlier: !!o.out,
@@ -80,7 +80,34 @@ console.log('A. 臂 A 两键 famousSmartHighBuyBnb/N（famous∪smart 高位买�
     assert.ok(keys.has('famousSmartHighBuyBnb'));
     assert.ok(keys.has('famousSmartHighBuyN'));
     assert.ok(keys.has('famousFollowBlockMaxWallets'));
+    assert.ok(keys.has('athVsFloorPct'));
   });
+  // T234 六修（用户裁定「athVsLaunchPct 应该跟 currentVsLaunchPct 保持一致，否则
+  // 首买入价太高就会允许太高的买入点位——或者换个因子」→ athVsFloorPct 地板口径键）：
+  // 分子=可靠价全时峰、分母=T139 地板（min(平台常量, 首买价, 滚动最低)）——首买价
+  // 太高时如实放大涨幅（与 athVsLaunchPct 首可靠价锚的分野用 A8 锁定）
+  {
+    const fa5 = newFA({ famous: [], smart: [] });
+    fa5.registerToken('0xflap', { createdAtMs: T0, totalSupply: 1e9, symbol: 'F', creatorAddress: null, platform: 'flap' });
+    const { resolveLaunchPriceBnb } = require('../src/market-analysis/launch-price.js');
+    const FL = resolveLaunchPriceBnb('flap', null); // 主力档常量 5.546e-9
+    // 首买 1e-8（首可靠价=1e-8，高于常量）→ 峰 1.5e-8 → 后续跌到 8e-9（新地板）
+    fa5.processTick(mkTick({ token_address: '0xflap', ts: T0 + 1000, side: 'buy', bnb: 0.1, tok: 1e7, px: 1e-8, w: 'w0', bn: 10 }), {});
+    fa5.processTick(mkTick({ token_address: '0xflap', ts: T0 + 2000, side: 'buy', bnb: 0.1, tok: 6e6, px: 1.5e-8, w: 'w1', bn: 11 }), {});
+    const f6 = fa5.buildFactorMap('0xflap', T0 + 2500);
+    check('A8a 地板口径：峰 1.5e-8/地板 5.546e-9 → +170.45（首可靠价口径 athVsLaunchPct 只会 +50）', () => {
+      const exp = parseFloat((100 * (1.5e-8 / FL - 1)).toFixed(2));
+      assert.strictEqual(f6.athVsFloorPct, exp);
+      assert.strictEqual(f6.athVsLaunchPct, 50); // 首可靠价锚 1e-8 → 1.5e-8 = +50（分野锁定）
+    });
+    // 破发价 4e-9 < FL 常量 5.546e-9 → 滚动最低成为新地板（T139 min 语义：
+    // 高于常量的新低不换地板）
+    fa5.processTick(mkTick({ token_address: '0xflap', ts: T0 + 3000, side: 'sell', bnb: 0.05, tok: 5e6, px: 4e-9, w: 'w1', bn: 12 }), {});
+    const f7 = fa5.buildFactorMap('0xflap', T0 + 3500);
+    check('A8b 破发滚动最低 4e-9 成新地板 → +275（地板随新低下修，峰不变；高于常量的新低不动地板）', () => {
+      assert.strictEqual(f7.athVsFloorPct, 275);
+    });
+  }
   // 双段恰一次：defer 路径价格段跳过、wallet 段补跑——恰计一次
   const fa2 = newFA({ famous: ['fa'], smart: [] });
   fa2.processTick(mkTick({ ts: T0 + 1000, side: 'buy', bnb: 0.1, tok: 1e8, px: PX, w: 'w0' }), {});
@@ -164,7 +191,7 @@ console.log('C. point-type-router 类型 famous_conviction_pit');
 {
   const PIT = {
     tokenAgeSec: 63, mcapFromPeakPct: 59.9, currentVsLaunchPct: 28.2, earlyReturn: 28.2,
-    athVsLaunchPct: 113.92, // T234 三修 ath 上限键（0x2ee9 fire 真值 113.92 ≤130 ✓）
+    athVsFloorPct: 114.8, // T234 六修 ath 上限地板口径键（0x2ee9 fire 地板口径 114.8 ≤140 ✓）
     famousSmartHighBuyBnb: 1.335, famousSmartHighBuyN: 5, famousFollowBlockMaxWallets: 3,
     anchorTickIsBuy: 1, anchor15sMaxBuyBnb: 0.025,
   };
@@ -181,16 +208,16 @@ console.log('C. point-type-router 类型 famous_conviction_pit');
     });
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
     for (const k of ['tokenAgeSec', 'mcapFromPeakPct', 'currentVsLaunchPct', 'earlyReturn',
-      'athVsLaunchPct', 'famousSmartHighBuyBnb', 'famousSmartHighBuyN', 'famousFollowBlockMaxWallets',
+      'athVsFloorPct', 'famousSmartHighBuyBnb', 'famousSmartHighBuyN', 'famousFollowBlockMaxWallets',
       'anchorTickIsBuy', 'anchor15sMaxBuyBnb']) {
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
     }
   });
-  check('C1b T234 五修 ath 上限负例：ath 141 >140 → normal（大热残局切——w1003 死区 141.37+ 票形状）', () => {
-    assert.strictEqual(classifyPointType({ ...PIT, athVsLaunchPct: 141 }).type, 'normal');
+  check('C1b T234 六修 ath 上限地板口径负例：athVsFloorPct 141 >140 → normal（大热残局切——w1003 死区 141.37+ 票形状）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, athVsFloorPct: 141 }).type, 'normal');
   });
-  check('C1c T234 五修 ath 上限正例：ath 132.09 ≤140 → 命中（0x28ea 贴线案源——130 帽 2.09 点误伤修正）', () => {
-    assert.strictEqual(classifyPointType({ ...PIT, athVsLaunchPct: 132.09 }).type, 'famous_conviction_pit');
+  check('C1c T234 六修 ath 上限地板口径正例：athVsFloorPct 137.6 ≤140 → 命中（0x28ea 地板口径贴线案源）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, athVsFloorPct: 137.6 }).type, 'famous_conviction_pit');
   });
   check('C2 龄 59 <60 → normal', () => {
     assert.strictEqual(classifyPointType({ ...PIT, tokenAgeSec: 59 }).type, 'normal');

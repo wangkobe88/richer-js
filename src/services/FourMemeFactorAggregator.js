@@ -5028,6 +5028,24 @@ class FourMemeFactorAggregator extends EventEmitter {
                 return (launch > 0)
                     ? parseFloat((100 * (state._relPriceBnb / launch - 1)).toFixed(2)) : null;
             })(),
+            // T234 六修（2026-11-24 用户裁定「athVsLaunchPct 的相对价格应该跟
+            // currentVsLaunchPct 保持一致，否则首买入价太高就会允许太高的买入点位
+            // ——或者换个因子」→ 换新键）：历史最高涨幅**地板口径**版——分子=可靠价
+            // 全时峰（athVsLaunchPct 同源 _relHighestPriceBnb），分母=与
+            // currentVsLaunchPct 逐字同源的 T139 地板（min(平台常量, 首买价, 滚动
+            // 最低可靠价)；地板 null 回落首可靠价=旧口径）。与 T213 athVsLaunchPct
+            // （首可靠价锚，golden pit 已锁口径）刻意并存——新类型用本键、黄金坑不动；
+            // 首买价太高时本键如实放大涨幅（0x28ea 132.09→137.6、0x2ee9 113.92→
+            // 114.8，均仍 ≤140 线内）。null=无峰/无地板 fail-closed。
+            athVsFloorPct: (() => {
+                if (!(state._relHighestPriceBnb > 0)) return null;
+                const launch = _floorLaunchPriceBnb(
+                    _resolveLaunchPriceBnb(state.platform, state.quoteToken),
+                    state._minRelPriceBnb || state._firstBuyPriceBnb,
+                ) ?? state._relFirstPriceBnb;
+                return (launch > 0)
+                    ? parseFloat((100 * (state._relHighestPriceBnb / launch - 1)).toFixed(2)) : null;
+            })(),
             // T185 价格动量短窗三键（2026-11-18 recoveryHold「正在回涨」判据载体，
             // 案源 bt-v153 0x89aa…7777 闪砸 V 反被 bypass 卖在半山腰）：口径与 BP
             // snapshot chgOf 逐字同源（末可靠价 vs W 秒前最近可靠价，窗内无更早价
