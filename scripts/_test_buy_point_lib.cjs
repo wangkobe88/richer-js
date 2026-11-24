@@ -1121,6 +1121,43 @@ const rowsCNoPos = [row(5, 'BUY', W_B, 0.1, 1.0 * E9, 1e8), row(60, 'SELL', W_B,
 const dCNoPos = buildBuyPointSnapshot(rowsCNoPos, metaA).buyDerived;
 ok(dCNoPos.bigHolderSellBnb60 === null, 'C: 无正净持有人 → bigHolderSell null（轴不适用）');
 ok(dCNoPos.exitSellerCount60 === 1, 'C: 清仓卖家计数照算=1（净≤0 有证据零值路径）');
+ok(dCNoPos.bigHolderSellerMinBuyRatio60 === null, 'C: 无正净持有人 → 换手比 null（同族 fail-closed）');
+
+// T230/FP45 换手自证键（bigHolderSellerMinBuyRatio60=top5 每个窗内卖出大户的 买/卖比最小值）
+{
+  // 形状 1：top5 卖出者都是窗内净买入者（先买后卖留仓）——GWC 换手形状 minRatio=min(3,4)=3
+  const rowsT1 = [
+    row(200, 'BUY', W_B, 0.3, 1e-9, 3 * E9),
+    row(230, 'BUY', W_C, 0.2, 1e-9, 2 * E9),
+    row(250, 'SELL', W_B, 0.1, 1e-9, 1 * E9),
+    row(255, 'SELL', W_C, 0.05, 1e-9, 0.5 * E9),
+  ];
+  const dT1 = buildBuyPointSnapshot(rowsT1, metaA).buyDerived;
+  ok(Math.abs(dT1.bigHolderSellerMinBuyRatio60 - 3) < 1e-6, `T230: 换手形状 minRatio=3（实际 ${dT1.bigHolderSellerMinBuyRatio60}）`);
+  // 形状 2：存在纯卖方（老庄在窗外买入、窗内只卖）→ minRatio=0
+  const rowsT2 = [
+    row(100, 'BUY', W_C, 0.2, 1e-9, 2 * E9),
+    row(200, 'BUY', W_B, 0.3, 1e-9, 3 * E9),
+    row(250, 'SELL', W_B, 0.1, 1e-9, 1 * E9),
+    row(255, 'SELL', W_C, 0.15, 1e-9, 1.5 * E9),
+  ];
+  const dT2 = buildBuyPointSnapshot(rowsT2, metaA).buyDerived;
+  ok(dT2.bigHolderSellerMinBuyRatio60 === 0, `T230: 纯卖方形状 minRatio=0（实际 ${dT2.bigHolderSellerMinBuyRatio60}）`);
+  // 形状 3：尘线——窗内卖出 ≤0.005 的尘卖不计入分母（无合格卖出者 → null）
+  const rowsT3 = [
+    row(200, 'BUY', W_B, 0.3, 1e-9, 3 * E9),
+    row(255, 'SELL', W_B, 0.003, 1e-9, 0.03 * E9),
+  ];
+  const dT3 = buildBuyPointSnapshot(rowsT3, metaA).buyDerived;
+  ok(dT3.bigHolderSellerMinBuyRatio60 === null, `T230: 尘卖不计 → null（实际 ${dT3.bigHolderSellerMinBuyRatio60}）`);
+  // 形状 4：卖出者窗内零买入（恰过尘线）→ 0（纯卖方照拦语义）
+  const rowsT4 = [
+    row(100, 'BUY', W_B, 0.3, 1e-9, 3 * E9),
+    row(255, 'SELL', W_B, 0.006, 1e-9, 0.06 * E9),
+  ];
+  const dT4 = buildBuyPointSnapshot(rowsT4, metaA).buyDerived;
+  ok(dT4.bigHolderSellerMinBuyRatio60 === 0, `T230: 零买入卖家 → 0（实际 ${dT4.bigHolderSellerMinBuyRatio60}）`);
+}
 
 // BP13 活跃度锚族透传（cheatDerived 同名单点照抄——不重算；rowsA 跨 180s 窗临近段在场）
 {

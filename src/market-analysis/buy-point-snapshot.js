@@ -32,6 +32,8 @@ const { resolveLaunchPriceBnb, floorLaunchPriceBnb } = require('./launch-price')
 const BP_WINDOWS = [30, 60, 120];
 /** 大持仓卖压锚的持仓 top N（全窗正净 token 持仓前 N 钱包） */
 const BP_TOP_HOLDER_N = 5;
+/** T230/FP45 换手自证尘线（BNB）：top5 大户窗内卖出 <此值不计入豁免判定（防尘卖冒充纯卖方） */
+const BP_TURNOVER_SELL_DUST_BNB = 0.005;
 /** burst 滑窗宽度（秒，cheat BURST_WAVE_SEC 同值——买点版按窗内笔数+买入额+钱包数） */
 const BP_BURST_SEC = 5;
 /** 价格轨迹等份桶数 */
@@ -712,7 +714,7 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
 
   // ── 卖压族（token 域；token_amount 任一行缺失 → 全族 null fail-closed）──
   const tokMissing = ticks.some((t) => t.tok === null || t.tok === undefined);
-  let bigHolderSellBnb60 = null, exitSellerCount60 = null;
+  let bigHolderSellBnb60 = null, exitSellerCount60 = null, bigHolderSellerMinBuyRatio60 = null;
   if (!tokMissing) {
     // 全窗正净 token 持仓 top N（剔伪钱包）
     const netTok = new Map();
@@ -730,6 +732,24 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
         if (t.wallet && topSet.has(t.wallet)) s += t.bnb || 0;
       }
       bigHolderSellBnb60 = +s.toFixed(4);
+      // T230/FP45 换手自证键：top5 每个 60s 窗卖出（>尘线）钱包的 窗内买入/卖出比 最小值
+      // （null=top5 无窗内卖出者；0=存在纯卖方=老庄离场形状）。豁免判据=min ≥ 1
+      // （每个卖出大户都是窗内净买入者——先买后卖留仓的换手/止盈，非离场砸盘）。
+      const wb = new Map(), ws = new Map();
+      for (const t of ticks) {
+        if (!bpInWin(t, tEnd, 60)) continue;
+        if (!t.wallet || !topSet.has(t.wallet)) continue;
+        if (t.side === 'BUY') wb.set(t.wallet, (wb.get(t.wallet) || 0) + (t.bnb || 0));
+        else ws.set(t.wallet, (ws.get(t.wallet) || 0) + (t.bnb || 0));
+      }
+      let minRatio = null;
+      for (const [w, sv] of ws) {
+        if (sv <= BP_TURNOVER_SELL_DUST_BNB) continue;
+        const bv = wb.get(w) || 0;
+        const r = sv > 0 ? bv / sv : 0;
+        if (minRatio === null || r < minRatio) minRatio = r;
+      }
+      bigHolderSellerMinBuyRatio60 = minRatio === null ? null : +minRatio.toFixed(4);
     }
     // 清仓式卖出：近 60s 有卖出 ∧ 全窗净持仓 ≤0 的钱包数（含零买入纯卖方）
     const exited = new Set();
@@ -1745,7 +1765,7 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
     // BP78 totalVolumeBnb=全窗总成交额——mapper malicious_dump 豁免臂消费
     exactEqualBlockMaxWallets, exactEqualBlockClusters, dumpBlock, dump2Block, totalVolumeBnb,
     // 卖压族
-    bigHolderSellBnb60, exitSellerCount60,
+    bigHolderSellBnb60, exitSellerCount60, bigHolderSellerMinBuyRatio60,
     // T197/FP29 分仓出货残局盘三键（超卖钱包合计/户数+锚窗独立钱包数——
     // FP 门 oversell_residual 臂原料；判据史与四窗验证见台账 T197）
     oversellBnb: oversell.oversellBnb,
