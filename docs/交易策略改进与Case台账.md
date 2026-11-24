@@ -2253,4 +2253,4 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **实现**：FA `_activityFactors` 循环买侧并行累计（门结构镜像 total 侧 W15/W60/W90）+ `_buildFactorMap` 组装 + FactorBuilder 透传（三键）；router condition 换买侧键（**PT22→PT23**）+ deploy p16 腿 condition/description + docs；单测 activity_window_multi F 段混卖断言（60Ex15Buy=0.3/90Ex60Buy=0.1 精确值+闭区间边界）、point_type_router A2l4~7（0.15/0.12 边界、0.16/0.13 负例、MOYNOK 卖不拦回归）、fa_factors 白名单补登两键。total 侧 60Ex15/90Ex60 键留 FA 作观察键（T225 腿继续用 60Ex15）。包 deploy v15→v16。
 
-**验证**：bt-v240 克隆重跑（bt-v239 基底）——预期 MOYNOK 买回（带买=0）+0x4509 保持（带买=0），集合 ≈+5.44（+4.9898+0.4521，Jev 噪声 ±0.5 内）。
+**验证（已兑现，bt-v240）**：16 票 / 胜率 87.5% / **+5.5668**（vs bt-v237 基线 +4.2489 = **+1.3179**）——**MOYNOK 买回 +0.4521 ✅（带卖不拦兑现）、0x4509 保持 +1.3179 ✅、쿠우타 也买回 +0.1249（Jev 噪声归位）**；16 票=v238 原 15 票+0x4509 纯增量，**零误伤**。T231+T232 全链四改端到端收官：0.19 队列线/龄上界撤除/act15s 0.4/买侧差额 0.15-0.12。
