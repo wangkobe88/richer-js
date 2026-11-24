@@ -5865,6 +5865,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatGrade = _cg ? _CHEAT_LEVEL_SCORES.grade[_cg.grade] ?? null : null;
             factors.cheatUnhealthyGrades = _cg ? (_cg.unhealthyGrades ?? 0) : 0;
             factors.cheatBlocked = _cg && _cg.blocked === true ? 1 : 0;
+            // FP47 影子档位预判（2026-11-24，门侧零消费观察键）：wash_pair/insider
+            // 两题的代码档位（0-3 数值序；null=不可评/判定未投影）——与 Jev 档位键
+            // cheatWashPair/cheatInsiderSupplySell 并排供对拍
+            factors.cheatWashPairCodeLevel = _cg && _cg.codeLevels && _cg.codeLevels.washPair
+                ? _cg.codeLevels.washPair.level ?? null : null;
+            factors.cheatInsiderSupplyCodeLevel = _cg && _cg.codeLevels && _cg.codeLevels.insiderSupplySell
+                ? _cg.codeLevels.insiderSupplySell.level ?? null : null;
             factors.cheatEqualAmountSplit = _lv ? _lv.equalAmountSplit ?? null : null;
             factors.cheatCoordinatedSellBack = _lv ? _lv.coordinatedSellBack ?? null : null;
             factors.cheatCreatorFrontRun = _lv ? _lv.creatorFrontRun ?? null : null;
@@ -5910,6 +5917,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatBurstWaveBuyBnb = _an ? _an.burstWaveBuyBnb ?? null : null;
             factors.cheatBurstWaveWallets = _an ? _an.burstWaveWallets ?? null : null;
             factors.cheatNoBuySellPct = _an ? _an.noBuySellPct ?? null : null;
+            // FP47 影子（2026-11-24）：insider 题判据代码化锚——门侧零消费
+            // （对拍 Jev 档位用；条件串可用）
+            factors.cheatInsiderSellPct = _an ? _an.insiderSellPct ?? null : null;
+            factors.cheatInsiderSellBuyPct = _an ? _an.insiderSellBuyPct ?? null : null;
+            factors.cheatInsiderSellWallets = _an ? _an.insiderSellWallets ?? null : null;
+            factors.cheatNoBuySellWalletsExCreator = _an ? _an.noBuySellWalletsExCreator ?? null : null;
+            factors.cheatNoBuySellVolumePctExCreator = _an ? _an.noBuySellVolumePctExCreator ?? null : null;
             // D3.51 burst 尖刺两锚（D3.76/CD418 随题退役改纯观察留档：
             // 尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；可进条件串）
             factors.cheatSpikeBuyPctInBurst = _an ? _an.spikeBuyPctInBurst ?? null : null;

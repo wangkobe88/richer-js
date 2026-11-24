@@ -484,6 +484,29 @@ function computeDerived(snapshot, famousRoster) {
   const totalVolumeBnb = totalBuyBnb + totalSellBnb;
   const noBuySellVolumePct = totalVolumeBnb > 0 ? +((noBuySellBnb / totalVolumeBnb) * 100).toFixed(1) : null;
 
+  // ── insider_supply_sell 题判据代码化锚（2026-11-24 用户裁定「A 档四题全搞」
+  // 第二批影子对拍——门侧零消费，只进 anchors/FA 投影攒分布，与 Jev 档位对拍
+  // 达标后用户再裁定转正）：「有卖出且买入额不足其卖出额 10%」钱包组（剔创建者
+  // ——题面「创建者自己的买入与卖出是正常行为……不构成本题证据、不参与定档」）。
+  // insiderSellPct=组卖出÷总卖（结构口径：卖压多大比例来自盘外筹码）、
+  // insiderSellBuyPct=组卖出÷总买（冲击口径：盘外倾倒相对买盘承接的分量）、
+  // insiderSellWallets=组内钱包数（0=有证据零值）。零买入纯卖组=本组子集
+  // （buyBnb=0）——noBuySellWalletsExCreator/noBuySellVolumePctExCreator 两键
+  // 供题⑤「单钱包隐藏筹码」豁免的剔创建者口径对照。总卖/总买/总量=0 → null
+  // （无证据不评，与 noBuySell 族同语义）。现有 noBuySell 四键不动（L 通道消费）。──
+  let insiderSellBnb = 0, insiderSellWallets = 0;
+  let noBuySellBnbExCreator = 0, noBuySellWalletsExCreator = 0;
+  for (const e of wallets) {
+    if (e.isCreator) continue;
+    const buy = e.buyBnb || 0, sell = e.sellBnb || 0;
+    if (sell > 0 && buy < sell * 0.1) { insiderSellBnb += sell; insiderSellWallets++; }
+    if (buy === 0 && sell > 0) { noBuySellBnbExCreator += sell; noBuySellWalletsExCreator++; }
+  }
+  const insiderSellPct = totalSellBnb > 0 ? +((insiderSellBnb / totalSellBnb) * 100).toFixed(1) : null;
+  const insiderSellBuyPct = totalBuyBnb > 0 ? +((insiderSellBnb / totalBuyBnb) * 100).toFixed(1) : null;
+  const noBuySellVolumePctExCreator = totalVolumeBnb > 0
+    ? +((noBuySellBnbExCreator / totalVolumeBnb) * 100).toFixed(1) : null;
+
   // ── D3.52 强庄持续买压·锚窗买卖比（strong_backer_pressure 题判读原料——
   // CD159 立项观察期键，grade 零消费只进 FA 投影攒分布）：窗口买入合计÷卖出合计，
   // 方向性事实（大户是否持续净买推价由题档判读）；卖=0 → null 比值不适用
@@ -2182,6 +2205,9 @@ function computeDerived(snapshot, famousRoster) {
     pumpStablePoints, pumpStableSpanSec, pumpStableR2,
     pumpStableSlopePctPerMin, pumpRisePerBuyBnb, pumpSellTickCountPct,
     noBuySellPct, noBuySellBnb, noBuySellWallets, noBuySellVolumePct,
+    // FP47 影子（2026-11-24）：insider 题判据代码化锚——门侧零消费对拍用
+    insiderSellPct, insiderSellBuyPct, insiderSellWallets,
+    noBuySellWalletsExCreator, noBuySellBnbExCreator, noBuySellVolumePctExCreator,
     // D3.52 锚窗买卖比（strong_backer_pressure 题原料；观察期 grade 零消费）
     anchorBuySellRatio,
     // D3.53 精确等额同块簇（CD160：equal_amount_split/same_block_buy_wave 题

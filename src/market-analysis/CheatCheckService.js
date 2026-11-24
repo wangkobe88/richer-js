@@ -1208,6 +1208,14 @@ class CheatCheckService {
           // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的
           // 伤害量级标尺（additive：观察/审计键，无门侧消费）
           noBuySellVolumePct: snapshot.derived.noBuySellVolumePct,
+          // FP47 影子（2026-11-24）：insider 题判据代码化锚（双口径÷总卖/÷总买+
+          // 组钱包数+剔创建者零买纯卖两键）——门侧零消费，只进 observation.anchors
+          // 攒分布与 Jev 档位对拍；头注见 cheat-snapshot 计算段
+          insiderSellPct: snapshot.derived.insiderSellPct,
+          insiderSellBuyPct: snapshot.derived.insiderSellBuyPct,
+          insiderSellWallets: snapshot.derived.insiderSellWallets,
+          noBuySellWalletsExCreator: snapshot.derived.noBuySellWalletsExCreator,
+          noBuySellVolumePctExCreator: snapshot.derived.noBuySellVolumePctExCreator,
           // D3.62 聚合路由入口占比（G17 N 通道源锚；头注见 cheat-snapshot）
           routerEntryBuyPct: snapshot.derived.routerEntryBuyPct,
           // D3.35 协同买入参考四键（abnormal_behavior_ratio 题参考数值；
@@ -1308,6 +1316,18 @@ class CheatCheckService {
         // （famousDominancePct/Level 两键已随 G20/CD416 D 通道退役）
       });
 
+      // FP47 影子档位预判（2026-11-24 用户裁定「A 档四题全搞」第二批）：wash_pair/
+      // insider_supply_sell 两道「死板计算」题的档位机械翻译——**门侧零消费**
+      // （A 主判/L 通道仍读 Jev 档位），随返回透传引擎投影 FA 观察键攒分布，
+      // 与 Jev 档位对拍达标后用户再裁定转正。纯函数零网络；异常=两键 null 不冒充。
+      let codeLevels = null;
+      try {
+        const { judgeCodeLevels } = require('./cheat-shadow-judge');
+        codeLevels = judgeCodeLevels(snapshot.derived);
+      } catch (_err) {
+        // 模块加载/计算异常=观察通道故障，不阻塞判定链（fail-open 方向）
+      }
+
       // G1 分级消费（CD158 形状）：cheat → 拉黑（终态，含清仓联动由引擎侧
       // 消费）；unhealthy → `_gateUnhealthyGrades` 纯观测计数（FA 键
       // cheatUnhealthyGrades 数据源，**无门效应**——2026-11-03 用户裁定移除
@@ -1376,6 +1396,7 @@ class CheatCheckService {
         ...(gateGraded !== graded ? { rawGrade: graded.grade, ruleset: _rs } : {}),
         unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
         levels, buckets, anchors,
+        ...(codeLevels ? { codeLevels } : {}), // FP47 影子档位预判（门侧零消费观察键）
         strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0, // CD159 观察臂（曾经命中粘滞值）
       };
     } catch (e) {

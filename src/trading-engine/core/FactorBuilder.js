@@ -438,6 +438,15 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatBurstWaveBuyBnb: factorResults.cheatBurstWaveBuyBnb ?? null,
     cheatBurstWaveWallets: factorResults.cheatBurstWaveWallets ?? null,
     cheatNoBuySellPct: factorResults.cheatNoBuySellPct ?? null,
+    // FP47 影子（2026-11-24）：insider 题判据代码化锚（门侧零消费对拍用）
+    cheatInsiderSellPct: factorResults.cheatInsiderSellPct ?? null,
+    cheatInsiderSellBuyPct: factorResults.cheatInsiderSellBuyPct ?? null,
+    cheatInsiderSellWallets: factorResults.cheatInsiderSellWallets ?? null,
+    cheatNoBuySellWalletsExCreator: factorResults.cheatNoBuySellWalletsExCreator ?? null,
+    cheatNoBuySellVolumePctExCreator: factorResults.cheatNoBuySellVolumePctExCreator ?? null,
+    // FP47 影子档位预判（0-3 数值序；null=不可评）
+    cheatWashPairCodeLevel: factorResults.cheatWashPairCodeLevel ?? null,
+    cheatInsiderSupplyCodeLevel: factorResults.cheatInsiderSupplyCodeLevel ?? null,
     cheatFamousDominancePct: factorResults.cheatFamousDominancePct ?? null,
     cheatFamousDominance: factorResults.cheatFamousDominance ?? null,
     // D3.39 异常行为占比档位（D3.77/CD419 随 abr 题退役恒 null 供存量条件串

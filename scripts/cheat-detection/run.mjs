@@ -48,6 +48,9 @@ const { buildSnapshotFromRows } = require_('../../src/market-analysis/cheat-snap
 const { gradeObservation, CHEAT_GRADE_RULES_VERSION } = require_('../../src/market-analysis/cheat-grade.js');
 const { buildCheatState } = require_('../../src/market-analysis/cheat-state-builder.js');
 const { buildObservation } = require_('../../src/market-analysis/cheat-result-mapper.js');
+// FP47 影子档位预判（2026-11-24 用户裁定「A 档四题全搞」第二批）：与 Jev 档位
+// 对拍（门侧零消费）——每票并跑代码档，尾部出「Jev 档 × 代码档」交叉表
+const { judgeCodeLevels } = require_('../../src/market-analysis/cheat-shadow-judge.js');
 
 const TICK_COLS = 'block_time,block_number,log_index,tx_hash,trade_type,bnb_amount,token_amount,price_bnb,price_outlier,trader_address,sender_address,quote_token';
 
@@ -161,6 +164,8 @@ const OBS_ANCHOR_KEYS = [
   'clusterRoundTripPct', 'clusterRoundTripSellPct', 'clusterRoundTripBlocks',
   'spikeBuyPctInBurst', 'spikeHoldPctAll', 'anchorBuySellRatio',
   'noBuySellVolumePct', // D3.50
+  'insiderSellPct', 'insiderSellBuyPct', 'insiderSellWallets', // FP47 影子（insider 题判据代码化锚）
+  'noBuySellWalletsExCreator', 'noBuySellVolumePctExCreator',
   'exactEqualBlockBuyPct', 'exactEqualBlockClusterCount', 'exactEqualBlockMaxWallets', // D3.53
   'pulseBlockCount', 'pulseBlockBuyPct', 'pulseMaxGapBlocks', // D3.54
   'pumpStablePoints', 'pumpStableSpanSec', 'pumpStableR2', 'pumpStableSlopePctPerMin', 'pumpRisePerBuyBnb', 'pumpSellTickCountPct', // D3.57
@@ -193,13 +198,16 @@ async function runCase(c, { dry, version }) {
   const snapshot = buildSnapshotFromRows(rows, meta, { capped: c.anchor.capped === true, anchorTickCount: rows.length });
   const { state, promptChars } = buildCheatState(snapshot);
   const d = snapshot.derived;
-  console.log(`  锚=${snapshot.anchor.tickCount}${c.anchor.capped ? '(capped)' : ''} 笔 | 买 ${d.totalBuyBnb.toFixed(3)}/${d.buyN} 卖 ${d.totalSellBnb.toFixed(3)}/${d.sellN} | 钱包 ${d.walletCount} top1 ${d.top1BuyPct === null ? '-' : d.top1BuyPct.toFixed(1) + '%'} churn ${d.churn60sWalletCount} 同块簇 ${d.sameBlockClusters.length} 等额簇 ${d.equalClusters.length} sbHold ${d.sameBlockHoldPct === null ? '-' : d.sameBlockHoldPct.toFixed(1) + '%'} eqHold ${d.equalBandHoldPct === null ? '-' : d.equalBandHoldPct.toFixed(1) + '%'} t1供/流 ${d.top1HoldSupplyPct === null || d.top1HoldSupplyPct === undefined ? '-' : d.top1HoldSupplyPct.toFixed(1) + '%'}/${d.top1HoldCircPct === null || d.top1HoldCircPct === undefined ? '-' : d.top1HoldCircPct.toFixed(1) + '%'} act(代码)=${d.activityLevel ?? '-'}${d.activityUneven ? '~起伏' : ''} | state ${promptChars} chars`);
-  if (dry) return { interp: null, promptChars, state, snapshot };
+  // FP47 影子档位预判（dry 与真调同算——dry 全量面对照通道）
+  const codeLevels = judgeCodeLevels(d);
+  const codeLine = `影子 wash=${codeLevels.washPair.bucket ?? '-'}(p${codeLevels.washPair.level ?? '-'}) ins=${codeLevels.insiderSupplySell.bucket ?? '-'}(p${codeLevels.insiderSupplySell.level ?? '-'})`;
+  console.log(`  锚=${snapshot.anchor.tickCount}${c.anchor.capped ? '(capped)' : ''} 笔 | 买 ${d.totalBuyBnb.toFixed(3)}/${d.buyN} 卖 ${d.totalSellBnb.toFixed(3)}/${d.sellN} | 钱包 ${d.walletCount} top1 ${d.top1BuyPct === null ? '-' : d.top1BuyPct.toFixed(1) + '%'} churn ${d.churn60sWalletCount} 同块簇 ${d.sameBlockClusters.length} 等额簇 ${d.equalClusters.length} sbHold ${d.sameBlockHoldPct === null ? '-' : d.sameBlockHoldPct.toFixed(1) + '%'} eqHold ${d.equalBandHoldPct === null ? '-' : d.equalBandHoldPct.toFixed(1) + '%'} t1供/流 ${d.top1HoldSupplyPct === null || d.top1HoldSupplyPct === undefined ? '-' : d.top1HoldSupplyPct.toFixed(1) + '%'}/${d.top1HoldCircPct === null || d.top1HoldCircPct === undefined ? '-' : d.top1HoldCircPct.toFixed(1) + '%'} act(代码)=${d.activityLevel ?? '-'}${d.activityUneven ? '~起伏' : ''} | ${codeLine} | state ${promptChars} chars`);
+  if (dry) return { interp: null, promptChars, state, snapshot, codeLevels };
   const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
   const q = await import('../../src/market-analysis/llm/cheat-questions.mjs');
   const res = await JevClient.ask(state, q.buildCheatQuestions(), { timeoutMs: 30000, label: 'cheat-regression' });
   const obs = buildObservation(res.answers, obsAnchors(d));
-  return { interp: interpret(obs), promptChars, state, snapshot, answers: res.answers, model: res.model };
+  return { interp: interpret(obs), promptChars, state, snapshot, answers: res.answers, model: res.model, codeLevels };
 }
 
 function cmdList(cases) {
@@ -515,7 +523,7 @@ async function main() {
       // G1 grade=同函数对拍观察（不作 PASS/FAIL——37/42 基线 5 票已知偏差，硬断言须裁定）
       const gradeDiff = c.expect.verdict && graded.grade !== c.expect.verdict ? ' ≠' : '';
       console.log(`  ${pass ? '✅ PASS' : '❌ FAIL'} ${obsLine(r.interp)} sbHold=${r.interp.anchors?.sameBlockHoldPct ?? '-'} eqHold=${r.interp.anchors?.equalBandHoldPct ?? '-'} t1供/流=${r.interp.anchors?.top1HoldSupplyPct ?? '-'}/${r.interp.anchors?.top1HoldCircPct ?? '-'} dom=${r.snapshot.derived.famousDominanceLevel ?? '-'}${r.snapshot.derived.famousDominancePct !== null && r.snapshot.derived.famousDominancePct !== undefined ? `(${r.snapshot.derived.famousDominancePct}%)` : ''}${r.snapshot.derived.famousFollowerTop3Pct !== null && r.snapshot.derived.famousFollowerTop3Pct !== undefined ? ` top3:${r.snapshot.derived.famousFollowerTop3Pct}%` : ''} 组织买=${r.snapshot.derived.bundleBuyPct ?? '-'}%/${r.snapshot.derived.famousGroupBuyPct ?? '-'}%(簇/famous集团) 纯卖=${r.interp.anchors?.noBuySellPct ?? '-'}%${r.interp.extLevels?.stall_burst_wave === 'burst' ? ` 波=买${r.snapshot.derived.burstWaveBuyBnb ?? '-'}/${r.snapshot.derived.burstWaveWallets ?? '-'}户/gap${r.snapshot.derived.maxGapSec ?? '-'}s` : ''} wash=卖占${r.interp.anchors?.washPairSellPct ?? '-'}%×${r.interp.anchors?.washPairCount ?? '-'}对 簇流=${r.snapshot.derived.sameBlockHoldCircPct ?? '-'}/${r.snapshot.derived.equalBandHoldCircPct ?? '-'}% 闭环=买${r.snapshot.derived.clusterRoundTripPct ?? '-'}/卖${r.snapshot.derived.clusterRoundTripSellPct ?? '-'}%×${r.snapshot.derived.clusterRoundTripBlocks ?? '-'}块 hold=${r.interp.extLevels?.holdings_balance ?? '-'}(t2:${r.snapshot.derived.top2HoldSupplyPct ?? '-'}%/Σ2:${r.snapshot.derived.top1Top2HoldSupplyPct ?? '-'}%/∪:${r.snapshot.derived.t1PlusClusterSupplyPct ?? '-'}%Δ${r.snapshot.derived.top1Top2FirstBuyGapSec ?? '-'}s) ｜G1=${graded.grade}[${graded.reasons.map((x) => x.code).join(',') || 'clean'}] ｜人工裁定=${c.expect.verdict ?? '（未裁定）'}${gradeDiff ? '（≠机器）' : ''}（判定层停产——展示不比对）`);
-      results.push({ caseId: c.caseId, addr: c.addr, anchor: c.anchor, questionVersion: version, gradeRulesVersion: CHEAT_GRADE_RULES_VERSION, grade: graded.grade, gradeReasons: graded.reasons, interp: r.interp, pass, failures, promptChars: r.promptChars, answersRaw: r.answers, anchors: obsAnchors(r.snapshot.derived), activity: { ticksPerMin: r.snapshot.derived.ticksPerMin, avgTradeBnb: r.snapshot.derived.avgTradeBnb, maxGapSec: r.snapshot.derived.maxGapSec, idlePct: r.snapshot.derived.idlePct, level: r.snapshot.derived.activityLevel, cv: r.snapshot.derived.activityCv, uneven: r.snapshot.derived.activityUneven }, famous: { holdPct: r.snapshot.derived.famousHoldPct, top1Pct: r.snapshot.derived.famousTop1Pct, followerPct: r.snapshot.derived.famousFollowerPct, followerTop3Pct: r.snapshot.derived.famousFollowerTop3Pct, groupBuyPct: r.snapshot.derived.famousGroupBuyPct, dominancePct: r.snapshot.derived.famousDominancePct, level: r.snapshot.derived.famousDominanceLevel }, model: r.model });
+      results.push({ caseId: c.caseId, addr: c.addr, anchor: c.anchor, questionVersion: version, gradeRulesVersion: CHEAT_GRADE_RULES_VERSION, grade: graded.grade, gradeReasons: graded.reasons, interp: r.interp, pass, failures, promptChars: r.promptChars, answersRaw: r.answers, anchors: obsAnchors(r.snapshot.derived), codeLevels: r.codeLevels, activity: { ticksPerMin: r.snapshot.derived.ticksPerMin, avgTradeBnb: r.snapshot.derived.avgTradeBnb, maxGapSec: r.snapshot.derived.maxGapSec, idlePct: r.snapshot.derived.idlePct, level: r.snapshot.derived.activityLevel, cv: r.snapshot.derived.activityCv, uneven: r.snapshot.derived.activityUneven }, famous: { holdPct: r.snapshot.derived.famousHoldPct, top1Pct: r.snapshot.derived.famousTop1Pct, followerPct: r.snapshot.derived.famousFollowerPct, followerTop3Pct: r.snapshot.derived.famousFollowerTop3Pct, groupBuyPct: r.snapshot.derived.famousGroupBuyPct, dominancePct: r.snapshot.derived.famousDominancePct, level: r.snapshot.derived.famousDominanceLevel }, model: r.model });
     } catch (e) {
       failed++;
       console.error(`  ❌ 异常: ${e.message}`);
@@ -546,6 +554,24 @@ async function main() {
     const dist = {};
     for (const x of judged) dist[x.grade] = (dist[x.grade] || 0) + 1;
     console.log(`G1 grade 分布：${Object.entries(dist).map(([k, v]) => `${k}=${v}`).join(' ')}`);
+  }
+  // FP47 影子交叉表：Jev 档位 × 代码档（分离度对拍——一致率+差异分布；门侧零消费）
+  const withCode = results.filter((x) => x.codeLevels && x.interp && x.caseId);
+  if (withCode.length) {
+    for (const [label, jkey, ckey] of [['wash_pair', 'wash_pair', 'washPair'], ['insider_supply_sell', 'insider_supply_sell', 'insiderSupplySell']]) {
+      const pairs = withCode.map((x) => ({
+        id: x.caseId,
+        jev: x.interp.extLevels && x.interp.extLevels[jkey] != null ? x.interp.extLevels[jkey] : null,
+        code: x.codeLevels[ckey].bucket,
+      }));
+      const both = pairs.filter((p) => p.jev !== null && p.code !== null);
+      const agree = both.filter((p) => p.jev === p.code).length;
+      const diffs = both.filter((p) => p.jev !== p.code).map((p) => `${p.id}:Jev=${p.jev}>码=${p.code}`).join(' ');
+      const jd = {}, cd = {};
+      for (const p of pairs) { jd[p.jev ?? 'null'] = (jd[p.jev ?? 'null'] || 0) + 1; cd[p.code ?? 'null'] = (cd[p.code ?? 'null'] || 0) + 1; }
+      console.log(`FP47 影子 ${label}：Jev×代码 一致 ${agree}/${both.length}${diffs ? `；分歧=[${diffs}]` : '；无分歧'}`);
+      console.log(`  Jev 档：${Object.entries(jd).map(([k, v]) => `${k}=${v}`).join(' ')} | 代码档：${Object.entries(cd).map(([k, v]) => `${k}=${v}`).join(' ')}`);
+    }
   }
   console.log(`\n${args.dry ? 'dry 组装' : '重析观测'}完成：${results.length} 票存档${failed ? `，异常 ${failed}` : ''}（D3.5 判定层停产——PASS=链路跑通，无 verdict 对拍）`);
   if (!args.dry && (failed || !results.length)) process.exit(1);

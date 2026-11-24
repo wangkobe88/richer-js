@@ -457,6 +457,13 @@ function levelsFromObservation(observation, extras = {}) {
     // D3.50 总交易量占比（÷买+卖合计）——insider 题⑤单钱包隐藏筹码豁免的伤害
     // 量级标尺（观察/审计键：L 通道仍消费 noBuySellPct，本键无门侧消费）
     noBuySellVolumePct: _pct(an.noBuySellVolumePct),
+    // FP47 影子（2026-11-24）：insider 题判据代码化锚——门侧零消费对拍用
+    // （双口径÷总卖/÷总买+组钱包数+剔创建者零买纯卖两键；头注见 cheat-snapshot）
+    insiderSellPct: _pct(an.insiderSellPct),
+    insiderSellBuyPct: _pct(an.insiderSellBuyPct),
+    insiderSellWallets: _pct(an.insiderSellWallets),
+    noBuySellWalletsExCreator: _pct(an.noBuySellWalletsExCreator),
+    noBuySellVolumePctExCreator: _pct(an.noBuySellVolumePctExCreator),
     // D3.51 burst 尖刺两锚（burst_spike_concentration 题同源数值；D3.76/G21
     // 随题退役改纯观察留档：尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；
     // 无门侧消费，FA 投影/研究侧自由消费）

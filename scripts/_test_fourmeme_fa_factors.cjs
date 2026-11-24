@@ -744,6 +744,12 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-11-23 T223 锚点买盘存在两键（锚 tick 是否买入 + 15s 窗最大单笔买额——
         // 「完全死寂不回弹点」对策；详见 _test_activity_window_multi.cjs A+ 段）
         'anchorTickIsBuy', 'anchor15sMaxBuyBnb',
+        // 2026-11-24 FP47 影子（「A 档四题全搞」第二批）：insider 题判据代码化锚
+        // 五键 + wash_pair/insider 代码档位两键（门侧零消费对拍用；详见
+        // _test_cheat_shadow_judge.cjs / _test_cheat_detection_lib.cjs FP47 段）
+        'cheatInsiderSellPct', 'cheatInsiderSellBuyPct', 'cheatInsiderSellWallets',
+        'cheatNoBuySellWalletsExCreator', 'cheatNoBuySellVolumePctExCreator',
+        'cheatWashPairCodeLevel', 'cheatInsiderSupplyCodeLevel',
     ];
     const added = [...keys].filter(k => !baselineKeys.has(k));
     // T71（2026-10-26）防复活反证：earlyTrades* 出生锚 90s 冻结窗十键整族已删

@@ -2362,6 +2362,7 @@ class AbstractTradingEngine extends ITradingEngine {
       levels: res.levels ?? null,
       anchors: res.anchors ?? null,
       strongbackerLike: res.strongbackerLike ?? 0, // CD159 观察臂（service 曾经命中粘滞值，0/1）
+      codeLevels: res.codeLevels ?? null, // FP47 影子档位预判（门侧零消费观察键）
     });
     this._cheatProjectedTokens.add(tokenAddress);
   }
