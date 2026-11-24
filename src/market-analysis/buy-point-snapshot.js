@@ -1045,14 +1045,35 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
   //    curve 外筹码来源账户——transfer 分仓出货在买卖账本上的指纹；wallets
   //    已剔聚合路由伪钱包与 buy∪卖全集同研究口径；oversellBnb=0 有证据零值
   //    =无超卖钱包；wallets 空=证据缺席全 null 容缺不拦〔宁漏不冒充〕）──
+  // T235/FP46 沉寂豁免键 oversellSecToAnchor（2026-11-24 用户裁定「洗筹码后
+  //   沉寂比较久，可通过买入前的沉寂时间豁免」——案源 神龙犬 0x3beb…7777
+  //   FP29 误拦 +960% 毕业票）：超卖户最后一笔卖距锚秒数=洗筹离场→买点间隔
+  //   （dt 域：tEnd=锚末 tick dt；超卖户最后卖 tick dt；无超卖户/锚 dt 缺失/
+  //   wallets 空=null fail-closed 不豁免——FP33/36/39/42/43/45 惯例）。
+  //   198 命中面扫描（182 全 factorCheck 实验去重）：≥55s 豁免面 47 行含 3
+  //   mega 赢（3beb +960/7c3ad817 +688/f82b045c +298）+2 中赢（+59/+35），
+  //   深跌 5 行多为赢家回撤；<30s 保持拦面大赢率仅 4.7%（贴锚出货=接刀盘）。
   const oversell = (() => {
     const ws = snapshot.wallets || [];
-    if (!ws.length) return { oversellBnb: null, oversellerN: null, anchorWalletN: null };
+    if (!ws.length) return { oversellBnb: null, oversellerN: null, anchorWalletN: null, oversellSecToAnchor: null };
     let bnb = 0, n = 0;
+    const oversellers = [];
     for (const e of ws) {
-      if (e.sellBnb >= BP_OVERSELL_WALLET_MIN_BNB && e.sellBnb > e.buyBnb * BP_OVERSELL_BUY_RATIO) { bnb += e.sellBnb; n++; }
+      if (e.sellBnb >= BP_OVERSELL_WALLET_MIN_BNB && e.sellBnb > e.buyBnb * BP_OVERSELL_BUY_RATIO) { bnb += e.sellBnb; n++; oversellers.push(e.w); }
     }
-    return { oversellBnb: +bnb.toFixed(4), oversellerN: n, anchorWalletN: ws.length };
+    let oversellSecToAnchor = null;
+    const _ticks = snapshot.ticks || [];
+    if (n > 0 && _ticks.length) {
+      const tEnd = _ticks[_ticks.length - 1].dt;
+      let lastSell = -Infinity;
+      for (const t of _ticks) {
+        if (t.side === 'SELL' && t.dt !== null && oversellers.includes(t.wallet)) {
+          if (t.dt > lastSell) lastSell = t.dt;
+        }
+      }
+      if (tEnd !== null && lastSell !== -Infinity) oversellSecToAnchor = Math.max(0, Math.round(tEnd - lastSell));
+    }
+    return { oversellBnb: +bnb.toFixed(4), oversellerN: n, anchorWalletN: ws.length, oversellSecToAnchor };
   })();
 
   // ── T198/FP30 arbBot 持筹垄断族（锚窗钱包级净持仓 × 注入 arbBot 钱包集：
@@ -1771,6 +1792,7 @@ function computeBuyPointDerived(snapshot, famousRoster, arbBotWallets) {
     oversellBnb: oversell.oversellBnb,
     oversellerN: oversell.oversellerN,
     anchorWalletN: oversell.anchorWalletN,
+    oversellSecToAnchor: oversell.oversellSecToAnchor,
     // T198/FP30 arbBot 持筹垄断两键（组净持筹占在场流通%+组内正净持有者数——
     // FP 门 arb_bot_holdings 臂原料；净额可负=机器清仓离场恒放行；判据史与
     // 四窗验证见台账 T198）

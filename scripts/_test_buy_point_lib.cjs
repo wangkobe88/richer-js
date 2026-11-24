@@ -2386,6 +2386,21 @@ ok(obsPartial.dimensions.price_level === null && obsPartial.dimensions.price_tre
     const dMulti = buildBuyPointSnapshot(rowsMulti, metaA).buyDerived;
     ok(Math.abs(dMulti.oversellBnb - 0.65) < 1e-6 && dMulti.oversellerN === 2 && dMulti.anchorWalletN === 3,
       `V6 两户合计 0.65/2 户/3 钱包（实际 ${dMulti.oversellBnb}/${dMulti.oversellerN}/${dMulti.anchorWalletN}）`);
+    // V7 FP46/T235 沉寂豁免键 oversellSecToAnchor：超卖户最后一笔卖距锚秒数
+    ok(dOs.oversellSecToAnchor === 0,
+      `V7 MOLLY 形状：超卖户最后卖 dt45=锚末 → 距锚 0（实际 ${dOs.oversellSecToAnchor}）`);
+    const rowsQuiet = [
+      row(5, 'BUY', W_OS, 0.246, 1.0 * E9, 2.4e8),
+      row(20, 'SELL', W_OS, 0.77, 1.15 * E9, 6.6e7),
+      // 58s 沉寂 → 锚（3beb 案形状：洗筹离场 58s 后苏醒买点）
+      ...[0, 1, 2].map((i) => row(30 + i * 5, 'BUY', '0x' + (0x30 + i).toString(16).repeat(20), 0.05, 1.0 * E9, 5e7)),
+      row(78, 'BUY', '0x' + (0x33).toString(16).repeat(20), 0.27, 1.05 * E9, 2.5e8),
+    ];
+    const dQuiet = buildBuyPointSnapshot(rowsQuiet, metaA).buyDerived;
+    ok(dQuiet.oversellSecToAnchor === 58 && dQuiet.oversellBnb === 0.77 && dQuiet.oversellerN === 1,
+      `V7b 3beb 案形状：超卖 0.77 距锚 78−20=58（实际 ${dQuiet.oversellSecToAnchor}/${dQuiet.oversellBnb}）`);
+    ok(dCi.oversellSecToAnchor === null,
+      `V7c CI 反证（无超卖户）→ null 证据缺席不豁免（实际 ${dCi.oversellSecToAnchor}）`);
   }
 
   // ═══ T198/FP30 arbBot 持筹垄断两键（注入制：snapshot 零 DB，service 预加载

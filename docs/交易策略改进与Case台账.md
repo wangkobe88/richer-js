@@ -2293,3 +2293,22 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **四修（PT27，2026-11-24 用户裁定「让这一个 pointType 豁免触发后后续的门控，然后回测观察，有一些门可能还是加回来好」）**：policy 全豁观察版=`{factorCheckArms:'skip', actFront:'pass', cheatCheck:'skip', buyPoint:'skip'}`（famous/聪明钱重参与=已验证好票背书→门链全豁；引擎拉黑短路在门链外层保留）。观察期形状，结束后按裁定加回或回滚。**我的预判（待数据验证）**：①BP 塞单门 stuffingOnly 零成本建议先加回（BP67 用户明裁机械防线，w1003 命中面无 stuffing 拒案例）②cheat g23NoSlowGrind 的等额簇 strong 12 票 92% 拦对——全豁代价=买 12 死票换 0x28ea 一个 10×，数据出来定。**对拍 4（bt-v246/247，PT27 全豁 skip）**：金狗 17 票 +5.9355（与 PT25/26 逐位一致——**0x28ea 被 ath 130 帽切出类型**：fire 时 ath=132.09，2.09 点贴线误伤，pt=normal 死 FP tail_dip_knife/fam_early_flip）；w1003 类型 17 票 +0.4291（vs PT26 半豁 +0.4721——全豁多买 4 票：BIGNANCE +0.047/武士咪 −0.006/XSI·kroea·B·ACC 恶化 −0.02~−0.03，**门整体在赚钱**）。
 **对拍 5（bt-v248/249，PT28 全豁+ath≤140）**：ath 130→140（0x28ea 贴线案：130~140 区间空档〔128.36 下一位 141.37〕→抬线唯一新增=0x28ea 零新增死票）；**金狗 18 票 +6.0698 = +0.4934 vs 基线（0x28ea 买进 +67.1%、0x2ee9 +0.359 双兑现）**；w1003 类型 20 票 **+0.5586**（0x28ea +0.134/CZCOIN +0.149/0x2ee9 +0.359 三赢家，亏损面 B·ACC/JARVIS/加密英雄/XSI/kroea −0.024~−0.033 档）；全窗 235 票 +8.1207。**0x28ea 兑现 +67.1% 而非探针 10.9×——锚后 60min 内到过 10.9× 但卖腿在 +67% 清仓（卖侧拿住课题另案，本立法不扩）**。
 **定稿（PT29，用户裁定「全豁+stuffingOnly」）**：policy=`{factorCheckArms:'skip', actFront:'pass', cheatCheck:'skip', buyPoint:'stuffingOnly'}`。逐门估价：①cheat 等额簇通道本样本该豁（拦 kroea 免损 +0.017 vs 拦 0x28ea 错失 +0.134 净 −0.117；假阳性已被 ath≤140+notorious 剔除两道收紧吸收）②FP dump 族噪声级（净 ≈−0.03）③BP 塞单门零成本加回（BP67 明裁机械防线；0x28ea 塞单锚 3<8 不拦）——生产/新窗若见等额簇死票成群再议 cheat 差集加回（g23NoEql）。**对拍 6（bt-v250 定稿金狗）：待补录**。
+
+## T235 FP29 oversell_residual 沉寂豁免：洗筹离场距买点 ≥55s 不拦（2026-11-24 用户裁定「这个庄的洗筹码的手段，洗完了后沉寂要比较久，可以通过买入前的沉寂时间豁免」；案源=神龙犬 0x3beb…7777）
+
+**入口**：bt-v244-jindog-v16-pt26 金狗回测 signals 页复盘——神龙犬 P1·首买被因子门拒，用户看盘定性「超卖是庄的洗筹码手段，洗完后盘面沉寂较久才再启动，可用买入前的沉寂时间豁免」。
+
+**链上取证（tmp-3beb-oversell.cjs，本地单票）**：09:20:57 出生（creator 0xce030970 买 1.49B）→ 09:21:00 首波 0.29B 抛 → **194s 死寂** → 09:24:14 苏醒 tick：`0xdca522c9` 账本零买入、低于发行价（4.17e-9）卖 1.4481B（curve 外筹码 transfer 分仓指纹）→ **58s 沉寂** → 09:25:12 两笔买 0.492B（quietSurge 波）触发 P1 → FP29 拦（超卖 1.4481B(1 户)/锚窗钱包 8）→ **前向 +960%（+176.8s 峰 5.40e-8）、09:28:09 毕业**。假说与数据完全吻合：洗筹离场后沉寂、沉寂后苏醒才是启动。
+
+**全量扫描（tmp-oversell-quiet-scan.cjs，182 跑）**：71 个 factorCheck 实验全部 FP29 命中行按 (token, fire 秒) 去重 → 198 个命中点；键=**超卖户最后一笔卖距锚秒数**（gapOversell）。切割（fwd 30min 峰/谷，锚价基准）：
+- 保持拦面 <30s n=130：胜 47%、**大赢(≥50%)率仅 4.7%**、深跌(≤-20%) 14%——贴锚出货=接刀盘，FP29 核心猎区不动
+- 30-55s 带：深跌集中区（该带放行性价比差）
+- **≥55s 豁免面 47 行=21 票**：大赢 10 行（**3beb +960 / 7c3ad817 +688 / f82b045c +298**）+中赢 2（+59/+35）；深跌 5 行多为赢家回撤（唯一坏例 4d31428c flat→-25%）
+- ≥60s 最干净（深跌 3）但案源 58.2s 恰好被挡；≥90s 深跌 0 但面缩到 33 行
+- 对照：gapPrev（紧贴买点沉寂）不分离（大赢 3/45 vs 18/153）——判别力在「洗筹离场距买点的时间」不在「买点前的静默」；MOLLY 主案 d657ad14 gapOver=0s 保持拦 ✓
+
+**立法（用户裁定线=55s）**：`oversellSecToAnchor`（buyDerived 新键：超卖户最后一笔卖 tick dt 距锚末 tick dt 秒数）`>= 55` → 不拦——洗筹离场与买点间隔足够久=洗筹阶段已结束、新一轮启动非接刀；**null（无超卖户/锚 dt 缺失/wallets 空）=证据缺席不豁免保持拦**〔FP33/36/39/42/43/45 惯例〕；55s 线与 stall 断流卖腿同族（非类整数线）。两腿组合分离不动（超卖 ≥0.5B ∧ 钱包 ≤12 仍是进门前提）。FP45→**FP46**。
+
+**改动**：buy-point-snapshot.js oversell 族第四键 oversellSecToAnchor（ticks 单趟扫描超卖户最后卖 dt，无 O(n²)）；factor-pre-buy-check.js armOversellResidual 豁免臂+OVERSELL_QUIET_EXEMPT_SEC=55 导出+版本头 FP46+gates 门行 value 加「距锚 Xs」、line 加豁免说明。单测：_test_buy_point_lib V7/V7b/V7c（贴锚 0/案形状 58/无超卖 null）+_test_factor_prebuy_check AA8（55 恰线豁免/54 保持拦/null 保持拦/3beb 案值不拦+整门 pass）+AA7 及全文件 12 处版本钉 FP46、_test_buy_point_check_service FP3、_test_stall_restart 版本钉同步；回归 factor_prebuy_check 329/cheat_detection_lib 657/buy_point_lib 588/buy_point_check_service 43/retail_path_gate_policy 14/point_type_router 43/stall_restart 78/cheat_gate_engine 180 全绿。
+
+**对拍（金狗集合 bt-v2xx A/B：v17+FP46 vs v17 基底）：待跑**。
