@@ -213,11 +213,14 @@ console.log('C. point-type-router 类型 famous_conviction_pit');
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
     }
   });
-  check('C1b T234 六修 ath 上限地板口径负例：athVsFloorPct 141 >140 → normal（大热残局切——w1003 死区 141.37+ 票形状）', () => {
-    assert.strictEqual(classifyPointType({ ...PIT, athVsFloorPct: 141 }).type, 'normal');
+  check('C1b T234 八修 ath 上限地板口径负例：athVsFloorPct 201 >200 → normal（大热残局切——加密英雄 235.4 形状）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, athVsFloorPct: 201 }).type, 'normal');
   });
-  check('C1c T234 六修 ath 上限地板口径正例：athVsFloorPct 137.6 ≤140 → 命中（0x28ea 地板口径贴线案源）', () => {
+  check('C1c T234 八修 ath 上限地板口径正例：athVsFloorPct 137.6 ≤200 → 命中（0x28ea 地板口径贴线案源）', () => {
     assert.strictEqual(classifyPointType({ ...PIT, athVsFloorPct: 137.6 }).type, 'famous_conviction_pit');
+  });
+  check('C1d T234 八修 ath 上限地板口径正例：athVsFloorPct 198.6 ≤200 → 命中（CZCOIN 地板口径 1.4 点贴线）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, athVsFloorPct: 198.6 }).type, 'famous_conviction_pit');
   });
   check('C2 龄 59 <60 → normal', () => {
     assert.strictEqual(classifyPointType({ ...PIT, tokenAgeSec: 59 }).type, 'normal');
