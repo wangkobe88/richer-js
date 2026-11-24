@@ -2264,3 +2264,26 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **P2 清理（对拍通过后，2026-11-24）**：删两引擎旧 stallClose 机制（定时器/`_emitStallCloseSell`/`_scanStallClose`/持仓字段）+删 `core/stall-close-almost-launch.js`（史注并入 stall-sell-leg.js）+删 `_test_stall_close.cjs`；StrategyLibraryService 删 validateStallCloseSection、stallClose 进 RETIRED_PACK_KEYS（400 引导）；**引擎 fail-fast**（`_resolveStrategyPack` 见 definition 携带 stallClose → throw「[T233] 已退役」——v16 及更早残留包静默失保命防线）；前端：strategy-library 删 stallClose 表单段（改卖腿签名检测列表徽章）+旧实验导入激活 stallClose → 注入标准断流卖腿（旧 stallMs 参数不复刻）+create/experiment_detail 包卡徽章同改；`_test_strategy_pack` B9-B12 换 RETIRED+stall 腿键校验、C8 引擎 fail-fast 断言（45 绿）；`_test_factor_sell_filter` T233a-e 追加（240 绿）；deploy 脚本 dry-run 过（16 买/19 卖）。experiment_signals.js metadata.stallClose 读取形状保留零改动。
 
 **信号页/创建页二轮调整（用户点名）**：①blocked 行附 stallClose 上下文（`_persistFactorSellFilterSignal` 对 stall 签名腿写 metadata.stallClose——信号页「断流: Ns·档」对拦截行同样可见，单测 F8a-c 锁定普通腿零污染）②信号页 machine_hold 拦截明细分支（🤖 盒：machineNetBuy180/chg30 判据线；**rule 优先序**——machine 行同时携带 famous/smart 未命中证据键，按证据键分支会冒充 famous/smart 拦截，machine 分支必须前置；五层冒烟 45 绿+?v=411 bump）③断流上下文注释改 T233 语义（'breakdown' 档只存于 T170b 历史行，分支保留）④创建页复制链注释/回填退役注释同步。
+
+## T234 famous_conviction_pit 新点位类型：famous/聪明钱高位重参与-深回撤低位坑-反弹确认（2026-11-24 用户提案「famous/聪明钱强认同健康盘深坑」；案源=躺赢人生 0x2ee9…7777）
+
+**入口**：signals 页复盘 0x2ee9…7777（JG-16 T198b 案源同票）——用户形状描述「非常健康的散户票的深坑：famous 在不短的时间内入场了三个、点位都不算低（很高的叙事认同）、没有大的跟单，一部分用户离场砸出深坑；深坑时活跃度已经不够了，但重新起来的概率不低。建议立一个新的 pointType——首先要识别 famous/聪明钱的大幅度认同，然后基于此豁免低活跃度以及购买前检查关于点位的评判」。
+
+**链上取证（核验用户形状）**：famous roster 10 钱包买过、首波三钱包 06:49:36/39/41 买在 curVs +64/85/82%（0.35/0.025/0.38B）；**首波三钱包 5~40 秒内翻手卖回坑里（famous 的卖就是坑的挖掘者）**，fire（06:50:23）时 famous 净持仓只剩 ~0.18B 碎仓；真·高位强认同买入（+228~593%）发生在 fire 之后；smart 名单 fire 前零参与。跟单：2s 口径 max=14（07:02 顶部追高段 a1426 被簇拥）vs **块口径同块 max=3**——用户「没有大的跟单」判断在块语义下成立。坑：ATH 2.14× → 坑底 curVs +28%（−40% 坑深），P1 首买信号两笔 fire（06:50:23/31），死因=T198b arbBot 臂+AF1 act_front_low（fpRetry pass 后接棒），锚后 6.9×（07:03 峰 4.33e-8）。
+
+**四窗探针**（tmp-conviction-scan.cjs，182 跑，事件锚=JG-41 同款拉高→回撤→坑底+确认；四窗 w1003/1012/1019/1103）：
+- 金狗 65 坑底事件中 **61 个在黄金坑价格域外**（curVs 中位 +101%）——形状主战场域外；域外池臂 A 分离强（A60≥1.0：n=752 ge2x 22.5% vs 基线 15.9%、end60mean 1.051，≥2x 提升四窗全正）但 stall 出血 46%、stallMed 0.74（JG-41 同款深 V）
+- **用户裁定「不开当前VsLaunchPct 的更高购买阈，确认买在低位，即使亏损也是有限亏损」→ 域外高 curVs 形状刻意不做**（亏损无界），立法面=域内低位深坑
+- 域内池：BASE n=2140 gold=4 ge2x 4.8% mean 0.995；臂 A（A40≥0.5∧nW≥3）n=333 gold=1(0x2ee9) ge2x 6.9% mean 1.040
+- 臂 B（fire 时留仓额）不加分（A∧B 更差）→ 数据裁定「买过/重参与」口径（用户 Q1 双臂对照裁定=探针先行；JG-40「买过 58/61 负」否证面由坑底+反弹确认+低位域三锚兜底）
+- 跟单门域内线扫全中性（形状定义非胜负手）；quiet-surge 口径池小且全负（域外深坑是活跃盘回撤形状非沉寂苏醒）→ 域内坑现有 P1/t0 腿本来就会触发，**纯 pointType 立法零新腿零包改动**
+
+**立法**（用户逐项裁定：臂 A 线值「A40≥0.5且≥3钱包」〔「入场了三个」原话口径〕；跟单「保留同块≤8」〔「famous 跟单一般看同区块，以及未来 1-2 个区块的行为，尤其是同区块」——现行键取同块语义〕；命名「famous_conviction_pit」；出血「接受，先上对拍」；豁免面全套）：
+
+新类型 condition：`tokenAgeSec >= 60 AND mcapFromPeakPct <= 62 AND (currentVsLaunchPct <= 28.5 OR earlyReturn < 15) AND currentVsLaunchPct <= 33.5 AND famousSmartHighBuyBnb >= 0.5 AND famousSmartHighBuyN >= 3 AND famousFollowBlockMaxWallets <= 8 AND (anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03)`；policy=`{factorCheckArms:'cheatOnly', factorCheckArmExempt:['slow_pump_unload','arb_bot_holdings'], actFront:'pass', cheatCheck:'g23NoSlowGrind', buyPoint:'stuffingOnly'}`（arb_bot_holdings=案源死因臂，T198b 流通腿之外的兜底；**二修 g23NoE→g23NoSlowGrind**=A 主判排 slow_grind_pump+去 E 通道两件套——bt-v241 实证 famous 带量入场形状 slowGrindPump=3 唯一 strong 进 A 主判拒 grade=cheat，黄金坑 g23NoSlowGrind 案源 0xa04ee1 同款误伤；A 其余通道/L/M/N 照判）。类型序=阶梯第三位（黄金坑/独舞之后）——重叠形状由已验证的黄金坑先匹配。
+
+**FA 三新键**（零 DB 零网络）：`famousSmartHighBuyBnb/N`=famous∪smart 名单钱包**买入时** curVs（地板锚）≥+40%、单笔 ≥0.02B 的累计额+独立钱包数（全生命周期单调「买过」口径；双段写点 T133 同款每 tick 恰计一次；地板缺失 fail-closed）；`famousFollowBlockMaxWallets`=famous 买后**同块**非 famous 买入钱包数全生命周期单调 max（锚定 bn、bn 推进闭合+16 容量界，与 T221 2s 键并行共存不动）。
+
+**单测**：`_test_famous_conviction_pit.cjs` 21 断言（臂 A 口径/尘线/低点跳过/双段恰一次/地板 fail-closed 守卫；同块语义/+1 块不计/闭合保持；六轴负例全走 normal/assertPointTypesValid 真键集）；回归 point_type_router 43/golden_pit 14/famous_follow_slot 17/strategy_pack 45/strategy_library_validate_legs 46/cheat_gate_engine 180 全绿。
+
+**对拍 1（bt-v241，PT24/g23NoE）**：+5.5165（16 票）vs bt-v240 +5.5668 = **−0.0503**；类型命中 3 信号（0x2ee9/0x28ea×2）全被 cheat 拒 grade=cheat——slowGrindPump=3 唯一 strong 进 A 主判（famous 带量形状假阳性）→ 差集选型错误，引出二修。**对拍 2（bt-v242，PT25/g23NoSlowGrind）**：**17 票 +5.9355** vs bt-v240 16 票 +5.5764 = **+0.3591**；逐票分解=0x2ee9 新增 +0.359（买 0.2B @4.894e-6 → 全清 @1.368e-5 **+179.6%**——P1 首买→类型命中→cheat g23NoSlowGrind 过→BP stuffingOnly 过→买入兑现）+LAB +0.016（=T233 v17 stall 腿已知混杂 +0.0155）+0xc0e8 −0.006（卖点噪声），其余 13 票逐位一致。**纯 T234 增量 ≈ +0.353、案源本尊兑现**。
