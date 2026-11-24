@@ -1025,6 +1025,210 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       `组合快照=${this._portfolioSnapshotIntervalMs / 1000}s 断流阈值=${this._wssDownThresholdMs / 60000}min），等待 WSS 事件...`);
   }
 
+  /** WSS 配置节名（子类覆盖：flap 引擎用 'flapWs'；双平台 'both' 走基类 fourmemeWs 段——
+   *  引擎级单值参数（debounce 等）不按平台合并；collector 侧配置在 _createCollectors
+   *  内 per-platform 分段读各自 section（fourmeme→fourmemeWs / flap→flapWs）） */
+  _wsConfigSectionName() {
+    return 'fourmemeWs';
+  }
+
+  /**
+   * 消费平台集合（内嵌 collector 构造维度 + router 平台分门）。
+   * 基类按 experiment.config.platform 归一化（'both' → 双平台；flap 子类覆盖为 ['flap']）。
+   * 构造期 _experiment 未注入时返回 ['fourmeme']，与旧行为一致；collectors 在
+   * _initializeDataSources 中构造，彼时 _experiment 已由 AbstractTradingEngine.initialize 注入。
+   */
+  _wsPlatforms() {
+    const { resolvePlatforms } = require('../core/platforms');
+    return resolvePlatforms(this._experiment?.config?.platform);
+  }
+
+  /** 基础 fourmemeWs 配置 + 实验级覆盖（浅合并） */
+  _mergedWsConfig() {
+    const section = this._wsConfigSectionName();
+    return {
+      ...(baseConfig[section] || {}),
+      ...(this._experiment?.config?.[section] || {}),
+    };
+  }
+
+  /**
+   * 内嵌 WSS collectors 构造（直连架构 2026-10-09，watcher 废除）：per _wsPlatforms()
+   * 一枚（both = 双 collector，watcher 单进程双 collector 同型已验证数周），共享一个
+   * SenderResolver 与 WssEventWriter。FA/tokenPool 传引擎实例（tick 三路输出在 collector
+   * `_emitTick`：pool.updatePrice / tickBuffer 批量落库 / FA.processTick）。
+   *
+   * ★ 08-27 防线：绝不调 collector.setExperimentId——tick 行 experiment_id 恒 NULL，
+   *   删实验级联永不带走 wss_price_ticks 行（用户裁定 2026-10-09 维持）。
+   * 实验级 collector 配置覆盖恢复生效（watcher 时代失效）：per-platform section 浅合并。
+   */
+  _createCollectors() {
+    const { SenderResolver } = require('../../collectors/sender-resolver.js');
+    const { WssEventWriter } = require('../../collectors/wss-event-writer.js');
+
+    // 共享 sender 解析器（单实例传各 collector：同钱包跨平台交易，kind 缓存利用率更高）。
+    // 段缺失/enabled≠true → 不构造，collector 收 null 走直推路径（sender=NULL 回退 trader）
+    const senderCfg = baseConfig.senderResolve;
+    if (senderCfg && senderCfg.enabled === true) {
+      this._senderResolver = new SenderResolver(senderCfg, this.logger);
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        'sender 解析已启用（真实买家 tx.from；公共路由行 sender≠trader）');
+    }
+
+    // wss_events 写入器（token_create/graduation/token_quote_set 持续供行 + 重试队列；
+    // heartbeat 不写——watcher 专属人工查活，直连架构判据回到 collector 消息心跳）
+    this._eventWriter = new WssEventWriter(this.logger);
+    this._eventWriter.start();
+
+    // WSS 快速回执信号（2026-10-15 提速①，뮤오23 案 8.2s 回执纯工程延迟）：自家
+    // collector 在 tx 上链后 ~0.3s 即见成交 tick，比 ethers v6 4s 轮询+ANKR receipt
+    // 索引快一个量级。仅 live 构造；virtual/backtest 恒 null=零变化
+    this._txSeenSignal = (this._isLive && this._liveTxReceiptViaWss)
+      ? new TxSeenSignal()
+      : null;
+    if (this._txSeenSignal) {
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        '⚡ WSS 快速回执已启用（collector tick→_awaitReceipt race）');
+    }
+
+    const PLATFORMS = {
+      fourmeme: {
+        section: 'fourmemeWs',
+        Ctor: require('../../collectors/fourmeme-ankr-ws-collector.js').FourMemeAnkrWsCollector,
+      },
+      flap: {
+        section: 'flapWs',
+        Ctor: require('../../collectors/flap-ankr-ws-collector.js').FlapAnkrWsCollector,
+      },
+      gang: {
+        section: 'gangWs',
+        Ctor: require('../../collectors/gang-ankr-ws-collector.js').GangAnkrWsCollector,
+      },
+    };
+
+    for (const platform of this._wsPlatforms()) {
+      const p = PLATFORMS[platform];
+      // collector 段配置：base 段浅合并实验级（flap collector 读 flapWs、fourmeme 读 fourmemeWs，
+      // 与引擎级 _mergedWsConfig 的单 section 无关——both 实验两段各自合并）
+      const sectionCfg = {
+        ...(baseConfig[p.section] || {}),
+        ...(this._experiment?.config?.[p.section] || {}),
+      };
+      const collector = new p.Ctor(
+        { [p.section]: sectionCfg },
+        this.logger,
+        this._tokenPool,
+        this._factorAggregator,
+        {
+          // 事件双投：wss_events 持久化（叙事年龄锚/回测 totalSupply/flap quote 水位供数源）
+          // + 引擎既有句柄（experiment_tokens 落库/毕业卖出）。collector 已先做
+          // FA.registerToken + pool.addToken（meta 自带 platform 键）
+          onTokenCreate: (info) => {
+            this._eventWriter.enqueue('token_create', platform, info);
+            this._handleNewToken(info, platform);
+          },
+          onGraduation: (info) => {
+            this._eventWriter.enqueue('graduation', platform, info);
+            this._handleGraduation(info);
+          },
+          // flap 专属：QuoteSet 持久化（重启用——_loadQuoteMapFromDb 水位驱动增量补停机缺口）
+          onQuoteSet: platform === 'flap'
+            ? (info) => this._eventWriter.enqueue('token_quote_set', 'flap', info)
+            : null,
+        },
+        this._senderResolver,
+      );
+      // ★不调 setExperimentId（08-27 防线，见方法头注）
+      // TPA live 缓冲钩子（pumpfun 同款）：tick 行 push 后同步喂（sender 已定值）；TPA 未启用不挂
+      if (this._tokenPositionAnalyzer) {
+        collector._onTickBuffered = (tickRow) => this._tokenPositionAnalyzer.ingestLiveTick(tickRow);
+      }
+      // WSS 快速回执（提速①）：tick 到达即通知（collector 侧恒发，引擎无信号器时
+      // no-op；与 _onTickBuffered 独立属性共存）
+      collector._onTickEmitted = (txHash) => {
+        if (this._txSeenSignal) this._txSeenSignal.notify(txHash);
+      };
+      // tickBuffer 高水位转发（批次 3a）：collector 侧已打 error 日志+stats 峰值/计数，
+      // 这里只在 live Telegram 通知器可用时补值班通道（virtual/backtest 恒 null=零变化）；
+      // fire-and-forget，推送失败不打日志（collector error 日志已是主告警）
+      collector._onTickBufferHighWatermark = (len) => {
+        if (!this._telegramNotifier) return;
+        Promise.resolve(this._telegramNotifier.sendMessage(
+          `⚠️ [${this._experimentId}] TickBuffer高水位\n${platform} collector buffer=${len}——落库速度跟不上，绝不丢行`
+        )).catch(() => {});
+      };
+      collector._platformLabel = platform; // 日志/getStats 标签
+      this._collectors.push(collector);
+      this._collectorsByPlatform.set(platform, collector); // ② cheat 门行环分派（both 按 token 平台）
+    }
+  }
+
+  // ==================== live 执行层（Phase 5：FourMemeDirectTrader / FlapPortalTrader）====================
+
+  /** live trader 类型（TraderFactory 注册名）；flap 子类覆盖为 'flap' */
+  _liveTraderType() {
+    return 'fourmeme';
+  }
+
+  /** per-platform live trader 类型分派（双平台 live 2026-10-14）：flap 平台恒
+   *  FlapPortalTrader（'flap'，与子类覆盖无关）；gang→'gang'（GangBawTrader，2026-10-28
+   *  用户裁定「直接实盘」：官方 gang CLI + BAW 审批流半自动通道）；其余走
+   *  _liveTraderType()（基类 'fourmeme'；flap 子类恒单平台不会走到本分支） */
+  _liveTraderTypeFor(platform) {
+    if (platform === 'flap') return 'flap';
+    if (platform === 'gang') return 'gang';
+    return this._liveTraderType();
+  }
+
+  /** trader 构造后钩子：基类 no-op（gang 子类注入 Telegram 告警钩子——卖侧 App
+   *  确认提醒/防重发锁告警须实时触达用户） */
+  async _postTraderInit(_trader) {}
+
+  /** gang 毕业票人工处置拦截：基类恒 false（毕业票照走 PCS 路由）；gang 子类覆盖
+   *  （BAW 无 EOA 签名链，PCS trader 不可用——Telegram 告警 + 人工 gang CLI 处置） */
+  _graduatedManualIntercept(_signal, _gradInfo) {
+    return false;
+  }
+
+  /** token → live trader 分派（双平台核心路由）：单 trader 直返（单平台实验零行为
+   *  变化）；双平台按 token 所属平台查 map——平台未知 fail-closed throw，真实资金
+   *  绝不能把 fourmeme token 发给 flap Portal swap（或反之，协议/地址空间完全不同） */
+  _liveTraderFor(tokenAddress) {
+    if (!this._liveTraderMap) return this._trader;
+    if (this._liveTraderMap.size === 1) return this._trader;
+    const platform = this._platformForToken(tokenAddress);
+    const trader = platform ? this._liveTraderMap.get(platform) : null;
+    if (!trader) {
+      throw new Error(`live trader 分派失败: ${tokenAddress} platform=${platform}（token 池/FA 均无平台标记，拒绝跨协议盲发）`);
+    }
+    return trader;
+  }
+
+  /** token 平台归属：token 池 record.platform（_buildFourMemeTokenRecord/
+   *  _buildFlapTokenRecord 写入）优先，FA state.platform（collector registerToken
+   *  meta，write-once）兜底；均无 → null */
+  _platformForToken(tokenAddress) {
+    const record = this._tokenPool?.getToken(tokenAddress, 'bsc');
+    if (record?.platform) return record.platform;
+    return this._factorAggregator.getTokenState(tokenAddress)?.platform || null;
+  }
+
+  /** ② cheat 门行环拉数分派（memSource）：单 collector 直取；both 按 token 平台
+   *  归属分派对应 collector 环（_liveTraderFor 同款 _platformForToken；平台未知/
+   *  环 miss → null，service 回落 DB 路径——绝不跨平台拿错环） */
+  _cheatRingPull(token) {
+    const byPlat = this._collectorsByPlatform;
+    if (!byPlat || byPlat.size === 0) return null;
+    let collector = null;
+    if (byPlat.size === 1) {
+      collector = byPlat.values().next().value;
+    } else {
+      const platform = this._platformForToken(token);
+      collector = platform ? byPlat.get(platform) : null;
+    }
+    return collector ? collector.pullTokenTicks(token) : null;
+  }
+
   /**
    * 市场截面快照落表（60s 计时器；纯观察通道，失败仅计数不重试不阻塞）。
    * ts=分钟桶键（ISO）→ 表 PK 幂等：计时器抖动/重启同分钟覆写不产生重复行。
