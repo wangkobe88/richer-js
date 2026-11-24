@@ -2191,3 +2191,17 @@ CD42/CD45 残留 unhealthy 来自 D/F/G 既有 G2/G4 通道**独立落位**（fa
 
 
 **T175/AF1 前置活跃度门（2026-11-18，用户提案；案号归交易台账 T175，本段=cheat 域注记）**：CheatCheckService 新增兄弟入口 `evaluateActFront`——门链 FP→AF1→cheat→BP 分流（low/ultra∧非burst 拒、burst 豁免/high 跳过 cheat、mid 照走全链）。**cheat 判定链零改动**：gateBuyPoint/G22 通道/CD379 豁免链/CD381 重检/粘滞/拉黑/bootstrap/回归集全部原样（mid 票走的还是全 10 题）；AF 门复用 settle/pullTicks/snapshot/state 链件+共享 `_failUntil` 冷却，独立 `_actFrontInflight`，**不落 cheat_detection 表、不登记拉黑、不投影 FA cheat 键族**（档位轨迹在 signal metadata actFrontGate 段）。题集三题（activity_level/wash_pair/stall_burst_wave）=buildCheatQuestions 引用抽取零漂移，CHEAT_QUESTIONS_VERSION 不动。**跳过路径（high/burst 票）的 cheat 档位观测从此缺席**（研究数据面收窄为 metadata 留痕，知情取舍）；G17 N 通道同步升格 FP14 独立臂（n_no_retail_entry 同线同值）补 high 跳过的 N 拦截。数据验证与全档=交易台账 T175。
+## CD425（FP47 影子，2026-11-24）wash_pair + insider_supply_sell 档位机械线——「Jev 死板计算改因子」裁定第二批（与交易台账 T237/BP 台账 BP90 同裁定；用户子决策「影子对拍先行」）
+
+**定位**：两道「死板计算」题的档位判据机械翻译，**门侧零消费**——A 主判 MAIN_IDS / L 通道照旧消费 Jev 档位；代码档位（0-3 数值序）落 FA 观察键（cheatWashPairCodeLevel/cheatInsiderSupplyCodeLevel）+cheat runner 存档，与 Jev 档位对拍攒分布，**分离度达标后用户再裁定转正拦截**。不扩 digest（防污染 Jev 观测对拍口径）。
+
+**实现**（`src/market-analysis/cheat-shadow-judge.js` 零依赖纯函数）：
+- `judgeWashPairLevel`：占比轴机械线（ⓟ 10/25/50+3/5 对；「偶发 1~2 对=碰撞」「占比不足不为据」反锚；无配对=有证据 none）。反向鉴别（一次性新钱包/多轮复现/卖方集中）刻意不译留 Jev。
+- `judgeInsiderLevel`：双口径（占比≥25 ∧ 冲击≥25 ∧ 组≥2 户→strong；占比高冲击不足→至多 moderate）+题⑤单钱包隐藏筹码豁免（零买纯卖 1 个 ∧ 占总交易量<15%→至多 weak；≥15%→至多 moderate）+创建者剔除（snapshot 已剔）。③④节奏/等额升档刻意不译（题面明言辅助判读）。
+- 原料锚族：computeDerived 新增 6 键（insiderSellPct/insiderSellBuyPct/insiderSellWallets/noBuySellWalletsExCreator/noBuySellBnbExCreator/noBuySellVolumePctExCreator——剔创建者口径）走全链（mapper 白名单/levelsFromObservation/service 步骤 9 实参/runner OBS_ANCHOR_KEYS/FA 投影 5 键）；现有 noBuySell 四键不动（L 通道消费红线）。
+
+**对拍通道**：cheat runner 每票并跑代码档（dry 同算）+存档 codeLevels+尾部「Jev 档 × 代码档」交叉表（一致率+分歧点名）。182 全量 365 票。
+
+**验证**：_test_cheat_shadow_judge 22 绿 / cheat_detection_lib 660 绿（FP47 锚族手算精确值+创建者剔除反证+锚数锁 88）/ cheat_grade 142 绿（黄金集 42 票 28 一致+14 已知偏差零变化——影子不碰 grade 反证）/ cheat_gate_engine 180（三处口径锁同步 codeLevels:null）。
+
+**余留**：①182 分离度报告（一致率+分歧面+前向收益 per 档）→用户裁定转正（A 主判/L 通道切换路径）；②wash 四线/insider 四线对拍校准；③转正后题面瘦身+题集版本 bump 的路径设计。

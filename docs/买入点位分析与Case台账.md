@@ -2058,3 +2058,13 @@ minVsLaunch=−9.3（涨起后最低破发 −9.3%≤+20=回到腿成立）；cu
 **t6 峰门修正（2026-11-05 用户澄清同日裁定：低市值臂「希望从高点跌下来的时候触发，不是给早期用的」；AskUserQuestion 选峰 ≥15 BNB）**：条件改 `(mcapPeakBnb >= 15 AND marketCap > 0 AND marketCap <= 7.5) OR mcapFromPeakPct >= 60`——峰门=「涨出 7.5 低线至少翻倍再跌回」（数学上隐含回撤 ≥50%），与第二臂（深回撤 60% 管高峰值票）互补；出生票峰值未到 15 前低市值臂天然不触发。**59 票探针对拍**（tmp-t6-probe.mjs，182 跑 FA 重放零 Jev）：OLD 锚中位 1/52 票锚≤5/触发时回撤中位 0% → 峰≥15 版 9 命中/锚中位 237/零锚≤5/回撤中位 61%；峰>7.5 宽松版回撤中位仅 15.8%（贴线蹭形状）被否。全史峰值分布 <7.5=3/[7.5,15)=43/[15,30)=9/≥30=4——本批成交票多为中小峰，t6 命中 57→10（严格化=预期）。**落地**：deploy 脚本加同名 UPDATE 分支（buy-v2 系惯例 version+1 而非新名，legs/description 变化才写）+库条目 signal-source-ladder-v1 v1→2（182 --commit）+重建 set=`bp-2026-11-05-live3-t6gate`（363 点位=61 trades+302 ladder，t6=10 点锚 15~624 全部「跌回」形状；源点位 61>59=live 实验仍在产出新成交、cheat/unhealthy 剔 0=T117 门链生效后成交票天然过门）。⚠v73 引用的是 copy-in 快照（v1 条目），**须重建实验/换代才吃到 t6 新形状**。
 
 **余留**：BP2 对拍换 set 跑（bp-2026-11-05-live3-t6gate 363 点位或旧 232 点位重析，跑前知会用户）；v73 是否立即换代吃到 t6 峰门（v73 起跑首日，T117 首跑观察期——换代时点归用户）；生产 BP 门轨迹观察。
+
+### BP90（FP47，2026-11-24）entry_shape 两桶 + holder 筹码分层——「Jev 死板计算改因子」裁定第一批（用户裁定「把一部分 Jev 门改为因子门……A 档这几个全都搞吧」；与交易台账 T237/CD 台账 CD425 同裁定）
+
+**落法**：①`judgeMaliciousDump`（FP47a）=malicious_dump 桶判据 100% 代码化（四腿/单鲸版/相邻两块臂/贴锚臂 BP82/总成交额豁免 BP78 内联——mapper 门链逐字同款）；②`judgeCrashNumeric`（FP47b）=crash 数值判序代码化（急跌进行时/趋势打断三口/臂 A/臂 B 判序四步制+反弹两件套判序在前），「无回调+无换手」形态复核留 Jev；③`bpHolderConcentration` FA 观察键=筹码分层线机械翻译（chip gate 停用中零门消费）。**BP 题面零改动、BUY_POINT_QUESTIONS_VERSION 不 bump**——兜底双层结构（BP68 哲学）：FP 灰关/漏判时 Jev 照判全判据，被 FP 拦的票 Jev 判不到（省 AF1+cheat+BP 整次 Jev）。
+
+**对拍通道**：BP runner 加代码臂对照列（judgeMaliciousDump/judgeCrashNumeric 与 Jev entry_shape 桶同源材料并跑，--dry 零 Jev 全量面扫描；尾部「Jev 桶 × 代码臂」交叉表——误伤面=Jev normal_dip/flat 但代码 hit 的行逐票复核）。182 真调定线。
+
+**候选定线 ⓟ**（题面无硬线，对拍校准后用户裁定）：急跌深线 -10/同深差 5pp/臂 A 尾卖 0.4B/臂 A 近窗反例线 0.5B+0.19 单笔/臂 B 三线（-18/-20/3笔×0.1B）/holder none-weak 分界（top1 15/前2 35）+簇佐证 50。
+
+**验证**：_test_factor_prebuy_check AK 段 32 断言（含候选行预筛 0.3 线宽于四腿的反证/BP78 贴锚收紧/判序反证）+buy_point_lib 588+holder 24 绿。**余留**：182 对拍误伤面审计（reason 迁移面=tail_dip 族原认领票被 md/crash 抢先）、线值裁定、生产分布。
