@@ -213,14 +213,14 @@ console.log('C. point-type-router 类型 famous_conviction_pit');
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
     }
   });
-  check('C1b T234 八修 ath 上限地板口径负例：athVsFloorPct 201 >200 → normal（大热残局切——加密英雄 235.4 形状）', () => {
-    assert.strictEqual(classifyPointType({ ...PIT, athVsFloorPct: 201 }).type, 'normal');
+  check('C1b T234 九修 ath 上限地板口径负例：athVsFloorPct 151 >150 → normal（大热残局切——永生 186 形状）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, athVsFloorPct: 151 }).type, 'normal');
   });
-  check('C1c T234 八修 ath 上限地板口径正例：athVsFloorPct 137.6 ≤200 → 命中（0x28ea 地板口径贴线案源）', () => {
+  check('C1c T234 九修 ath 上限地板口径正例：athVsFloorPct 137.6 ≤150 → 命中（0x28ea 地板口径案源）', () => {
     assert.strictEqual(classifyPointType({ ...PIT, athVsFloorPct: 137.6 }).type, 'famous_conviction_pit');
   });
-  check('C1d T234 八修 ath 上限地板口径正例：athVsFloorPct 198.6 ≤200 → 命中（CZCOIN 地板口径 1.4 点贴线）', () => {
-    assert.strictEqual(classifyPointType({ ...PIT, athVsFloorPct: 198.6 }).type, 'famous_conviction_pit');
+  check('C1d T234 九修 ath 上限地板口径负例：athVsFloorPct 198.6 >150 → normal（CZCOIN 被切=知情代价，用户裁定「保守一点」）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, athVsFloorPct: 198.6 }).type, 'normal');
   });
   check('C2 龄 59 <60 → normal', () => {
     assert.strictEqual(classifyPointType({ ...PIT, tokenAgeSec: 59 }).type, 'normal');
