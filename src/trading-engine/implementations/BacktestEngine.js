@@ -825,6 +825,23 @@ class BacktestEngine extends AbstractTradingEngine {
     // T219 大户在场豁免（与实时引擎同判据，回测 parity 红线）
     this._stallBigHolderExempt = normalizeStallBigHolderExempt(_sc);
     this._lastStallScanTs = null;
+    // T232 stall 断流卖腿驱动（回测侧，与实时同款）：存在 stall 签名卖腿 → 主循环
+    // 1s 节流驱动启用（评估全部卖腿——补「回测断流票其它卖腿永不评估」的 parity
+    // 缺口向 live 对齐）；与旧 stallClose 机制互斥共存（v13 包走旧、v14 包走新）
+    const _btSellLegs = this._strategyEngine ? this._strategyEngine.getAllStrategies().filter(x => x.action === 'sell') : [];
+    const _btStallLegs = _btSellLegs.filter(lg => isStallSellLeg(lg));
+    this._stalledSellLegScanEnabled = _btStallLegs.length > 0;
+    this._stalledScanAfterSec = (() => {
+        for (const lg of _btStallLegs) {
+            if (typeof lg.stalledScanAfterSec === 'number' && lg.stalledScanAfterSec > 0) return lg.stalledScanAfterSec;
+        }
+        return DEFAULT_STALLED_SCAN_AFTER_SEC;
+    })();
+    this._lastStalledSellLegScanTs = null;
+    if (this._stalledSellLegScanEnabled) {
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `⏱️ 断流卖腿 1s 驱动已启用(回测) | stall 腿=${_btStallLegs.length} 预扫门=${this._stalledScanAfterSec}s（虚拟时钟）`);
+    }
     if (this._stallCloseMs != null) {
       this.logger.info(this._experimentId, 'BacktestEngine',
         `🛡️ 流动性止损已启用(回测) | 持仓票无成交>${this._stallCloseMs / 1000}s 全部清仓` +
@@ -1798,6 +1815,14 @@ class BacktestEngine extends AbstractTradingEngine {
             (this._lastStallScanTs === null || tickTs - this._lastStallScanTs >= 1000)) {
           this._lastStallScanTs = tickTs;
           await this._scanStallClose(tickTs);
+        }
+
+        // T232 stall 断流卖腿驱动（虚拟时钟 1s 节流，stallClose 同位同摆位——
+        // processTick 之前）：预扫门超时持仓 buildFactorMap(tickTs) → 卖腿全链
+        if (this._stalledSellLegScanEnabled &&
+            (this._lastStalledSellLegScanTs === null || tickTs - this._lastStalledSellLegScanTs >= 1000)) {
+          this._lastStalledSellLegScanTs = tickTs;
+          await this._scanStalledSellLegs(tickTs);
         }
 
         // T189 burst 承接冷盘（虚拟时钟扫描，stallClose 同位同节流）：必须在
@@ -3261,6 +3286,31 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   /**
+   * T232 stall 断流卖腿驱动（回测，虚拟时钟）：主循环 1s 节流调用。与实时同款——
+   * 预扫门（lastTickAt 全量口径）后 buildFactorMap(tickTs) → _evaluateSellPathAt
+   * 走卖腿→filter→bypass 全链。评估全部卖腿（与 live 对齐，补既有 parity 缺口）。
+   * asOf 语义：nowTs=虚拟时钟扫描时刻（断流期价格键冻结，与旧机制检测点同价；
+   * 时间键快照差 sub-静默窗，见 T232 方案论证）。
+   */
+  async _scanStalledSellLegs(tickTs) {
+    if (!this._stalledSellLegScanEnabled) return;
+    const preScanMs = this._stalledScanAfterSec * 1000;
+    for (const holding of this._getAllHoldings()) {
+      const tokenAddress = holding.tokenAddress;
+      if (!tokenAddress) continue;
+      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
+      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+      if (!token || token.status !== 'bought') continue;
+      const st = this._factorAggregator.getTokenState(tokenAddress);
+      if (st == null || st.lastTickAt == null) continue;
+      if (tickTs - st.lastTickAt <= preScanMs) continue;
+      const factors = this._factorAggregator.buildFactorMap(tokenAddress, tickTs);
+      if (!factors) continue;
+      await this._evaluateSellPathAt(token, factors, tickTs);
+    }
+  }
+
+  /**
    * FA prune 保护集（P17 虚拟时钟 prune 配套）：state 被 prune 的 token 在后续
    * buildFactorMap 会拿 null——凡「回放中仍可能对该 token 取因子」的形状必须保护。
    *
@@ -3301,11 +3351,17 @@ class BacktestEngine extends AbstractTradingEngine {
    * tickIdentity 双命名支持）
    */
   async _evaluateSellPath(token, factors, tick) {
+    // T232：nowTs 参数化——断流驱动（_scanStalledSellLegs）在无 tick 的虚拟时刻
+    // 评估时走 _evaluateSellPathAt(token, factors, tickTs)，per-tick 路径委托本处
+    return this._evaluateSellPathAt(token, factors, tick.timestamp);
+  }
+
+  /** 卖腿评估核心（nowTs=虚拟时钟时刻；tick 路径=当前 tick 时刻，断流驱动=扫描时刻） */
+  async _evaluateSellPathAt(token, factors, nowTs) {
     const tokenAddress = token.token;
     if (token.status !== 'bought') return { success: false, reason: '非持有状态' };
     if (this._sellingTokens.has(tokenAddress)) return { success: false, reason: '卖出执行中' };
 
-    const nowTs = tick.timestamp;
     const strategy = this._strategyEngine.evaluate(factors, tokenAddress, nowTs, token, 'sell');
     if (!strategy) {
       this._sellConfirmDebouncer.clear(tokenAddress); // 条件 false（趋势恢复）→ 取消 pending
@@ -3445,8 +3501,11 @@ class BacktestEngine extends AbstractTradingEngine {
             profitPercent: signal.profitPercent,
             holdDuration: signal.holdDuration,
             ...signal.factors,
-            // T170b stallClose 断流上下文（显式白名单透传——signals 页「断流: Ns·档位」）
-            ...(strategy.stallCloseInfo ? { stallClose: strategy.stallCloseInfo } : {}),
+            // T170b stallClose 断流上下文（显式白名单透传——signals 页「断流: Ns·档位」）；
+            // T232 stall 签名腿：从触发时刻因子快照重建同形状上下文（前端零改动）
+            ...(strategy.stallCloseInfo
+              ? { stallClose: strategy.stallCloseInfo }
+              : (isStallSellLeg(strategy) ? { stallClose: stallTriggerContext(factors) } : {})),
           },
           createdAt: signal.timestamp,
         });

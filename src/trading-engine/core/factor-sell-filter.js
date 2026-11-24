@@ -97,6 +97,9 @@
 
 'use strict';
 
+// T232 stall 断流卖腿签名（recoveryHold 对 stall 腿放行——见 judge 内注释）
+const { STALL_SIGNATURE_FACTOR } = require('./stall-sell-leg');
+
 /** famousHold/smartHold 默认阈值（T137 研究线 180s + T157 D 修释放线 0.4；T211
  * 管辖线 100→50（2026-11-22，案源 bt-v179 0x4509…7777 pp=92.8 smart 1s 前大买
  * 0.33B 照卖——差 7.2 点被 T157c 100 线放走）；配置可覆盖） */
@@ -430,6 +433,12 @@ function judgeFactorSellFilter(config, factors, leg) {
             const condText = legConditionText(leg);
             return !!(condText && condText.includes(PUMP_ARM_SIGNATURE_FACTOR));
         })(),
+        // T232 stall 断流卖腿签名（recoveryHold 对 stall 腿放行——冻结形状永久拦截
+        // 风险；与 pump 签名互斥：sinceEntryNetBuyRatio 与 idleSec 条件文本无交集）
+        stallArmJurisdiction: (() => {
+            const condText = legConditionText(leg);
+            return !!(condText && condText.includes(STALL_SIGNATURE_FACTOR));
+        })(),
         // T185 recoveryHold 判据段（独立管辖：peak≥80 武装在场——不依赖 pp/pump
         // 管辖，深回撤卖出的 pp 常 <100〔立法案 +20〕，挂 pp 管辖下永远不生效）
         recoveryHoldEnabled: !!(rh && rh.enabled),
@@ -455,7 +464,12 @@ function judgeFactorSellFilter(config, factors, leg) {
     // /无峰）、curVs null（未见可靠价/锚缺失）、chg5 null（未见可靠价）任一
     // 缺席不拦——低位回涨证据不全宁卖不冒充「买点」
     let recoveryHit = false;
-    if (rh && rh.enabled) {
+    if (rh && rh.enabled && !info.stallArmJurisdiction) {
+        // T232：stall 断流卖腿不享 recoveryHold 拦截——recoveryHold 三键
+        // （peakProfitPct/currentVsLaunchPct/chg5Pct）全价格系，断流期冻结：末 tick
+        // 若恰处「峰≥80 ∧ 低位 ∧ 回涨」形状会**永久**拦截 stall 卖腿（流动性死亡≠
+        // 「买点」，T185 语义前提=活跃市场）。famous/smart/machine 臂时间键随 now
+        // 走钟自然衰减（≤180s 后放行），照常拦。
         recoveryHit = typeof peakPct === 'number' && Number.isFinite(peakPct) && peakPct >= rh.minPeakProfitPct
             && typeof curVsLaunch === 'number' && Number.isFinite(curVsLaunch) && curVsLaunch <= rh.maxLaunchPct
             && typeof chg5 === 'number' && Number.isFinite(chg5) && chg5 > rh.minChg5Pct;

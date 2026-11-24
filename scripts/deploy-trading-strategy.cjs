@@ -23,9 +23,11 @@
 // 用法：node scripts/deploy-trading-strategy.cjs [--commit]（缺省 dry-run 本地可跑；
 //       --commit 须在 182 跑写库——本地 VPN 写库不可靠）
 'use strict';
+const { buildStallLegCondition } = require('../src/trading-engine/core/stall-sell-leg');
+const STALL_LEG_CONDITION = buildStallLegCondition();
 
 const ENTRY_NAME = 'trading-standard-v1';
-const ENTRY_DESC = '现行最优交易策略包：ladder v39 十六腿（v34 十四腿+T224 黄金坑臂+T225 独舞臂 priority 17〔2026-11-23 用户裁定「把这个 pointType 对应的策略正式发布，合并到系统当前的交易策略中」——pointType strongbacker_solo_dance（PT19，policy actFront:pass+cheatCheck:g23NoE+臂豁免 fam_holding_thin/oversell_residual）；bt-v224 验证 LAB +225.81%/개구리씨 +138.48%/6 死盘全拦〕〔2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系好散户币黄金坑买腿并入主包 priority 16 兜底臂〔T231：队列线 0.19+龄上界撤除；T232：冷窗 15s 线 0.4〕〕；T214/v35 初版强庄臂（firstBigBuyerHoldPct≥40 线）经 T215 命中面否证已回退留档——终版独舞九键重立为 T225）+ **T229 早回场 OR 臂**〔2026-11-24 用户指令「给常规的所有臂，也增加一个 earlyReturn 的或条件」——十四腿价格门改 (基线 OR (earlyReturn<15 ∧ curVs≤33.5))，GWC 0xb712 重生波回踩 30.26% 一窗错过案（JG-38 第二生命），常量与黄金坑臂同族〕+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 55s/足额0.01（2026-11-24 用户裁定 50→55s——断流清仓延迟 5s，金狗 stall 卖点复流面）+ 五门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
+const ENTRY_DESC = '现行最优交易策略包：ladder v39 十六腿（v34 十四腿+T224 黄金坑臂+T225 独舞臂 priority 17〔2026-11-23 用户裁定「把这个 pointType 对应的策略正式发布，合并到系统当前的交易策略中」——pointType strongbacker_solo_dance（PT19，policy actFront:pass+cheatCheck:g23NoE+臂豁免 fam_holding_thin/oversell_residual）；bt-v224 验证 LAB +225.81%/개구리씨 +138.48%/6 死盘全拦〕〔2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系好散户币黄金坑买腿并入主包 priority 16 兜底臂〔T231：队列线 0.19+龄上界撤除；T232：冷窗 15s 线 0.4〕〕；T214/v35 初版强庄臂（firstBigBuyerHoldPct≥40 线）经 T215 命中面否证已回退留档——终版独舞九键重立为 T225）+ **T229 早回场 OR 臂**〔2026-11-24 用户指令「给常规的所有臂，也增加一个 earlyReturn 的或条件」——十四腿价格门改 (基线 OR (earlyReturn<15 ∧ curVs≤33.5))，GWC 0xb712 重生波回踩 30.26% 一窗错过案（JG-38 第二生命），常量与黄金坑臂同族〕+ 卖 18 腿（16 现行+famous-trim 两段）+ stall 断流卖腿（T232 腿化：55s 基础/almost 域 90s，idleSecSinceLastSubstantialTick 因子表达式，进入 factorSellFilter 统一过滤）+ 五门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
 
 const PACK_DEFINITION = {
   "buyLegs": [
@@ -320,6 +322,19 @@ const PACK_DEFINITION = {
   ],
   "sellLegs": [
     {
+      "id": "stallClose",
+      "name": "流动性止损-无成交超时(55s，almost_launch域90s)",
+      "action": "sell",
+      "priority": 0,
+      "condition": STALL_LEG_CONDITION,
+      "cards": "all",
+      "bypassDebounce": true,
+      "cooldownSec": null,
+      "maxExecutions": null,
+      "stalledScanAfterSec": 45,
+      "description": "T104/T118/T170b/T228i 断流卖出腿化（T232 2026-11-24 用户裁定「断流卖出……同样使用因子表达式进行表达，作为卖出臂的一部分……同样进入卖出臂的过滤检测」）：距上笔足额成交 ≥55s 全清（almost_launch 域 curVs≤+10 延长到 90s；破发档 d345c 否证不回迁）；idleSec 水位 null=阈值未注入 fail-closed 不触发；bypassDebounce=true 是机制成立前提（空窗零 tick 确认窗永不凑齐）；priority 0 全卖腿最高=保命方向（T228i 铁律：永久保留只可条件化调参）；进入 factorSellFilter 统一过滤（famous/smart/machine 状态臂可拦 ≤180s 自然衰减=大户在场先不卖；recoveryHold 对 stall 签名放行防冻结永久拦）；T219 大户豁免退役（bt-v206 否证）。驱动=45s 预扫门+1s 评估（两引擎同款）"
+    },
+    {
       "cards": "all",
       "priority": 2,
       "condition": "profitPercent <= -40",
@@ -493,10 +508,6 @@ const PACK_DEFINITION = {
       "bypassDebounce": true
     }
   ],
-  "stallClose": {
-    "stallMs": 55000,
-    "minTickBnb": 0.01
-  },
   "modules": {
     "factorCheck": "v1",
     "cheatCheck": "v1",

@@ -929,6 +929,23 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     //   仍仅 tick 路径（存量语义不变），卖腿评估按缺省周期起（新机制只做加法）
     const _sellLegs = this._strategyEngine ? this._strategyEngine.getAllStrategies().filter(s => s.action === 'sell') : [];
     this._sellLegScanEnabled = _sellLegs.length > 0;
+    // T232 stall 断流卖腿驱动（2026-11-24 stallClose 腿化）：存在 stall 签名卖腿
+    // （conditionText 含 idleSecSinceLastSubstantialTick）→ 1s 驱动启用；预扫门=
+    // 腿 stalledScanAfterSec ?? 缺省 45s（stall 腿 55s 阈值首满足即被评估到=1s 级
+    // 精度；驱动评估全部卖腿——与回测同款，live 侧其它卖腿断流评估从 60s 门提前
+    // 到预扫门，向新节奏对齐）。与旧 stallClose 机制（stallClose 段在场）互斥共存
+    const _stallLegs = _sellLegs.filter(lg => isStallSellLeg(lg));
+    this._stalledSellLegScanEnabled = _stallLegs.length > 0;
+    this._stalledScanAfterSec = (() => {
+        for (const lg of _stallLegs) {
+            if (typeof lg.stalledScanAfterSec === 'number' && lg.stalledScanAfterSec > 0) return lg.stalledScanAfterSec;
+        }
+        return DEFAULT_STALLED_SCAN_AFTER_SEC;
+    })();
+    if (this._stalledSellLegScanEnabled) {
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        `⏱️ 断流卖腿 1s 驱动已启用 | stall 腿=${_stallLegs.length} 预扫门=${this._stalledScanAfterSec}s`);
+    }
     const _sellScanSec = Number(experimentConfig.sellScanIntervalSec);
     this._holdingsScanMs = this._stopLossScanMs != null ? this._stopLossScanMs
       : (Number.isFinite(_sellScanSec) && _sellScanSec > 0 ? _sellScanSec * 1000 : 30000);
@@ -1573,6 +1590,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           this.logger.error(this._experimentId, 'StallClose', `流动性止损扫描异常: ${err.message}`);
         });
       }, Math.min(1000, this._stallCloseMs));
+    }
+
+    // T232 stall 断流卖腿驱动：1s 墙钟定时器（与旧 stallClose 同粒度；P1 期间与旧
+    // 定时器共存互斥——v13 包走旧、v14 包走新）。驱动=通用「断流持仓卖腿评估」：
+    // 预扫门超时票 buildFactorMap(Date.now()) → _evaluateSellPath（腿触发→factorSellFilter→
+    // bypass 立即卖全链复用）
+    if (this._stalledSellLegScanEnabled) {
+      this._intervals.stalledSellLegs = setInterval(() => {
+        this._scanStalledSellLegs().catch(err => {
+          this.logger.error(this._experimentId, 'StalledSellLegs', `断流卖腿驱动异常: ${err.message}`);
+        });
+      }, 1000);
     }
 
     // T189 burst 承接冷盘扫描：与 stallClose 同款 1s 墙钟定时器（承接观测期
@@ -3332,6 +3361,33 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   /**
+   * T232 stall 断流卖腿驱动（2026-11-24 stallClose 腿化）：1s 墙钟定时器调用。
+   * 与旧 _scanStallClose 的区别：不做断流判据——只做廉价预扫门（lastTickAt 超
+   * 预扫门才 buildFactorMap），触发判定全交给卖腿条件表达式 + factorSellFilter +
+   * bypass 立即卖全链（_evaluateSellPath）。评估全部卖腿（与回测同款驱动对齐；
+   * 30s 兜底扫描的 60s 门仅服务无 stall 腿的包）。
+   */
+  async _scanStalledSellLegs() {
+    if (!this._stalledSellLegScanEnabled) return;
+    const preScanMs = this._stalledScanAfterSec * 1000;
+    for (const holding of this._getAllHoldings()) {
+      const tokenAddress = holding.tokenAddress;
+      if (!tokenAddress) continue;
+      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
+      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+      if (!token || token.status !== 'bought') continue;
+      const st = this._factorAggregator.getTokenState(tokenAddress);
+      // 廉价预扫门：lastTickAt（全量口径）超预扫门才继续——条件判据用足额水位
+      // （idleSecSinceLastSubstantialTick），预扫只是省 buildFactorMap 开销
+      if (st == null || st.lastTickAt == null) continue;
+      if (Date.now() - st.lastTickAt <= preScanMs) continue;
+      const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
+      if (!factors) continue;
+      await this._evaluateSellPath(tokenAddress, factors, null);
+    }
+  }
+
+  /**
    * TokenPool 监控票淘汰（批次 3c，2026-10-15；tokenPoolEvictMinAgeMs 缺省 null=关）。
    * pool Map 长跑零淘汰无界增长（cleanup() 引擎路径零调用）——本方法在 5min prune
    * 周期内删「monitoring 且 age≥minAgeMs」条目。安全子集（刻意不做 pool 全量清理）：
@@ -3835,8 +3891,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         sellPercentage: sellPct, // E5：本腿卖出比例（执行时点余仓；卡牌模式=卡数比例）
         cardTrade,
         factors: { trendFactors: buildFactorValuesForTimeSeries(factors) },
-        // T170b stallClose 断流上下文透传（processSignal 展开 signal.metadata 落 DB）
-        metadata: strategy.stallCloseInfo ? { stallClose: strategy.stallCloseInfo } : {},
+        // T170b stallClose 断流上下文透传（processSignal 展开 signal.metadata 落 DB）；
+        // T232 stall 签名腿：从触发时刻因子快照重建同形状上下文（前端零改动）
+        metadata: strategy.stallCloseInfo
+          ? { stallClose: strategy.stallCloseInfo }
+          : (isStallSellLeg(strategy) ? { stallClose: stallTriggerContext(factors) } : {}),
         timestamp: new Date(),
       };
 

@@ -144,6 +144,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T228k machineHold 臂键（180s 机器净买 BNB）：触发/释放复盘需 fire 时刻值，
     // 序列不可重建；旧 FA/历史信号 → null 不掩盖
     machineNetBuy180: factorResults.machineNetBuy180 ?? null,
+    // T232 stall 卖腿水位键（距上笔足额 tick 秒数）：触发复盘需 fire 时刻值；
+    // 旧 FA/历史信号 → null 不掩盖
+    idleSecSinceLastSubstantialTick: factorResults.idleSecSinceLastSubstantialTick ?? null,
     // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
     highestHolderCountSinceLastBuy: factorResults.highestHolderCountSinceLastBuy,
     holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,

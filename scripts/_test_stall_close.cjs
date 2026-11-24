@@ -255,16 +255,17 @@ console.log('D1. 真 FA lastSubstantialTickAt 水位（阈值 0.02，processTick
     const st = fa.getTokenState('0xt');
     check('迟到旧足额 tick 不回拨水位', st.lastSubstantialTickAt, T0 - 10000);
   }
-  // 阈值未注入（缺省）→ 水位恒 null（零消费者零影响）；setter 非正数=关
+  // T232：FA ctor 自注入 factorParams.substantialTickBnb（缺省 0.01）——旧「阈值未
+  // 注入=关」语义废止（stall 卖腿依赖水位键）；显式 0 关、后补开启不追溯仍成立
   {
     const fa = newFA();
     fa.processTick(mkTick({ bnb_amount: 5, timestamp: T0 - 1000 }));
-    check('阈值关 → 足额 tick 也不推水位（恒 null）', fa.getTokenState('0xt').lastSubstantialTickAt, null);
-    fa.setSubstantialTickBnb(0.02);
-    check('后补开启不追溯（下一笔起才推）', fa.getTokenState('0xt').lastSubstantialTickAt, null);
+    check('缺省 0.01 → 足额 5 推水位', fa.getTokenState('0xt').lastSubstantialTickAt, T0 - 1000);
     fa.setSubstantialTickBnb(0);
     fa.processTick(mkTick({ bnb_amount: 5, timestamp: T0 - 500 }));
-    check('setter 非正数=关', fa.getTokenState('0xt').lastSubstantialTickAt, null);
+    check('setter 0=关 → 后续足额不推（保持旧值）', fa.getTokenState('0xt').lastSubstantialTickAt, T0 - 1000);
+    fa.setSubstantialTickBnb(0.02);
+    check('后补开启不追溯（下一笔起才推）', fa.getTokenState('0xt').lastSubstantialTickAt, T0 - 1000);
   }
 }
 

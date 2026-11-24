@@ -703,6 +703,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'sinceLastFamousAnyBuySec', 'famousSellPendingSec',
         'smartCopyWalletCircPct', 'sinceLastSmartAnyBuySec',
         'machineNetBuy180',
+        // 2026-11-24 T232 stall 断流卖腿水位键（距上笔足额 tick 秒数——stallClose
+        // 腿化：factorParams.substantialTickBnb 缺省 0.01 自注入）
+        'idleSecSinceLastSubstantialTick',
         // 2026-11-17 T161 famous 发行价上方域 (10,60] 三键（Qmini 0x7008466b 案
         // famous-trim 两段减仓卖臂：A=Buy≥0.2 卖 2 卡 / B=Buy≥0.2 ∧ Net≤0 再卖 2 卡；
         // 详见 _test_since_entry_factors.cjs L 段）
