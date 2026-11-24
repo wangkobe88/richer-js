@@ -3354,11 +3354,12 @@ class BacktestEngine extends AbstractTradingEngine {
   async _evaluateSellPath(token, factors, tick) {
     // T232：nowTs 参数化——断流驱动（_scanStalledSellLegs）在无 tick 的虚拟时刻
     // 评估时走 _evaluateSellPathAt(token, factors, tickTs)，per-tick 路径委托本处
-    return this._evaluateSellPathAt(token, factors, tick.timestamp);
+    return this._evaluateSellPathAt(token, factors, tick.timestamp, tick);
   }
 
-  /** 卖腿评估核心（nowTs=虚拟时钟时刻；tick 路径=当前 tick 时刻，断流驱动=扫描时刻） */
-  async _evaluateSellPathAt(token, factors, nowTs) {
+  /** 卖腿评估核心（nowTs=虚拟时钟时刻；tick 路径=当前 tick 时刻，断流驱动=扫描时刻
+   *  → tick=null：去抖 touch 不计证据/emit 透传 null 与 live 扫描路径同构） */
+  async _evaluateSellPathAt(token, factors, nowTs, tick = null) {
     const tokenAddress = token.token;
     if (token.status !== 'bought') return { success: false, reason: '非持有状态' };
     if (this._sellingTokens.has(tokenAddress)) return { success: false, reason: '卖出执行中' };
