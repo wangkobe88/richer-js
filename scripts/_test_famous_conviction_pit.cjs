@@ -168,17 +168,16 @@ console.log('C. point-type-router 类型 famous_conviction_pit');
     famousSmartHighBuyBnb: 1.335, famousSmartHighBuyN: 5, famousFollowBlockMaxWallets: 3,
     anchorTickIsBuy: 1, anchor15sMaxBuyBnb: 0.025,
   };
-  check('C1 0x2ee9 形状命中（policy 全套豁免 deep-equal；version=POINT_TYPE_VERSION）', () => {
+  check('C1 0x2ee9 形状命中（policy 全豁观察版 deep-equal；version=POINT_TYPE_VERSION）', () => {
     const r = classifyPointType(PIT);
     assert.strictEqual(r.type, 'famous_conviction_pit');
     assert.deepStrictEqual(r.policy, {
-      factorCheckArms: 'cheatOnly',
-      factorCheckArmExempt: ['slow_pump_unload', 'arb_bot_holdings'],
+      // T234 四修（用户裁定「豁免触发后后续的门控，回测观察，有一些门可能加回来好」）：
+      // 全豁观察版——FP 整门直通/AF1 直通/cheat 16 题跳过/BP 整门直通；观察期形状
+      factorCheckArms: 'skip',
       actFront: 'pass',
-      // T234 二修（bt-v241 实证）：g23NoSlowGrind——famous 带量形状 slowGrindPump=3
-      // 唯一 strong 进 A 主判拒 grade=cheat 的差集选型错误修正（0xa04ee1 同款）
-      cheatCheck: 'g23NoSlowGrind',
-      buyPoint: 'stuffingOnly',
+      cheatCheck: 'skip',
+      buyPoint: 'skip',
     });
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
     for (const k of ['tokenAgeSec', 'mcapFromPeakPct', 'currentVsLaunchPct', 'earlyReturn',
