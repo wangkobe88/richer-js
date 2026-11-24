@@ -28,6 +28,7 @@
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { resolveStallCloseExtension, effectiveStallExtension, normalizeStallBigHolderExempt, stallBigHolderExempt } = require('../core/stall-close-almost-launch.js');
+const { isStallSellLeg, DEFAULT_STALLED_SCAN_AFTER_SEC, stallTriggerContext } = require('../core/stall-sell-leg');
 const { BURST_COOLDOWN_DEFAULTS, evaluateBurstCooldown } = require('../core/burst-cooldown-exit');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const { ExperimentStatsService } = require('../../web/services/ExperimentStatsService');
