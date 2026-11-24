@@ -2234,3 +2234,15 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **验证**：本地重放 0x4509 逐 tick——改后 **15:02:26 时刻 19/19 全真 fire**（curVs 12.3/锚 0.0494/act 四窗 0.30/bbh 4〔0.19 线入队〕/famC 6.44/athVs 99.05 贴带上缘）；fire 后 pointType=famous_holder_cold_pit policy（FP cheatOnly+臂豁免/AF1 pass/CD g23NoSlowGrind/BP stuffingOnly）→ 门链路径完整；fire 价 5.04e-9 较毕业价 2.9e-8 潜在 ×5.7（卖出链行为待回测实证）。
 
 **余留**：①端到端回测（金狗集合或 0x4509 单票 bt 克隆跑 v14）验证实际成交与卖出链；②0.19 线的广面影响（更老票 bbh 普遍 +N——stallClose bigHolderExempt 缺省关不受影响〔T219 已否证回退〕，开启时 bbh 口径同变需知情）；③买量带 [4,15B] 成为新的龄事实上限——若将来还要救更长命票需另案放宽；④bt-v159 类端到端对拍时 0x4509 臂 fire 点（15:02:26）与 ladder P1 fire 点（15:02:26.2）同秒竞发——p16 maxTriggers=1 且 ladder 已先买时 buyPhase first 语义下 p16 不重复买，实际行为以回测为准。
+
+## T232 黄金坑臂冷窗 15s 线 0.31→0.4（2026-11-24；案源=0x4509…7777 T231 续——bt-v238 回测实证）
+
+**裁定链**：T231 两改（队列线 0.19+龄上界撤除）落地后金狗集合 bt-v238 回测——0x4509 四条 BUY fire 全 executed=false，p16 零开火。case_ticks 同源逐时刻 probe：15:02:26.2（P1 fire）黄金坑条件**唯一差项=actTotalBnb15s 0.349 > 0.31（差 0.039）**——debounce fire 在 tick+200ms，15s 窗把 15:02:21 双胞胎离场卖 0.2506 与回场买 0.0988 同窗计入，「由冷转热第一笔买入」本身 0.0988 被 5 秒前离场卖污染。路由分类翻假→normal→FP 全臂→act_low 拦死（因子门在本克隆 enabled；bt-v179 时代 fail-open 曾放行 P2）。用户疑「触发臂优先级问题」——机制上首中即停成立（StrategyEngine.evaluate 返回最高优先级），但本案 p16 自身条件未真、优先级未轮到说话；且 pointType 设计即「ladder 触发点恰是黄金坑形状同走黄金坑通路」——修 act15s 线后 P1 fire 分类 famous_holder_cold_pit 即走轻门（FP cheatOnly 不评 act 族）。用户裁定「好吧，把 actTotalBnb15s 阈值放宽」。
+
+**形状**：①actTotalBnb15s 0.31→**0.4**（与 act30s 同线——嵌套约束 15s≤30s 在 0.4/0.4 处成立；PT10 原裁定「15 秒窗大于 0.31 再砍好了」复议兑现——本案恰是「再砍」时刻，且超线的是离场卖不是买入量）②**差额上界两线**（用户裁定「act15s 比较大的时候 60s 跟 15s 的差额要控制一下」+「应该是还有个 90s」）：`actTotalBnb60Ex15 ≤ 0.15`（复用 T225 段值键）+ **新键 `actTotalBnb90Ex60 ≤ 0.1`**（t90−t60，FA 段值键同族）——15s 窗热可以、**火起前一分半都必须基本冷**，拦截「前 45s/60~90s 也热」的伪坑形状；MOYNOK 60Ex15=0.108/90Ex60=0 与 0x4509 两差额=0 零误伤。
+
+**实现**：router condition（**PT20→PT21**）+ deploy PACK_DEFINITION p16 腿 condition + description；FA `_computeActivity`/`_buildFactorMap` 新键 90Ex60（FactorBuilder 透传同批补 60Ex15 漏登）；单测 point_type_router A2l 重锚（0.349 真值正例/0.4 恰线/0.41 负例）+A2l4~6 差额两线边界负例、activity_window_multi F 段（60Ex15/90Ex60 精确值+闭区间边界）、fa_factors 白名单补登 90Ex60+**T227d/T228 批次 5 键漏登清点**（sinceLastFamousAnyBuySec/famousSellPendingSec/smartCopyWalletCircPct/sinceLastSmartAnyBuySec/machineNetBuy180——历史漏登，T232 清点发现一并补）；docs 条件全文+冷窗/差额 bullet 同步；包 deploy v14→v15。
+
+**验证**：bt-v239 克隆重跑（bt-v238 基底）——预期 15:02:26.2 P1 fire 分类 famous_holder_cold_pit→轻门链（FP cheatOnly/AF1 pass/CD g23NoSlowGrind/BP stuffingOnly），cheat/BP Jev 真实判定与最终成交以回测行为准。
+
+**余留**：①bt-v239 结果补录（0x4509 是否成交+归因腿+金狗集合整体 PnL 与 bt-v237 基线对照）②15s=30s 同线后两窗信息重叠——若将来再放宽须先拆 15s/30s 语义（另案）。

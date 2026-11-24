@@ -29,6 +29,9 @@ const GOLDEN = {
   actTotalBnb90s: 0.18, famousFollowSlotMaxWallets: 4,
   // PT8 臭名昭著钱包 ≤30（MOYNOK bf00 18.7 过线；0x37d131 38.9 案源为负例）
   notoriousWalletCircPct: 18.7,
+  // T232 差额上界两键（MOYNOK 真值：60Ex15=0.108 过 0.15 线、90Ex60=0 过 0.1 线；
+  // 0x4509 fire 时刻两差额=0 零影响）
+  actTotalBnb60Ex15: 0.108, actTotalBnb90Ex60: 0,
   // PT9 锚点买盘存在（金鲨号形状：锚 tick 是买 0.006B → A 分支过；B 分支 ≥0.03）
   anchorTickIsBuy: 1, anchor15sMaxBuyBnb: 0.006,
   // PT11 价格域双尺（A 分支地板尺过线即够；earlyReturn 键须在快照）
@@ -49,7 +52,7 @@ console.log('A. classifyPointType 分类');
       buyPoint: 'stuffingOnly',
     });
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
-    for (const k of ['tokenAgeSec', 'buyVolumeBnb', 'currentVsLaunchPct', 'athVsLaunchPct', 'mcapFromPeakPct', 'bigBuyersCount', 'bigBuyersHeldDust', 'famousCopyWalletCircPct', 'actTotalBnb90s', 'famousFollowSlotMaxWallets', 'notoriousWalletCircPct', 'anchorTickIsBuy', 'anchor15sMaxBuyBnb', 'earlyReturn']) {
+    for (const k of ['tokenAgeSec', 'buyVolumeBnb', 'currentVsLaunchPct', 'athVsLaunchPct', 'mcapFromPeakPct', 'bigBuyersCount', 'bigBuyersHeldDust', 'famousCopyWalletCircPct', 'actTotalBnb90s', 'actTotalBnb60Ex15', 'actTotalBnb90Ex60', 'famousFollowSlotMaxWallets', 'notoriousWalletCircPct', 'anchorTickIsBuy', 'anchor15sMaxBuyBnb', 'earlyReturn']) {
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
     }
   });
@@ -106,8 +109,28 @@ console.log('A. classifyPointType 分类');
     const r = classifyPointType({ ...GOLDEN, actTotalBnb15s: 0.3, actTotalBnb30s: 0.35 });
     assert.strictEqual(r.type, 'famous_holder_cold_pit');
   });
-  check('A2l PT10 负例：15s 0.32 >0.31 → normal（用户裁「大于 0.31 再砍」）', () => {
-    const r = classifyPointType({ ...GOLDEN, actTotalBnb15s: 0.32 });
+  check('A2l PT21 正例：15s 0.349 过线（0x4509 fire 时刻真值——离场卖 0.2506+回场买 0.0988 同窗；0.31 时代唯一差项）', () => {
+    const r = classifyPointType({ ...GOLDEN, actTotalBnb15s: 0.349, actTotalBnb30s: 0.349 });
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
+  });
+  check('A2l2 PT21 边界：15s 恰 0.4 过线（≤，与 30s 同线）', () => {
+    const r = classifyPointType({ ...GOLDEN, actTotalBnb15s: 0.4, actTotalBnb30s: 0.4 });
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
+  });
+  check('A2l3 PT21 负例：15s 0.41 >0.4 → normal', () => {
+    const r = classifyPointType({ ...GOLDEN, actTotalBnb15s: 0.41, actTotalBnb30s: 0.41 });
+    assert.strictEqual(r.type, 'normal');
+  });
+  check('A2l4 T232 差额上界边界：60Ex15 恰 0.15 过线（≤）/ 90Ex60 恰 0.1 过线（≤）', () => {
+    const r = classifyPointType({ ...GOLDEN, actTotalBnb60Ex15: 0.15, actTotalBnb90Ex60: 0.1 });
+    assert.strictEqual(r.type, 'famous_holder_cold_pit');
+  });
+  check('A2l5 T232 负例：60Ex15 0.16 >0.15 → normal（前 45s 也热=伪坑）', () => {
+    const r = classifyPointType({ ...GOLDEN, actTotalBnb60Ex15: 0.16 });
+    assert.strictEqual(r.type, 'normal');
+  });
+  check('A2l6 T232 负例：90Ex60 0.11 >0.1 → normal（60~90s 前也热=伪坑）', () => {
+    const r = classifyPointType({ ...GOLDEN, actTotalBnb90Ex60: 0.11 });
     assert.strictEqual(r.type, 'normal');
   });
   check('A2m PT12 正例：curVs 30.13 ∧ earlyReturn 8.2 <15 → 过（MOYNOK 波首笔引擎真值形状）', () => {

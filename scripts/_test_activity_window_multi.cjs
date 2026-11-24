@@ -163,12 +163,38 @@ console.log('D. 裁剪保留窗扩长（300s 窗不因 10s 裁剪穿窗）');
   });
 }
 
+console.log('F. 差额段值键（T232 60Ex15/90Ex60）');
+{
+  const fa = newFA();
+  const NOW = T0 + 400000;
+  // 四笔：now-70s 0.1 / now-50s 0.2 / now-20s 0.3 / now-5s 0.4
+  //   t15=0.4（now-5s）t30=0.7 t60=0.9 t90=1.0 → 60Ex15=0.5、90Ex60=0.1
+  fa.processTick(mkTick({ timestamp: NOW - 70000, bnb_amount: 0.1, sender_address: 'w1' }), {});
+  fa.processTick(mkTick({ timestamp: NOW - 50000, bnb_amount: 0.2, sender_address: 'w2' }), {});
+  fa.processTick(mkTick({ timestamp: NOW - 20000, bnb_amount: 0.3, sender_address: 'w3' }), {});
+  fa.processTick(mkTick({ timestamp: NOW - 5000, bnb_amount: 0.4, sender_address: 'w4' }), {});
+  const f = fa.buildFactorMap('0xtoken', NOW);
+  check('F1 60Ex15 = t60−t15 精确值（0.9−0.4=0.5）', () => {
+    assert.ok(Math.abs(f.actTotalBnb60Ex15 - 0.5) < 1e-9, String(f.actTotalBnb60Ex15));
+  });
+  check('F2 90Ex60 = t90−t60 精确值（1.0−0.9=0.1）', () => {
+    assert.ok(Math.abs(f.actTotalBnb90Ex60 - 0.1) < 1e-9, String(f.actTotalBnb90Ex60));
+  });
+  // 边界：恰 now-60000 的行按闭区间语义同进 60s/90s 两窗（[now-W, now)，A5b 同款）
+  fa.processTick(mkTick({ timestamp: NOW - 60000, bnb_amount: 0.08, sender_address: 'w5' }), {});
+  const f2 = fa.buildFactorMap('0xtoken', NOW);
+  check('F3 恰 now-60s 行同进两窗：差额不变（t90/t60 同 +0.08）、60Ex15 +0.08', () => {
+    assert.ok(Math.abs(f2.actTotalBnb90Ex60 - 0.1) < 1e-9, String(f2.actTotalBnb90Ex60));
+    assert.ok(Math.abs(f2.actTotalBnb60Ex15 - 0.58) < 1e-9, String(f2.actTotalBnb60Ex15));
+  });
+}
+
 console.log('E. 探针收键 + now 注入防前视');
 {
   const fa = newFA();
   const keys = fa.getFactorKeys();
   check('E1 四键在 getFactorKeys（三防线自动认得）', () => {
-    for (const k of ['actTotalBnb15s', 'actTotalBnb30s', 'actTotalBnb60s', 'actTotalBnb300s']) {
+    for (const k of ['actTotalBnb15s', 'actTotalBnb30s', 'actTotalBnb60s', 'actTotalBnb90s', 'actTotalBnb60Ex15', 'actTotalBnb90Ex60', 'actTotalBnb300s']) {
       assert.ok(keys.has(k), `缺 ${k}`);
     }
   });

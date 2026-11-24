@@ -3517,6 +3517,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // quietExitTailBuyBnbEx 固定 180s 尾窗的周期重叠假阳性）
             actTotalBnb60Ex15: t60 - t15,
             actTotalBnb90s: t90,
+            // T232 段值键（2026-11-24 用户裁定「90s 也应该有个上界」）：fire 前
+            // (60s,90s] 段成交合计=t90−t60——60Ex15 的 90s 版：热起前一分半都基本冷
+            actTotalBnb90Ex60: t90 - t60,
             actTotalBnb300s: t300,
             // T223 锚点买盘存在两键（见循环内注释；条件载体= `anchorTickIsBuy == 1
             // OR anchor15sMaxBuyBnb >= 0.03`）
@@ -5061,6 +5064,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 段成交≈0=卖完后死透直到此刻；独舞腿/pointType 条件载体）
             actTotalBnb60Ex15: activity.actTotalBnb60Ex15,
             actTotalBnb90s: activity.actTotalBnb90s,
+            actTotalBnb90Ex60: activity.actTotalBnb90Ex60,
             actTotalBnb300s: activity.actTotalBnb300s,
             anchorTickIsBuy: activity.anchorTickIsBuy,
             anchor15sMaxBuyBnb: activity.anchor15sMaxBuyBnb,

@@ -698,6 +698,11 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-11-18 T183 聪明钱流两键（smartHold 卖出过滤臂载体——名单=
         // smartmoney-accum.json GMGN smartmoney 流；详见 _test_since_entry_factors.cjs M 段）
         'sinceLastSmartBigBuySec', 'recentSmartSellBnb',
+        // 2026-11-24 补登（T227d/T228/T228k 批次漏登白名单——T232 清点发现）：
+        // famous 状态窗臂两键 + smart 状态臂两键 + 机器流键
+        'sinceLastFamousAnyBuySec', 'famousSellPendingSec',
+        'smartCopyWalletCircPct', 'sinceLastSmartAnyBuySec',
+        'machineNetBuy180',
         // 2026-11-17 T161 famous 发行价上方域 (10,60] 三键（Qmini 0x7008466b 案
         // famous-trim 两段减仓卖臂：A=Buy≥0.2 卖 2 卡 / B=Buy≥0.2 ∧ Net≤0 再卖 2 卡；
         // 详见 _test_since_entry_factors.cjs L 段）
@@ -723,6 +728,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-11-23 T218 多粒度冷窗四键（用户提案「分时间活跃度因子」：15/30/60s
         // 三窗均 low=冷却经过考验条件载体，300s=观察键；详见 _test_activity_window_multi.cjs）
         'actTotalBnb15s', 'actTotalBnb30s', 'actTotalBnb60s', 'actTotalBnb300s',
+        'actTotalBnb90Ex60', // T232 段值键（90s−60s 差额上界载体）
         // 2026-11-23 T218b/T220/T221 三键：90s 冷窗键（用户裁定「是否 1.5 分钟好
         // 一些」→≤1.0，与 15/30/60 同族）；famous 总供应占比观察键（3%/5% 帽已否证
         // 不进门）；famous 跟单拥挤键（famous 买后 2s 窗非 famous 买入钱包数全生命
