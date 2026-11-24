@@ -261,6 +261,35 @@ const evalCond = (cond, f) => new StrategyEngine({}).evaluateCondition(cond, f);
         check('F6 idleSec 缺失 → null', () => stallTriggerContext({ currentVsLaunchPct: 5 }), null);
         ok(STALL_BASE_SEC === 55 && STALL_ALMOST_SEC === 90 && STALL_ALMOST_LAUNCH_PCT === 10 && DEFAULT_STALLED_SCAN_AFTER_SEC === 45,
             'F7 常量现行值（55/90/10/45——与 v13 stallClose 同参）');
+        // F8 ★blocked 行附 stallClose 上下文（T233：stall 腿被 famous/smart/machine 拦时
+        // 信号页同样可见「断流: Ns·档」——与触发行同形状；普通腿不带）
+        {
+            const { AbstractTradingEngine } = require('../src/trading-engine/core/AbstractTradingEngine');
+            const tsPath = require.resolve('../src/trading-engine/entities/TradeSignal');
+            const origTS = require.cache[tsPath];
+            const saved = [];
+            require.cache[tsPath] = { id: tsPath, filename: tsPath, loaded: true,
+                exports: { TradeSignal: class FakeTS { constructor(d) { saved.push(d); } async save() {} } } };
+            try {
+                const stallLegObj = { id: 'stallClose', condition: buildStallLegCondition() };
+                const eng = Object.create(AbstractTradingEngine.prototype);
+                eng._experimentId = 'test-exp';
+                const factors = { idleSecSinceLastSubstantialTick: 93.4, currentVsLaunchPct: 5 };
+                await eng._persistFactorSellFilterSignal({ token: '0xt', symbol: 'T' }, stallLegObj, factors,
+                    { rule: 'famous_hold', info: {} }, 999);
+                ok(saved[0].metadata.stallClose.stalledSec === 93 && saved[0].metadata.stallClose.tier === 'almost'
+                    && saved[0].metadata.stallClose.effectiveSec === STALL_ALMOST_SEC,
+                    'F8a blocked 行（stall 腿被 famous 拦）metadata.stallClose=触发上下文');
+                ok(saved[0].metadata.factorSellFilter !== undefined && saved[0].metadata.execution_status === 'blocked',
+                    'F8b blocked 行 factorSellFilter 段并存');
+                await eng._persistFactorSellFilterSignal({ token: '0xt', symbol: 'T' },
+                    { id: 'p7', condition: 'profitPercent > 100' }, { profitPercent: 120 },
+                    { rule: 'smart_hold', info: {} }, 999);
+                ok(saved[1].metadata.stallClose === undefined, 'F8c 普通腿 blocked 行不带 stallClose（零污染）');
+            } finally {
+                require.cache[tsPath] = origTS;
+            }
+        }
     }
 
     // ═══════════════ G. 共存：v13 定义走旧、v14 走新 ═══════════════

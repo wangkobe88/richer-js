@@ -1275,7 +1275,8 @@
                 // collectFormData 提交时顶层透传（服务端形状校验后写入 config）。
                 // 不带则复制件行为大变——无止损双腿、TPA 买腿 TPAPre_* 恒 null fail-closed、
                 // OPB 不采集。（tokenCycle 段已随 cycle 分桶路由机制删除，2026-10-15，
-                // 复制链路不再携带；stallClose/burstCooldown 已随 T202 归策略包，不携带）
+                // 复制链路不再携带；stallClose/burstCooldown 已随 T202 归策略包，
+                // 不携带——断流卖出 2026-11-24 起是包内 stall 卖腿（T233））
                 window._copyAdvancedConfig = {
                     ...(copyData.stopLoss ? { stopLoss: copyData.stopLoss } : {}),
                     ...(copyData.tokenPositionAnalyzer ? { tokenPositionAnalyzer: copyData.tokenPositionAnalyzer } : {}),
@@ -1351,8 +1352,8 @@
                     if (elMax && Number.isInteger(bsMax)) elMax.value = bsMax;
                 }
 
-                // 断流/冷盘卖出回填已随 T202 策略库二期退役（两段归策略包 definition，
-                // 复制链不携带；包信息卡展示所选包的断流/冷盘配置）
+                // 断流/冷盘卖出回填已随 T202 策略库二期退役（burstCooldown 归策略包 definition，
+                // 断流卖出=包内 stall 卖腿〔T233〕；复制链不携带；包信息卡展示所选包的启用状态）
 
                 // TPA 触发条件只读展示（2026-10-11）：复制携带段可视化（纯展示零数据面
                 // 改动——提交仍走上方 _copyAdvancedConfig 整包透传；源实验无 TPA 段则

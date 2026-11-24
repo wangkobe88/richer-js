@@ -3418,7 +3418,24 @@ class ExperimentSignals {
       const fsf = metadata.factorSellFilter || {};
       const isSmart = fsf.rule === 'smart_hold'
         || (fsf.rule !== 'famous_hold' && fsf.sinceLastFamousBigBuySec == null && fsf.sinceLastSmartBigBuySec != null);
-      if (fsf.rule === 'famous_hold' || fsf.rule === 'smart_hold'
+      if (fsf.rule === 'machine_hold') {
+        // T228k 机器钱包 HOLD 拦截（机器回调吸筹）：180s 机器净买 ≥0.2 ∧ chg30≤0——
+        // 断流票上 stall 卖腿被拦的最常见形状（机器吸筹后静默，时间键自然衰减放行）。
+        // ★rule 优先于 famous/smart 分支：machine 判据行同时携带 famous/smart 证据键
+        // （未命中的观察值），按证据键分支会冒充 famous/smart 拦截
+        const fmtM = (v) => (v == null ? '—' : v);
+        blockedInfoHtml = `
+        <div class="mt-2 p-2 bg-indigo-50 rounded border border-indigo-200">
+          <div class="flex items-center space-x-2">
+            <span class="text-indigo-700 font-medium text-sm">🤖 机器钱包 HOLD 拦截:</span>
+            <span class="text-indigo-900 text-sm">机器钱包回调吸筹中，延缓卖出</span>
+          </div>
+          <div class="text-xs text-indigo-900 mt-1 space-y-0.5">
+            <div>180s 机器净买=${fmtM(fsf.machineNetBuy180)} BNB（线 ≥${fmtM(fsf.machineMinNetBuyBnb)}）· chg30=${fmtM(fsf.chg30Pct)}%（线 ≤${fmtM(fsf.machineMaxChg30Pct)}）</div>
+            <div class="text-indigo-600">放行条件：机器净买归零（断流 180s 流环空）/ 30s 动量转正（chg30>0）/ 浮盈跌破保护域</div>
+          </div>
+        </div>`;
+      } else if (fsf.rule === 'famous_hold' || fsf.rule === 'smart_hold'
         || fsf.sinceLastFamousBigBuySec != null || fsf.sinceLastSmartBigBuySec != null) {
         const fmt = (v) => (v == null ? '—' : v);
         const armLabel = isSmart ? '🧠 聪明钱 HOLD 拦截' : '🛡 famous HOLD 拦截';
@@ -3523,8 +3540,9 @@ class ExperimentSignals {
       const holdMinutes = (holdSeconds / 60).toFixed(1);
       extraInfo.push(`持仓: ${holdMinutes}分钟`);
     }
-    // T170b stallClose 断流上下文（2026-11-18）：距末足额成交秒数 + 生效档
-    // （almost_launch域延长 90s/破发域延长 180s/无标注=域外基础阈值照卖）
+    // stallClose 断流上下文（T233 2026-11-24 腿化起由 stall 卖腿触发/被拦行统一携带）：
+    // 距末足额成交秒数 + 生效档（tier='almost'=almost_launch域 90s 延长；
+    // tier=null=基础 55s 照卖）。'breakdown' 档只存在于 T170b 时代历史行（档已退役不回迁）
     const scInfo = metadata.stallClose;
     if (scInfo && Number.isFinite(scInfo.stalledSec)) {
       const tierTxt = scInfo.tier === 'breakdown' ? `·破发域延长(${scInfo.effectiveSec}s)`

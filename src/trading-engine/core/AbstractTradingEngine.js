@@ -2323,6 +2323,10 @@ class AbstractTradingEngine extends ITradingEngine {
   async _persistFactorSellFilterSignal(token, strategy, factors, res, nowTs) {
     const { TradeSignal } = require('../entities/TradeSignal');
     const reason = `因子卖出过滤拦截（${res.rule}）`;
+    // T233 stall 签名腿：blocked 行附 stallClose 上下文（与触发行同形状）——
+    // 信号页「断流: Ns·档」extra-info 对拦截行同样可见（被 famous 拦在断流 93s 时）
+    const { isStallSellLeg, stallTriggerContext } = require('./stall-sell-leg');
+    const stallCtx = isStallSellLeg(strategy) ? stallTriggerContext(factors) : null;
     const sig = new TradeSignal({
       experimentId: this._experimentId,
       tokenAddress: token?.token,
@@ -2341,6 +2345,7 @@ class AbstractTradingEngine extends ITradingEngine {
         price: factors?.currentPrice ?? null,
         currentPrice: factors?.currentPrice ?? null,
         profitPercent: factors?.profitPercent ?? null,
+        ...(stallCtx ? { stallClose: stallCtx } : {}),
       },
       executed: false,
       createdAt: new Date(Number.isFinite(nowTs) ? nowTs : Date.now()),

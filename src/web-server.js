@@ -1003,9 +1003,8 @@ class RicherJsWebServer {
           }
         }
 
-        // stallClose/burstCooldown 形状校验已随 T202 策略库二期迁入
-        // StrategyLibraryService.validatePack（两段归策略包 definition，实验层
-        // 携带即 400——见上方 advancedSections 前的拒收分支）
+        // burstCooldown 形状校验已随 T202 策略库二期迁入 StrategyLibraryService.validatePack；
+        // stallClose 段已退役（T233 腿化）——定义层 400 引导，实验层携带即 400（见上方拒收分支）
 
         // T202 策略库二期（2026-11-20）：交易策略唯一来源=策略库策略包——实验
         // config 只存顶层 strategyId（引擎启动查库解析，启动时取最新 version）。
