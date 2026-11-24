@@ -33,6 +33,10 @@ const require_ = createRequire(import.meta.url);
 const { buildBuyPointSnapshot } = require_('../../src/market-analysis/buy-point-snapshot.js');
 const { buildBuyPointState } = require_('../../src/market-analysis/buy-point-state-builder.js');
 const { buildBuyPointObservation } = require_('../../src/market-analysis/buy-point-result-mapper.js');
+// FP47 代码因子对照列（2026-11-24 用户裁定「A 档四题全搞」第一批）：与 Jev
+// entry_shape 桶同源材料（buyDerived）离线并跑——对拍定线核心输出；dry 同样产出
+// （零 Jev 全量面扫描通道）
+const { judgeMaliciousDump, judgeCrashNumeric } = require_('../../src/market-analysis/factor-pre-buy-check.js');
 
 function parseArgs(argv) {
   const args = { set: '', only: [], limit: null, dry: false };
@@ -123,9 +127,16 @@ async function main() {
       });
       const { state, promptChars } = buildBuyPointState(snapshot);
       const b = snapshot.buyDerived;
+      // FP47 代码因子（dry 前计算=--dry 零 Jev 全量面扫描）
+      const _md = judgeMaliciousDump(b);
+      const _crash = judgeCrashNumeric(b);
+      const codeFactors = {
+        maliciousDump: _md.hit ? { branch: _md.branch, ..._md.trace } : (_md.exempt ? { exempt: _md.exempt } : null),
+        crashNumeric: _crash.hit ? { branch: _crash.branch, ..._crash.trace } : null,
+      };
       const w60 = b.win && b.win[60];
-      console.log(`  锚=${p.anchorTickCount}${p.capped ? '(capped)' : ''} | age=${b.tokenAgeSec}s | 近60s 买${fmt(w60 && w60.buyBnb, 3)} 卖${fmt(w60 && w60.sellBnb, 3)} 净${fmt(w60 && w60.netBnb, 3)} | 现/ATH=${fmt(b.currentVsAthPct, 1)}%（${b.secSinceAth}s 前）| state ${promptChars} chars${p.thin ? ' | thin(<8)' : ''}`);
-      if (args.dry) { results.push({ pointId: p.pointId, dry: true, promptChars }); continue; }
+      console.log(`  锚=${p.anchorTickCount}${p.capped ? '(capped)' : ''} | age=${b.tokenAgeSec}s | 近60s 买${fmt(w60 && w60.buyBnb, 3)} 卖${fmt(w60 && w60.sellBnb, 3)} 净${fmt(w60 && w60.netBnb, 3)} | 现/ATH=${fmt(b.currentVsAthPct, 1)}%（${b.secSinceAth}s 前）| state ${promptChars} chars${p.thin ? ' | thin(<8)' : ''} | 代码臂 md=${_md.hit ? _md.branch : (_md.exempt ? `豁免(${_md.exempt})` : '-')} crash=${_crash.hit ? _crash.branch : '-'}`);
+      if (args.dry) { results.push({ pointId: p.pointId, dry: true, promptChars, codeFactors }); continue; }
 
       const { JevClient } = await import('../../src/narrative/analyzer/llm/JevClient.mjs');
       const res = await JevClient.ask(state, qMod.buildBuyPointQuestions(), { timeoutMs: 30000, label: `buy-point-${p.pointId}` });
@@ -141,6 +152,7 @@ async function main() {
         thin: !!p.thin, questionVersion: version, model: res.model,
         dimensions: obs.dimensions, assessment: obs.assessment, anchors: obs.anchors,
         answersRaw: res.answers, promptChars,
+        codeFactors,
         forwardReturns: p.forwardReturns || null, trade: p.trade || null,
       });
     } catch (e) {
@@ -154,6 +166,23 @@ async function main() {
   if (results.length) {
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     writeFileSync(resolve(DATA_DIR, `bp-run-${ts}.json`), JSON.stringify({ ranAt: new Date().toISOString(), setName: args.set, questionVersion: version, dry: args.dry, results }, null, 2), 'utf8');
+  }
+
+  // FP47 交叉表：Jev entry_shape 桶 × 代码臂命中（误伤面=Jev 非拒桶但代码臂 hit 的行）
+  const withCode = results.filter((r) => r.codeFactors && (r.codeFactors.maliciousDump || r.codeFactors.crashNumeric));
+  if (withCode.length) {
+    console.log('\nFP47 代码臂命中明细（误伤面=Jev entry_shape 非拒桶但代码 hit）：');
+    for (const r of withCode) {
+      const es = r.dimensions && r.dimensions.entry_shape ? r.dimensions.entry_shape.bucket : (r.dry ? '(dry)' : 'null');
+      const md = r.codeFactors.maliciousDump, cr = r.codeFactors.crashNumeric;
+      console.log(`  ${r.pointId} ${r.tokenSymbol || '?'} ${pct(r.forwardReturns && r.forwardReturns.byHorizon[300] && r.forwardReturns.byHorizon[300].maxRisePct)} | Jev entry=${es} | md=${md ? (md.exempt ? `豁免(${md.exempt})` : md.branch) : '-'} crash=${cr ? cr.branch : '-'}`);
+    }
+    const mdHits = withCode.filter((r) => r.codeFactors.maliciousDump && !r.codeFactors.maliciousDump.exempt);
+    const crHits = withCode.filter((r) => r.codeFactors.crashNumeric);
+    const jevBucketOf = (r) => (r.dimensions && r.dimensions.entry_shape ? r.dimensions.entry_shape.bucket : null);
+    const misMd = mdHits.filter((r) => r.dry || !['crash', 'malicious_dump'].includes(jevBucketOf(r)));
+    const misCr = crHits.filter((r) => r.dry || jevBucketOf(r) !== 'crash');
+    console.log(`  代码臂命中：md=${mdHits.length}（Jev 非拒桶/dry ${misMd.length} 票=误伤面候选） crash=${crHits.length}（Jev 非 crash 桶/dry ${misCr.length} 票）`);
   }
 
   // 尾部统计：综合判定分布 + ×前向收益观察组（校准素材非断言）
