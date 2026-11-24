@@ -2311,7 +2311,7 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **改动**：buy-point-snapshot.js oversell 族第四键 oversellSecToAnchor（ticks 单趟扫描超卖户最后卖 dt，无 O(n²)）；factor-pre-buy-check.js armOversellResidual 豁免臂+OVERSELL_QUIET_EXEMPT_SEC=55 导出+版本头 FP46+gates 门行 value 加「距锚 Xs」、line 加豁免说明。单测：_test_buy_point_lib V7/V7b/V7c（贴锚 0/案形状 58/无超卖 null）+_test_factor_prebuy_check AA8（55 恰线豁免/54 保持拦/null 保持拦/3beb 案值不拦+整门 pass）+AA7 及全文件 12 处版本钉 FP46、_test_buy_point_check_service FP3、_test_stall_restart 版本钉同步；回归 factor_prebuy_check 329/cheat_detection_lib 657/buy_point_lib 588/buy_point_check_service 43/retail_path_gate_policy 14/point_type_router 43/stall_restart 78/cheat_gate_engine 180 全绿。
 
-**对拍（金狗集合 bt-v2xx A/B：v17+FP46 vs v17 基底）：待跑**。
+**对拍（金狗集合 49 票宇宙，A=bt-v251 FP46 vs B=bt-v256 FP45 重跑——2026-11-24 对拍前并行会话将集合 31→49 票，B 基线 bt-v250 已删，故 A/B 同宇宙重跑）**：A +6.9536（23 票 21 胜 1 负）vs B +6.6991（21 票）= **+0.2545**；逐票分解=**神龙犬 3beb +0.1987 案源兑现**（P1 首买 0.2B → 毕业全清 ≈+99%；B 臂同点位被 FP29 拦）+バイナンスペイ 0xc283bf2b +0.0558（**Jev 噪声**：A 臂 AF1 判 high 过、B 臂判 low 拒——非 FP46 差异）+其余 21 票逐位一致零误伤（scan 预测坏例 4d31428c 不在 49 票宇宙内无坏例进场）。**纯 FP46 增量 = +0.1987，案源兑现零误伤**。
 
 ## T236 缓慢发育潜力币早期点位（pointType slow_develop_early）：前期没涨过+慢速+相对大额 三刀豁免 AF1 低活跃（2026-11-24 用户提案+裁定）
 
