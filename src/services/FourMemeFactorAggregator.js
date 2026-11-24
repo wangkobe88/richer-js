@@ -1195,6 +1195,18 @@ class FourMemeFactorAggregator extends EventEmitter {
         state.totalBuyBnb += isBuy ? bnbAmount : 0;
         state.totalSellBnb += isBuy ? 0 : bnbAmount;
         if (isBuy) state.totalBuyTokens += tokenAmount; else state.totalSellTokens += tokenAmount;
+        // ── T227d 任意买键推进（全量区写点——尘门豁免）：价格段 priceReliable 尘门
+        //    （minPriceUpdateBnb 0.002）会把 famous 尘埃买整段滤掉（개구리씨 0xa38b 案
+        //    03:38:08~03:39:08 六笔 0.00098 全丢 → anyBuy 停在 03:38:03 → 03:41:12 评估
+        //    189s>180 出窗放走），而「只要有新入场」语义不限金额——挂全量区。defer 行
+        //    walletAddr=假值（NULL 回退 trader=聚合路由）不在 roster=不误记，真 sender
+        //    由 applyWalletTick 补跑段推进（幂等单调 max 双写无害）──
+        if (isBuy && _famousCopyWallets && _famousCopyWallets.size > 0
+            && walletAddr && _famousCopyWallets.has(walletAddr)) {
+            if (state._famousAnyBuyLastAt === null || ts > state._famousAnyBuyLastAt) {
+                state._famousAnyBuyLastAt = ts;
+            }
+        }
         // 全史路由买入累计（tradesRouterPct 分子，T70）：恒累计无窗无冻结——买点时刻
         // 实时值，慢热票 90s 后散户路由买盘照样抬升占比（与 early 窗冻结版对照）
         if (isBuy && tick.trader_address
@@ -1748,6 +1760,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             this._noteFamousFlow(state, isBuy, bnbAmount, tick.timestamp);
             // T161 域流写点②（defer 补跑，防双计同款）：tick.price_bnb=该行可靠价
             this._noteFamousLaunchZoneFlow(state, tick.price_bnb || 0, isBuy, bnbAmount);
+        }
+
+        // ── T227d 任意买键补跑（刻意不挂 smartBotEligible 门——尘行 priceReliable
+        //    重算 false，恰恰是最需要补的行；幂等单调 max 与全量区写点双写无害）──
+        if (isBuy && _famousCopyWallets && _famousCopyWallets.size > 0
+            && walletAddr && _famousCopyWallets.has(walletAddr)) {
+            if (state._famousAnyBuyLastAt === null || tick.timestamp > state._famousAnyBuyLastAt) {
+                state._famousAnyBuyLastAt = tick.timestamp;
+            }
         }
 
         // ── T183 聪明钱流写点②（defer 专属补跑，T137 同款防双计：smartBotEligible

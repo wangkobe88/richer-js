@@ -729,6 +729,32 @@ console.log('K. T137 KOL HOLD 两键（sinceLastFamousBigBuySec / recentFamousSe
                 });
             }
         }
+        // K12e 事故反证（T227d 修复现场）：尘买（0.00098 < minPriceUpdateBnb 0.002
+        // 可靠价尘门）也推进 anyBuy——개구리씨 0xa38b 案 6 笔尘丢导致 anyBuy 停在
+        // 大买 03:38:03 → 03:41:12 评估 189s>180 出窗放走（bt-v228 两臂 bit 一致事故）
+        {
+            const fa = newFA();
+            fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            fa.processTick(tK({ bnb_amount: 0.0984, timestamp: T0 + 2000 }));   // 大买（可靠价）
+            fa.processTick(tK({ bnb_amount: 0.00098, timestamp: T0 + 62000 })); // 尘买（<0.002 尘门）
+            const f = fa.buildFactorMap('0xtoken', T0 + 68000);
+            check('K12e 尘买推进 anyBuy=6.0（全量区写点尘门豁免）而 bigBuy 停在 66.0', () => {
+                assert.strictEqual(f.sinceLastFamousAnyBuySec, 6);
+                assert.strictEqual(f.sinceLastFamousBigBuySec, 66);
+            });
+            // defer 形状：价格段假 wallet 不误记 + applyWalletTick 真 sender 尘单补推
+            const fa2 = newFA();
+            fa2.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+            const rawDust = tK({ bnb_amount: 0.00098, timestamp: T0 + 3000, sender_address: null });
+            fa2.processTick(rawDust, { deferWallet: true, emitFactors: false });
+            const mid = fa2.buildFactorMap('0xtoken', T0 + 4000);
+            check('K12e2 defer 价格段路由假 wallet 不误记 anyBuy → null', () =>
+                assert.strictEqual(mid.sinceLastFamousAnyBuySec, null));
+            fa2.applyWalletTick({ ...rawDust, sender_address: FAMK, price_accepted: false }, { emitFactors: false });
+            const f2 = fa2.buildFactorMap('0xtoken', T0 + 4000);
+            check('K12e3 applyWalletTick 真 sender 尘单补推（无 smartBotEligible 门）→ 1.0', () =>
+                assert.strictEqual(f2.sinceLastFamousAnyBuySec, 1));
+        }
         // K10 roster 未加载 fail-open（K 段内置复位前置段）
         {
             FourMemeFactorAggregator.setFamousCopyWalletsForTest(null);
