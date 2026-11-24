@@ -172,12 +172,12 @@ console.log('C. point-type-router 类型 famous_conviction_pit');
     const r = classifyPointType(PIT);
     assert.strictEqual(r.type, 'famous_conviction_pit');
     assert.deepStrictEqual(r.policy, {
-      // T234 四修（用户裁定「豁免触发后后续的门控，回测观察，有一些门可能加回来好」）：
-      // 全豁观察版——FP 整门直通/AF1 直通/cheat 16 题跳过/BP 整门直通；观察期形状
+      // T234 定稿（用户裁定「全豁+stuffingOnly」）：FP 整门直通/AF1 直通/cheat 16 题
+      // 跳过/BP 只评塞单门（BP67 明裁机械防线零成本兜底）
       factorCheckArms: 'skip',
       actFront: 'pass',
       cheatCheck: 'skip',
-      buyPoint: 'skip',
+      buyPoint: 'stuffingOnly',
     });
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
     for (const k of ['tokenAgeSec', 'mcapFromPeakPct', 'currentVsLaunchPct', 'earlyReturn',
