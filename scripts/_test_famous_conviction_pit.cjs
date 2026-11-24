@@ -1,0 +1,204 @@
+#!/usr/bin/env node
+/**
+ * T234 famous_conviction_pit 类型三键单测（零 DB 零网络，2026-11-24 用户提案+
+ * 裁定「famous/聪明钱强认同健康盘深坑」；案源=躺赢人生 0x2ee9…7777）：
+ *   A. FA 臂 A 两键（famousSmartHighBuyBnb/N）：famous∪smart 名单钱包在买入时
+ *      curVs（地板锚）≥+40%、单笔 ≥0.02B 的累计额+独立钱包数——全生命周期单调
+ *      （「买过」口径），尘/低点/无地板 fail-closed 不计；双段写点每 tick 恰计一次
+ *   B. FA 块口径跟单键（famousFollowBlockMaxWallets）：famous 买后**同块**非 famous
+ *      买入钱包数全生命周期单调 max（+1 块不计=同块语义）；bn 推进闭合并入 max；
+ *      名单空/无 famous 买=0 fail-open
+ *   C. point-type-router：0x2ee9 形状命中 famous_conviction_pit（policy 全套豁免
+ *      deep-equal）；龄/域/坑深/臂A/跟单/锚买盘六轴负例全走 normal
+ */
+'use strict';
+const assert = require('assert');
+const path = require('path');
+const ROOT = path.join(__dirname, '..');
+const FourMemeFactorAggregator = require(path.join(ROOT, 'src/services/FourMemeFactorAggregator.js'));
+const {
+  POINT_TYPE_VERSION, classifyPointType, assertPointTypesValid,
+} = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
+
+let passed = 0;
+function check(name, fn) { try { fn(); passed++; console.log(`  ✓ ${name}`); } catch (e) { console.error(`  ✗ ${name}\n    ${e.message}`); process.exit(1); } }
+
+const T0 = 1700000000000;
+function newFA(roster) {
+  const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+  fa.registerToken('0xtoken', { createdAtMs: T0, totalSupply: 1e9, symbol: 'T', creatorAddress: null });
+  if (roster) {
+    FourMemeFactorAggregator.setFamousCopyWalletsForTest(new Set(roster.famous || []));
+    FourMemeFactorAggregator.setSmartMoneyWalletsForTest(new Set(roster.smart || []));
+  }
+  return fa;
+}
+function resetRosters() {
+  FourMemeFactorAggregator.setFamousCopyWalletsForTest(null);
+  FourMemeFactorAggregator.setSmartMoneyWalletsForTest(null);
+}
+let tickSeq = 0;
+function mkTick(o) {
+  return {
+    token_address: '0xtoken', trade_type: o.side, trader_address: null, sender_address: o.w,
+    price_bnb: o.px ?? 1e-9, price_usd: 5, bnb_amount: o.bnb, token_amount: o.tok ?? 1e8,
+    block_number: o.bn ?? Math.floor((o.ts - T0) / 1000), log_index: o.li ?? (tickSeq++),
+    timestamp: o.ts, tx_hash: '0xtx' + (tickSeq), price_outlier: !!o.out,
+    price_accepted: o.accepted !== false, // 尘行/outlier 行由 collector 定值；默认可靠
+  };
+}
+const PX = 1e-9; // 首可靠价=地板
+
+console.log('A. 臂 A 两键 famousSmartHighBuyBnb/N（famous∪smart 高位买，买时 curVs≥+40%、单笔≥0.02B）');
+{
+  const fa = newFA({ famous: ['fa', 'fb'], smart: ['sa'] });
+  // 地板建立：w0 首笔可靠买 0.1B @PX
+  fa.processTick(mkTick({ ts: T0 + 1000, side: 'buy', bnb: 0.1, tok: 1e8, px: PX, w: 'w0' }), {});
+  check('A1 名单空→无地板无计数基线 0（famousSmartHighBuyBnb=0/N=0）', () => {
+    const f = fa.buildFactorMap('0xtoken', T0 + 1500);
+    assert.strictEqual(f.famousSmartHighBuyBnb, 0);
+    assert.strictEqual(f.famousSmartHighBuyN, 0);
+  });
+  fa.processTick(mkTick({ ts: T0 + 2000, side: 'buy', bnb: 0.3, tok: 2e8, px: 1.5e-9, w: 'fa' }), {});   // curVs +50% ✓
+  fa.processTick(mkTick({ ts: T0 + 3000, side: 'buy', bnb: 0.2, tok: 1e8, px: 1.6e-9, w: 'sa' }), {});   // curVs +60% ✓ smart 也计（+40% 恰贴线浮点不稳，刻意避开）
+  fa.processTick(mkTick({ ts: T0 + 4000, side: 'buy', bnb: 0.019, tok: 1e7, px: 1.5e-9, w: 'fb' }), {}); // 尘 0.019 <0.02 跳过
+  fa.processTick(mkTick({ ts: T0 + 5000, side: 'buy', bnb: 0.5, tok: 3e8, px: 1.2e-9, w: 'fb' }), {});   // curVs +20% <40% 跳过
+  fa.processTick(mkTick({ ts: T0 + 6000, side: 'sell', bnb: 0.1, tok: 5e7, px: 1.3e-9, w: 'fa' }), {});  // 卖不计
+  const f = fa.buildFactorMap('0xtoken', T0 + 6500);
+  check('A2 累计 0.5（0.3+0.2）、独立钱包 2（fa+sa；fb 尘/低点两笔全跳过、卖不计）', () => {
+    assert.strictEqual(f.famousSmartHighBuyBnb, 0.5);
+    assert.strictEqual(f.famousSmartHighBuyN, 2);
+  });
+  fa.processTick(mkTick({ ts: T0 + 7000, side: 'buy', bnb: 0.05, tok: 4e7, px: 1.5e-9, w: 'fa' }), {}); // +50% 再加 0.05（同钱包 N 不变）
+  const f2 = fa.buildFactorMap('0xtoken', T0 + 7500);
+  check('A3 单调累计 0.55、N 仍 2（同钱包不重复计）', () => {
+    assert.strictEqual(f2.famousSmartHighBuyBnb, 0.55);
+    assert.strictEqual(f2.famousSmartHighBuyN, 2);
+  });
+  check('A4 两键在 getFactorKeys（三防线自动认得）', () => {
+    const keys = new Set(fa.getFactorKeys());
+    assert.ok(keys.has('famousSmartHighBuyBnb'));
+    assert.ok(keys.has('famousSmartHighBuyN'));
+    assert.ok(keys.has('famousFollowBlockMaxWallets'));
+  });
+  // 双段恰一次：defer 路径价格段跳过、wallet 段补跑——恰计一次
+  const fa2 = newFA({ famous: ['fa'], smart: [] });
+  fa2.processTick(mkTick({ ts: T0 + 1000, side: 'buy', bnb: 0.1, tok: 1e8, px: PX, w: 'w0' }), {});
+  const dt = mkTick({ ts: T0 + 2000, side: 'buy', bnb: 0.3, tok: 2e8, px: 1.5e-9, w: 'fa' });
+  fa2.processTick(dt, { deferWallet: true }); // 价格段（sender 未知假值→名单钩跳过）
+  const f3a = fa2.buildFactorMap('0xtoken', T0 + 2100);
+  fa2.applyWalletTick(dt);                    // wallet 段补跑（真 sender）
+  const f3b = fa2.buildFactorMap('0xtoken', T0 + 2200);
+  check('A5 defer 双段恰计一次（价格段 0 → wallet 段补 0.3，不双计）', () => {
+    assert.strictEqual(f3a.famousSmartHighBuyBnb, 0);
+    assert.strictEqual(f3b.famousSmartHighBuyBnb, 0.3);
+  });
+  // 无地板 fail-closed（直接方法调用锁守卫——钩子在可靠价块内、地板恒先行，
+  // 守卫只防未来挂点变化/乱序形状）
+  const fa3 = newFA({ famous: ['fa'], smart: [] });
+  const bare = { _minRelPriceBnb: null, _famousSmartHighBuyBnb: 0, _famousSmartHighBuyWallets: new Set() };
+  fa3._noteRosterHighBuy(bare, 'fa', 1.5e-9, 0.3);
+  check('A6 无地板 → 不累计 fail-closed 0（守卫锁）', () => {
+    assert.strictEqual(bare._famousSmartHighBuyBnb, 0);
+    assert.strictEqual(bare._famousSmartHighBuyWallets.size, 0);
+  });
+  resetRosters();
+}
+
+console.log('B. 块口径跟单键 famousFollowBlockMaxWallets（同块语义）');
+{
+  const fa = newFA({ famous: ['fa'] });
+  fa.processTick(mkTick({ ts: T0 + 1000, side: 'buy', bnb: 0.1, tok: 1e8, px: PX, w: 'w0' }), {});
+  check('B1 无 famous 买 → 0 fail-open', () => {
+    const f = fa.buildFactorMap('0xtoken', T0 + 1500);
+    assert.strictEqual(f.famousFollowBlockMaxWallets, 0);
+  });
+  // famous 买 @bn=10：同块 w1/w2 跟随 → 2；+1 块 w3 不计（同块语义）
+  fa.processTick(mkTick({ ts: T0 + 2000, side: 'buy', bnb: 0.05, tok: 4e7, px: PX, w: 'fa', bn: 10 }), {});
+  fa.processTick(mkTick({ ts: T0 + 2001, side: 'buy', bnb: 0.05, tok: 4e7, px: PX, w: 'w1', bn: 10 }), {});
+  fa.processTick(mkTick({ ts: T0 + 2002, side: 'buy', bnb: 0.05, tok: 4e7, px: PX, w: 'w2', bn: 10 }), {});
+  fa.processTick(mkTick({ ts: T0 + 2003, side: 'sell', bnb: 0.05, tok: 4e7, px: PX, w: 'w2', bn: 10 }), {}); // 卖不进
+  fa.processTick(mkTick({ ts: T0 + 2004, side: 'buy', bnb: 0.05, tok: 4e7, px: PX, w: 'w3', bn: 11 }), {});
+  const f = fa.buildFactorMap('0xtoken', T0 + 2500);
+  check('B2 同块 2 计入（w1/w2）、+1 块 w3 不计、卖行不计 → max=2', () => {
+    assert.strictEqual(f.famousFollowBlockMaxWallets, 2);
+  });
+  // 同块后续 famous 买之间不互相计（famous-famous 排除）
+  fa.processTick(mkTick({ ts: T0 + 3000, side: 'buy', bnb: 0.05, tok: 4e7, px: PX, w: 'fa', bn: 20 }), {});
+  fa.processTick(mkTick({ ts: T0 + 3001, side: 'buy', bnb: 0.05, tok: 4e7, px: PX, w: 'w4', bn: 20 }), {});
+  fa.processTick(mkTick({ ts: T0 + 3002, side: 'buy', bnb: 0.05, tok: 4e7, px: PX, w: 'w5', bn: 20 }), {});
+  fa.processTick(mkTick({ ts: T0 + 3003, side: 'buy', bnb: 0.05, tok: 4e7, px: PX, w: 'w6', bn: 20 }), {});
+  const f2 = fa.buildFactorMap('0xtoken', T0 + 3500);
+  check('B3 第二锚同块 3 → 单调 max 2→3', () => {
+    assert.strictEqual(f2.famousFollowBlockMaxWallets, 3);
+  });
+  // bn 推进闭合后 max 保持（活跃锚读点：闭合并入 max）
+  fa.processTick(mkTick({ ts: T0 + 4000, side: 'buy', bnb: 0.05, tok: 4e7, px: PX, w: 'w9', bn: 99 }), {});
+  const f3 = fa.buildFactorMap('0xtoken', T0 + 4500);
+  check('B4 bn 大幅推进闭合并入后 max 仍 3（污点不洗）', () => {
+    assert.strictEqual(f3.famousFollowBlockMaxWallets, 3);
+  });
+  resetRosters();
+  const fa4 = newFA(null);
+  fa4.processTick(mkTick({ ts: T0 + 1000, side: 'buy', bnb: 0.1, tok: 1e8, px: PX, w: 'w0' }), {});
+  const f4 = fa4.buildFactorMap('0xtoken', T0 + 1500);
+  check('B5 名单未启用（null）→ 键恒 0 fail-open', () => {
+    assert.strictEqual(f4.famousFollowBlockMaxWallets, 0);
+  });
+}
+
+console.log('C. point-type-router 类型 famous_conviction_pit');
+{
+  const PIT = {
+    tokenAgeSec: 63, mcapFromPeakPct: 59.9, currentVsLaunchPct: 28.2, earlyReturn: 28.2,
+    famousSmartHighBuyBnb: 1.335, famousSmartHighBuyN: 5, famousFollowBlockMaxWallets: 3,
+    anchorTickIsBuy: 1, anchor15sMaxBuyBnb: 0.025,
+  };
+  check('C1 0x2ee9 形状命中（policy 全套豁免 deep-equal；version=PT24）', () => {
+    const r = classifyPointType(PIT);
+    assert.strictEqual(r.type, 'famous_conviction_pit');
+    assert.deepStrictEqual(r.policy, {
+      factorCheckArms: 'cheatOnly',
+      factorCheckArmExempt: ['slow_pump_unload', 'arb_bot_holdings'],
+      actFront: 'pass',
+      cheatCheck: 'g23NoE',
+      buyPoint: 'stuffingOnly',
+    });
+    assert.strictEqual(r.version, POINT_TYPE_VERSION);
+    for (const k of ['tokenAgeSec', 'mcapFromPeakPct', 'currentVsLaunchPct', 'earlyReturn',
+      'famousSmartHighBuyBnb', 'famousSmartHighBuyN', 'famousFollowBlockMaxWallets',
+      'anchorTickIsBuy', 'anchor15sMaxBuyBnb']) {
+      assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
+    }
+  });
+  check('C2 龄 59 <60 → normal', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, tokenAgeSec: 59 }).type, 'normal');
+  });
+  check('C3 坑不够深（mcapFromPeak 63 >62）→ normal', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, mcapFromPeakPct: 63 }).type, 'normal');
+  });
+  check('C4 域帽破（curVs 34 >33.5，earlyReturn 34 ≥15）→ normal', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, currentVsLaunchPct: 34, earlyReturn: 34 }).type, 'normal');
+  });
+  check('C4b 域内 earlyReturn OR 臂（curVs 30 >28.5 但 earlyReturn 8 <15）→ 命中', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, currentVsLaunchPct: 30, earlyReturn: 8 }).type, 'famous_conviction_pit');
+  });
+  check('C5 臂 A 金额 0.49 <0.5 → normal', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, famousSmartHighBuyBnb: 0.49 }).type, 'normal');
+  });
+  check('C6 臂 A 钱包 2 <3 → normal', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, famousSmartHighBuyN: 2 }).type, 'normal');
+  });
+  check('C7 同块跟单 9 >8 → normal（宽松形状门）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, famousFollowBlockMaxWallets: 9 }).type, 'normal');
+  });
+  check('C8 无锚买盘（非买锚 ∧ 15s 买 0.02 <0.03）→ normal', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0.02 }).type, 'normal');
+  });
+  check('C9 assertPointTypesValid 用 FA 真键集全过（新键三防线自动认得）', () => {
+    const fa = new FourMemeFactorAggregator({}, { info() {}, warn() {}, error() {} });
+    assertPointTypesValid(fa.getFactorKeys());
+  });
+}
+
+console.log(`\n全部通过 ${passed} 断言`);

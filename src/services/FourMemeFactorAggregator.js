@@ -346,6 +346,17 @@ let _famousCopyLoadPromise = null;
 const FOLLOW_WIN_MS = 2000;
 const FOLLOW_ANCHOR_MAX = 16;
 
+// ── famous_conviction_pit 类型（PT24/T234，2026-11-24 用户提案「famous/聪明钱强认同
+//    健康盘深坑」+裁定）新键常量 ──
+// 臂 A 重参与：famous∪smart 名单钱包在**买入时** curVs（地板锚 _minRelPriceBnb）
+// ≥ ROSTER_HIGH_BUY_VS 的买入累计（「点位都不算低」=真金白银的认同；单笔
+// ≥ ROSTER_HIGH_BUY_DUST 剔尘，smartBigBuyBnb 同款 0.02）。
+// 块口径跟单：同块语义（用户裁定「famous 跟单一般看同区块，以及未来 1-2 个区块的
+// 行为，尤其是同区块」——现行键取同块，线值 8 在类型 condition），锚界复用
+// FOLLOW_ANCHOR_MAX、bn 推进闭合（见 _noteFollowCrowdByBlock）
+const ROSTER_HIGH_BUY_VS = 0.40;
+const ROSTER_HIGH_BUY_DUST = 0.02;
+
 // ── 臭名昭著钱包集合（T222 2026-11-23 用户点名「BSC 链上真的用户看到就想躲的
 //   钱包」首个=bf00 大割——0xbf004bff…ced4903）──
 // 来源=config/rosters/notorious-wallets.json（用户维护的特殊集合，先只放一个）。
@@ -1480,6 +1491,17 @@ class FourMemeFactorAggregator extends EventEmitter {
                 this._noteSmartFlow(state, isBuy, bnbAmount, ts);
             }
 
+            // ── famous_conviction_pit（PT24）臂 A 写点①（2026-11-24 用户提案+裁定
+            //   「参与要重」）：famous∪smart 高位买（买时 curVs≥+40%）累计——价格段
+            //   可靠价块 priceBnb 直用（_minRelPriceBnb 已在本块上方更新，含本 tick）；
+            //   defer 行 walletAddr=sender 未知假值跳过，wallet 段补跑恰一次（T133
+            //   同款双段防双计）──
+            if (!deferWallet && isBuy && walletAddr
+                && ((_famousCopyWallets && _famousCopyWallets.has(walletAddr))
+                    || (_smartMoneyWallets && _smartMoneyWallets.has(walletAddr)))) {
+                this._noteRosterHighBuy(state, walletAddr, priceBnb, bnbAmount);
+            }
+
             // ── 分类器 running 标量（回迁批 3.1：OPB 专用；与 token-classifier computeTickMetrics 同口径）──
             // USD 峰快照：仅在新 BNB 峰 tick 覆写（对齐离线「highestPriceUsd 在 BNB 峰 tick 处快照」；
             // 峰 tick 缺 USD → 0，其后非峰 tick 不回填——保守方向与离线一致）
@@ -1847,6 +1869,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             this._noteSmartFlow(state, isBuy, bnbAmount, tick.timestamp);
         }
 
+        // ── famous_conviction_pit（PT24）臂 A 写点②（defer 专属补跑，T133 同款防
+        //    双计：smartBotEligible 仅 defer 路径置位；直推路径价格段已计本段不跑）。
+        //    tick.price_bnb=该行价；priceReliable 重算等价 flag 缺省不跑（保守）──
+        if (vars.smartBotEligible === true && isBuy && walletAddr
+            && ((_famousCopyWallets && _famousCopyWallets.has(walletAddr))
+                || (_smartMoneyWallets && _smartMoneyWallets.has(walletAddr)))) {
+            this._noteRosterHighBuy(state, walletAddr, tick.price_bnb || 0, bnbAmount);
+        }
+
         // ── T228 smart 任意买键补跑（T227d 镜像：不挂 smartBotEligible 门——尘行
         //    priceReliable 重算 false 恰是最需补的行；幂等单调 max 双写无害）──
         if (isBuy && _smartMoneyWallets && _smartMoneyWallets.size > 0
@@ -1907,6 +1938,8 @@ class FourMemeFactorAggregator extends EventEmitter {
         // T221 famous 跟单拥挤键写点（_activityEvents push 之后——锚创建时扫环补收
         // 同块已到行依赖本行已入环；本方法每 tick 恰跑一次=事件不重不漏同环）
         this._noteFollowCrowd(state, walletAddr, isBuy, tick.timestamp);
+        // famous_conviction_pit（PT24）块口径跟单键写点（同块语义；同源每 tick 恰一次）
+        this._noteFollowCrowdByBlock(state, walletAddr, isBuy, blockNumber);
         this._pruneActivityEvents(state, tick.timestamp);
 
         // （earlyTrades* wallet 层原料已随 T71 2026-10-26 删除——perWallet/top1/uniform
@@ -2625,6 +2658,17 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 时间 ≥ 窗尾，同块 16 famous 极端形状由同窗兄弟锚覆盖计数）
             _famousFollowMaxWallets: 0,
             _famousFollowAnchors: [],
+            // famous_conviction_pit（PT24）臂 A 原料：famous∪smart 高位买（买时 curVs
+            // ≥+40%、单笔 ≥0.02B）累计 BNB + 独立钱包集——全生命周期单调累计（「买过」
+            // 口径；JG-40 否证面由坑底+反弹确认+低位域三锚兜底）。写点=_noteRosterHighBuy
+            // 双段（价格段 !deferWallet / wallet 段 smartBotEligible）每 tick 恰计一次
+            _famousSmartHighBuyBnb: 0,
+            _famousSmartHighBuyWallets: new Set(),
+            // famous_conviction_pit（PT24）块口径跟单键原料：famous 买后**同块**非 famous
+            // 买入钱包数全生命周期单调 max（famousFollowBlockMaxWallets；与 T221 2s 键
+            // 并行共存）。锚 [{bn,set}] 容量界 16 + bn 推进闭合（见 _noteFollowCrowdByBlock）
+            _famousFollowBlockMaxWallets: 0,
+            _famousFollowBlockAnchors: [],
             _smartBigBuyLastAt: null,   // T183 聪明钱大买（≥smartBigBuyBnb）最后时刻 ms（null=从未/名单空 → sinceLastSmartBigBuySec null → smartHold 不命中 fail-open；双段写点同 famous，见 _noteSmartFlow）
             _smartSellEvents: [],       // T183 聪明钱卖出事件环 [{ts,bnb}]（recentSmartSellBnb 原料；求和交换律=乱序无害；摊销裁剪保 5×窗）
             _smartAnyBuyLastAt: null,   // T228 任意金额 smart 买最后时刻 ms（smartHold 状态臂「新入场」判据——T227d 镜像：小买/尘买也推进，写点=全量区尘门豁免+applyWalletTick 无门补跑）
@@ -3179,6 +3223,66 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 非 famous 买：落入所有含它的锚窗（去重）
             for (const a of anchors) {
                 if (ts >= a.ts && ts - a.ts <= FOLLOW_WIN_MS) a.set.add(w);
+            }
+        }
+    }
+
+    /**
+     * famous_conviction_pit（PT24）臂 A 原料写点（2026-11-24 用户提案「famous/聪明钱
+     * 强认同健康盘深坑」+裁定「参与要重」）：famous∪smart 名单钱包在**买入时**
+     * curVs（地板锚 _minRelPriceBnb）≥ +40% 的买入累计额（ROSTER_HIGH_BUY_DUST
+     * 剔尘）。全生命周期单调累计不随卖出回退（「买过」口径——JG-40 否证面由坑底+
+     * 反弹确认+低位域三锚兜底）。双段写点（价格段 !deferWallet / wallet 段
+     * smartBotEligible）T133 同款每 tick 恰计一次。地板缺失（无可靠价）fail-closed
+     * 不累计；乱序回推时地板可能已含更晚价——阈值判定随写点时刻地板走（与 T139
+     * 全族同构，可接受）。
+     */
+    _noteRosterHighBuy(state, walletAddr, priceBnb, bnbAmount) {
+        if (!(bnbAmount >= ROSTER_HIGH_BUY_DUST)) return;
+        if (!priceBnb || priceBnb <= 0) return;
+        if (!state._minRelPriceBnb || state._minRelPriceBnb <= 0) return;
+        if (priceBnb / state._minRelPriceBnb - 1 < ROSTER_HIGH_BUY_VS) return;
+        state._famousSmartHighBuyBnb = (state._famousSmartHighBuyBnb || 0) + bnbAmount;
+        state._famousSmartHighBuyWallets.add(walletAddr.toLowerCase());
+    }
+
+    /**
+     * famousFollowBlockMaxWallets 写点（2026-11-24 用户裁定「famous 跟单一般看同区块，
+     * 以及未来 1-2 个区块的行为，尤其是同区块」——现行键取**同块**语义，类型
+     * condition 线值 ≤8 宽松形状门）：每笔 famous 买建锚 {bn,set}，其后同 bn 的
+     * 非 famous 买入钱包落入锚（去重；wallet=sender||trader 与 T221 同源）。锚闭合=
+     * 后续 tick bn > 锚 bn 时并入 max 后移除（块口径自然闭合——2s 版 T221 的
+     * 「无时间闭合」不适用：同块窗只收同块行，晚到同块行在 bn 推进后到达=极小概率，
+     * 接受）+ 容量界 FOLLOW_ANCHOR_MAX 逐出最旧并入 max（同块 16 famous 极端形状
+     * 由同窗兄弟锚覆盖计数，T221 同款）。名单未启用/空 → 空操作=键恒 0 fail-open。
+     * 每 tick 恰跑一次（挂 _applyWalletAggregation 尾部唯一汇合点，_noteFollowCrowd
+     * 同源）。
+     */
+    _noteFollowCrowdByBlock(state, walletAddr, isBuy, bn) {
+        if (!isBuy || !walletAddr || bn == null) return;
+        if (!_famousCopyWallets || _famousCopyWallets.size === 0) return;
+        const w = walletAddr.toLowerCase();
+        const anchors = state._famousFollowBlockAnchors;
+        // 闭合：当前 bn 已越过锚块的锚并入 max 后移除（同块窗已不可能再收行）
+        let i = 0;
+        while (i < anchors.length && anchors[i].bn < bn) {
+            if (anchors[i].set.size > state._famousFollowBlockMaxWallets) {
+                state._famousFollowBlockMaxWallets = anchors[i].set.size;
+            }
+            i++;
+        }
+        if (i > 0) anchors.splice(0, i);
+        if (_famousCopyWallets.has(w)) {
+            if (anchors.length >= FOLLOW_ANCHOR_MAX) {
+                const a = anchors.shift();
+                if (a.set.size > state._famousFollowBlockMaxWallets) {
+                    state._famousFollowBlockMaxWallets = a.set.size;
+                }
+            }
+            anchors.push({ bn, set: new Set() });
+        } else {
+            for (const a of anchors) {
+                if (bn === a.bn) a.set.add(w);
             }
         }
     }
@@ -4689,6 +4793,20 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
             return mx;
         })();
+        // famous_conviction_pit（PT24）臂 A 两键：famous∪smart 高位买累计 BNB 与独立
+        // 钱包数（写点=_noteRosterHighBuy 双段单调累计；0=无命中 fail-closed 裸比较
+        // 恒 false；名单未启用/无可靠价=0 同语义）
+        const famousSmartHighBuyBnb = state._famousSmartHighBuyBnb || 0;
+        const famousSmartHighBuyN = state._famousSmartHighBuyWallets ? state._famousSmartHighBuyWallets.size : 0;
+        // famous_conviction_pit（PT24）块口径跟单键（同块语义全生命周期单调 max——读点=
+        // max(已并入〔锚闭合/逐出时〕, 活跃锚) O(16)；0=无 famous 买/名单未启用 fail-open）
+        const famousFollowBlockMaxWallets = (() => {
+            let mx = state._famousFollowBlockMaxWallets || 0;
+            for (const a of state._famousFollowBlockAnchors) {
+                if (a.set.size > mx) mx = a.set.size;
+            }
+            return mx;
+        })();
         // T222 臭名昭著钱包总流通持仓占比（2026-11-23 用户点名「真的用户看到就想
         // 躲的钱包」首个=bf00 大割）：集合钱包**合计**正净持仓 ÷ 流通(_circDen)
         // ×100——合计口径（集合=一个团伙印象的整体，与 sybil 簇同构非单钱包 max）。
@@ -5158,6 +5276,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             // T221 famous 跟单拥挤键（famous 买后 2s 窗非 famous 买入钱包数，
             // 全生命周期单调 max；0=无 famous 买 fail-open——见计算处注释块）
             famousFollowSlotMaxWallets,
+            // famous_conviction_pit（PT24）臂 A 两键+块口径同块跟单键（famous∪smart
+            // 高位买累计/独立钱包/同块跟单 max——见计算处注释块）
+            famousSmartHighBuyBnb,
+            famousSmartHighBuyN,
+            famousFollowBlockMaxWallets,
             // T222 臭名昭著钱包总流通持仓占比（集合合计正净持仓 ÷ 流通；0=未启用/
             // 无命中 fail-open——见计算处注释块）
             notoriousWalletCircPct,
