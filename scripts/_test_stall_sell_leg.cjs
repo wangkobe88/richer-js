@@ -120,7 +120,8 @@ const evalCond = (cond, f) => new StrategyEngine({}).evaluateCondition(cond, f);
             const fa = newFA();
             fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
             const st = fa.getTokenState('0xt');
-            st.lastTickAt = Date.now() - 30000; // 30s 前
+            st.lastTickAt = Date.now() - 1000;
+            st.lastSubstantialTickAt = Date.now() - 30000; // 足额水位 30s 前（预扫门读它）
             let built = 0;
             const eng = makeWssEngine({
                 _stalledSellLegScanEnabled: true,
@@ -141,7 +142,8 @@ const evalCond = (cond, f) => new StrategyEngine({}).evaluateCondition(cond, f);
             const fa = newFA();
             fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
             const st = fa.getTokenState('0xt');
-            st.lastTickAt = Date.now() - 50000; // 50s 前
+            st.lastTickAt = Date.now() - 1000;
+            st.lastSubstantialTickAt = Date.now() - 50000; // 足额水位 50s 前
             let evaluated = null;
             const eng = makeWssEngine({
                 _stalledSellLegScanEnabled: true,
@@ -171,7 +173,8 @@ const evalCond = (cond, f) => new StrategyEngine({}).evaluateCondition(cond, f);
         const fa = newFA();
         fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
         const st = fa.getTokenState('0xt');
-        st.lastTickAt = T0 + 2000; // 虚拟时刻
+        st.lastTickAt = T0 + 55000;
+        st.lastSubstantialTickAt = T0 + 2000; // 足额水位（虚拟）
         const tickTs = T0 + 60000;
         let got = null;
         const eng = makeBtEngine({
@@ -195,7 +198,7 @@ const evalCond = (cond, f) => new StrategyEngine({}).evaluateCondition(cond, f);
             _tokenPool: { getToken: () => ({ status: 'bought' }) },
             _evaluateSellPathAt: async () => { throw new Error('不应评估'); },
         });
-        await eng2._scanStalledSellLegs(T0 + 2000 + 38000);
+        await eng2._scanStalledSellLegs(T0 + 2000 + 38000); // 足额水位 38s 前（≤45s 门）
         ok(true, 'D2 38s 断流（≤45s）→ 零评估（虚拟预扫门）');
     }
 

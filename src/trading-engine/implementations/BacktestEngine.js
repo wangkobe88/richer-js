@@ -3303,8 +3303,12 @@ class BacktestEngine extends AbstractTradingEngine {
       const token = this._tokenPool.getToken(tokenAddress, 'bsc');
       if (!token || token.status !== 'bought') continue;
       const st = this._factorAggregator.getTokenState(tokenAddress);
-      if (st == null || st.lastTickAt == null) continue;
-      if (tickTs - st.lastTickAt <= preScanMs) continue;
+      // 廉价预扫门：足额水位优先（lastSubstantialTickAt——与旧 stallClose 同判据，
+      // 尘埃 tick 不算流动性证据；BIBI 案全量 lastTickAt 被尘埃喂饱致驱动饿死）；
+      // 足额水位 null（阈值关）回落 lastTickAt
+      const waterAt = st ? (st.lastSubstantialTickAt ?? st.lastTickAt) : null;
+      if (waterAt == null) continue;
+      if (tickTs - waterAt <= preScanMs) continue;
       const factors = this._factorAggregator.buildFactorMap(tokenAddress, tickTs);
       if (!factors) continue;
       await this._evaluateSellPathAt(token, factors, tickTs);

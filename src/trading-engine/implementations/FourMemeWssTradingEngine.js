@@ -3377,10 +3377,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const token = this._tokenPool.getToken(tokenAddress, 'bsc');
       if (!token || token.status !== 'bought') continue;
       const st = this._factorAggregator.getTokenState(tokenAddress);
-      // 廉价预扫门：lastTickAt（全量口径）超预扫门才继续——条件判据用足额水位
-      // （idleSecSinceLastSubstantialTick），预扫只是省 buildFactorMap 开销
-      if (st == null || st.lastTickAt == null) continue;
-      if (Date.now() - st.lastTickAt <= preScanMs) continue;
+      // 廉价预扫门：足额水位优先（lastSubstantialTickAt——与旧 stallClose 同判据：
+      // 尘埃 tick 不算流动性证据，若用全量 lastTickAt 会被 <0.01 尘埃喂饱致驱动
+      // 饿死〔BIBI 案 +89s 延迟〕）；足额水位 null（阈值关）回落 lastTickAt
+      const waterAt = st ? (st.lastSubstantialTickAt ?? st.lastTickAt) : null;
+      if (waterAt == null) continue;
+      if (Date.now() - waterAt <= preScanMs) continue;
       const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
       if (!factors) continue;
       await this._evaluateSellPath(tokenAddress, factors, null);
