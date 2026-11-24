@@ -1037,6 +1037,64 @@ console.log('M. T183 聪明钱流两键（sinceLastSmartBigBuySec / recentSmartS
                 assert.ok(/vars\.smartBotEligible === true\s*\n\s*&& _smartMoneyWallets/.test(src), '写点②缺');
             });
         }
+        // M6 T228 状态臂两键（smartCopyWalletCircPct / sinceLastSmartAnyBuySec——T227d 镜像）
+        {
+            // M6a 小买（0.0199 < 0.02 大买线）推进 anyBuy 而大买键 null
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tM({ bnb_amount: 0.0199, timestamp: T0 + 3000 }));
+                const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+                check('M6a 小买 0.0199 推进 anyBuy=1.0 而大买键 null', () => {
+                    assert.strictEqual(f.sinceLastSmartAnyBuySec, 1);
+                    assert.strictEqual(f.sinceLastSmartBigBuySec, null);
+                });
+            }
+            // M6b 尘买（<minPriceUpdateBnb 0.002）也推进 anyBuy（全量区写点尘门豁免——T227d 事故镜像防线）
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tM({ bnb_amount: 0.0494, timestamp: T0 + 2000 }));
+                fa.processTick(tM({ bnb_amount: 0.00098, timestamp: T0 + 62000 }));
+                const f = fa.buildFactorMap('0xtoken', T0 + 68000);
+                check('M6b 尘买推进 anyBuy=6.0 而大买键停在 66.0', () => {
+                    assert.strictEqual(f.sinceLastSmartAnyBuySec, 6);
+                    assert.strictEqual(f.sinceLastSmartBigBuySec, 66);
+                });
+            }
+            // M6c 卖出不推进 anyBuy + 探针收键 + FactorBuilder 透传
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tM({ trade_type: 'sell', bnb_amount: 0.1, timestamp: T0 + 3000 }));
+                const f = fa.buildFactorMap('0xtoken', T0 + 4000);
+                check('M6c 卖出不推进 anyBuy → null + 探针含两键 + FactorBuilder 透传', () => {
+                    assert.strictEqual(f.sinceLastSmartAnyBuySec, null);
+                    const keys = newFA().getFactorKeys();
+                    assert.ok(keys.has('sinceLastSmartAnyBuySec'), '探针缺 sinceLastSmartAnyBuySec');
+                    assert.ok(keys.has('smartCopyWalletCircPct'), '探针缺 smartCopyWalletCircPct');
+                    const fb = read('src/trading-engine/core/FactorBuilder.js');
+                    assert.ok(fb.includes('smartCopyWalletCircPct: factorResults.smartCopyWalletCircPct'), 'FactorBuilder 缺 smartCopyWalletCircPct');
+                    assert.ok(fb.includes('sinceLastSmartAnyBuySec: factorResults.sinceLastSmartAnyBuySec'), 'FactorBuilder 缺 sinceLastSmartAnyBuySec');
+                });
+            }
+            // M6d smart 持仓占比：单钱包最大正净持仓 ÷ 流通（famous 同公式换名单）
+            {
+                const fa = newFA();
+                fa.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa.processTick(tM({ bnb_amount: 0.0494, timestamp: T0 + 2000 })); // 拿 1000 token
+                const f = fa.buildFactorMap('0xtoken', T0 + 3000);
+                // 基准 tick（trader 0xa 买 1000）+smart 买 1000 → 流通=2000 → circ=50
+                check('M6d smartCopyWalletCircPct=50（smart 1000/总流通 2000）', () =>
+                    assert.strictEqual(f.smartCopyWalletCircPct, 50));
+                const fa2 = newFA();
+                fa2.processTick(mkTick({ bnb_amount: 0.5, timestamp: T0 + 1000 }));
+                fa2.processTick(tM({ trade_type: 'sell', bnb_amount: 0.1, token_amount: 1000, timestamp: T0 + 2000 })); // 净持仓清空
+                const f2 = fa2.buildFactorMap('0xtoken', T0 + 3000);
+                check('M6e smart 净持仓清空 → circ=0（负净持仓自然出局）', () =>
+                    assert.strictEqual(f2.smartCopyWalletCircPct, 0));
+            }
+        }
     } finally {
         FourMemeFactorAggregator.setSmartMoneyWalletsForTest(null); // 复位未加载态（防污染其它段/测试）
     }

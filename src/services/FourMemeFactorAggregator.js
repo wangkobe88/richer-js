@@ -1207,6 +1207,14 @@ class FourMemeFactorAggregator extends EventEmitter {
                 state._famousAnyBuyLastAt = ts;
             }
         }
+        // ── T228 smart 任意买键推进（T227d 逐行镜像——尘门豁免全量区）：smartHold
+        //    状态臂「新入场」判据不限金额（smart 小单 0.02 以下更常见）──
+        if (isBuy && _smartMoneyWallets && _smartMoneyWallets.size > 0
+            && walletAddr && _smartMoneyWallets.has(walletAddr)) {
+            if (state._smartAnyBuyLastAt === null || ts > state._smartAnyBuyLastAt) {
+                state._smartAnyBuyLastAt = ts;
+            }
+        }
         // 全史路由买入累计（tradesRouterPct 分子，T70）：恒累计无窗无冻结——买点时刻
         // 实时值，慢热票 90s 后散户路由买盘照样抬升占比（与 early 窗冻结版对照）
         if (isBuy && tick.trader_address
@@ -1778,6 +1786,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             && _smartMoneyWallets && _smartMoneyWallets.size > 0
             && walletAddr && _smartMoneyWallets.has(walletAddr)) {
             this._noteSmartFlow(state, isBuy, bnbAmount, tick.timestamp);
+        }
+
+        // ── T228 smart 任意买键补跑（T227d 镜像：不挂 smartBotEligible 门——尘行
+        //    priceReliable 重算 false 恰是最需补的行；幂等单调 max 双写无害）──
+        if (isBuy && _smartMoneyWallets && _smartMoneyWallets.size > 0
+            && walletAddr && _smartMoneyWallets.has(walletAddr)) {
+            if (state._smartAnyBuyLastAt === null || tick.timestamp > state._smartAnyBuyLastAt) {
+                state._smartAnyBuyLastAt = tick.timestamp;
+            }
         }
 
         // ── T184 涌入状态机写点②（defer 专属补跑，T183 同款防双计：smartBotEligible
@@ -2538,6 +2555,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             _famousFollowAnchors: [],
             _smartBigBuyLastAt: null,   // T183 聪明钱大买（≥smartBigBuyBnb）最后时刻 ms（null=从未/名单空 → sinceLastSmartBigBuySec null → smartHold 不命中 fail-open；双段写点同 famous，见 _noteSmartFlow）
             _smartSellEvents: [],       // T183 聪明钱卖出事件环 [{ts,bnb}]（recentSmartSellBnb 原料；求和交换律=乱序无害；摊销裁剪保 5×窗）
+            _smartAnyBuyLastAt: null,   // T228 任意金额 smart 买最后时刻 ms（smartHold 状态臂「新入场」判据——T227d 镜像：小买/尘买也推进，写点=全量区尘门豁免+applyWalletTick 无门补跑）
             _inflowEntities: new Map(), // T184 涌入实体表 wallet→entity（首笔 ≥inflowMinFirstBnb 的名单钱包买入建实体；同块同额镜像成员共享实体引用=镜像簇；entity={ts,blk,price,amt,firstTok,boughtTok,soldTok}——SI-5 在场腿原料）
             _inflowEventAt: null,       // T184 首个达标事件时刻 ms（write-once 锁存幂等；null=未达标/名单未加载）
             _inflowChainSize: 0,        // T184 事件链实体数快照（发射观察键原料）
@@ -3166,6 +3184,11 @@ class FourMemeFactorAggregator extends EventEmitter {
      */
     _noteSmartFlow(state, isBuy, bnbAmount, ts) {
         if (isBuy) {
+            // T228 任意买键推进（大买线 early-return 之前——T227d 镜像：止盈后小买
+            // 回归也算新入场；乱序 Math.max 单调）
+            if (state._smartAnyBuyLastAt === null || ts > state._smartAnyBuyLastAt) {
+                state._smartAnyBuyLastAt = ts;
+            }
             if (!(bnbAmount >= this._fp.smartBigBuyBnb)) return;
             if (state._smartBigBuyLastAt === null || ts > state._smartBigBuyLastAt) {
                 state._smartBigBuyLastAt = ts;
@@ -4608,6 +4631,17 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 0 语义同流通版（名单空/无命中 → 0 放行）；totalSupply 缺失 → 0
             famousCopyWalletSupplyPct = state.totalSupply > 0 ? _famousNet / state.totalSupply * 100 : 0;
         }
+        // ── T228 smart 持仓占比（famousCopyWalletCircPct 逐行镜像，smartHold 状态臂
+        //    持仓腿）：smart 名单钱包**单钱包最大**正净持仓 ÷ 流通 ×100。0 语义同
+        //    famous（名单未加载/空/无命中 → 0 放行；负净持仓自然出局）──
+        let smartCopyWalletCircPct = 0;
+        if (_smartMoneyWallets && _smartMoneyWallets.size > 0) {
+            let _smartNet = 0;
+            for (const [addr, v] of state._walletNetTokens) {
+                if (v > _smartNet && v > 0 && _smartMoneyWallets.has(addr.toLowerCase())) _smartNet = v;
+            }
+            smartCopyWalletCircPct = _circDen > 0 ? _smartNet / _circDen * 100 : 0;
+        }
 
         // sybil 大簇合计净持仓占比（2026-10-20 乌龟案用户裁定）：簇内钱包
         // （sybil-clusters.json 并集）**合计**净持仓 ÷ 流通 ×100——刻意合计非最大：
@@ -4922,6 +4956,14 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceLastSmartBigBuySec: state._smartBigBuyLastAt === null ? null
                 : Number(((now - state._smartBigBuyLastAt) / 1000).toFixed(1)),
             recentSmartSellBnb: Number(this._smartSellWindowBnb(state, now).toFixed(4)),
+            // ── T228 smartHold 状态臂键族（T227d 逐行镜像）：smartCopyWalletCircPct=
+            //    smart 单钱包最大正净持仓 ÷ 流通（0=名单空/无命中放行）；smartAnyBuy=
+            //    距最近任意金额 smart 买的秒数（null=从未买 → 状态臂不命中 fail-open；
+            //    小买/尘买也推进=全量区写点）。「止盈也很常见，只要有新入场的即可」
+            //    语义自 famous 扩到 smart——卖出金额不构成释放，唯一释放判据=出窗 ──
+            smartCopyWalletCircPct: smartCopyWalletCircPct,
+            sinceLastSmartAnyBuySec: state._smartAnyBuyLastAt === null ? null
+                : Number(((now - state._smartAnyBuyLastAt) / 1000).toFixed(1)),
 
             // ── 交易活跃度滑窗 act* 9 键（2026-10-15；取代已删的 cycle 分桶路由。
             //    全史口径 tradeCount 族之外的短窗维度；0=空窗有证据零值非 null；

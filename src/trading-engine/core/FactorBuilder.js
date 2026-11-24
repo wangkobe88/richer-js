@@ -137,6 +137,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     //（名单=smartmoney-accum.json 静态快照，历史信号行重放兼容 null 不掩盖）
     sinceLastSmartBigBuySec: factorResults.sinceLastSmartBigBuySec ?? null,
     recentSmartSellBnb: factorResults.recentSmartSellBnb ?? null,
+    // T228 smartHold 状态臂两键（famous T227d 镜像）：HOLD 触发/释放复盘需 fire
+    // 时刻值，序列不可重建；旧 FA/历史信号 → null 不掩盖
+    smartCopyWalletCircPct: factorResults.smartCopyWalletCircPct ?? null,
+    sinceLastSmartAnyBuySec: factorResults.sinceLastSmartAnyBuySec ?? null,
     // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
     highestHolderCountSinceLastBuy: factorResults.highestHolderCountSinceLastBuy,
     holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,

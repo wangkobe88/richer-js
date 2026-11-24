@@ -314,6 +314,31 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
     const cOv = normalizeFactorSellFilterConfig({ enabled: true, smartHold: { maxSinceBuySec: 60, sellReleaseBnb: 0.2 } }).normalized;
     ok(judgeFactorSellFilter(cOv, { profitPercent: 105, sinceLastSmartBigBuySec: 90, recentSmartSellBnb: 0 }).blocked === false, 'I14 覆盖窗 60s：90s 出窗放行');
     ok(judgeFactorSellFilter(cOv, { profitPercent: 105, sinceLastSmartBigBuySec: 30, recentSmartSellBnb: 0.2 }).blocked === false, 'I15 覆盖释放线 0.2 达线放行');
+    // ── T228 状态臂（T227d 逐行镜像：smart 仍持仓 ∧ 180s 任意金额新入场 → HOLD
+    //    不限时且压制 0.4 撤退线；释放唯一判据=anyBuy 出窗）。旧帧不传新键=静默关
+    //    （I5/I7 等时间窗臂语义逐位不变）──
+    // T1 状态臂命中：时间窗臂出窗（sinceLast null）但 smart 持仓+近期任意买 → 拦
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0, smartCopyWalletCircPct: 2.5, sinceLastSmartAnyBuySec: 120 }).blocked === true, 'T1 状态臂命中（smart 持仓 ∧ 120s 前任意买）');
+    // T2 撤退线被新入场压制（T227d 靶心镜像：smart 卖 0.64 达线但 14s 前有买）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0.64, smartCopyWalletCircPct: 2.5, sinceLastSmartAnyBuySec: 14 }).blocked === true, 'T2 撤退线 0.64 被新入场压制（止盈不释放）');
+    // T3 anyBuy 出窗 → 释放（唯一释放判据）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0, smartCopyWalletCircPct: 2.5, sinceLastSmartAnyBuySec: 180.1 }).blocked === false, 'T3 anyBuy=180.1 出窗释放');
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0, smartCopyWalletCircPct: 2.5, sinceLastSmartAnyBuySec: 180 }).blocked === true, 'T4 anyBuy=180 恰窗内拦截（<=）');
+    // T5 circ=0/null（smart 清仓/旧 FA）→ 状态臂不拦
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0, smartCopyWalletCircPct: 0, sinceLastSmartAnyBuySec: 10 }).blocked === false, 'T5 circ=0（清仓）放行');
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0, smartCopyWalletCircPct: null, sinceLastSmartAnyBuySec: 10 }).blocked === false, 'T6 circ null fail-open');
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0, smartCopyWalletCircPct: 2.5, sinceLastSmartAnyBuySec: null }).blocked === false, 'T7 anyBuy null fail-open（从未 smart 买）');
+    // T8 releaseNoBuySec=0 显式关状态臂 → 撤退线恢复独立释放（旧时间窗语义）
+    const cOff2 = normalizeFactorSellFilterConfig({ enabled: true, smartHold: { releaseNoBuySec: 0 } }).normalized;
+    ok(judgeFactorSellFilter(cOff2, { profitPercent: 105, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0, smartCopyWalletCircPct: 2.5, sinceLastSmartAnyBuySec: 14 }).blocked === false, 'T8 releaseNoBuySec=0 显式关状态臂');
+    ok(judgeFactorSellFilter(cOff2, { profitPercent: 105, sinceLastSmartBigBuySec: 42, recentSmartSellBnb: 0.64, smartCopyWalletCircPct: 2.5, sinceLastSmartAnyBuySec: 14 }).blocked === false, 'T9 关状态臂后撤退线恢复独立释放');
+    // T10 时间窗臂独立工作（不传新键——I1 形状复验）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: 50, recentSmartSellBnb: 0 }).blocked === true, 'T10 时间窗臂独立（不传新键）');
+    // T11 管辖门外恒放行（状态臂不扩管辖域）
+    ok(judgeFactorSellFilter(CFG, { profitPercent: 40, currentVsLaunchPct: 5, sinceLastSmartBigBuySec: 5, recentSmartSellBnb: 0, smartCopyWalletCircPct: 2.5, sinceLastSmartAnyBuySec: 5 }).blocked === false, 'T11 pp<50 管辖外放行');
+    // T12 info 留痕三键（复盘载体）
+    const r2 = judgeFactorSellFilter(CFG, { profitPercent: 105, sinceLastSmartBigBuySec: null, recentSmartSellBnb: 0, smartCopyWalletCircPct: 2.5, sinceLastSmartAnyBuySec: 14 });
+    ok(r2.info.smartCopyWalletCircPct === 2.5 && r2.info.sinceLastSmartAnyBuySec === 14 && r2.info.smartReleaseNoBuySec === 180, 'T12 info 留痕（smartCirc/anyBuy/releaseNoBuySec）');
 }
 
 // ── J. T183 pump 臂签名管辖（pump-imbalance-exit 腿无论 pp 过门）──────────

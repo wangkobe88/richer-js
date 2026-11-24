@@ -126,10 +126,13 @@ const FACTOR_SELL_FILTER_DEFAULTS = Object.freeze({
     releaseNoBuySec: 180,
 });
 
-/** smartHold 默认阈值（T183：famousHold 同窗同释放线；大买线在 FA smartBigBuyBnb） */
+/** smartHold 默认阈值（T183：famousHold 同窗同释放线；大买线在 FA smartBigBuyBnb。
+ *  T228（2026-11-24）状态臂：famousHold T227d 逐行镜像——smart 仍持仓 ∧ 180s 内
+ *  任意金额新入场 → HOLD 不限时且压制 0.4 撤退线；releaseNoBuySec=0 显式关。 */
 const SMART_HOLD_DEFAULTS = Object.freeze({
     maxSinceBuySec: 180,   // 聪明钱大买新鲜窗（秒）
     sellReleaseBnb: 0.4,   // 聪明钱卖出释放线（BNB，60s 窗——FA smartSellWinMs）
+    releaseNoBuySec: 180,  // T228 状态臂释放窗（秒）：距最近任意 smart 买入超此值=无新入场 → 释放
 });
 
 /** recoveryHold 默认阈值（T185 2026-11-18，案源 bt-v153 0x89aa…7777：4s 闪砸 -44%
@@ -456,11 +459,23 @@ function judgeFactorSellFilter(config, factors, leg) {
     const famousHit = !famousCheapExit
         && (!_released(recentSell, fh.sellReleaseBnb) || famousStateHit)
         && (_freshWithin(sinceLast, fh.maxSinceBuySec) || famousStateHit);
-    // smartHold 命中（T183 镜像）：聪明钱 180s 内大买且 60s 卖出未达释放线
+    // smartHold 命中（T183 时间窗臂 + T228 状态臂=T227d 逐行镜像）：时间窗臂=
+    // 聪明钱 180s 内大买且 60s 卖出未达释放线；状态臂=smart 仍持仓（smartCirc>0）
+    // ∧ 180s 内任意金额新入场（anyBuy≤releaseNoBuySec）→ HOLD 不限时且压制 0.4
+    // 撤退线（「止盈也很常见，只要有新入场的即可」）。null/0 全 fail-open：
+    // circ/anyBuy 缺席（旧 FA）不拦；releaseNoBuySec=0 显式关状态臂。
+    const smartCirc = factors ? factors.smartCopyWalletCircPct : undefined;
+    const smartAnyBuy = factors ? factors.sinceLastSmartAnyBuySec : undefined;
+    info.smartCopyWalletCircPct = smartCirc ?? null;
+    info.sinceLastSmartAnyBuySec = smartAnyBuy ?? null;
+    info.smartReleaseNoBuySec = sh ? sh.releaseNoBuySec : null;
+    const smartStateHit = !!(sh && sh.enabled && sh.releaseNoBuySec > 0
+        && typeof smartCirc === 'number' && Number.isFinite(smartCirc) && smartCirc > 0
+        && _freshWithin(smartAnyBuy, sh.releaseNoBuySec));
     let smartHit = false;
     if (sh && sh.enabled) {
-        smartHit = _freshWithin(smartSinceLast, sh.maxSinceBuySec)
-            && !_released(smartRecentSell, sh.sellReleaseBnb);
+        smartHit = (!_released(smartRecentSell, sh.sellReleaseBnb) || smartStateHit)
+            && (_freshWithin(smartSinceLast, sh.maxSinceBuySec) || smartStateHit);
     }
     if (famousHit) return { blocked: true, rule: 'famous_hold', info };
     if (smartHit) return { blocked: true, rule: 'smart_hold', info };
