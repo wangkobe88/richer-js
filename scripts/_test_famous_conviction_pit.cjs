@@ -186,11 +186,11 @@ console.log('C. point-type-router 类型 famous_conviction_pit');
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
     }
   });
-  check('C1b T234 三修 ath 上限负例：ath 131 >130 → normal（大热残局切——w1003 死区 16 票形状）', () => {
-    assert.strictEqual(classifyPointType({ ...PIT, athVsLaunchPct: 131 }).type, 'normal');
+  check('C1b T234 五修 ath 上限负例：ath 141 >140 → normal（大热残局切——w1003 死区 141.37+ 票形状）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, athVsLaunchPct: 141 }).type, 'normal');
   });
-  check('C1c T234 三修 ath 上限正例：ath 129.5 ≤130 → 命中（CZCOIN 122 留 8 点距的形状）', () => {
-    assert.strictEqual(classifyPointType({ ...PIT, athVsLaunchPct: 129.5 }).type, 'famous_conviction_pit');
+  check('C1c T234 五修 ath 上限正例：ath 132.09 ≤140 → 命中（0x28ea 贴线案源——130 帽 2.09 点误伤修正）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, athVsLaunchPct: 132.09 }).type, 'famous_conviction_pit');
   });
   check('C2 龄 59 <60 → normal', () => {
     assert.strictEqual(classifyPointType({ ...PIT, tokenAgeSec: 59 }).type, 'normal');
