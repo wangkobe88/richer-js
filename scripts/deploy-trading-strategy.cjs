@@ -7,7 +7,7 @@
 //    deploy-signal-source-strategies.cjs 的 LEGS 产物（bt-v163 模板仍带 v33 条件串，
 //    G2 未迁出，故买腿不走模板提取）；cards:4 为烘焙时按「卡牌张数入包」裁定统一补
 //    （旧链由 clone Tier1 自动补，张数恒 4——bt-v163 实跑腿同值，bit 等价）。
-//  * 卖 18 腿 + stallClose{50s,足额0.01} + burstCooldown{} 全默认 = bt-v163-all-arms-48h-
+//  * 卖 18 腿 + stallClose{55s,足额0.01} + burstCooldown{} 全默认 = bt-v163-all-arms-48h-
 //    win1003（7d60bc05-8c4e-4f0d-993c-6f2d02428ea7，2026-11-20 现行最优模板）config 逐字提取
 //    （16 条现行 + T161 famous-trim 两段）；提取规范化一处：卖腿「profitPercent > 100」
 //    cards='1'（字符串）烘焙为数字 1（引擎 normalizeCards 等价归一，非策略变化）。
@@ -25,7 +25,7 @@
 'use strict';
 
 const ENTRY_NAME = 'trading-standard-v1';
-const ENTRY_DESC = '现行最优交易策略包：ladder v39 十六腿（v34 十四腿+T224 黄金坑臂+T225 独舞臂 priority 17〔2026-11-23 用户裁定「把这个 pointType 对应的策略正式发布，合并到系统当前的交易策略中」——pointType strongbacker_solo_dance（PT19，policy actFront:pass+cheatCheck:g23NoE+臂豁免 fam_holding_thin/oversell_residual）；bt-v224 验证 LAB +225.81%/개구리씨 +138.48%/6 死盘全拦〕〔2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系好散户币黄金坑买腿并入主包 priority 16 兜底臂〕；T214/v35 初版强庄臂（firstBigBuyerHoldPct≥40 线）经 T215 命中面否证已回退留档——终版独舞九键重立为 T225）+ **T229 早回场 OR 臂**〔2026-11-24 用户指令「给常规的所有臂，也增加一个 earlyReturn 的或条件」——十四腿价格门改 (基线 OR (earlyReturn<15 ∧ curVs≤33.5))，GWC 0xb712 重生波回踩 30.26% 一窗错过案（JG-38 第二生命），常量与黄金坑臂同族〕+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 50s/足额0.01 + 五门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
+const ENTRY_DESC = '现行最优交易策略包：ladder v39 十六腿（v34 十四腿+T224 黄金坑臂+T225 独舞臂 priority 17〔2026-11-23 用户裁定「把这个 pointType 对应的策略正式发布，合并到系统当前的交易策略中」——pointType strongbacker_solo_dance（PT19，policy actFront:pass+cheatCheck:g23NoE+臂豁免 fam_holding_thin/oversell_residual）；bt-v224 验证 LAB +225.81%/개구리씨 +138.48%/6 死盘全拦〕〔2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系好散户币黄金坑买腿并入主包 priority 16 兜底臂〕；T214/v35 初版强庄臂（firstBigBuyerHoldPct≥40 线）经 T215 命中面否证已回退留档——终版独舞九键重立为 T225）+ **T229 早回场 OR 臂**〔2026-11-24 用户指令「给常规的所有臂，也增加一个 earlyReturn 的或条件」——十四腿价格门改 (基线 OR (earlyReturn<15 ∧ curVs≤33.5))，GWC 0xb712 重生波回踩 30.26% 一窗错过案（JG-38 第二生命），常量与黄金坑臂同族〕+ 卖 18 腿（16 现行+famous-trim 两段）+ stallClose 55s/足额0.01（2026-11-24 用户裁定 50→55s——断流清仓延迟 5s，金狗 stall 卖点复流面）+ 五门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
 
 const PACK_DEFINITION = {
   "buyLegs": [
@@ -494,7 +494,7 @@ const PACK_DEFINITION = {
     }
   ],
   "stallClose": {
-    "stallMs": 50000,
+    "stallMs": 55000,
     "minTickBnb": 0.01
   },
   "modules": {
