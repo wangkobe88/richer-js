@@ -507,6 +507,13 @@ function computeDerived(snapshot, famousRoster) {
   const noBuySellVolumePctExCreator = totalVolumeBnb > 0
     ? +((noBuySellBnbExCreator / totalVolumeBnb) * 100).toFixed(1) : null;
 
+  // ── FP47 holder 观察因子原料（2026-11-24 用户裁定「A 档四题全搞」第四题）：
+  // 锚窗买过钱包数（buyN>0 计数，0=有证据零值）——holder_concentration 一人控盘
+  // 臂「参与/持有分叉」判据（BP snapshot buyersTotal 同口径单点；分叉=买过的人
+  // 不少、拿货的只有两三个=拉高出货温床）。同批补投 sameBlockHoldCircPct/
+  // equalBandHoldCircPct 两簇流通键进投影链（derived 已有、FA 未投）。──
+  const buyerWalletCount = wallets.reduce((n, e) => n + ((e.buyN || 0) > 0 ? 1 : 0), 0);
+
   // ── D3.52 强庄持续买压·锚窗买卖比（strong_backer_pressure 题判读原料——
   // CD159 立项观察期键，grade 零消费只进 FA 投影攒分布）：窗口买入合计÷卖出合计，
   // 方向性事实（大户是否持续净买推价由题档判读）；卖=0 → null 比值不适用
@@ -2208,6 +2215,8 @@ function computeDerived(snapshot, famousRoster) {
     // FP47 影子（2026-11-24）：insider 题判据代码化锚——门侧零消费对拍用
     insiderSellPct, insiderSellBuyPct, insiderSellWallets,
     noBuySellWalletsExCreator, noBuySellBnbExCreator, noBuySellVolumePctExCreator,
+    // FP47 holder 观察因子原料（锚窗买过钱包数——一人控盘臂分叉判据）
+    buyerWalletCount,
     // D3.52 锚窗买卖比（strong_backer_pressure 题原料；观察期 grade 零消费）
     anchorBuySellRatio,
     // D3.53 精确等额同块簇（CD160：equal_amount_split/same_block_buy_wave 题

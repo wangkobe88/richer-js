@@ -161,6 +161,7 @@ const OBS_ANCHOR_KEYS = [
   'burstWaveBuyBnb', 'burstWaveWallets', 'noBuySellPct',
   'maxBlockBuyCount', 'maxBlockBuyPct', 'maxBlockPreGapSec', 'sameAmountWalletPct',
   'creatorPeakHoldSupplyPct', 'sameBlockHoldCircPct', 'equalBandHoldCircPct',
+  'buyerWalletCount', // FP47 holder 观察因子原料（锚窗买过钱包数）
   'clusterRoundTripPct', 'clusterRoundTripSellPct', 'clusterRoundTripBlocks',
   'spikeBuyPctInBurst', 'spikeHoldPctAll', 'anchorBuySellRatio',
   'noBuySellVolumePct', // D3.50

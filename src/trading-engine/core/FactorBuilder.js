@@ -438,6 +438,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     cheatBurstWaveBuyBnb: factorResults.cheatBurstWaveBuyBnb ?? null,
     cheatBurstWaveWallets: factorResults.cheatBurstWaveWallets ?? null,
     cheatNoBuySellPct: factorResults.cheatNoBuySellPct ?? null,
+    // D3.41 簇占在场流通两锚（token 域）+ FP47 buyerWalletCount（锚窗买过钱包数）
+    cheatSameBlockHoldCircPct: factorResults.cheatSameBlockHoldCircPct ?? null,
+    cheatEqualBandHoldCircPct: factorResults.cheatEqualBandHoldCircPct ?? null,
+    cheatBuyerWalletCount: factorResults.cheatBuyerWalletCount ?? null,
+    // FP47 holder 观察因子（0-3 数值序；null=原料缺失/未判定）
+    bpHolderConcentration: factorResults.bpHolderConcentration ?? null,
     // FP47 影子（2026-11-24）：insider 题判据代码化锚（门侧零消费对拍用）
     cheatInsiderSellPct: factorResults.cheatInsiderSellPct ?? null,
     cheatInsiderSellBuyPct: factorResults.cheatInsiderSellBuyPct ?? null,

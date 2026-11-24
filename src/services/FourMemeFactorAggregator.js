@@ -5895,6 +5895,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatBundledDominance = _lv ? _lv.bundledDominance ?? null : null;
             factors.cheatSameBlockHoldPct = _an ? _an.sameBlockHoldPct ?? null : null;
             factors.cheatEqualBandHoldPct = _an ? _an.equalBandHoldPct ?? null : null;
+            // D3.41 簇占在场流通两锚（token 域）+ FP47 buyerWalletCount（锚窗买过
+            // 钱包数——holder 一人控盘臂分叉判据原料）
+            factors.cheatSameBlockHoldCircPct = _an ? _an.sameBlockHoldCircPct ?? null : null;
+            factors.cheatEqualBandHoldCircPct = _an ? _an.equalBandHoldCircPct ?? null : null;
+            factors.cheatBuyerWalletCount = _an ? _an.buyerWalletCount ?? null : null;
             factors.cheatWashPairCount = _an ? _an.washPairCount ?? null : null;
             factors.cheatWashPairSellPct = _an ? _an.washPairSellPct ?? null : null;
             factors.cheatWashPairBuyPct = _an ? _an.washPairBuyPct ?? null : null;
@@ -5924,6 +5929,23 @@ class FourMemeFactorAggregator extends EventEmitter {
             factors.cheatInsiderSellWallets = _an ? _an.insiderSellWallets ?? null : null;
             factors.cheatNoBuySellWalletsExCreator = _an ? _an.noBuySellWalletsExCreator ?? null : null;
             factors.cheatNoBuySellVolumePctExCreator = _an ? _an.noBuySellVolumePctExCreator ?? null : null;
+            // FP47 holder 观察因子（2026-11-24 用户裁定「A 档四题全搞」第四题）：
+            // BP69 holder_concentration 分层线机械翻译（holder-concentration-factor.js
+            // 单点）——观察键（chip gate 停用中零门消费；条件串可用，恢复筹码门时
+            // 直接消费）。0-3 数值序；null=原料缺失/未判定（裸比较恒 false
+            // fail-closed，放行须显式 `IS NULL OR` 臂，cheatGrade 先例）。
+            factors.bpHolderConcentration = _an ? (() => {
+                const { judgeHolderConcentration } = require('../market-analysis/holder-concentration-factor');
+                return judgeHolderConcentration({
+                    posHolderCount: _an.posHolderCount ?? null,
+                    top1HoldCircPct: _an.top1HoldCircPct ?? null,
+                    top1Top2HoldCircPct: _an.top1Top2HoldCircPct ?? null,
+                    top3HoldCircPct: _an.top3HoldCircPct ?? null,
+                    sameBlockHoldCircPct: _an.sameBlockHoldCircPct ?? null,
+                    equalBandHoldCircPct: _an.equalBandHoldCircPct ?? null,
+                    buyerWalletCount: _an.buyerWalletCount ?? null,
+                }, factors.currentVsLaunchPct ?? null).level;
+            })() : null;
             // D3.51 burst 尖刺两锚（D3.76/CD418 随题退役改纯观察留档：
             // 尖刺买入占簇买入%/尖刺钱包正净占全窗正净%；可进条件串）
             factors.cheatSpikeBuyPctInBurst = _an ? _an.spikeBuyPctInBurst ?? null : null;

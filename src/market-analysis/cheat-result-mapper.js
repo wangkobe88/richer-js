@@ -277,6 +277,8 @@ function buildObservation(answers, anchors = null) {
       // 闭环→0；叙事数组 clusterRoundTrips 不进 observation 仅 state 渲染）
       sameBlockHoldCircPct: _anchorPct(anchors, 'sameBlockHoldCircPct'),
       equalBandHoldCircPct: _anchorPct(anchors, 'equalBandHoldCircPct'),
+      // FP47 holder 观察因子原料（锚窗买过钱包数——一人控盘臂分叉判据）
+      buyerWalletCount: _anchorPct(anchors, 'buyerWalletCount'),
       clusterRoundTripPct: _anchorPct(anchors, 'clusterRoundTripPct'),
       clusterRoundTripSellPct: _anchorPct(anchors, 'clusterRoundTripSellPct'),
       clusterRoundTripBlocks: _anchorPct(anchors, 'clusterRoundTripBlocks'),

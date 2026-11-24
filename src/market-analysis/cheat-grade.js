@@ -393,6 +393,10 @@ function levelsFromObservation(observation, extras = {}) {
   const anchors = {
     sameBlockHoldPct: _pct(an.sameBlockHoldPct),
     equalBandHoldPct: _pct(an.equalBandHoldPct),
+    // D3.41 簇占在场流通两锚（token 域）+ FP47 buyerWalletCount（锚窗买过钱包数）
+    sameBlockHoldCircPct: _pct(an.sameBlockHoldCircPct),
+    equalBandHoldCircPct: _pct(an.equalBandHoldCircPct),
+    buyerWalletCount: _pct(an.buyerWalletCount),
     washPairCount: _pct(an.washPairCount),
     washPairSellPct: _pct(an.washPairSellPct),
     washPairBuyPct: _pct(an.washPairBuyPct),

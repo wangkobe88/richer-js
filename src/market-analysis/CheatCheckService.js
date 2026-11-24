@@ -1231,6 +1231,8 @@ class CheatCheckService {
           // state 渲染，头注见 snapshot）
           sameBlockHoldCircPct: snapshot.derived.sameBlockHoldCircPct,
           equalBandHoldCircPct: snapshot.derived.equalBandHoldCircPct,
+          // FP47 holder 观察因子原料（锚窗买过钱包数——一人控盘臂分叉判据）
+          buyerWalletCount: snapshot.derived.buyerWalletCount,
           clusterRoundTripPct: snapshot.derived.clusterRoundTripPct,
           clusterRoundTripSellPct: snapshot.derived.clusterRoundTripSellPct,
           clusterRoundTripBlocks: snapshot.derived.clusterRoundTripBlocks,
