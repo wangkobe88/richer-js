@@ -3241,9 +3241,17 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (!(bnbAmount >= ROSTER_HIGH_BUY_DUST)) return;
         if (!priceBnb || priceBnb <= 0) return;
         if (!state._minRelPriceBnb || state._minRelPriceBnb <= 0) return;
+        const w = walletAddr.toLowerCase();
+        // T234 三修（2026-11-24 用户裁定「臭名昭著钱包就不算在 famous 命中数量中」）：
+        // 臭名昭著集合（T222）成员的高位买入不构成「好票背书」——a83b 案（famous
+        // roster 同框大割，0x2ee9 +312/+284% 顶部区买入）；w1003 31 类型成交票中
+        // 9 票含 notorious 高位买，剔除后 8 票 N 跌至 2<3 失去类型匹配（免损合计
+        // +0.165：西狑 0.025/顺宝 0.021/小七 0.042/COLE 0.048/穿青人 0.009/FFR
+        // 0.006/Мерген 0.010/SI 0.004），唯一赢家与我相关 N=5→3 仍过线零受损
+        if (_notoriousWallets && _notoriousWallets.has(w)) return;
         if (priceBnb / state._minRelPriceBnb - 1 < ROSTER_HIGH_BUY_VS) return;
         state._famousSmartHighBuyBnb = (state._famousSmartHighBuyBnb || 0) + bnbAmount;
-        state._famousSmartHighBuyWallets.add(walletAddr.toLowerCase());
+        state._famousSmartHighBuyWallets.add(w);
     }
 
     /**

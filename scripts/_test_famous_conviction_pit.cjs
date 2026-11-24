@@ -102,6 +102,19 @@ console.log('A. 臂 A 两键 famousSmartHighBuyBnb/N（famous∪smart 高位买�
     assert.strictEqual(bare._famousSmartHighBuyBnb, 0);
     assert.strictEqual(bare._famousSmartHighBuyWallets.size, 0);
   });
+  // T234 三修（2026-11-24 用户裁定「臭名昭著钱包就不算在 famous 命中数量中」）：
+  // notorious 集合成员的高位买不构成好票背书（a83b 案——famous roster 同框大割）
+  const fa4 = newFA({ famous: ['fa', 'fb'], smart: [] });
+  FourMemeFactorAggregator.setNotoriousWalletsForTest(new Set(['fa']));
+  fa4.processTick(mkTick({ ts: T0 + 1000, side: 'buy', bnb: 0.1, tok: 1e8, px: PX, w: 'w0' }), {});
+  fa4.processTick(mkTick({ ts: T0 + 2000, side: 'buy', bnb: 0.3, tok: 2e8, px: 1.5e-9, w: 'fa' }), {});  // fa=notorious → 不计
+  fa4.processTick(mkTick({ ts: T0 + 3000, side: 'buy', bnb: 0.3, tok: 2e8, px: 1.5e-9, w: 'fb' }), {});  // fb 正常 → 计 0.3
+  const f5 = fa4.buildFactorMap('0xtoken', T0 + 3500);
+  check('A7 notorious 钱包高位买不计入臂 A（fa 剔除；fb 0.3 计）', () => {
+    assert.strictEqual(f5.famousSmartHighBuyBnb, 0.3);
+    assert.strictEqual(f5.famousSmartHighBuyN, 1);
+  });
+  FourMemeFactorAggregator.setNotoriousWalletsForTest(null);
   resetRosters();
 }
 
@@ -151,6 +164,7 @@ console.log('C. point-type-router 类型 famous_conviction_pit');
 {
   const PIT = {
     tokenAgeSec: 63, mcapFromPeakPct: 59.9, currentVsLaunchPct: 28.2, earlyReturn: 28.2,
+    athVsLaunchPct: 113.92, // T234 三修 ath 上限键（0x2ee9 fire 真值 113.92 ≤130 ✓）
     famousSmartHighBuyBnb: 1.335, famousSmartHighBuyN: 5, famousFollowBlockMaxWallets: 3,
     anchorTickIsBuy: 1, anchor15sMaxBuyBnb: 0.025,
   };
@@ -168,10 +182,16 @@ console.log('C. point-type-router 类型 famous_conviction_pit');
     });
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
     for (const k of ['tokenAgeSec', 'mcapFromPeakPct', 'currentVsLaunchPct', 'earlyReturn',
-      'famousSmartHighBuyBnb', 'famousSmartHighBuyN', 'famousFollowBlockMaxWallets',
+      'athVsLaunchPct', 'famousSmartHighBuyBnb', 'famousSmartHighBuyN', 'famousFollowBlockMaxWallets',
       'anchorTickIsBuy', 'anchor15sMaxBuyBnb']) {
       assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
     }
+  });
+  check('C1b T234 三修 ath 上限负例：ath 131 >130 → normal（大热残局切——w1003 死区 16 票形状）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, athVsLaunchPct: 131 }).type, 'normal');
+  });
+  check('C1c T234 三修 ath 上限正例：ath 129.5 ≤130 → 命中（CZCOIN 122 留 8 点距的形状）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, athVsLaunchPct: 129.5 }).type, 'famous_conviction_pit');
   });
   check('C2 龄 59 <60 → normal', () => {
     assert.strictEqual(classifyPointType({ ...PIT, tokenAgeSec: 59 }).type, 'normal');
