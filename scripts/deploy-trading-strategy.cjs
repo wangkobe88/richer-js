@@ -417,9 +417,9 @@ const PACK_DEFINITION = {
     {
       "cards": "all",
       "priority": 10,
-      "condition": "mcapPeakBnb > 20.1 AND secSinceMcapPeak >= mcapRiseHalfSec AND mcapRiseHalfSec >= 60",
+      "condition": "mcapPeakBnb > 20.1 AND secSinceMcapPeak >= mcapRiseHalfSec AND mcapRiseHalfSec >= 60 AND chg5Pct < 0 AND chg30Pct < 0",
       "cooldownSec": null,
-      "description": "T107 市值拱形时间全清臂（2026-10-29 用户裁定）：X=首次交易→最高市值耗时（token 全生命口径，首 tick 锚 write-once）；峰值市值超 15K USD（=20.1 BNB，T84 换算率 745）后，距峰已流逝 ≥ X/2 秒且未再破新高 → 全部清仓——涨多久跌多久没新高=拱形走完，时间维度与 T99 回撤深度维度互补（浅回落阴跌票 -25/-35 永远够不着，本臂按「再等半个涨程还没新高」截断）。峰=任意接受价轨（outlier/chainLate 不推、尘价照推，与 drawdownFromHighest 同峰同价流）；再破高 → 峰推进=计时归零+X 变大（X/2 只会长不会缩）；无接受价/totalSupply 缺失 → null 恒 false fail-closed（marketCap 族惯例）；首峰即首 tick（开跌即峰）X=0 → 过门即清（忠实口径）；**T228f（2026-11-24 用户裁定补丁）X 下限 60s：mcapRiseHalfSec >= 60——入场即峰（X<60s）不武装，由 P11 回撤族/毕业卖接管**（金狗集合 9/9 笔 arc 卖出全为 X=0 天花板秒清、7/9 卖后 +77~619%，T107「形状罕见」假设被数据打穿）；进程晚接管/回测窗口晚于真实首交易的票 X 低估 → 提前触发（保守出场方向）。maxExecutions 刻意不设（卖出失败每轮重试直到清仓）；bypass=false 走 3.5s+5tick 双门确认。FA 三键 mcapPeakBnb/secSinceMcapPeak/mcapRiseHalfSec（X/2 预计算——求值器无算术文法）。插位=T97 secSincePeak 腿前（p10 同档首中即赢：拱形完成全清 ⊃ T97/T80 减 1 卡）。详档 docs/交易策略改进与Case台账.md T107",
+      "description": "T107 市值拱形时间全清臂（2026-10-29 用户裁定）：X=首次交易→最高市值耗时（token 全生命口径，首 tick 锚 write-once）；峰值市值超 15K USD（=20.1 BNB，T84 换算率 745）后，距峰已流逝 ≥ X/2 秒且未再破新高 → 全部清仓——涨多久跌多久没新高=拱形走完，时间维度与 T99 回撤深度维度互补（浅回落阴跌票 -25/-35 永远够不着，本臂按「再等半个涨程还没新高」截断）。峰=任意接受价轨（outlier/chainLate 不推、尘价照推，与 drawdownFromHighest 同峰同价流）；再破高 → 峰推进=计时归零+X 变大（X/2 只会长不会缩）；无接受价/totalSupply 缺失 → null 恒 false fail-closed（marketCap 族惯例）；首峰即首 tick（开跌即峰）X=0 → 过门即清（忠实口径）；**T228f（2026-11-24 用户裁定补丁）X 下限 60s：mcapRiseHalfSec >= 60——入场即峰（X<60s）不武装，由 P11 回撤族/毕业卖接管**（金狗集合 9/9 笔 arc 卖出全为 X=0 天花板秒清、7/9 卖后 +77~619%，T107「形状罕见」假设被数据打穿）；**T228h（2026-11-24 用户裁定「也可以改为上涨趋势不卖」）加 chg5∧chg30 双负动量门**——拱形走完但仍在涨势（MOYNOK 案 60s 均价 +22%）不卖，转跌才清；进程晚接管/回测窗口晚于真实首交易的票 X 低估 → 提前触发（保守出场方向）。maxExecutions 刻意不设（卖出失败每轮重试直到清仓）；bypass=false 走 3.5s+5tick 双门确认。FA 三键 mcapPeakBnb/secSinceMcapPeak/mcapRiseHalfSec（X/2 预计算——求值器无算术文法）。插位=T97 secSincePeak 腿前（p10 同档首中即赢：拱形完成全清 ⊃ T97/T80 减 1 卡）。详档 docs/交易策略改进与Case台账.md T107",
       "bypassDebounce": false
     },
     {
