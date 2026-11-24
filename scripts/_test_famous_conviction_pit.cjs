@@ -222,6 +222,12 @@ console.log('C. point-type-router 类型 famous_conviction_pit');
   check('C2 龄 59 <60 → normal', () => {
     assert.strictEqual(classifyPointType({ ...PIT, tokenAgeSec: 59 }).type, 'normal');
   });
+  check('C2b T234 七修龄上界负例：tokenAgeSec 901 >900 → normal（偏前期语义——15 分钟内）', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, tokenAgeSec: 901 }).type, 'normal');
+  });
+  check('C2c T234 七修龄上界正例：tokenAgeSec 899 ≤900 → 命中', () => {
+    assert.strictEqual(classifyPointType({ ...PIT, tokenAgeSec: 899 }).type, 'famous_conviction_pit');
+  });
   check('C3 坑不够深（mcapFromPeak 63 >62）→ normal', () => {
     assert.strictEqual(classifyPointType({ ...PIT, mcapFromPeakPct: 63 }).type, 'normal');
   });
