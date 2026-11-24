@@ -2254,3 +2254,9 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **实现**：FA `_activityFactors` 循环买侧并行累计（门结构镜像 total 侧 W15/W60/W90）+ `_buildFactorMap` 组装 + FactorBuilder 透传（三键）；router condition 换买侧键（**PT22→PT23**）+ deploy p16 腿 condition/description + docs；单测 activity_window_multi F 段混卖断言（60Ex15Buy=0.3/90Ex60Buy=0.1 精确值+闭区间边界）、point_type_router A2l4~7（0.15/0.12 边界、0.16/0.13 负例、MOYNOK 卖不拦回归）、fa_factors 白名单补登两键。total 侧 60Ex15/90Ex60 键留 FA 作观察键（T225 腿继续用 60Ex15）。包 deploy v15→v16。
 
 **验证（已兑现，bt-v240）**：16 票 / 胜率 87.5% / **+5.5668**（vs bt-v237 基线 +4.2489 = **+1.3179**）——**MOYNOK 买回 +0.4521 ✅（带卖不拦兑现）、0x4509 保持 +1.3179 ✅、쿠우타 也买回 +0.1249（Jev 噪声归位）**；16 票=v238 原 15 票+0x4509 纯增量，**零误伤**。T231+T232 全链四改端到端收官：0.19 队列线/龄上界撤除/act15s 0.4/买侧差额 0.15-0.12。
+
+## T232 stallClose 断流卖出腿化（2026-11-24 用户裁定「将断流卖出策略同样使用因子表达式进行表达，作为卖出臂的一部分……同样进入卖出臂的过滤检测」）
+
+**架构**：stallClose 从引擎独立机制（1s 扫描+直构造 strategy+绕过 filter）改造为**策略包普通卖腿**：`(idleSecSinceLastSubstantialTick >= 90 AND currentVsLaunchPct <= 10) OR (idleSecSinceLastSubstantialTick >= 55 AND (currentVsLaunchPct > 10 OR currentVsLaunchPct IS NULL))`，id='stallClose'/priority 0/cards all/bypassDebounce（保命形状，T228i 铁律）；FA 新键 idleSecSinceLastSubstantialTick（足额水位，factorParams.substantialTickBnb 缺省 0.01 自注入）；两引擎 1s 断流驱动（45s 预扫门+评估全部卖腿——回测顺带补「断流票其它卖腿永不评估」parity 缺口）；factorSellFilter stall 签名 → **recoveryHold 对 stall 腿放行**（三键价格冻结会永久拦的保命反证），famous/smart/machine 臂照常（时间键自然衰减 ≤180s）；signal metadata 同形状迁移（前端零改动）；T219 豁免退役（bt-v206 否证）、破发档不回迁（d345c 否证）。
+
+**对拍（金狗 31 票，A=v17 stall 腿 vs B=v16 对照条目）**：A 105.5165 vs B 105.5010（B 两轮逐位同=零 Jev 翻转）**+0.0155**；**stall 行时点 6 行中 5 行 Δ=0s**，唯一差异 LAB +75s=famous_hold 拦 stall 腿（anyBuy 121→128→>180 自然衰减放行——「大户在场先不卖」兑现，75s 后照卖）。事故两件：①require 锚文本 .js 后缀漏插（isStallSellLeg ReferenceError）②预扫门用全量 lastTickAt 被尘埃喂饱致驱动饿死（BIBI +89s——改足额水位同旧判据修复）。单测 `_test_stall_sell_leg` 42 断言（真值表/水位/驱动/filter 反证/共存）；回归 94/235/133/41/44/52/24 全绿。
