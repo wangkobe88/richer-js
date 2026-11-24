@@ -2312,3 +2312,22 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **改动**：buy-point-snapshot.js oversell 族第四键 oversellSecToAnchor（ticks 单趟扫描超卖户最后卖 dt，无 O(n²)）；factor-pre-buy-check.js armOversellResidual 豁免臂+OVERSELL_QUIET_EXEMPT_SEC=55 导出+版本头 FP46+gates 门行 value 加「距锚 Xs」、line 加豁免说明。单测：_test_buy_point_lib V7/V7b/V7c（贴锚 0/案形状 58/无超卖 null）+_test_factor_prebuy_check AA8（55 恰线豁免/54 保持拦/null 保持拦/3beb 案值不拦+整门 pass）+AA7 及全文件 12 处版本钉 FP46、_test_buy_point_check_service FP3、_test_stall_restart 版本钉同步；回归 factor_prebuy_check 329/cheat_detection_lib 657/buy_point_lib 588/buy_point_check_service 43/retail_path_gate_policy 14/point_type_router 43/stall_restart 78/cheat_gate_engine 180 全绿。
 
 **对拍（金狗集合 bt-v2xx A/B：v17+FP46 vs v17 基底）：待跑**。
+
+## T236 缓慢发育潜力币早期点位（pointType slow_develop_early）：前期没涨过+慢速+相对大额 三刀豁免 AF1 低活跃（2026-11-24 用户提案+裁定）
+
+**入口**：用户复盘一姐 0xfc23…7777（flap，金狗集合 JG-44）signals 页——「前期平均交易额比较大，但是总活跃度则偏低……早期默默发育的好票，一开始没那么热但是看到的都相对看好」→ 提案「平均交易额（捆绑算一个）相对比较大，能不能豁免活跃度低」→ 用户追加第二刀「总交易数量也不会多」→ 理念「前期币没涨过，慢速的相对大额交易」→ 用户定名 pointType「缓慢发育潜力币早期点位」。
+
+**案源**：一姐 0xfc23…7777——前期 75s 26 笔/tpm 20.8/买 2.46B/15 买家/等额簇 2 组 4 钱包/捆绑 avgTrade 0.189/athVs 39.9/curVs 13.2；锚后 +499% 毕业（峰 +528%）。gate 命运随包版本漂移：bt-v244(PT26) 死 BP 门、bt-v252(PT32) 死 cheat A_strong（coordinated_sell_back；top1 流通 51%/top2 73%/捆绑同路由 100%）、bt-v254(PT33) 死 AF1 act=low——该票骑在 act mid/low 边界，且带强庄签名。
+
+**三窗扫描（tmp-avgtrade-activity-scan.cjs 182 流式 + tmp-avgtrade-summary2.cjs 本地；口径=捆绑并钱包〔同块+金额 2% 带+≥2 钱包并一个实体，D3.53 同参数〕；面=AF1 低活跃拒面）**：
+- A 面（win1103+win1019 去重 141 票）avgTrade 分层=倒 U：<0.1 中位 0%、[0.1,0.15) 7%、**[0.15,0.2) 中位 6% 但 ≥50% 率 18%**（vs 邻档 5-11%）、[0.2,0.3) −1%、**≥0.3 七票全负**——「越大越好」延伸段否证（≥0.3=单庄对倒形状，0x8fea avg 0.445 典型）
+- B 面（FP act 族拦 651 票）零分离=低活跃因子臂拦面纯死盘域，avgTrade 不救
+- jindog（bt-v254）AF1 拒锚 7 个全 +450~890% 且 avgTrade 全落 [0.148,0.196]——金狗选择偏只算一致性佐证
+- **三刀叠切（athVs<60 ∧ 笔数≤40 ∧ avg∈[0.13,0.2)）n=22：中位 41%/≥50% 36%/≥100% 4**（0xbd48 +614/一姐 +499/0x824c +487/0x042b +146/0xe637 +98/0x8cf3 +68/0x09f0 +58/0xf6bd +56；代价 ~14 票平庸/死盘）。线值取舍：0.15 下沿误杀 0x5731 +1016/0xbd48 +614（avg 0.116/0.136）；0.2 上沿切 0xf057 +419（avg 0.202）留待观察；athVs<40 更紧（n=9 中位 47%）但 n 薄
+- win1103（bt-v145）随用户清理实验删除，0xf057/0x94ea 数据丢失
+
+**立法（用户裁定三刀+命名）**：新 pointType `slow_develop_early`（label「缓慢发育潜力币早期点位」，PT34）——condition：`athVsLaunchPct < 60 AND sinceLaunchTrades <= 40 AND bundledAvgTradeBnb300 >= 0.13 AND bundledAvgTradeBnb300 < 0.2`；policy=`{actFront:'pass'}` 只豁 AF1（慢速低活跃是形状本征非风险信号），cheat/BP 照走（一姐类 A_strong 强庄签名仍拦=知情边界；cheat 侧豁免另议不随本类型）。排位=著名类型之后（famous 背书票保持更强豁免优先命中，单测 E6 锁定）。FA 两新键：`sinceLaunchTrades`（全史总笔数单调计数，_applyWalletAggregation 两路径汇合点每行恰计一次、序无关 defer 免疫）、`bundledAvgTradeBnb300`（300s 窗捆绑口径平均交易额：买环+读点按钱包去重保链序最早=defer 乱序免疫；0=有证据零值非 null；分子含复购、尘买 <0.001 不进簇检测算独立实体）+观察键 `bundledEffBuyers300`。**口径警告**：FA 键与扫描口径存在地板分母（athVsLaunchPct vs 窗内地板）与窗长（300s vs 全史）差异——线值以对拍校准，可能需 PT bump。
+
+**单测**：_test_slow_develop_factors.cjs 17 断言（一姐精确值/2% 带宽合并/尘买不并簇/复购口径/defer 乱序 parity/窗口裁剪/卖行计数/空态零值/getFactorKeys 探针/源码口径）；_test_point_type_router.cjs E 段 7 断言（三刀边界真值表/null fail-closed/优先级）；回归 bundle_cluster 92/activity_window_multi 24/golden_pit 14/unknown_factor_reject 24/strategy_pack 45 全绿。
+
+**对拍（金狗 bt-v254 克隆 A/B：PT34 vs PT33 基底）：待跑**。**余留**：①一姐被 cheat A_strong 拦的形状（top1 流通 51%）不受本类型豁免——cheat 侧豁免另议 ②线值在新窗口数据进来后复核 ③0xf057/0x94ea（win1103）随实验删除数据丢失，新窗攒批补。

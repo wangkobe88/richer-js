@@ -232,4 +232,43 @@ console.log('D. T225 strongbacker_solo_dance（一个钱包的独舞，2026-11-2
   check('D9 拉盘波绑卖（ZEC 同 slot 对倒 0.508）→ normal', () =>
     assert.strictEqual(classifyPointType(Object.assign({}, SOLO, { quietSurgeSellBnb: 0.5084 })).type, 'normal'));
 }
+console.log('E. T236 slow_develop_early（缓慢发育潜力币早期点位，2026-11-24）');
+{
+  const SLOW = {
+    // 一姐 0xfc23…7777 锚真值形状（bt-v254 扫描口径）
+    athVsLaunchPct: 39.9, sinceLaunchTrades: 26, bundledAvgTradeBnb300: 0.1893,
+  };
+  check('E1 一姐形状命中（policy 只豁 AF1，cheat/BP 照走）', () => {
+    const r = classifyPointType(SLOW);
+    assert.strictEqual(r.type, 'slow_develop_early');
+    assert.deepStrictEqual(r.policy, { actFront: 'pass' });
+    for (const k of ['athVsLaunchPct', 'sinceLaunchTrades', 'bundledAvgTradeBnb300']) {
+      assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
+    }
+  });
+  check('E2 athVs 边界：59.9 <60 命中 / 60 ≥60 不命中（发布后没涨过太多）', () => {
+    assert.strictEqual(classifyPointType({ ...SLOW, athVsLaunchPct: 59.9 }).type, 'slow_develop_early');
+    assert.strictEqual(classifyPointType({ ...SLOW, athVsLaunchPct: 60 }).type, 'normal');
+  });
+  check('E3 总笔数边界：40 命中 / 41 不命中（慢速）', () => {
+    assert.strictEqual(classifyPointType({ ...SLOW, sinceLaunchTrades: 40 }).type, 'slow_develop_early');
+    assert.strictEqual(classifyPointType({ ...SLOW, sinceLaunchTrades: 41 }).type, 'normal');
+  });
+  check('E4 捆绑平均额带边界：[0.13,0.2) 双闭开', () => {
+    assert.strictEqual(classifyPointType({ ...SLOW, bundledAvgTradeBnb300: 0.13 }).type, 'slow_develop_early');
+    assert.strictEqual(classifyPointType({ ...SLOW, bundledAvgTradeBnb300: 0.1299 }).type, 'normal');
+    assert.strictEqual(classifyPointType({ ...SLOW, bundledAvgTradeBnb300: 0.1999 }).type, 'slow_develop_early');
+    assert.strictEqual(classifyPointType({ ...SLOW, bundledAvgTradeBnb300: 0.2 }).type, 'normal');
+  });
+  check('E5 athVs null（无可靠价）→ normal fail-closed 不误配', () => {
+    assert.strictEqual(classifyPointType({ ...SLOW, athVsLaunchPct: null }).type, 'normal');
+  });
+  check('E6 优先级：athVs 50 同时满足黄金坑全套 → famous_holder_cold_pit 优先命中（famous 背书票保持更强豁免）', () => {
+    const overlap = { ...GOLDEN, athVsLaunchPct: 50 };
+    assert.strictEqual(classifyPointType(overlap).type, 'famous_holder_cold_pit');
+  });
+  check('E7 空票（0 笔 0 额）→ normal（0 <0.13 有证据零值不命中）', () => {
+    assert.strictEqual(classifyPointType({ athVsLaunchPct: 10, sinceLaunchTrades: 0, bundledAvgTradeBnb300: 0 }).type, 'normal');
+  });
+}
 console.log(`\n全部通过 ${passed}/${passed}`);
