@@ -729,6 +729,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 三窗均 low=冷却经过考验条件载体，300s=观察键；详见 _test_activity_window_multi.cjs）
         'actTotalBnb15s', 'actTotalBnb30s', 'actTotalBnb60s', 'actTotalBnb300s',
         'actTotalBnb90Ex60', // T232 段值键（90s−60s 差额上界载体）
+        'actTotalBnb60Ex15Buy', 'actTotalBnb90Ex60Buy', // T232 补 3 买侧差额键（热度只计买入）
         // 2026-11-23 T218b/T220/T221 三键：90s 冷窗键（用户裁定「是否 1.5 分钟好
         // 一些」→≤1.0，与 15/30/60 同族）；famous 总供应占比观察键（3%/5% 帽已否证
         // 不进门）；famous 跟单拥挤键（famous 买后 2s 窗非 famous 买入钱包数全生命

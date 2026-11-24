@@ -2243,6 +2243,14 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 
 **实现**：router condition（**PT20→PT21**）+ deploy PACK_DEFINITION p16 腿 condition + description；FA `_computeActivity`/`_buildFactorMap` 新键 90Ex60（FactorBuilder 透传同批补 60Ex15 漏登）；单测 point_type_router A2l 重锚（0.349 真值正例/0.4 恰线/0.41 负例）+A2l4~6 差额两线边界负例、activity_window_multi F 段（60Ex15/90Ex60 精确值+闭区间边界）、fa_factors 白名单补登 90Ex60+**T227d/T228 批次 5 键漏登清点**（sinceLastFamousAnyBuySec/famousSellPendingSec/smartCopyWalletCircPct/sinceLastSmartAnyBuySec/machineNetBuy180——历史漏登，T232 清点发现一并补）；docs 条件全文+冷窗/差额 bullet 同步；包 deploy v14→v15。
 
-**验证**：bt-v239 克隆重跑（bt-v238 基底）——预期 15:02:26.2 P1 fire 分类 famous_holder_cold_pit→轻门链（FP cheatOnly/AF1 pass/CD g23NoSlowGrind/BP stuffingOnly），cheat/BP Jev 真实判定与最终成交以回测行为准。
+**验证（已兑现，bt-v239）**：0x4509 15:02:26.2 P1 fire 分类 famous_holder_cold_pit→轻门链通过→成交 0.2B→**+1.3179（+659%）**；集合 14 票 +4.9898（vs bt-v237 基线 +4.2489 = +0.7409；分解 +1.3179〔0x4509〕−0.4521〔MOYNOK 90Ex60 误伤〕−0.1249〔쿠우타 Jev 噪声〕）。
 
-**余留**：①bt-v239 结果补录（0x4509 是否成交+归因腿+金狗集合整体 PnL 与 bt-v237 基线对照）②15s=30s 同线后两窗信息重叠——若将来再放宽须先拆 15s/30s 语义（另案）。
+**余留**：①bt-v240 结果补录（买侧差额键验证）（0x4509 是否成交+归因腿+金狗集合整体 PnL 与 bt-v237 基线对照）②15s=30s 同线后两窗信息重叠——若将来再放宽须先拆 15s/30s 语义（另案）。
+
+**T232 补 3：差额键换买侧口径（2026-11-24；案源=bt-v239 回测误伤 MOYNOK 0xc66b）**
+
+**裁定链**：bt-v239（v15，act15s 0.4+差额 total 0.15/0.1）跑完：0x4509 ✅ 买入 +1.3179（fire 15:02:26.2 分类 famous_holder_cold_pit 轻门成交 0.2B，卖链 pump/famous/smart hold 拦 8 次后 P10 +90% 1 卡+毕业 +848% 3 卡，合计 +659%）；集合 +4.9898（+0.7409）。**但 MOYNOK 0xc66b 失票 −0.4521**：fire 17:27:16.2 带 90Ex60=0.1022 超 0.1 线 0.0022——法医=带内**三笔全为离场卖**（rel −71.2/−69.2/−67.2s 0.0955/0.0051/0.0015，上一波 P5 波的离场残留）+随后 50s 零 tick+fire 本身回场买 0.125。用户裁定「调整一下，不要误伤」+「超 0.1 线 阈值尽量不要用 0.1 这种类整数，往往导致误伤」+「是不是区分一下买卖行为？」→ 差额键换**买侧**：新键 `actTotalBnb60Ex15Buy`（t60Buy−t15Buy）/`actTotalBnb90Ex60Buy`（t90Buy−t60Buy），线 **0.15/0.12**——热度只计买入，离场卖=坑位回撤本身照放（首版 total 口径把「上一波卖压残留」误当热度）。
+
+**实现**：FA `_activityFactors` 循环买侧并行累计（门结构镜像 total 侧 W15/W60/W90）+ `_buildFactorMap` 组装 + FactorBuilder 透传（三键）；router condition 换买侧键（**PT22→PT23**）+ deploy p16 腿 condition/description + docs；单测 activity_window_multi F 段混卖断言（60Ex15Buy=0.3/90Ex60Buy=0.1 精确值+闭区间边界）、point_type_router A2l4~7（0.15/0.12 边界、0.16/0.13 负例、MOYNOK 卖不拦回归）、fa_factors 白名单补登两键。total 侧 60Ex15/90Ex60 键留 FA 作观察键（T225 腿继续用 60Ex15）。包 deploy v15→v16。
+
+**验证**：bt-v240 克隆重跑（bt-v239 基底）——预期 MOYNOK 买回（带买=0）+0x4509 保持（带买=0），集合 ≈+5.44（+4.9898+0.4521，Jev 噪声 ±0.5 内）。

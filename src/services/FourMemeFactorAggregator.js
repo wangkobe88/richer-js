@@ -3467,6 +3467,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 过滤（300s 窗需要 10s 外的行）。e.ts 未来行不可达（defer 乱序回推行 ts
         // 恒=链上过去时刻），与 act 10s 窗同款无上界容忍
         let t15 = 0, t30 = 0, t60 = 0, t90 = 0, t300 = 0;
+        // T232 补 3 买侧累计（2026-11-24 用户裁定「区分一下买卖行为」：差额上界只计
+        // 买入——离场卖单=坑位回撤本身不拦，买入=热度）
+        let t15Buy = 0, t60Buy = 0, t90Buy = 0;
         const W15 = now - 15000, W30 = now - 30000, W60 = now - 60000, W90 = now - 90000, W300 = now - 300000;
         // T223 锚点买盘存在两键（2026-11-23 用户提案「买入点是个买入 或 15s 内有
         // 一笔还算说的过去的买入 → 完全死寂不回弹概率大降」；用户后续点明机制
@@ -3483,11 +3486,13 @@ class FourMemeFactorAggregator extends EventEmitter {
                 t300 += e.bnb;
                 if (e.ts >= W90) {
                     t90 += e.bnb;
+                    if (e.buy) t90Buy += e.bnb;
                     if (e.ts >= W60) {
                         t60 += e.bnb;
+                        if (e.buy) t60Buy += e.bnb;
                         if (e.ts >= W30) {
                             t30 += e.bnb;
-                            if (e.ts >= W15) t15 += e.bnb;
+                            if (e.ts >= W15) { t15 += e.bnb; if (e.buy) t15Buy += e.bnb; }
                         }
                     }
                 }
@@ -3520,6 +3525,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             // T232 段值键（2026-11-24 用户裁定「90s 也应该有个上界」）：fire 前
             // (60s,90s] 段成交合计=t90−t60——60Ex15 的 90s 版：热起前一分半都基本冷
             actTotalBnb90Ex60: t90 - t60,
+            // T232 补 3 买侧差额键（2026-11-24 用户裁定「区分买卖」）：fire 前
+            // (15s,60s] / (60s,90s] 段**买入**合计——热度只看买；卖=回撤照放
+            actTotalBnb60Ex15Buy: t60Buy - t15Buy,
+            actTotalBnb90Ex60Buy: t90Buy - t60Buy,
             actTotalBnb300s: t300,
             // T223 锚点买盘存在两键（见循环内注释；条件载体= `anchorTickIsBuy == 1
             // OR anchor15sMaxBuyBnb >= 0.03`）
@@ -5065,6 +5074,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             actTotalBnb60Ex15: activity.actTotalBnb60Ex15,
             actTotalBnb90s: activity.actTotalBnb90s,
             actTotalBnb90Ex60: activity.actTotalBnb90Ex60,
+            actTotalBnb60Ex15Buy: activity.actTotalBnb60Ex15Buy,
+            actTotalBnb90Ex60Buy: activity.actTotalBnb90Ex60Buy,
             actTotalBnb300s: activity.actTotalBnb300s,
             anchorTickIsBuy: activity.anchorTickIsBuy,
             anchor15sMaxBuyBnb: activity.anchor15sMaxBuyBnb,
