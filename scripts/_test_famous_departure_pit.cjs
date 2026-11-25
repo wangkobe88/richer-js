@@ -113,6 +113,7 @@ console.log('B. point-type-router 类型 famous_participation_pit');
     tokenAgeSec: 30, athVsFloorPct: 148.79, mcapFromPeakPct: 50.53,
     currentVsLaunchPct: 23.07, earlyReturn: 5.55,
     famousLifetimeBuyBnb: 2.4, famousLifetimeBuyN: 3, famousCopyWalletCircPct: 0,
+    buyVolumeBnb: 7.07,
     famousFollowBlockMaxWallets: 2,
     anchorTickIsBuy: 1, anchor15sMaxBuyBnb: 0.111,
   };
@@ -149,8 +150,8 @@ console.log('B. point-type-router 类型 famous_participation_pit');
     const r = classifyPointType({ ...PIT, athVsFloorPct: 357 });
     assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
-  check('B7 龄上界外（901 >900）→ 不命中', () => {
-    const r = classifyPointType({ ...PIT, tokenAgeSec: 901 });
+  check('B7 龄上界外（301 >300，PT44 尾气门）→ 不命中', () => {
+    const r = classifyPointType({ ...PIT, tokenAgeSec: 301 });
     assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
   check('B8 锚买盘门缺失（非买锚 ∧ 15s 买 0.02 <0.03 ∧ famous N<5）→ 不命中（反弹确认）', () => {
@@ -184,6 +185,14 @@ console.log('B. point-type-router 类型 famous_participation_pit');
   check('B8h PT43 famous N=1 ∧ smart N≥3 → 不命中（豁免臂仅 N=2；用户未裁定 N=1）', () => {
     const r = classifyPointType({ ...PIT, famousLifetimeBuyN: 1, smartLifetimeBuyN: 5 });
     assert.notStrictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8i PT44 买量下界：buyVolumeBnb=2.42 <3 → 不命中（PinkCare 死盘案）', () => {
+    const r = classifyPointType({ ...PIT, buyVolumeBnb: 2.42 });
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8j PT44 buyVolumeBnb=3 恰过下界', () => {
+    const r = classifyPointType({ ...PIT, buyVolumeBnb: 3 });
+    assert.strictEqual(r.type, 'famous_participation_pit');
   });
   check('B9 跟单拥挤（同块 9 >8）→ 不命中', () => {
     const r = classifyPointType({ ...PIT, famousFollowBlockMaxWallets: 9 });

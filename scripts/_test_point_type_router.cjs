@@ -332,7 +332,7 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     const overlap = {
       ...TREND, currentVsLaunchPct: 32, earlyReturn: 10,
       athVsFloorPct: 100, mcapFromPeakPct: 30,
-      famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5,
+      famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5, buyVolumeBnb: 5,
     };
     assert.strictEqual(classifyPointType(overlap).type, 'famous_participation_pit');
   });
