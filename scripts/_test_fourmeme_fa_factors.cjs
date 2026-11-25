@@ -748,6 +748,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // PT43（2026-11-25 用户裁定「N 为 2 的话，看看聪明钱的购买数量」）：
         // smart 名单全史参与钱包数（famous N=2 豁免臂原料）
         'smartLifetimeBuyN',
+        // PT45（2026-11-25 用户裁定「只控拉升斜率」）：陡升检测两键
+        // （5s 窗历史最大涨幅+famous 早期买占比）
+        'max5sRisePct', 'famousEarlyBuySharePct',
         // 2026-11-25 存量补登（同批核对，共 8 键零漏登）：athVsFloorPct（T234 六修
         // 地板口径 ath 键）、sinceLaunchTrades/bundledAvgTradeBnb300/bundledEffBuyers300
         // （T236 三刀三键）、cheatSameBlockHoldCircPct/cheatEqualBandHoldCircPct/

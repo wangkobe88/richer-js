@@ -140,6 +140,24 @@ function _chgOfWindow(arr, winSec) {
  *   - 原料=_relPriceTrend（chainLate/outlier/尘不进）；保留窗 2×65s=130s ≥120s
  *     （本键需要前窗，_pruneRelPriceTrend 勿缩短）
  */
+function _max5sRiseOf(arr, curMax) {
+    // PT45（2026-11-25 用户裁定「只控拉升斜率」+famous 主导豁免组合）：5 秒窗
+    // min→max 涨幅历史最大（单调 max）——陡升检测原料；单调 deque 维护窗内
+    // 最低价 O(n)；curMax 传入持久化历史值（写点单调不回退）
+    let best = curMax || 0;
+    const dq = [];
+    for (const pt of arr) {
+        while (dq.length && pt.ts - dq[0].ts > 5000) dq.shift();
+        if (dq.length && dq[0].price > 0) {
+            const rise = pt.price / dq[0].price - 1;
+            if (rise > best) best = rise;
+        }
+        while (dq.length && dq[dq.length - 1].price >= pt.price) dq.pop();
+        dq.push(pt);
+    }
+    return best;
+}
+
 function _priceMaSlopeOf(arr) {
     if (!arr || arr.length === 0) return null;
     const last = arr[arr.length - 1];
@@ -1475,6 +1493,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             //    chg5Pct/chg10Pct/chg30Pct；_pruneRelPriceTrend 摊销裁剪（65s 窗
             //    三键共用原料，2× 窗余量）──
             state._relPriceTrend.push({ ts, price: priceBnb });
+            // PT45 陡升历史最大（写点单调 max——历史陡升不随窗滑出回退）
+            state._max5sRisePct = _max5sRiseOf(state._relPriceTrend, state._max5sRisePct);
             this._pruneRelPriceTrend(state, ts);
 
             // ── 名单因子（回迁批 3.3）：smart_bot 名单内地址的可靠买额累计
@@ -1541,6 +1561,14 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (!deferWallet && isBuy && walletAddr) {
                 this._noteFamousLifetimeBuy(state, walletAddr, bnbAmount);
                 this._noteSmartLifetimeBuy(state, walletAddr, bnbAmount);
+                // PT45 前 10s 买额累计（famous 早期占比原料；defer 行 walletAddr 假值
+                // 跳过，wallet 段补跑恰一次——T133 同款双段防双计）
+                if (tick.timestamp - state.createdAtMs <= 10000) {
+                    state._earlyBuyBnb = (state._earlyBuyBnb || 0) + bnbAmount;
+                    if (_famousCopyWallets && _famousCopyWallets.has(walletAddr)) {
+                        state._earlyFamousBuyBnb = (state._earlyFamousBuyBnb || 0) + bnbAmount;
+                    }
+                }
             }
 
             // ── 分类器 running 标量（回迁批 3.1：OPB 专用；与 token-classifier computeTickMetrics 同口径）──
@@ -1948,6 +1976,12 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (vars.smartBotEligible === true && isBuy && walletAddr) {
             this._noteFamousLifetimeBuy(state, walletAddr, bnbAmount);
             this._noteSmartLifetimeBuy(state, walletAddr, bnbAmount);
+            if (tick.timestamp - state.createdAtMs <= 10000) {
+                state._earlyBuyBnb = (state._earlyBuyBnb || 0) + bnbAmount;
+                if (_famousCopyWallets && _famousCopyWallets.has(walletAddr)) {
+                    state._earlyFamousBuyBnb = (state._earlyFamousBuyBnb || 0) + bnbAmount;
+                }
+            }
         }
 
         // ── T228 smart 任意买键补跑（T227d 镜像：不挂 smartBotEligible 门——尘行
@@ -2591,6 +2625,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             _recentPrices: [],   // 最近 5 笔已接受价（离群中位基准）
             _priceSeries: [],    // 10s 桶价格序列（trend* 因子，8 点）
             _relPriceTrend: [],  // 可靠价时序 {ts,price}（T185 chg5/10/30 短窗动量原料；链序 push+摊销裁剪，见 _pruneRelPriceTrend）
+            _max5sRisePct: 0,  // PT45 陡升历史最大（5s 窗 min→max 涨幅单调 max——开源圣人 2s +74% 垂直拉案；famous 主导豁免原料）
+            _earlyBuyBnb: 0,   // PT45 前 10s 总买额（famous 早期占比分母）
+            _earlyFamousBuyBnb: 0, // PT45 前 10s famous 买额（占比分子）
             _holderSeries: [],   // blockNumber 桶持有者序列（holderTrend* 因子，8 块 ≈4s，2026-10-14 slot 化）
             _holderExSniperStartBlock: null, // 剔狙击段边界（write-once）：第 5 个有 tick 的不同 block（ExSniper 序列起点）
             _holderDistinctBlocks: 0,        // 非 defer 路径已见不同 block 计数（仅边界定型前有意义）
@@ -5538,6 +5575,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             // PT43（2026-11-25 用户裁定「N 为 2 的话，看看聪明钱的购买数量」）：
             // smart 名单全史参与钱包数（0=无命中 fail-open）
             smartLifetimeBuyN,
+            // PT45（2026-11-25 用户裁定「只控拉升斜率」）：5s 窗历史最大涨幅 %
+            // （单调 max 不回退；0=无可靠价基线 fail-open）
+            max5sRisePct: state._max5sRisePct ? parseFloat((state._max5sRisePct * 100).toFixed(2)) : 0,
+            // PT45 famous 早期占比：前 10s famous 买额 ÷ 前 10s 总买额 ×100
+            // （0=早期无买/无 famous 买——「占比低」=野拉盘 fail-closed 拦）
+            famousEarlyBuySharePct: state._earlyBuyBnb > 0
+                ? parseFloat(((state._earlyFamousBuyBnb || 0) / state._earlyBuyBnb * 100).toFixed(2)) : 0,
             // T222 臭名昭著钱包总流通持仓占比（集合合计正净持仓 ÷ 流通；0=未启用/
             // 无命中 fail-open——见计算处注释块）
             notoriousWalletCircPct,

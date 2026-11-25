@@ -113,7 +113,7 @@ console.log('B. point-type-router 类型 famous_participation_pit');
     tokenAgeSec: 30, athVsFloorPct: 148.79, mcapFromPeakPct: 50.53,
     currentVsLaunchPct: 23.07, earlyReturn: 5.55,
     famousLifetimeBuyBnb: 2.4, famousLifetimeBuyN: 3, famousCopyWalletCircPct: 0,
-    buyVolumeBnb: 7.07,
+    buyVolumeBnb: 7.07, max5sRisePct: 30, famousEarlyBuySharePct: 60,
     famousFollowBlockMaxWallets: 2,
     anchorTickIsBuy: 1, anchor15sMaxBuyBnb: 0.111,
   };
@@ -185,6 +185,18 @@ console.log('B. point-type-router 类型 famous_participation_pit');
   check('B8h PT43 famous N=1 ∧ smart N≥3 → 不命中（豁免臂仅 N=2；用户未裁定 N=1）', () => {
     const r = classifyPointType({ ...PIT, famousLifetimeBuyN: 1, smartLifetimeBuyN: 5 });
     assert.notStrictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8k PT45 陡升∧famous 占比低 → 不命中（开源圣人案：2s +74% ∧ 占比 23.69%）', () => {
+    const r = classifyPointType({ ...PIT, max5sRisePct: 74, famousEarlyBuySharePct: 23.69 });
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8l PT45 陡升∧famous 占比高 → 命中（来财案：2s +109% ∧ 占比 38.36%——famous 承认的拉升豁免；线 30：23.69 与 38.36 空隙居中）', () => {
+    const r = classifyPointType({ ...PIT, max5sRisePct: 109, famousEarlyBuySharePct: 38.36 });
+    assert.strictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8m PT45 不陡（45 ≤50）→ 命中（斜率门不触发——小狗山渐进爬案）', () => {
+    const r = classifyPointType({ ...PIT, max5sRisePct: 45, famousEarlyBuySharePct: 15 });
+    assert.strictEqual(r.type, 'famous_participation_pit');
   });
   check('B8i PT44 买量下界：buyVolumeBnb=2.42 <3 → 不命中（PinkCare 死盘案）', () => {
     const r = classifyPointType({ ...PIT, buyVolumeBnb: 2.42 });
