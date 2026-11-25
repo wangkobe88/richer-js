@@ -341,7 +341,7 @@ const PACK_DEFINITION = {
     {
       "action": "buy",
       "priority": 19,
-      "condition": "tokenAgeSec >= 60 AND currentVsLaunchPct >= 30 AND currentVsLaunchPct <= 80 AND priceMa60SlopePct >= 5 AND priceMa60SlopePct <= 60 AND actTotalBnb30s <= 1.9 AND athVsFloorPct < 150 AND chg30Pct <= 30 AND (secSincePeak < 15 OR mcapFromPeakPct > 10) AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15",
+      "condition": "tokenAgeSec >= 60 AND currentVsLaunchPct >= 30 AND currentVsLaunchPct <= 80 AND priceMa60SlopePct >= 5 AND priceMa60SlopePct <= 60 AND actTotalBnb30s <= 1.9 AND athVsFloorPct < 150 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15",
       "maxExecutions": null,
       "buyPhase": "first",
       "signalGate": {
