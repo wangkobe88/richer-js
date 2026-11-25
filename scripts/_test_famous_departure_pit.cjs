@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * T237 famous_departure_pit 类型+FA 键单测（零 DB 零网络，2026-11-25 用户裁定
+ * T237 famous_participation_pit 类型+FA 键单测（零 DB 零网络，2026-11-25 用户裁定
  * 「增加这个新的 pointType」；案源=来财 0xc84a…7777）：
  *   A. FA 键 famousLifetimeBuyBnb：famous 名单全史累计买入额（不判价不判尘、
  *      「参与过」口径单调累计不随卖出回退；双段写点每 tick 恰计一次；
  *      名单未启用/空/无命中=0 fail-open）
- *   B. point-type-router：来财 30s 形状命中 famous_departure_pit（policy 全豁+
- *      stuffingOnly deep-equal）；未参与/未离场/域外/超涨/锚门缺失五轴负例全
- *      走 normal（famousLifetimeBuyBnb 与 famousCopyWalletCircPct 联立=参与过
- *      但基本离场——单用 0 语义会放行从未参与票）
+ *   B. point-type-router：来财 30s 形状命中 famous_participation_pit（policy 全豁+
+ *      stuffingOnly deep-equal）；未参与/域外/超涨/锚门缺失四轴负例+famous 在场正例（PT38）全
+ *      走 normal（famousLifetimeBuyBnb ≥0.5 自身防从未参与票（PT38 起无离场要求
+ *      
  *   C. assertPointTypesValid 用 FA 真键集全过（新键三防线自动认得）
  */
 'use strict';
@@ -90,7 +90,7 @@ console.log('A. FA 键 famousLifetimeBuyBnb（famous 名单全史累计买入额
   resetRosters();
 }
 
-console.log('B. point-type-router 类型 famous_departure_pit');
+console.log('B. point-type-router 类型 famous_participation_pit');
 {
   // 来财 30s 形状（设计探针实测值）：famous 1s 买 2.4B 后 4~16s 卖光（circPct=0）、
   // curVs=23.07、athVsFloor=148.79（贴 150 线）、mcapFromPeak=50.53、锚买盘=1
@@ -103,52 +103,52 @@ console.log('B. point-type-router 类型 famous_departure_pit');
   };
   check('B1 来财 30s 形状命中（policy 全豁+stuffingOnly deep-equal；version=POINT_TYPE_VERSION）', () => {
     const r = classifyPointType(PIT);
-    assert.strictEqual(r.type, 'famous_departure_pit');
+    assert.strictEqual(r.type, 'famous_participation_pit');
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
     assert.deepStrictEqual(r.policy, {
       factorCheckArms: 'skip', actFront: 'pass', cheatCheck: 'skip', buyPoint: 'stuffingOnly',
     });
     assert.ok(r.snapshot && r.snapshot.famousLifetimeBuyBnb === 2.4);
   });
-  check('B2 从未参与（famousLifetimeBuyBnb=0 ∧ circPct=0）→ 不命中（联立防 0 语义误放行）', () => {
+  check('B2 从未参与（famousLifetimeBuyBnb=0 ∧ circPct=0）→ 不命中（痕迹门自身防误放行）', () => {
     const r = classifyPointType({ ...PIT, famousLifetimeBuyBnb: 0 });
-    assert.notStrictEqual(r.type, 'famous_departure_pit');
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
-  check('B3 参与未离场（circPct=3.5 >1）→ 不命中', () => {
-    const r = classifyPointType({ ...PIT, famousCopyWalletCircPct: 3.5 });
-    assert.notStrictEqual(r.type, 'famous_departure_pit');
+  check('B3 famous 在场持有（circPct=7.8）→ 命中（PT38 二修「famous 持有并不是坏事」——离场门已删，在场=背书两可）', () => {
+    const r = classifyPointType({ ...PIT, famousCopyWalletCircPct: 7.8 });
+    assert.strictEqual(r.type, 'famous_participation_pit');
   });
   check('B4 参与额不足（0.4 <0.5）→ 不命中', () => {
     const r = classifyPointType({ ...PIT, famousLifetimeBuyBnb: 0.4 });
-    assert.notStrictEqual(r.type, 'famous_departure_pit');
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
   check('B5 域外（curVs=36 ∧ earlyReturn=36 双尺全挂）→ 不命中', () => {
     const r = classifyPointType({ ...PIT, currentVsLaunchPct: 36, earlyReturn: 36 });
-    assert.notStrictEqual(r.type, 'famous_departure_pit');
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
   check('B6 超涨（athVsFloorPct=190 >150）→ 不命中', () => {
     const r = classifyPointType({ ...PIT, athVsFloorPct: 190 });
-    assert.notStrictEqual(r.type, 'famous_departure_pit');
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
   check('B7 龄上界外（901 >900）→ 不命中', () => {
     const r = classifyPointType({ ...PIT, tokenAgeSec: 901 });
-    assert.notStrictEqual(r.type, 'famous_departure_pit');
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
   check('B8 锚买盘门缺失（非买锚 ∧ 15s 买 0.02 <0.03）→ 不命中（反弹确认）', () => {
     const r = classifyPointType({ ...PIT, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0.02 });
-    assert.notStrictEqual(r.type, 'famous_departure_pit');
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
   check('B9 跟单拥挤（同块 9 >8）→ 不命中', () => {
     const r = classifyPointType({ ...PIT, famousFollowBlockMaxWallets: 9 });
-    assert.notStrictEqual(r.type, 'famous_departure_pit');
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
   check('B10 域内无坑（mcapFromPeak=70 >62）→ 不命中', () => {
     const r = classifyPointType({ ...PIT, mcapFromPeakPct: 70 });
-    assert.notStrictEqual(r.type, 'famous_departure_pit');
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
   check('B11 龄下界（29 <30）→ 不命中', () => {
     const r = classifyPointType({ ...PIT, tokenAgeSec: 29 });
-    assert.notStrictEqual(r.type, 'famous_departure_pit');
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
 }
 
@@ -156,7 +156,7 @@ console.log('C. 注册表与启动防线');
 {
   check('C1 active:true 已激活（2026-11-25 用户裁定正式增加）', () => {
     const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
-    const t = POINT_TYPES.find(x => x.id === 'famous_departure_pit');
+    const t = POINT_TYPES.find(x => x.id === 'famous_participation_pit');
     assert.ok(t, '类型已注册');
     assert.strictEqual(t.active, true);
     assert.ok(t.label && t.label.length > 0);
