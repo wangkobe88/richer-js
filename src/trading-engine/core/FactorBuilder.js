@@ -269,6 +269,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     sinceLaunchTrades: factorResults.sinceLaunchTrades ?? null,
     bundledAvgTradeBnb300: factorResults.bundledAvgTradeBnb300 ?? null,
     bundledEffBuyers300: factorResults.bundledEffBuyers300 ?? null,
+    // T237 做市节奏两键（2026-11-25；FA 状态机不可离线重算不落库即丢——
+    //   signals 页 chip 直读/审计快照；旧 FA 无键 → null 不掩盖）
+    tradesPerSecSinceLaunch: factorResults.tradesPerSecSinceLaunch ?? null,
+    blockGapLe1Pct64: factorResults.blockGapLe1Pct64 ?? null,
     // T117 信号源 t7 静默段三键（2026-11-05 买入策略整体调整）：FA 状态机不可离线
     // 重算（act* 先例），不落库即丢；quietSurgeSec=波持续秒数（fire 时刻值），
     // 旧 FA 无键 → null 不掩盖

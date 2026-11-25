@@ -278,7 +278,7 @@ console.log('E. T236 slow_develop_early（缓慢发育潜力币早期点位，ac
   check('E5 空票（0 笔 0 额）→ normal（0 <0.13 有证据零值不命中）', () => {
     assert.strictEqual(classifyPointType({ athVsLaunchPct: 10, sinceLaunchTrades: 0, bundledAvgTradeBnb300: 0 }).type, 'normal');
   });
-  check('E6 激活参数机制：全类型带 active 布尔字段；slow_develop_early 唯一 false，其余全 true', () => {
+  check('E6 激活参数机制：全类型带 active 布尔字段；slow_develop_early/market_maker_rhythm_pit 未激活，其余全 true', () => {
     const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
     const ids = new Set();
     for (const t of POINT_TYPES) {
@@ -286,6 +286,7 @@ console.log('E. T236 slow_develop_early（缓慢发育潜力币早期点位，ac
       ids.add(t.id);
       assert.strictEqual(typeof t.active, 'boolean', `类型 ${t.id} 缺 active 字段`);
       if (t.id === 'slow_develop_early') assert.strictEqual(t.active, false, 'slow_develop_early 应为未激活');
+      else if (t.id === 'market_maker_rhythm_pit') assert.strictEqual(t.active, false, 'market_maker_rhythm_pit 应为未激活');
       else assert.strictEqual(t.active, true, `类型 ${t.id} 应为激活`);
     }
   });

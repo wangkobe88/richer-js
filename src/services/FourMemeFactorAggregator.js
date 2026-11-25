@@ -1280,6 +1280,17 @@ class FourMemeFactorAggregator extends EventEmitter {
         const tokenAmount = tick.token_amount || 0;
         const blockNumber = tick.block_number != null ? Number(tick.block_number) : null;
 
+        // ── T237 做市节奏块间隔环（2026-11-25 用户提案「做市痕迹票识别」）：全量
+        //    tick 无 skip 每行恰推一个 gap（chainLate 旧行照推——节奏证据与价格接受链
+        //    无关，流量段语义）；负间隔（乱序回推）钳 0；环尾裁剪 64──
+        if (blockNumber != null) {
+            if (state._blockGapLast !== null) {
+                state._blockGapRing.push(Math.max(0, blockNumber - state._blockGapLast));
+                if (state._blockGapRing.length > 64) state._blockGapRing.shift();
+            }
+            state._blockGapLast = blockNumber;
+        }
+
         // 隐含 BNB/USD（tick 已带 USD 价时刷新，供 buildFactorMap 换算）
         if (tick.price_usd > 0 && priceBnb > 0) {
             state.lastImpliedBnbUsd = tick.price_usd / priceBnb;
@@ -2664,6 +2675,13 @@ class FourMemeFactorAggregator extends EventEmitter {
                                    //   计数与序无关 defer 乱序天然收敛；单调不减）
             _slowDevBuyRing: [],   // 买入事件环 {ts, blk, li, w, bnb}（到达序 push；读点按钱包
                                    //   去重保链序最早=defer 乱序免疫；摊销裁剪 2×slowDevAvgWinMs）
+
+            // ── T237 做市节奏块间隔环（2026-11-25 用户提案「做市痕迹票识别」）──
+            _blockGapRing: [],     // 相邻 tick 块间隔序列（到达序 push 截尾 64；processTick
+                                   //   每行恰推一个——链序喂入时=块间隔真相，乱序回推=到达序
+                                   //   近似（act* 同款序列不可重建语义，FactorBuilder 快照透传）；
+                                   //   首 tick 无前件不推）
+            _blockGapLast: null,   // 上一 tick 块号（间隔基准；null=无前件）
 
             _recentTicks: [],    // 滑窗速率原料 {ts, isBuy, bnb, priceBnb, priceReliable, blockNumber}
             _activityEvents: [], // act* 8 键原料 {ts, w, buy, bnb}（到达序 push，读点按 ts 过滤容忍
@@ -5492,6 +5510,18 @@ class FourMemeFactorAggregator extends EventEmitter {
             sinceLaunchTrades: state._totalTrades,
             bundledAvgTradeBnb300: Number((bundledAvg.winBuyBnb / bundledAvg.effBuyers).toFixed(4)),
             bundledEffBuyers300: bundledAvg.effBuyers,
+
+            // ── T237 做市节奏两键（2026-11-25 用户提案「做市痕迹票识别」：
+            //    tradesPerSecSinceLaunch=全史总笔数÷秒龄（做市票 ≥1.5 级 vs 对照
+            //    ≤0.57 级；null=龄为 0 fail-closed）；
+            //    blockGapLe1Pct64=最近 64 个相邻 tick 块间隔 ≤1 的占比 %（做市票
+            //    ≥85 级 vs 对照 ~61；null=环不足 2 个间隔=证据不足 fail-closed——
+            //    节奏键是「每 block 都有交易」的因子化）──
+            tradesPerSecSinceLaunch: tokenAgeSec > 0
+                ? parseFloat((state._totalTrades / tokenAgeSec).toFixed(4)) : null,
+            blockGapLe1Pct64: state._blockGapRing.length >= 2
+                ? parseFloat((100 * state._blockGapRing.reduce((acc, g) => acc + (g <= 1 ? 1 : 0), 0) / state._blockGapRing.length).toFixed(2))
+                : null,
 
             // （首窗累计 earlyTrades* 10 键已随 T71 2026-10-26 删除——冻结窗族整族退役，
             //  净买/路由消费键换 tradesNetBuyRatio/tradesRouterPct 全史实时对；legacy

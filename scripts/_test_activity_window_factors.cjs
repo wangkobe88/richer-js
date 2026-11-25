@@ -293,7 +293,13 @@ console.log('H. 源码口径断言（防前视/防误删防线）');
   check('H5 cycle×tickBuildSkip 互斥防线零残留（act* 纯读天然无互斥，勿再加防线）', () => {
     const be = read('src/trading-engine/implementations/BacktestEngine.js');
     assert.ok(!be.includes('_assertNoCycleKeyReference'), '已删防线方法不得回流');
-    assert.ok(!/互斥.*throw|throw.*互斥/.test(be), '不得存在 cycle 关联互斥拒启');
+    // 只扫「互斥拒启」同句含 cycle 的（宽正则 throw.*互斥 会误伤 caseCollectionId
+    // 与 sourceExperimentId 互斥 fail-fast——aa900828 Case 集合合法防线，2026-11-25 收窄；
+    // 纯注释留档行〔line 781 旧 cycle 分桶互斥防线已删〕不算拒启代码）
+    const lines = be.split('\n');
+    for (const ln of lines) {
+      assert.ok(!(/互斥/.test(ln) && /cycle/i.test(ln) && /throw|new Error/.test(ln)), '不得存在 cycle 关联互斥拒启');
+    }
   });
 }
 
