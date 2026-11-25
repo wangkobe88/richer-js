@@ -33,13 +33,20 @@ const layers = router.stack.map(l => ({
 }));
 {
   const idx = p => layers.findIndex(l => l.path === p);
-  ok(layers.length === 12, `A1 十二端点（实际 ${layers.length}）`);
+  ok(layers.length === 18, `A1 十八端点（实际 ${layers.length}）`);
   ok(idx('/:id/sync-status') !== -1 && idx('/:id/sync-status') < idx('/:id'),
     'A2 /:id/sync-status 注册在 /:id 之前（express 注册序匹配坑）');
   ok(idx('/:id/derived-experiments') !== -1 && idx('/:id/derived-experiments') < idx('/:id'),
     'A3 /:id/derived-experiments 在 /:id 之前');
   ok(idx('/:id/sync') !== -1 && idx('/:id/sync') < idx('/:id/tokens/:tokenAddress/sync'),
     'A4 /:id/sync 在 /:id/tokens/:tokenAddress/sync 之前');
+  // 标签固定子路径必须在 /:id 之前（'tags'/'tokens' 会被 :id 吞掉）
+  ok(idx('/tags') !== -1 && idx('/tags') < idx('/:id'),
+    'A7 GET /tags 在 /:id 之前');
+  ok(idx('/tags/:tag') !== -1 && idx('/tags/:tag') < idx('/:id'),
+    'A8 GET /tags/:tag 在 /:id 之前');
+  ok(idx('/tokens/:tokenAddress/tags') !== -1 && idx('/tokens/:tokenAddress/tags') < idx('/:id'),
+    'A9 /tokens/:tokenAddress/tags 在 /:id 之前');
   ok(idx('/') === 0 && layers[0].method === 'get', 'A5 GET / 列表首位');
   const methods = new Set(layers.map(l => l.method));
   ok(methods.has('post') && methods.has('put') && methods.has('delete'), 'A6 全动词覆盖');

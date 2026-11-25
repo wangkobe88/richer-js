@@ -35,6 +35,90 @@ router.get('/', async (req, res) => {
     }
 });
 
+// ─────────────── 标签路由（固定子路径，必须在 /:id 之前注册） ───────────────
+
+/**
+ * GET /api/case-collections/tags
+ * 全局标签聚合 [{tag, tokenCount}]（按计数降序）——列表页标签检索面板数据源
+ */
+router.get('/tags', async (req, res) => {
+    try {
+        const items = await service.listTags();
+        res.json({ success: true, data: items });
+    } catch (error) {
+        fail(res, error);
+    }
+});
+
+/**
+ * GET /api/case-collections/tags/:tag
+ * 按标签查询：带该标签的全部代币 + 所在集合（含未入集合的孤儿标签代币）
+ */
+router.get('/tags/:tag', async (req, res) => {
+    try {
+        const item = await service.findTokensByTag(req.params.tag);
+        res.json({ success: true, data: item });
+    } catch (error) {
+        fail(res, error);
+    }
+});
+
+/**
+ * GET /api/case-collections/tokens/:tokenAddress/tags
+ * 单代币标签列表
+ */
+router.get('/tokens/:tokenAddress/tags', async (req, res) => {
+    try {
+        const tags = await service.getTagsForToken(req.params.tokenAddress);
+        res.json({ success: true, data: { tokenAddress: req.params.tokenAddress, tags } });
+    } catch (error) {
+        fail(res, error);
+    }
+});
+
+/**
+ * POST /api/case-collections/tokens/:tokenAddress/tags
+ * 添加标签 { tag }（幂等：重复加无副作用）——标签可打在任意地址上（先分类后入集）
+ */
+router.post('/tokens/:tokenAddress/tags', async (req, res) => {
+    try {
+        const { tag } = req.body || {};
+        if (!tag) {
+            return res.status(400).json({ success: false, error: 'tag 必填' });
+        }
+        const item = await service.addTokenTag(req.params.tokenAddress, { tag });
+        res.json({ success: true, data: item });
+    } catch (error) {
+        fail(res, error);
+    }
+});
+
+/**
+ * DELETE /api/case-collections/tokens/:tokenAddress/tags/:tag
+ * 移除标签（不存在 → 404 fail-loud）
+ */
+router.delete('/tokens/:tokenAddress/tags/:tag', async (req, res) => {
+    try {
+        const item = await service.removeTokenTag(req.params.tokenAddress, req.params.tag);
+        res.json({ success: true, data: item });
+    } catch (error) {
+        fail(res, error, 404);
+    }
+});
+
+/**
+ * GET /api/case-collections/:id/tags
+ * 集合内标签数据 {tags: [{tag,count}], tokenTags: {addr: [tags]}}（详情页一次性拉取）
+ */
+router.get('/:id/tags', async (req, res) => {
+    try {
+        const item = await service.getCollectionTags(req.params.id);
+        res.json({ success: true, data: item });
+    } catch (error) {
+        fail(res, error);
+    }
+});
+
 /**
  * GET /api/case-collections/:id/sync-status
  * 同步状态（DB sync_state 真源 + 内存运行态；详情页轮询）
@@ -130,15 +214,16 @@ router.post('/:id/sync', async (req, res) => {
 
 /**
  * POST /api/case-collections/:id/tokens
- * 添加代币 { tokenAddress, note }——自动入队后台复制；无 token_create 事件 → 400
+ * 添加代币 { tokenAddress, note, tags }——自动入队后台复制；无 token_create 事件 → 400
+ * tags：可选（数组或逗号分隔字符串；先落标签后代币行）
  */
 router.post('/:id/tokens', async (req, res) => {
     try {
-        const { tokenAddress, note = '' } = req.body || {};
+        const { tokenAddress, note = '', tags = [] } = req.body || {};
         if (!tokenAddress) {
             return res.status(400).json({ success: false, error: 'tokenAddress 必填' });
         }
-        const item = await service.addToken(req.params.id, { tokenAddress, note });
+        const item = await service.addToken(req.params.id, { tokenAddress, note, tags });
         res.status(201).json({ success: true, data: item });
     } catch (error) {
         fail(res, error);

@@ -34,6 +34,8 @@ const SYNC_EVENT_LIMIT = 1000;       // 事件步无序拉取上限（= max-rows
 const SYNC_MAX_ROWS_PER_RUN = 200000; // 单次同步护栏（超限置 failed 带进度，重点续传）
 const SYNC_LEASE_MS = 10 * 60 * 1000; // 租约陈旧阈值（syncing 超时视为残留可接管）
 const LIST_TOKENS_LIMIT = 10000;     // list() 聚合拉取上限（count 对账防静默截断）
+const TAG_MAX_LEN = 40;              // 标签长度上限（中文标签 40 字符足够；对齐 name ≤120 的收紧）
+const TAG_ADDR_BATCH = 50;           // 标签按地址批 .in 上限（红线：Supabase .in() URL 超 8KB）
 
 /** 平台域（与 resolvePlatforms 输出一致） */
 const CASE_PLATFORMS = ['fourmeme', 'flap', 'gang'];
@@ -70,6 +72,58 @@ function validateCollectionInput({ name, description = '' }) {
     throw e;
   }
   return { name: name.trim(), description: String(description || '').trim() };
+}
+
+/**
+ * 标签归一+校验（纯函数；表不设 CHECK——校验在此，可单测）
+ * @returns {string} trim 后标签
+ * @throws {Error.status=400} 空 / 超长 / 控制字符（防 UI 注入混乱）
+ */
+function normalizeTag(tag) {
+  if (typeof tag !== 'string') {
+    const e = new Error('tag 必填（字符串）');
+    e.status = 400;
+    throw e;
+  }
+  const v = tag.trim();
+  if (!v) {
+    const e = new Error('tag 必填（非空字符串）');
+    e.status = 400;
+    throw e;
+  }
+  if (v.length > TAG_MAX_LEN) {
+    const e = new Error(`tag 过长（≤${TAG_MAX_LEN} 字符）: ${v.slice(0, 20)}…`);
+    e.status = 400;
+    throw e;
+  }
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(v)) {
+    const e = new Error('tag 含控制字符（非法）');
+    e.status = 400;
+    throw e;
+  }
+  return v;
+}
+
+/**
+ * 标签数组归一+去重+校验（纯函数；逗号分隔字符串→数组入口共享）
+ * 空输入（''/空数组）→ []（无标签意图）；数组内含非法元素 → 400（整体拒绝）。
+ * @returns {string[]} 归一后去重标签（保持输入顺序）
+ * @throws {Error.status=400} 任一非法
+ */
+function normalizeTags(tags) {
+  const list = Array.isArray(tags)
+    ? tags
+    : (String(tags || '').trim() === '' ? [] : String(tags).split(','));
+  const out = [];
+  const seen = new Set();
+  for (const raw of list) {
+    const v = normalizeTag(raw);
+    if (seen.has(v)) continue;
+    seen.add(v);
+    out.push(v);
+  }
+  return out;
 }
 
 /**
@@ -250,10 +304,13 @@ class CaseCollectionService {
    * 添加代币：查 wss_events token_create（无序 limit+count 对账，多行去重取最早
    * block_time——与 BacktestEngine 窗口通道同口径）→ 入库 pending → 自动入队同步
    * （用户裁定「自动后台复制」）。无 token_create 行 → 400 宁拒不漏。
+   * tags：可选初始标签（先标签后代币——标签不挂 FK 可独立存在，dup 409 /
+   * insert 失败时已打标签语义仍正确：用户补标签意图不因成员行失败丢失）。
    */
-  async addToken(collectionId, { tokenAddress, note = '' }) {
+  async addToken(collectionId, { tokenAddress, note = '', tags = [] }) {
     await this._ensureSweep();
     const addr = normalizeTokenAddress(tokenAddress);
+    const tagList = normalizeTags(tags);
     const c = this._client();
     // 集合存在性
     const { data: col } = await c.from('case_collections').select('id, name').eq('id', collectionId).single();
@@ -288,6 +345,13 @@ class CaseCollectionService {
       const e = new Error(`token_create 行 platform 异常: ${chosen.platform}（${addr}）`);
       e.status = 500;
       throw e;
+    }
+    // 标签先落（幂等 upsert；不依赖代币行存在——裁定：先标签后代币，
+    // 后续 dup 409 / insert 失败时已打标签语义仍正确）
+    if (tagList.length) {
+      const { error: tagErr } = await c.from('case_token_tags')
+        .upsert(tagList.map((tag) => ({ token_address: addr, tag })), { onConflict: 'token_address,tag', ignoreDuplicates: true });
+      if (tagErr) throw this._dbError('写入标签失败', tagErr);
     }
     // 幂等：本集合已存在 → 409（跨集合允许同 token=独立副本）
     const { data: dup } = await c.from('case_collection_tokens')
@@ -349,6 +413,186 @@ class CaseCollectionService {
       collectionId, tokenAddress: addr,
       removed: { ticks: Number(row.tick_count) || 0, events: Number(row.event_count) || 0 },
     };
+  }
+
+  // ─────────────────────────── 代币标签（全局代币级） ───────────────────────────
+
+  /**
+   * 标签行分地址批 .in 查询 + count 对账（红线：地址批 .in ≤50 防 URL 超 8KB；
+   * 上限对账防 max-rows 静默截断）。返回全部标签行。
+   */
+  async _fetchTagRowsByAddresses(addresses) {
+    const c = this._client();
+    const rows = [];
+    for (let i = 0; i < addresses.length; i += TAG_ADDR_BATCH) {
+      const batch = addresses.slice(i, i + TAG_ADDR_BATCH);
+      const { data, count, error } = await c.from('case_token_tags')
+        .select('token_address, tag', { count: 'exact' })
+        .in('token_address', batch)
+        .limit(LIST_TOKENS_LIMIT);
+      if (error) throw this._dbError('读取标签失败', error);
+      if (count != null && count > LIST_TOKENS_LIMIT) {
+        const e = new Error(`标签行数 ${count} 超拉取上限 ${LIST_TOKENS_LIMIT}（数据形状异常，fail-loud）`);
+        e.status = 500;
+        throw e;
+      }
+      rows.push(...(data || []));
+    }
+    return rows;
+  }
+
+  /** 单代币标签列表（无序；created_at 升序展示稳定） */
+  async getTagsForToken(tokenAddress) {
+    const addr = normalizeTokenAddress(tokenAddress);
+    const c = this._client();
+    const { data, error } = await c.from('case_token_tags')
+      .select('token_address, tag, created_at')
+      .eq('token_address', addr)
+      .order('created_at', { ascending: true })
+      .limit(LIST_TOKENS_LIMIT);
+    if (error) throw this._dbError('读取代币标签失败', error);
+    return (data || []).map((r) => r.tag);
+  }
+
+  /** 添加标签（幂等：重复加无副作用）。返回该票最新标签列表。 */
+  async addTokenTag(tokenAddress, { tag }) {
+    const addr = normalizeTokenAddress(tokenAddress);
+    const v = normalizeTag(tag);
+    const c = this._client();
+    const { error } = await c.from('case_token_tags')
+      .upsert({ token_address: addr, tag: v }, { onConflict: 'token_address,tag', ignoreDuplicates: true });
+    if (error) throw this._dbError('添加标签失败', error);
+    return { tokenAddress: addr, tags: await this.getTagsForToken(addr) };
+  }
+
+  /** 移除标签（不存在 → 404 fail-loud，防前端状态漂移掩盖问题）。返回该票最新标签列表。 */
+  async removeTokenTag(tokenAddress, tag) {
+    const addr = normalizeTokenAddress(tokenAddress);
+    const v = normalizeTag(tag);
+    const c = this._client();
+    const { data: hit } = await c.from('case_token_tags')
+      .select('tag').eq('token_address', addr).eq('tag', v).maybeSingle();
+    if (!hit) {
+      const e = new Error(`标签不存在: ${addr} / ${v}`);
+      e.status = 404;
+      throw e;
+    }
+    const { error } = await c.from('case_token_tags')
+      .delete().eq('token_address', addr).eq('tag', v);
+    if (error) throw this._dbError('移除标签失败', error);
+    return { tokenAddress: addr, tags: await this.getTagsForToken(addr) };
+  }
+
+  /**
+   * 全局标签聚合：[{tag, tokenCount}]（tokenCount=带该标签的代币数，按计数降序）
+   * ——列表页标签检索面板数据源。
+   */
+  async listTags() {
+    const c = this._client();
+    const { data, count, error } = await c.from('case_token_tags')
+      .select('tag, token_address', { count: 'exact' })
+      .limit(LIST_TOKENS_LIMIT);
+    if (error) throw this._dbError('读取标签聚合失败', error);
+    if (count != null && count > LIST_TOKENS_LIMIT) {
+      const e = new Error(`标签行数 ${count} 超拉取上限 ${LIST_TOKENS_LIMIT}（数据形状异常，fail-loud）`);
+      e.status = 500;
+      throw e;
+    }
+    const byTag = new Map(); // tag → Set(token_address)
+    for (const row of data || []) {
+      if (!byTag.has(row.tag)) byTag.set(row.tag, new Set());
+      byTag.get(row.tag).add(row.token_address);
+    }
+    return [...byTag.entries()]
+      .map(([tag, addrs]) => ({ tag, tokenCount: addrs.size }))
+      .sort((a, b) => b.tokenCount - a.tokenCount || a.tag.localeCompare(b.tag));
+  }
+
+  /**
+   * 按标签查询（「每个标签可以用于查询」）：返回带该标签的全部代币及其所在
+   * 集合（name/sync 状态），未入集合的代币 collections=[]（孤儿标签可见）。
+   */
+  async findTokensByTag(tag) {
+    const v = normalizeTag(tag);
+    const c = this._client();
+    const { data: tagRows, count, error } = await c.from('case_token_tags')
+      .select('token_address, tag, created_at', { count: 'exact' })
+      .eq('tag', v)
+      .order('created_at', { ascending: true })
+      .limit(LIST_TOKENS_LIMIT);
+    if (error) throw this._dbError('按标签查询失败', error);
+    if (count != null && count > LIST_TOKENS_LIMIT) {
+      const e = new Error(`标签命中行数 ${count} 超拉取上限 ${LIST_TOKENS_LIMIT}（数据形状异常，fail-loud）`);
+      e.status = 500;
+      throw e;
+    }
+    const addresses = [...new Set((tagRows || []).map((r) => r.token_address))];
+    const memberships = new Map(); // addr → [{collectionId, collectionName, syncState, note}]
+    for (let i = 0; i < addresses.length; i += TAG_ADDR_BATCH) {
+      const batch = addresses.slice(i, i + TAG_ADDR_BATCH);
+      const { data: mems, error: merr } = await c.from('case_collection_tokens')
+        .select('token_address, collection_id, sync_state, note')
+        .in('token_address', batch)
+        .limit(LIST_TOKENS_LIMIT);
+      if (merr) throw this._dbError('查询成员归属失败', merr);
+      for (const m of mems || []) {
+        if (!memberships.has(m.token_address)) memberships.set(m.token_address, []);
+        memberships.get(m.token_address).push({
+          collectionId: m.collection_id,
+          collectionName: null, // 下步填充
+          syncState: m.sync_state,
+          note: m.note,
+        });
+      }
+    }
+    // 集合名补齐（成员行量级小，一次拉全）
+    const colIds = [...new Set([...memberships.values()].flat().map((m) => m.collectionId))];
+    if (colIds.length) {
+      const { data: cols, error: cerr } = await c.from('case_collections')
+        .select('id, name')
+        .in('id', colIds)
+        .limit(LIST_TOKENS_LIMIT);
+      if (cerr) throw this._dbError('查询集合名失败', cerr);
+      const nameOf = new Map((cols || []).map((x) => [x.id, x.name]));
+      for (const list of memberships.values()) {
+        for (const m of list) m.collectionName = nameOf.get(m.collectionId) || null;
+      }
+    }
+    return {
+      tag: v,
+      tokens: (tagRows || []).map((r) => ({
+        tokenAddress: r.token_address,
+        taggedAt: r.created_at,
+        collections: memberships.get(r.token_address) || [],
+      })),
+    };
+  }
+
+  /**
+   * 集合内标签数据（详情页一次性拉取）：{tags: [{tag,count}], tokenTags: {addr: [tags]}}
+   * ——本集合成员地址批 .in 查询分组注入；不查全表（轮询路径省查询）。
+   */
+  async getCollectionTags(collectionId) {
+    await this._ensureSweep();
+    const c = this._client();
+    const { data: toks, error } = await c.from('case_collection_tokens')
+      .select('token_address')
+      .eq('collection_id', collectionId)
+      .limit(LIST_TOKENS_LIMIT);
+    if (error) throw this._dbError('读取集合成员失败', error);
+    const addresses = (toks || []).map((t) => t.token_address);
+    const tokenTags = {}; // addr → [tags]
+    const countOf = new Map(); // tag → 集合内计数
+    const rows = await this._fetchTagRowsByAddresses(addresses);
+    for (const r of rows) {
+      if (!tokenTags[r.token_address]) tokenTags[r.token_address] = [];
+      tokenTags[r.token_address].push(r.tag);
+      countOf.set(r.tag, (countOf.get(r.tag) || 0) + 1);
+    }
+    const tags = [...countOf.entries()]
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
+    return { tags, tokenTags };
   }
 
   // ─────────────────────────── 数据复制（同步） ───────────────────────────
@@ -579,9 +823,13 @@ module.exports = {
   CaseCollectionService,
   normalizeTokenAddress,
   validateCollectionInput,
+  normalizeTag,
+  normalizeTags,
   buildTokenMetaSnapshot,
   CASE_PLATFORMS,
   SYNC_TICK_PAGE,
   SYNC_EVENT_LIMIT,
   SYNC_MAX_ROWS_PER_RUN,
+  TAG_MAX_LEN,
+  TAG_ADDR_BATCH,
 };

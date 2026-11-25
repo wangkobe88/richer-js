@@ -91,6 +91,14 @@
                 <p id="col-list-empty" class="hidden text-sm text-gray-400 bg-white border border-dashed border-gray-300 rounded-lg p-6 text-center">
                     还没有集合——点「+ 新建集合」创建第一个。
                 </p>
+
+                <!-- 标签检索面板（全局代币级标签：按性质分类检索，跨集合） -->
+                <div id="tag-search-card" class="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                    <h2 class="text-base font-semibold text-gray-800">🏷 标签检索</h2>
+                    <p class="text-xs text-gray-500">给代币打性质标签（强庄 / 慢热 / burst…），点标签查全部同类代币及其所在集合。</p>
+                    <div id="tag-cloud" class="flex items-center gap-1.5 flex-wrap"></div>
+                    <div id="tag-search-result" class="text-sm space-y-1"></div>
+                </div>
             </div>
 
             <!-- ═══════════ 详情视图 ═══════════ -->
@@ -123,10 +131,18 @@
                                class="flex-1 min-w-[340px] px-3 py-2 border border-gray-300 rounded-md text-sm mono">
                         <input type="text" id="add-token-note" placeholder="备注：为何入选（可选）"
                                class="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md text-sm">
+                        <input type="text" id="add-token-tags" placeholder="标签：强庄, 慢热（可选，逗号分隔）"
+                               class="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-md text-sm">
                         <button type="button" id="btn-add-token"
                                 class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">添加</button>
                     </div>
-                    <p class="text-xs text-gray-500">添加后自动开始后台复制 ticks（状态列实时刷新）；同一代币可加入多个集合（各集合独立副本）。</p>
+                    <p class="text-xs text-gray-500">添加后自动开始后台复制 ticks（状态列实时刷新）；同一代币可加入多个集合（各集合独立副本）。标签是代币全局性质（跨集合共享），不影响复制。</p>
+                </div>
+
+                <!-- 标签筛选器（本集合内按标签查询成员） -->
+                <div class="bg-white border border-gray-200 rounded-lg p-3 flex items-center gap-2 flex-wrap">
+                    <span class="text-sm font-medium text-gray-600">🏷 按标签筛选：</span>
+                    <div id="tag-filter-bar" class="flex items-center gap-1.5 flex-wrap"></div>
                 </div>
 
                 <!-- 成员代币表 -->
@@ -137,6 +153,7 @@
                                 <th class="px-3 py-2 text-left font-medium text-gray-600">代币</th>
                                 <th class="px-3 py-2 text-left font-medium text-gray-600">平台</th>
                                 <th class="px-3 py-2 text-left font-medium text-gray-600">备注</th>
+                                <th class="px-3 py-2 text-left font-medium text-gray-600">标签</th>
                                 <th class="px-3 py-2 text-left font-medium text-gray-600">同步</th>
                                 <th class="px-3 py-2 text-left font-medium text-gray-600">ticks</th>
                                 <th class="px-3 py-2 text-left font-medium text-gray-600">操作</th>
@@ -257,33 +274,133 @@
         } catch (err) { alert(err.message); }
     }
 
+    // ─────────────── 标签检索（列表页；全局代币级标签） ───────────────
+    async function loadTagCloud() {
+        const cloud = $('tag-cloud');
+        try {
+            const tags = await apiGet(`${API}/tags`);
+            cloud.innerHTML = '';
+            if (!tags.length) {
+                cloud.innerHTML = '<span class="text-xs text-gray-400">还没有标签——进入集合详情给代币打标签。</span>';
+                return;
+            }
+            for (const t of tags) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100';
+                btn.textContent = `${t.tag}（${t.tokenCount}）`;
+                btn.addEventListener('click', () => searchByTag(t.tag));
+                cloud.appendChild(btn);
+            }
+        } catch (err) {
+            cloud.innerHTML = `<span class="text-xs text-red-500">标签加载失败: ${escapeHtml(err.message)}</span>`;
+        }
+    }
+
+    async function searchByTag(tag) {
+        const box = $('tag-search-result');
+        box.innerHTML = '<span class="text-gray-400">查询中…</span>';
+        try {
+            const r = await apiGet(`${API}/tags/${encodeURIComponent(tag)}`);
+            if (!r.tokens.length) {
+                box.innerHTML = '<span class="text-gray-400">无代币带此标签。</span>';
+                return;
+            }
+            box.innerHTML = '';
+            const head = document.createElement('div');
+            head.className = 'font-medium text-gray-700';
+            head.textContent = `🏷 ${r.tag} — ${r.tokens.length} 票`;
+            box.appendChild(head);
+            for (const t of r.tokens) {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 flex-wrap text-xs';
+                const cols = t.collections.length
+                    ? t.collections.map((c) => `<a href="/case-collections?id=${encodeURIComponent(c.collectionId)}" class="text-blue-600 hover:underline">${escapeHtml(c.collectionName || c.collectionId)}</a>${c.syncState === 'synced' ? '' : ` <span class="text-gray-400">(${escapeHtml(c.syncState)})</span>`}`).join('、')
+                    : '<span class="text-gray-400">未入集合</span>';
+                row.innerHTML = `<a href="/token-ticks?token=${encodeURIComponent(t.tokenAddress)}" target="_blank" class="mono text-blue-600 hover:underline">${escapeHtml(t.tokenAddress)}</a><span class="text-gray-500">所在集合：</span>${cols}`;
+                box.appendChild(row);
+            }
+        } catch (err) {
+            box.innerHTML = `<span class="text-red-500">查询失败: ${escapeHtml(err.message)}</span>`;
+        }
+    }
+
     // ─────────────── 详情视图 ───────────────
     let detailId = null;
     let pollTimer = null;
+    let detailTags = { tags: [], tokenTags: {} }; // GET /:id/tags 缓存
+    let activeTagFilter = null;                   // 单选标签过滤（null=全部）
 
     async function openDetail(id) {
         detailId = id;
         history.replaceState(null, '', `/case-collections?id=${id}`);
         $('list-view').classList.add('hidden');
         $('detail-view').classList.remove('hidden');
+        activeTagFilter = null;
         await refreshDetail();
         startPolling();
         loadDerived();
     }
 
+    async function loadDetailTags() {
+        detailTags = await apiGet(`${API}/${detailId}/tags`);
+        // 当前筛选标签已被删光（计数归零）→ 重置为全部，防空表假象
+        if (activeTagFilter !== null && !detailTags.tags.some((t) => t.tag === activeTagFilter)) {
+            activeTagFilter = null;
+        }
+        renderTagFilter();
+    }
+
+    /** 标签筛选栏：全部 + 本集合标签 chips（单选切换） */
+    function renderTagFilter() {
+        const bar = $('tag-filter-bar');
+        bar.innerHTML = '';
+        const mk = (label, value, active, extra) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `px-2 py-0.5 rounded-full text-xs border ${active
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-indigo-300'}`;
+            btn.textContent = label;
+            btn.addEventListener('click', () => {
+                activeTagFilter = value;
+                renderTagFilter();
+                renderTokens();
+            });
+            return btn;
+        };
+        bar.appendChild(mk('全部', null, activeTagFilter === null));
+        for (const t of detailTags.tags) {
+            bar.appendChild(mk(`${t.tag}（${t.count}）`, t.tag, activeTagFilter === t.tag));
+        }
+    }
+
+    let detailTokens = []; // refreshDetail 拉取缓存（标签筛选只重渲染不重拉）
+
     async function refreshDetail() {
         const d = await apiGet(`${API}/${detailId}`);
+        detailTokens = d.tokens || [];
         $('d-col-name').textContent = `🗂 ${d.name}`;
         $('d-col-description').textContent = d.description || '';
-        const notSynced = d.tokens.filter((t) => t.sync_state !== 'synced').length;
+        const notSynced = detailTokens.filter((t) => t.sync_state !== 'synced').length;
         $('d-col-stats').innerHTML = `
-            <span class="px-2 py-0.5 bg-gray-100 rounded">${d.tokens.length} 票</span>
-            <span class="px-2 py-0.5 bg-gray-100 rounded">${d.tokens.reduce((s, t) => s + (Number(t.tick_count) || 0), 0).toLocaleString()} ticks</span>
+            <span class="px-2 py-0.5 bg-gray-100 rounded">${detailTokens.length} 票</span>
+            <span class="px-2 py-0.5 bg-gray-100 rounded">${detailTokens.reduce((s, t) => s + (Number(t.tick_count) || 0), 0).toLocaleString()} ticks</span>
             <span class="px-2 py-0.5 rounded ${notSynced > 0 ? 'badge-pending' : 'badge-synced'}">${notSynced > 0 ? `${notSynced} 票未就绪` : '全部已同步'}</span>`;
         $('btn-create-backtest').href = `/create-experiment?caseCollection=${detailId}`;
+        renderTokens();
+        loadDetailTags().catch((err) => {
+            $('tag-filter-bar').innerHTML = `<span class="text-xs text-red-500">标签加载失败: ${escapeHtml(err.message)}</span>`;
+        });
+    }
+
+    function renderTokens() {
         const tb = $('token-tbody');
         tb.innerHTML = '';
-        for (const t of d.tokens) {
+        const tokens = activeTagFilter === null
+            ? detailTokens
+            : detailTokens.filter((t) => (detailTags.tokenTags[t.token_address] || []).includes(activeTagFilter));
+        for (const t of tokens) {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-gray-50';
             const meta = (t.token_meta && t.token_meta.payload) || {};
@@ -295,6 +412,13 @@
                 synced: '✓ 已同步', pending: '… 待同步',
                 syncing: '⟳ 同步中', failed: '✗ 失败',
             }[t.sync_state] || t.sync_state;
+            const tags = detailTags.tokenTags[t.token_address] || [];
+            const tagChips = tags.map((tag) => `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    ${escapeHtml(tag)}
+                    <button type="button" data-act="tag-del" data-tag="${escapeHtml(tag)}"
+                            class="text-indigo-400 hover:text-red-600 leading-none" title="移除标签">×</button>
+                </span>`).join('');
             tr.innerHTML = `
                 <td class="px-3 py-2">
                     <a href="/token-ticks?token=${encodeURIComponent(t.token_address)}" target="_blank"
@@ -305,6 +429,13 @@
                 </td>
                 <td class="px-3 py-2 text-xs">${escapeHtml(t.platform)}</td>
                 <td class="px-3 py-2 text-xs">${escapeHtml(t.note || '')}</td>
+                <td class="px-3 py-2">
+                    <div class="flex items-center gap-1 flex-wrap max-w-[300px]">
+                        ${tagChips}
+                        <button type="button" data-act="tag-add"
+                                class="px-2 py-0.5 rounded-full text-xs bg-gray-50 text-gray-500 border border-dashed border-gray-300 hover:border-indigo-400 hover:text-indigo-600" title="添加标签">+</button>
+                    </div>
+                </td>
                 <td class="px-3 py-2">
                     <span class="px-2 py-0.5 rounded text-xs ${badge}">${stateText}</span>
                     ${t.sync_state === 'failed' && t.sync_error ? `<div class="text-xs text-red-500 mt-1 max-w-[260px] break-all">${escapeHtml(t.sync_error)}</div>` : ''}
@@ -324,19 +455,41 @@
                 if (act === 'sync') syncToken(t.token_address);
                 else if (act === 'note') editNote(t);
                 else if (act === 'del') removeToken(t);
+                else if (act === 'tag-add') addTag(t);
+                else if (act === 'tag-del') removeTag(t, ev.target.getAttribute('data-tag'));
             });
             tb.appendChild(tr);
         }
     }
 
+    async function addTag(t) {
+        const tag = prompt(`给 ${t.token_address} 添加标签（性质分类，如：强庄 / 慢热 / burst）：`);
+        if (tag === null) return;
+        try {
+            await apiSend(`${API}/tokens/${encodeURIComponent(t.token_address)}/tags`, 'POST', { tag });
+            await loadDetailTags();
+            renderTokens();
+        } catch (err) { alert(err.message); }
+    }
+
+    async function removeTag(t, tag) {
+        try {
+            await apiSend(`${API}/tokens/${encodeURIComponent(t.token_address)}/tags/${encodeURIComponent(tag)}`, 'DELETE');
+            await loadDetailTags();
+            renderTokens();
+        } catch (err) { alert(err.message); }
+    }
+
     async function addToken() {
         const tokenAddress = $('add-token-address').value.trim();
         const note = $('add-token-note').value.trim();
+        const tags = $('add-token-tags').value.trim();
         if (!tokenAddress) { alert('请输入代币地址'); return; }
         try {
-            await apiSend(`${API}/${detailId}/tokens`, 'POST', { tokenAddress, note });
+            await apiSend(`${API}/${detailId}/tokens`, 'POST', { tokenAddress, note, tags });
             $('add-token-address').value = '';
             $('add-token-note').value = '';
+            $('add-token-tags').value = '';
             await refreshDetail();
         } catch (err) { alert(err.message); }
     }
@@ -411,6 +564,7 @@
         $('detail-view').classList.add('hidden');
         $('list-view').classList.remove('hidden');
         loadList().catch((e) => alert(e.message));
+        loadTagCloud();
     }
 
     // ─────────────── 绑定 ───────────────
@@ -428,8 +582,8 @@
 
     // 初始：?id= 直开详情
     const qsId = new URLSearchParams(location.search).get('id');
-    if (qsId) openDetail(qsId).catch((e) => { alert(e.message); loadList(); });
-    else loadList().catch((e) => alert(e.message));
+    if (qsId) openDetail(qsId).catch((e) => { alert(e.message); loadList(); loadTagCloud(); });
+    else { loadList().catch((e) => alert(e.message)); loadTagCloud(); }
 })();
 </script>
 </body>
