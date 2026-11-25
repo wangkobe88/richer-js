@@ -1540,6 +1540,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             //    双段防双计）──
             if (!deferWallet && isBuy && walletAddr) {
                 this._noteFamousLifetimeBuy(state, walletAddr, bnbAmount);
+                this._noteSmartLifetimeBuy(state, walletAddr, bnbAmount);
             }
 
             // ── 分类器 running 标量（回迁批 3.1：OPB 专用；与 token-classifier computeTickMetrics 同口径）──
@@ -1946,6 +1947,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    双计：smartBotEligible 仅 defer 路径置位；直推路径价格段已计本段不跑）──
         if (vars.smartBotEligible === true && isBuy && walletAddr) {
             this._noteFamousLifetimeBuy(state, walletAddr, bnbAmount);
+            this._noteSmartLifetimeBuy(state, walletAddr, bnbAmount);
         }
 
         // ── T228 smart 任意买键补跑（T227d 镜像：不挂 smartBotEligible 门——尘行
@@ -2751,6 +2753,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 参与钱包数（独立地址 Set，与上式同写点同口径单调累计）——famous
             // ≥5 票豁免锚买盘门（famous 众多=最强买盘确认，比等一笔 0.03B 买单强）
             _famousLifetimeBuyWallets: new Set(),
+            // PT43（2026-11-25 用户裁定「N 为 2 的话，看看聪明钱的购买数量，如果
+            // 超过 2，也可以豁免」）：smart 名单全史参与钱包数（独立地址单调累计，
+            // 同 famousLifetimeBuyN 口径）——famous N=2 ∧ smart N≥3 时 N 必要条件
+            // 豁免（小狗山案：24s 时 famous N=2 但 smart 3 钱包已参与）
+            _smartLifetimeBuyWallets: new Set(),
             // famous_conviction_pit（PT24）块口径跟单键原料：famous 买后**同块**非 famous
             // 买入钱包数全生命周期单调 max（famousFollowBlockMaxWallets；与 T221 2s 键
             // 并行共存）。锚 [{bn,set}] 容量界 16 + bn 推进闭合（见 _noteFollowCrowdByBlock）
@@ -3359,6 +3366,21 @@ class FourMemeFactorAggregator extends EventEmitter {
         // PT39：参与钱包数（独立地址单调累计——famous ≥5 豁免锚买盘门）
         if (!state._famousLifetimeBuyWallets) state._famousLifetimeBuyWallets = new Set();
         state._famousLifetimeBuyWallets.add(w);
+    }
+
+    /**
+     * PT43 smart 全史参与钱包数写点（2026-11-25 用户裁定「N 为 2 的话，看看聪明钱
+     * 的购买数量，如果超过 2，也可以豁免」）：smart 名单成员买入时计数（独立地址
+     * 单调累计，不判价不判尘；双段写点每 tick 恰计一次同 famousLifetimeBuyN 族）。
+     * 名单未启用/空 → 空操作=键恒 0 fail-open（0 语义）。
+     */
+    _noteSmartLifetimeBuy(state, walletAddr, bnbAmount) {
+        if (!_smartMoneyWallets || !_smartMoneyWallets.size) return;
+        if (!(bnbAmount > 0)) return;
+        const w = walletAddr.toLowerCase();
+        if (!_smartMoneyWallets.has(w)) return;
+        if (!state._smartLifetimeBuyWallets) state._smartLifetimeBuyWallets = new Set();
+        state._smartLifetimeBuyWallets.add(w);
     }
 
     /**
@@ -4989,6 +5011,8 @@ class FourMemeFactorAggregator extends EventEmitter {
         // PT39（2026-11-25 用户裁定）：famous 全史参与钱包数（独立地址单调累计；
         // 0=无命中 fail-open）——famous ≥5 票豁免 p18 锚买盘门
         const famousLifetimeBuyN = state._famousLifetimeBuyWallets ? state._famousLifetimeBuyWallets.size : 0;
+        // PT43（2026-11-25 用户裁定）：smart 名单全史参与钱包数（0=无命中 fail-open）
+        const smartLifetimeBuyN = state._smartLifetimeBuyWallets ? state._smartLifetimeBuyWallets.size : 0;
         // famous_conviction_pit（PT24）块口径跟单键（同块语义全生命周期单调 max——读点=
         // max(已并入〔锚闭合/逐出时〕, 活跃锚) O(16)；0=无 famous 买/名单未启用 fail-open）
         const famousFollowBlockMaxWallets = (() => {
@@ -5511,6 +5535,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // PT39（2026-11-25 用户裁定「豁免 famous 特别多的（5 个或以上）」）：
             // famous 全史参与钱包数（独立地址单调累计；0=无命中 fail-open）
             famousLifetimeBuyN,
+            // PT43（2026-11-25 用户裁定「N 为 2 的话，看看聪明钱的购买数量」）：
+            // smart 名单全史参与钱包数（0=无命中 fail-open）
+            smartLifetimeBuyN,
             // T222 臭名昭著钱包总流通持仓占比（集合合计正净持仓 ÷ 流通；0=未启用/
             // 无命中 fail-open——见计算处注释块）
             notoriousWalletCircPct,

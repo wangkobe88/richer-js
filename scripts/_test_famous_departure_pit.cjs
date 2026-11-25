@@ -67,6 +67,17 @@ console.log('A. FA 键 famousLifetimeBuyBnb（famous 名单全史累计买入额
   check('A2b PT39 参与钱包数 N=2（fa/fb 独立地址；卖不减、名单外不计、同址重复买不重复计）', () => {
     assert.strictEqual(f.famousLifetimeBuyN, 2);
   });
+  check('A2c PT43 smart 参与钱包数：smart 名单成员买入计数（独立地址；卖不减；非名单不计）', () => {
+    const fa4 = newFA({ famous: ['fa'], smart: ['sa', 'sb'] });
+    FourMemeFactorAggregator.setSmartMoneyWalletsForTest(new Set(['sa', 'sb']));
+    fa4.processTick(mkTick({ ts: T0 + 1000, side: 'buy', bnb: 0.1, tok: 1e8, px: PX, w: 'sa' }), {});
+    fa4.processTick(mkTick({ ts: T0 + 2000, side: 'buy', bnb: 0.1, tok: 1e8, px: PX, w: 'sb' }), {});
+    fa4.processTick(mkTick({ ts: T0 + 3000, side: 'sell', bnb: 0.1, tok: 1e8, px: PX, w: 'sa' }), {});
+    fa4.processTick(mkTick({ ts: T0 + 4000, side: 'buy', bnb: 0.1, tok: 1e8, px: PX, w: 'w0' }), {});
+    const f4 = fa4.buildFactorMap('0xtoken', T0 + 4500);
+    assert.strictEqual(f4.smartLifetimeBuyN, 2);
+    resetRosters();
+  });
   // 双段恰一次：defer 路径价格段跳过、wallet 段补跑
   const fa2 = newFA({ famous: ['fa'] });
   const dt = mkTick({ ts: T0 + 1000, side: 'buy', bnb: 0.3, tok: 2e8, px: PX, w: 'fa' });
@@ -161,6 +172,18 @@ console.log('B. point-type-router 类型 famous_participation_pit');
   check('B8e PT41 N=3 恰过下界（ChillGuy 3 F 钱包买入案）', () => {
     const r = classifyPointType({ ...PIT, famousLifetimeBuyN: 3 });
     assert.strictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8f PT43 N=2 ∧ smart N≥3 → 命中（小狗山 24s 案：famous 2 钱包+smart 3 钱包）', () => {
+    const r = classifyPointType({ ...PIT, famousLifetimeBuyN: 2, smartLifetimeBuyN: 3 });
+    assert.strictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8g PT43 N=2 ∧ smart N=2 → 不命中（smart 不足 3 不豁免）', () => {
+    const r = classifyPointType({ ...PIT, famousLifetimeBuyN: 2, smartLifetimeBuyN: 2 });
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8h PT43 famous N=1 ∧ smart N≥3 → 不命中（豁免臂仅 N=2；用户未裁定 N=1）', () => {
+    const r = classifyPointType({ ...PIT, famousLifetimeBuyN: 1, smartLifetimeBuyN: 5 });
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
   check('B9 跟单拥挤（同块 9 >8）→ 不命中', () => {
     const r = classifyPointType({ ...PIT, famousFollowBlockMaxWallets: 9 });

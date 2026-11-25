@@ -745,6 +745,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 累计买入额，0 语义——详见 _test_famous_departure_pit.cjs）
         'famousSmartHighBuyBnb', 'famousSmartHighBuyN', 'famousFollowBlockMaxWallets',
         'famousLifetimeBuyBnb', 'famousLifetimeBuyN',
+        // PT43（2026-11-25 用户裁定「N 为 2 的话，看看聪明钱的购买数量」）：
+        // smart 名单全史参与钱包数（famous N=2 豁免臂原料）
+        'smartLifetimeBuyN',
         // 2026-11-25 存量补登（同批核对，共 8 键零漏登）：athVsFloorPct（T234 六修
         // 地板口径 ath 键）、sinceLaunchTrades/bundledAvgTradeBnb300/bundledEffBuyers300
         // （T236 三刀三键）、cheatSameBlockHoldCircPct/cheatEqualBandHoldCircPct/
