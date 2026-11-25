@@ -317,9 +317,9 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     assert.strictEqual(classifyPointType({ ...TREND, priceMa60SlopePct: 4.9 }).type, 'normal');
     assert.strictEqual(classifyPointType({ ...TREND, priceMa60SlopePct: 60.1 }).type, 'normal');
   });
-  check('F5 act30s 恰 3.9 过线（类整数线纪律 4→3.9）；3.91 → normal（垂直段 5~19B 全切）', () => {
-    assert.strictEqual(classifyPointType({ ...TREND, actTotalBnb30s: 3.9 }).type, 'steady_trend_climb');
-    assert.strictEqual(classifyPointType({ ...TREND, actTotalBnb30s: 3.91 }).type, 'normal');
+  check('F5 act30s 恰 1.9 过线（PT47 用户裁定「砍吧」3.9→1.9，类整数线纪律 2→1.9）；1.91 → normal（高流量=出货段 24h 档层实证 −0.721）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, actTotalBnb30s: 1.9 }).type, 'steady_trend_climb');
+    assert.strictEqual(classifyPointType({ ...TREND, actTotalBnb30s: 1.91 }).type, 'normal');
   });
   check('F6 龄恰 60 过线 / 59 → normal（120s 与 curVs≤80 自相矛盾，182 校准实证零候选窗）', () => {
     assert.strictEqual(classifyPointType({ ...TREND, tokenAgeSec: 60 }).type, 'steady_trend_climb');
