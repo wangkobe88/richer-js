@@ -738,6 +738,21 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 不进门）；famous 跟单拥挤键（famous 买后 2s 窗非 famous 买入钱包数全生命
         // 周期单调 max ≤8——详见 _test_famous_follow_slot.cjs）
         'actTotalBnb90s', 'famousCopyWalletSupplyPct', 'famousFollowSlotMaxWallets',
+        // 2026-11-25 存量补登：T234 famous_conviction_pit（PT24）三键——臂 A 两键
+        // （famous∪smart 高位买累计 BNB/独立钱包数）+ 块口径同块跟单键，落键时未同步
+        // 本白名单（2026-11-25 PT37 落 famousLifetimeBuyBnb 时一并核对补登）；
+        // famousLifetimeBuyBnb=famous_departure_pit（PT37）臂 A 键（famous 名单全史
+        // 累计买入额，0 语义——详见 _test_famous_departure_pit.cjs）
+        'famousSmartHighBuyBnb', 'famousSmartHighBuyN', 'famousFollowBlockMaxWallets',
+        'famousLifetimeBuyBnb',
+        // 2026-11-25 存量补登（同批核对，共 8 键零漏登）：athVsFloorPct（T234 六修
+        // 地板口径 ath 键）、sinceLaunchTrades/bundledAvgTradeBnb300/bundledEffBuyers300
+        // （T236 三刀三键）、cheatSameBlockHoldCircPct/cheatEqualBandHoldCircPct/
+        // cheatBuyerWalletCount（cheat 投影族后补三键）、bpHolderConcentration
+        // （BP 维度观察键）——落键时均未同步本白名单
+        'athVsFloorPct', 'sinceLaunchTrades', 'bundledAvgTradeBnb300', 'bundledEffBuyers300',
+        'cheatSameBlockHoldCircPct', 'cheatEqualBandHoldCircPct', 'cheatBuyerWalletCount',
+        'bpHolderConcentration',
         // 2026-11-23 T222 臭名昭著钱包总流通持仓占比（用户点名 bf00 大割集合合计
         // 正净持仓 ÷ 流通 ×100；0 语义——详见 _test_notorious_wallet.cjs）
         'notoriousWalletCircPct',
