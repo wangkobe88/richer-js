@@ -294,6 +294,7 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
 {
   const TREND = {
     tokenAgeSec: 120, currentVsLaunchPct: 55, priceMa60SlopePct: 20, actTotalBnb30s: 1.2, athVsFloorPct: 100,
+    chg30Pct: 15, secSincePeak: 5, mcapFromPeakPct: 3,
   };
   check('F1 形状命中 → steady_trend_climb + 全豁 policy', () => {
     const r = classifyPointType(TREND);
@@ -301,7 +302,7 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     assert.strictEqual(r.label, '趋势成形-中低速持续拉盘-低位域入场-持续上涨币');
     assert.deepStrictEqual(r.policy, { factorCheckArms: 'skip', actFront: 'pass', cheatCheck: 'skip', buyPoint: 'stuffingOnly' });
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
-    assert.deepStrictEqual(Object.keys(r.snapshot).sort(), ['actTotalBnb30s', 'athVsFloorPct', 'currentVsLaunchPct', 'priceMa60SlopePct', 'tokenAgeSec']);
+    assert.deepStrictEqual(Object.keys(r.snapshot).sort(), ['actTotalBnb30s', 'athVsFloorPct', 'chg30Pct', 'currentVsLaunchPct', 'mcapFromPeakPct', 'priceMa60SlopePct', 'secSincePeak', 'tokenAgeSec']);
   });
   check('F2 域上界恰 80 过线 / 80.1 → normal（用户裁定「最多接受上涨 80% 的点位」）', () => {
     assert.strictEqual(classifyPointType({ ...TREND, currentVsLaunchPct: 80 }).type, 'steady_trend_climb');
@@ -342,6 +343,23 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
   });
   check('F8c PT48 ath null → normal（无可靠价 fail-closed——콕 案多轮涨跌后回落点拒绝语义）', () => {
     assert.strictEqual(classifyPointType({ ...TREND, athVsFloorPct: null }).type, 'normal');
+  });
+  check('F8d PT49 暴起门：chg30 恰 30 过线 / 30.1 → normal（趋势要摊在时间上——大小姐 31.4/Kedaengee 64.9 案源）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, chg30Pct: 30 }).type, 'steady_trend_climb');
+    assert.strictEqual(classifyPointType({ ...TREND, chg30Pct: 30.1 }).type, 'normal');
+  });
+  check('F8e PT49 反磨顶门：距峰<15 过线；距峰≥15 ∧ 回撤≤10 → normal（贴峰久磨=趋势缺失，OAO/빵쏭/HSI6900 案源）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, secSincePeak: 14.9, mcapFromPeakPct: 5 }).type, 'steady_trend_climb');
+    assert.strictEqual(classifyPointType({ ...TREND, secSincePeak: 15, mcapFromPeakPct: 10 }).type, 'normal');
+    assert.strictEqual(classifyPointType({ ...TREND, secSincePeak: 50, mcapFromPeakPct: 9 }).type, 'normal');
+  });
+  check('F8f PT49 反磨顶门豁免臂：深回撤（回撤>10）∧ 距峰久 → 过线（深回调=合法形状，股城/彪弟案）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, secSincePeak: 59, mcapFromPeakPct: 19 }).type, 'steady_trend_climb');
+    assert.strictEqual(classifyPointType({ ...TREND, secSincePeak: 36, mcapFromPeakPct: 38 }).type, 'steady_trend_climb');
+  });
+  check('F8g PT49 null 语义：chg30 null → normal（无可靠价 fail-closed）；secSincePeak/mcapFromPeak 双 null → normal', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, chg30Pct: null }).type, 'normal');
+    assert.strictEqual(classifyPointType({ ...TREND, secSincePeak: null, mcapFromPeakPct: null }).type, 'normal');
   });
   check('F9 类型注册形状：active:true 且位于 famous 系之后/slow_develop_early 之前', () => {
     const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
