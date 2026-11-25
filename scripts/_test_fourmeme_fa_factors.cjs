@@ -751,6 +751,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // cheatBuyerWalletCount（cheat 投影族后补三键）、bpHolderConcentration
         // （BP 维度观察键）——落键时均未同步本白名单
         'athVsFloorPct', 'sinceLaunchTrades', 'bundledAvgTradeBnb300', 'bundledEffBuyers300',
+        // 2026-11-25 存量补登：priceMa60SlopePct（T239 steady_trend_climb 斜率键，
+        // 落键时未同步本白名单）
+        'priceMa60SlopePct',
         'cheatSameBlockHoldCircPct', 'cheatEqualBandHoldCircPct', 'cheatBuyerWalletCount',
         'bpHolderConcentration',
         // 2026-11-23 T222 臭名昭著钱包总流通持仓占比（用户点名 bf00 大割集合合计

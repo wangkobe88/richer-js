@@ -101,7 +101,7 @@ console.log('B. point-type-router 类型 famous_participation_pit');
   const PIT = {
     tokenAgeSec: 30, athVsFloorPct: 148.79, mcapFromPeakPct: 50.53,
     currentVsLaunchPct: 23.07, earlyReturn: 5.55,
-    famousLifetimeBuyBnb: 2.4, famousCopyWalletCircPct: 0,
+    famousLifetimeBuyBnb: 2.4, famousLifetimeBuyN: 3, famousCopyWalletCircPct: 0,
     famousFollowBlockMaxWallets: 2,
     anchorTickIsBuy: 1, anchor15sMaxBuyBnb: 0.111,
   };
@@ -153,6 +153,14 @@ console.log('B. point-type-router 类型 famous_participation_pit');
   check('B8c PT39 豁免臂：N=4 不豁免（线 5 严格；ChillGuy 4 F 钱包仍挂锚门或 ath 线）', () => {
     const r = classifyPointType({ ...PIT, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0, famousLifetimeBuyN: 4 });
     assert.notStrictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8d PT41 参与钱包数下界：N=2 <3 → 不命中（famous 参与数必要条件——小狗山 24s 点案，召回点推迟到 31s N=3）', () => {
+    const r = classifyPointType({ ...PIT, famousLifetimeBuyN: 2 });
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8e PT41 N=3 恰过下界（ChillGuy 3 F 钱包买入案）', () => {
+    const r = classifyPointType({ ...PIT, famousLifetimeBuyN: 3 });
+    assert.strictEqual(r.type, 'famous_participation_pit');
   });
   check('B9 跟单拥挤（同块 9 >8）→ 不命中', () => {
     const r = classifyPointType({ ...PIT, famousFollowBlockMaxWallets: 9 });
