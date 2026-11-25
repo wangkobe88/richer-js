@@ -26,6 +26,8 @@ const REGISTRY = {
         v1: { resolve: () => require('./factor-pre-buy-check').FACTOR_PREBUY_VERSION },
     },
     // Jev 作弊检测门（cheat 题集 + grade 规则）
+    // v2 = 因子代（Jev 退役，2026-11-25 用户裁定）：结论由 factor-responders 产出，
+    // 形状与 Jev 链同构、下游零改动；Jev 代 v1 保留一代（回滚 / 对拍基线）
     cheatCheck: {
         v1: {
             resolve: async () => {
@@ -33,8 +35,10 @@ const REGISTRY = {
                 return q.CHEAT_QUESTIONS_VERSION;
             },
         },
+        v2: { resolve: () => require('./factor-responders').CHEAT_FACTOR_VERSION },
     },
     // Jev 前置活跃度门（AF1，独立于 cheatCheck 的版本域——组成/题面变化各自 bump）
+    // v2 = 因子代（同上）
     actFrontGate: {
         v1: {
             resolve: async () => {
@@ -42,8 +46,9 @@ const REGISTRY = {
                 return q.ACT_FRONT_QUESTIONS_VERSION;
             },
         },
+        v2: { resolve: () => require('./factor-responders').ACT_FRONT_FACTOR_VERSION },
     },
-    // 买入点位检查门（BP 题集）
+    // 买入点位检查门（BP 题集）；v2 = 因子代（同上）
     buyPointCheck: {
         v1: {
             resolve: async () => {
@@ -51,6 +56,7 @@ const REGISTRY = {
                 return q.BUY_POINT_QUESTIONS_VERSION;
             },
         },
+        v2: { resolve: () => require('./factor-responders').BUY_POINT_FACTOR_VERSION },
     },
     // 点位类型辨别与对应策略（T216——纯因子分类层，门链接纳策略路由）
     pointType: {
@@ -61,9 +67,21 @@ const REGISTRY = {
 const MODULE_NAMES = Object.freeze(Object.keys(REGISTRY));
 
 /**
+ * 因子代版本键（Jev 退役，2026-11-25）：cheatCheck / actFrontGate / buyPointCheck
+ * 三模块取此键 = 该门由 factor-responders 出结论、不调 Jev。引擎据它给 service 注入
+ * factor 模式；三键可独立取（混代包合法——用于逐门消融对拍）。
+ */
+const FACTOR_GENERATION_KEY = 'v2';
+
+/** 版本键是否为因子代 */
+function isFactorGeneration(key) {
+    return key === FACTOR_GENERATION_KEY;
+}
+
+/**
  * 断言模块名与版本键均已在注册表登记
- * @param {string} name - 模块名（factorCheck/cheatCheck/actFrontGate/buyPointCheck）
- * @param {string} key - 版本键（'v1'…）
+ * @param {string} name - 模块名（factorCheck/cheatCheck/actFrontGate/buyPointCheck/pointType）
+ * @param {string} key - 版本键（'v1' / 'v2'…；v2=因子代，仅 cheatCheck/actFrontGate/buyPointCheck 有）
  * @throws {Error} 未注册的模块名或版本键（fail-fast，调用方拒启/400）
  */
 function assertModuleKey(name, key) {
@@ -109,4 +127,7 @@ function listModuleVersions() {
     return out;
 }
 
-module.exports = { assertModuleKey, resolveModules, listModuleVersions, MODULE_NAMES };
+module.exports = {
+    assertModuleKey, resolveModules, listModuleVersions, MODULE_NAMES,
+    FACTOR_GENERATION_KEY, isFactorGeneration,
+};

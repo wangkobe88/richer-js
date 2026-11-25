@@ -71,6 +71,14 @@
  * 天然全是当前题集版本，比较恒 false 反而使粘滞永不命中（CD158 实施期修正）。
  * 观察模式（noteBuyPoint）已随 CD158 退役删除——腿不带 cheatCheckCondition 的
  * 实验零分析零落行（数据采集期已收官）。
+ *
+ * ── 因子代（Jev 退役，2026-11-25 用户裁定「退役 Jev 的使用……Jev 的所有门，都
+ * 改为因子门……Jev 的调用框架与 Prompt 等等都保留，防止以后再使用」）──
+ * 策略包 modules.cheatCheck / actFrontGate 取因子代键（module-registry
+ * FACTOR_GENERATION_KEY）时，引擎以 deps.factorMode 注入：cheat 门与 AF 门改由
+ * factor-responders 出结论，**零 Jev**——不加载 LLM 模块、不建 state、不粘滞、
+ * 不 bootstrap、无竞速（纯计算每信号现评）。拉黑登记 / 出口豁免变换 / 返回形状
+ * 与 Jev 链同构，引擎侧零改动。Jev 代代码原样保留（回滚与对拍基线）。
  */
 
 const { buildSnapshotFromRows } = require('./cheat-snapshot');
@@ -79,6 +87,8 @@ const { evaluateStallRestart } = require('./stall-restart'); // T210 停滞再�
 const { buildCheatState } = require('./cheat-state-builder');
 const { buildObservation, readActivityLevel, readStallBurst, readPhenomenon } = require('./cheat-result-mapper');
 const { gradeObservation, levelsFromObservation, strongbackerShapeHit, STRONGBACKER_RULE_VERSION, CHEAT_RULESET_IDS } = require('./cheat-grade');
+// 因子代结论源（Jev 退役）：cheat 门 / AF 门在 deps.factorMode 下的唯一答案来源
+const { judgeCheatFactor, judgeActFrontFactor, CHEAT_FACTOR_VERSION, ACT_FRONT_FACTOR_VERSION } = require('./factor-responders');
 
 const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
@@ -229,6 +239,12 @@ class CheatCheckService {
     this._logger = logger;
     this._deps = deps;
     this._dbClient = deps.dbClient || null;
+    // 因子代开关（Jev 退役）：引擎按策略包 modules 版本键以 deps.factorMode 注入——
+    // true = cheat 门与 AF 门结论均出自 factor-responders，本服务零 Jev 零拉数
+    this._factorMode = deps.factorMode === true;
+    // 因子代判定函数注入口（缺省 factor-responders；单测可换桩验证拉黑/豁免三点同构）
+    this._factorJudge = deps.factorJudge || judgeCheatFactor;
+    this._actFrontFactorJudge = deps.actFrontFactorJudge || judgeActFrontFactor;
 
     // 进程内状态（重启即清：DB bootstrap 补偿跨进程连续性）
     this._failUntil = new Map();     // token → 冷却截止 ts
@@ -273,10 +289,14 @@ class CheatCheckService {
       resetInsufficientRejects: 0, // CD384 fail-closed 拒计数——CD393 退役后停用恒 0，保留键读数连续性
       actFrontNoted: 0, actFrontJoined: 0, actFrontTimeouts: 0, // T175/AF1 前置门观测（评估数/并发 join/竞速超时）
       actFrontRouted: { reject_low: 0, reject_ultra: 0, reject_wash: 0, burst_exempt: 0, restart_exempt: 0, high_skip: 0, mid_full: 0, fail_open: 0 }, // 分流路径计数
+      factorJudged: 0, actFrontFactorJudged: 0, factorErrors: 0, // 因子代（Jev 退役）观测：cheat 门判定数 / AF 门判定数 / 判定异常数
     };
   }
 
   get enabled() { return this._enabled; }
+
+  /** 因子代（Jev 退役）模式：cheat / AF 门结论由 factor-responders 产出 */
+  get factorMode() { return this._factorMode; }
 
   /** CD389 每信号重判开关（gate.alwaysRecheck；引擎侧拉黑短路同步放行判据） */
   get alwaysRecheck() { return this._alwaysRecheck === true; }
@@ -355,6 +375,16 @@ class CheatCheckService {
     }
     if (opts.forceRecheck === true) this.stats.forceRechecks++; // CD381 重检观测
     else if (this._alwaysRecheck === true) this.stats.alwaysRechecks++; // CD389 观测
+
+    // 因子代（Jev 退役）：无粘滞 / bootstrap / inflight join / 竞速——纯计算每信号
+    // 现评。出口变换与 Jev 链同款（豁免 / 翻案两点同构）
+    if (this._factorMode) {
+      const judged = await this._factorChain(token, ruleset);
+      if (judged && (judged.grade === 'cheat' || judged.grade === 'unhealthy' || judged.grade === 'healthy')) {
+        this.stats.gateGraded++;
+      }
+      return this._applyActivityExempt(this._maybeUnblock(token, judged));
+    }
 
     // CD158 粘滞（入口路径——进程内已有 healthy 判定）：秒回不烧 Jev。
     // 重启后内存空 → 首链 _chain 4c 复检兜住（bootstrap 恢复后秒回）。
@@ -445,6 +475,16 @@ class CheatCheckService {
     const token = String(tokenAddress || '').toLowerCase();
     if (!token) return { status: 'invalid_token' };
     this.stats.actFrontNoted++;
+
+    // 因子代（Jev 退役）：AF2 精简代不判档（act / sbw / wash 全 null）——零 I/O，
+    // 分流仍走 actFrontRoute（act 缺席 = mid_full，照走 cheat 门）
+    if (this._factorMode) {
+      this.stats.actFrontFactorJudged++;
+      const j = this._actFrontFactorJudge(null);
+      const path = actFrontRoute(j.act, j.sbw === 'burst', j.wash, false, false);
+      this.stats.actFrontRouted[path] = (this.stats.actFrontRouted[path] || 0) + 1;
+      return { status: 'assessed', act: j.act, sbw: j.sbw, wash: j.wash, path, version: ACT_FRONT_FACTOR_VERSION, model: j.model };
+    }
 
     let chain = this._actFrontInflight.get(token);
     if (!chain) {
@@ -1410,6 +1450,38 @@ class CheatCheckService {
     }
   }
 
+  /**
+   * 因子代作弊门判定（Jev 退役，2026-11-25）：结论由 factor-responders 产出（CF1
+   * 精简代不消费快照——零 I/O）。拉黑登记 / 观测计数 / 规则集重评三点与 Jev 链
+   * _chain 尾段同构：后续因子判定臂接入后，cheat → 拉黑 + 引擎清仓联动即生效。
+   * 不落 cheat_detection 行（精简代观测记录全 null，无研究价值；返回形状带 model
+   * 标记来源）。判定异常 = 检测层故障，fail-open 放行（与 Jev 链 catch 同向）。
+   * @returns {Promise<Object>} 与 Jev 链 analyzed 行同构（另带 model）
+   */
+  async _factorChain(token, ruleset) {
+    try {
+      const judged = this._factorJudge(null, { ruleset });
+      this.stats.factorJudged++;
+      if (judged.grade === 'cheat') {
+        // CD391 同构：cheat 的豁免资格 = activity 桶 ∨ burst 臂（因子档位给得出才命中）
+        if (!this._isCheatExemptEligible(judged.buckets ? judged.buckets.activityLevel : null, judged.levels, judged.anchors)) {
+          this._gateBlocked.add(token);
+        }
+      } else if (judged.grade === 'unhealthy') {
+        this._gateUnhealthyGrades.set(token, (this._gateUnhealthyGrades.get(token) || 0) + 1);
+      }
+      return {
+        ...judged,
+        unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
+        strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0,
+      };
+    } catch (e) {
+      this.stats.factorErrors++;
+      this._log('warn', `因子代作弊门判定异常（fail-open 放行） | ${token} ${e?.message || e}`);
+      return { status: 'fail', reason: 'factor_error' };
+    }
+  }
+
   // ─────────────────────────── 内部件 ───────────────────────────
 
   async _ensureLlm() {
@@ -1424,7 +1496,10 @@ class CheatCheckService {
     }
   }
 
-  get _version() { return this._llm ? this._llm.CHEAT_QUESTIONS_VERSION : null; }
+  /** 观测行版本域（bootstrap / 落库 / prompt 首行键共用）：因子代=独立版本串，与 Jev 代判定域不串 */
+  get _version() {
+    return this._factorMode ? CHEAT_FACTOR_VERSION : (this._llm ? this._llm.CHEAT_QUESTIONS_VERSION : null);
+  }
 
   _now() { return this._deps.now ? this._deps.now() : Date.now(); }
 

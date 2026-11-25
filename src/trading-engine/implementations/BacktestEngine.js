@@ -638,20 +638,32 @@ class BacktestEngine extends AbstractTradingEngine {
       // T202 策略库二期：四门 enabled 归策略包 modules（键在场=启用）；ops 旋钮
       // （gate.awaitMs 等）仍读实验 config.fourmemeWs
       const _packMod = (m) => this._strategyDefinition?.modules?.[m] != null;
+      // Jev 退役·因子代（2026-11-25 用户裁定）：模块版本键 = 因子代键 → service 以
+      // deps.factorMode 注入（结论出自 factor-responders，零 Jev——回测不再被 Jev
+      // 真调拖住，且确定性可复跑）；三键独立判定（混代包合法）
+      const { FACTOR_GENERATION_KEY, isFactorGeneration } = require('../../market-analysis/module-registry');
+      const _packFactor = (m) => this._strategyDefinition?.modules?.[m] === FACTOR_GENERATION_KEY;
       this._cheatCheckService = new CheatCheckService(
-        { ...(_wsCfg.cheatCheck || {}), persist: false, settleDelayMs: 0, enabled: _packMod('cheatCheck') }, this.logger, _memDeps);
+        { ...(_wsCfg.cheatCheck || {}), persist: false, settleDelayMs: 0, enabled: _packMod('cheatCheck') }, this.logger,
+        { ..._memDeps, factorMode: _packFactor('cheatCheck') });
       this._buyPointCheckService = new BuyPointCheckService(
         { ...(_wsCfg.buyPointCheck || {}), persist: false, settleDelayMs: 0,
           enabled: _packMod('buyPointCheck'),
-          factorCheck: { ...(_wsCfg.buyPointCheck?.factorCheck || {}), enabled: _packMod('factorCheck') } }, this.logger, _memDeps);
+          factorCheck: { ...(_wsCfg.buyPointCheck?.factorCheck || {}), enabled: _packMod('factorCheck') } }, this.logger,
+        { ..._memDeps, factorMode: _packFactor('buyPointCheck') });
       const _cgAw = _wsCfg.cheatCheck?.gate?.awaitMs;
       const _bpAw = _wsCfg.buyPointCheck?.gate?.awaitMs;
       this._cheatGateAwaitMs = Number.isFinite(_cgAw) && _cgAw > 0 ? _cgAw : 15000;
       this._bpGateAwaitMs = Number.isFinite(_bpAw) && _bpAw > 0 ? _bpAw : 15000;
       // T175/AF1 前置活跃度门（T202 起 enabled 归策略包 modules.actFrontGate）
       this._actFrontGateEnabled = _packMod('actFrontGate');
+      // 因子代三键清单（启动日志核对锚：哪几门已不走 Jev）
+      const _modsRaw = this._strategyDefinition?.modules || {};
+      const _factorMods = ['cheatCheck', 'actFrontGate', 'buyPointCheck']
+        .filter((m) => isFactorGeneration(_modsRaw[m]));
       this.logger.info(this._experimentId, 'BacktestEngine',
-        `🚪 signalGateReal 门链真调已启用：cheat awaitMs=${this._cheatGateAwaitMs} / BP awaitMs=${this._bpGateAwaitMs}${this._actFrontGateEnabled ? ' / AF1 前置门=开' : ''}（persist:false 隔离+anchorMs 截窗；四门 enabled=策略包 modules）`);
+        `🚪 signalGateReal 门链真调已启用：cheat awaitMs=${this._cheatGateAwaitMs} / BP awaitMs=${this._bpGateAwaitMs}${this._actFrontGateEnabled ? ' / AF1 前置门=开' : ''}（persist:false 隔离+anchorMs 截窗；四门 enabled=策略包 modules）` +
+        (_factorMods.length ? ` | ⚡因子代（零 Jev）：${_factorMods.join('/')}` : ''));
     }
 
     // 累亏闩锁阈值：取卖腿 cumulativeLossLockPct 最大值（多腿并存最严者先锁，fail-closed 方向）；

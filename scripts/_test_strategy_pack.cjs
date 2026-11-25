@@ -46,7 +46,7 @@ dbManager.isInitialized = true;
 dbManager.client = activeDb.client;
 
 // ═══ 被测模块（打桩后 require）═══
-const { assertModuleKey, resolveModules, listModuleVersions, MODULE_NAMES } =
+const { assertModuleKey, resolveModules, listModuleVersions, MODULE_NAMES, FACTOR_GENERATION_KEY, isFactorGeneration } =
     require('../src/market-analysis/module-registry');
 const { validatePack, validateBurstCooldownSection } =
     require('../src/web/services/StrategyLibraryService');
@@ -100,14 +100,52 @@ async function testA() {
     check('A7 v1 解析为现行具体版本（cheatCheck D 系）', /^D3\./.test(resolved.cheatCheck || ''), JSON.stringify(resolved));
     check('A8 v1 解析为现行具体版本（actFrontGate AF 系）', /^AF/.test(resolved.actFrontGate || ''), JSON.stringify(resolved));
     check('A9 v1 解析为现行具体版本（buyPointCheck BP 系）', /^BP/.test(resolved.buyPointCheck || ''), JSON.stringify(resolved));
+    // A10 未知版本键 throw（v2 自 Jev 退役·因子代起已是 cheatCheck/actFrontGate/buyPointCheck
+    // 的合法键——未知键示例改用 v3）
     await throwsWithAsync('A10 resolveModules 未知版本键 throw',
-        () => resolveModules({ cheatCheck: 'v2' }), '未知版本键');
+        () => resolveModules({ cheatCheck: 'v3' }), '未知版本键');
+    // factorCheck 无因子代（FP 本就是纯代码）——v2 对它仍是未知键
+    await throwsWithAsync('A10b factorCheck 无 v2（因子门无需换代）',
+        () => resolveModules({ factorCheck: 'v2' }), 'v1');
 
     const listed = listModuleVersions();
     check('A11 listModuleVersions 四模块各含 v1',
         ['factorCheck', 'cheatCheck', 'actFrontGate', 'buyPointCheck']
             .every((m) => Array.isArray(listed[m]) && listed[m].includes('v1')),
         JSON.stringify(listed));
+}
+
+// ═══════════════ A2. 因子代版本键（Jev 退役，2026-11-25） ═══════════════
+async function testA2() {
+    console.log('\n━━━ A2. 因子代版本键（Jev 退役） ━━━');
+    const FR = require('../src/market-analysis/factor-responders');
+
+    const v2 = await resolveModules({ cheatCheck: 'v2', actFrontGate: 'v2', buyPointCheck: 'v2' });
+    check('A2-1 三门 v2 解析为因子版本', v2.cheatCheck === FR.CHEAT_FACTOR_VERSION
+        && v2.actFrontGate === FR.ACT_FRONT_FACTOR_VERSION
+        && v2.buyPointCheck === FR.BUY_POINT_FACTOR_VERSION, JSON.stringify(v2));
+    const v1 = await resolveModules({ cheatCheck: 'v1', actFrontGate: 'v1', buyPointCheck: 'v1' });
+    check('A2-2 因子版本与 Jev 代版本域不重叠（粘滞 / bootstrap 版本域天然隔离）',
+        ['cheatCheck', 'actFrontGate', 'buyPointCheck'].every((k) => v2[k] !== v1[k]), JSON.stringify({ v1, v2 }));
+    check('A2-3 FACTOR_GENERATION_KEY = v2 / isFactorGeneration',
+        FACTOR_GENERATION_KEY === 'v2' && isFactorGeneration('v2') === true && isFactorGeneration('v1') === false);
+    const listed2 = listModuleVersions();
+    check('A2-4 每模块 ≤2 代（规约锁：Jev 代 v1 + 因子代 v2，第三代须先退役一代）',
+        Object.values(listed2).every((v) => v.length <= 2), JSON.stringify(listed2));
+    check('A2-5 pointType 无因子代键', JSON.stringify(listed2.pointType) === JSON.stringify(['v1']));
+    const mixed = await resolveModules({ cheatCheck: 'v1', actFrontGate: 'v2', buyPointCheck: 'v2' });
+    check('A2-6 混代包合法（逐门消融对拍）', /^D3\./.test(mixed.cheatCheck) && mixed.actFrontGate === FR.ACT_FRONT_FACTOR_VERSION,
+        JSON.stringify(mixed));
+
+    const { validatePack } = require('../src/web/services/StrategyLibraryService');
+    const goodBuyLeg = { priority: 1, cards: 4, buyPhase: 'first',
+        condition: 'tradeCount >= 6 AND buyVolumeBnb >= 1',
+        signalGate: { maxTriggers: 2, bpPassLevels: ['good', 'neutral'] } };
+    const pack = (modules) => ({ buyLegs: [goodBuyLeg], sellLegs: [{ priority: 1, cards: 'all', condition: 'profitPercent >= 9999' }], modules });
+    check('A2-7 validatePack 接受全因子代包', validatePack(pack({ cheatCheck: 'v2', actFrontGate: 'v2', buyPointCheck: 'v2' })).valid === true);
+    const badV3 = validatePack(pack({ cheatCheck: 'v3' }));
+    check('A2-8 validatePack 拒绝未知版本键（v3）', badV3.valid === false && JSON.stringify(badV3.errors).includes('v3'),
+        JSON.stringify(badV3.errors));
 }
 
 // ═══════════════ B. validatePack ═══════════════
@@ -307,6 +345,7 @@ function testD() {
 // ═══════════════ 主流程 ═══════════════
 (async () => {
     await testA();
+    await testA2();
     testB();
     await testC();
     testD();

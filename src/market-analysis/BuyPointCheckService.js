@@ -50,12 +50,22 @@
  *
  * 回测零接线（BacktestEngine 不走本门——signalGate 腿回测恒拒=用户裁定）。
  * 实验停止不清理表行（token 级全局资产）。
+ *
+ * ── 因子代（Jev 退役，2026-11-25 用户裁定「退役 Jev 的使用……Jev 的所有门，都
+ * 改为因子门……Jev 的调用框架与 Prompt 等等都保留，防止以后再使用」）──
+ * 策略包 modules.buyPointCheck 取因子代键（module-registry FACTOR_GENERATION_KEY）
+ * 时，引擎以 deps.factorMode 注入：维度题答案改由 factor-responders 产出，**零
+ * Jev**——不加载 LLM 模块、不建 state、无竞速。链路其余部分（settle / 拉数 /
+ * minTicks 预门 / 快照 / 塞单门 / mapper 门链 / 落行）与 Jev 代同一条，BPF1
+ * 精简代下实际在拦的只剩纯代码的塞单门与 minTicks 预门。
  */
 
 const { buildBuyPointSnapshot } = require('./buy-point-snapshot');
 const { buildBuyPointState } = require('./buy-point-state-builder');
 const { buildBuyPointObservation, STUFFING_MAX_EQ_WALLETS } = require('./buy-point-result-mapper');
 const { evaluateFactorPreBuy: evaluateFactorPreBuyJudge, FACTOR_PREBUY_VERSION } = require('./factor-pre-buy-check');
+// 因子代答案源（Jev 退役）：deps.factorMode 下维度题答案的唯一来源
+const { answerBuyPointQuestions, BUY_POINT_FACTOR_VERSION } = require('./factor-responders');
 
 const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
@@ -130,6 +140,9 @@ class BuyPointCheckService {
     this._logger = logger;
     this._deps = deps;
     this._dbClient = deps.dbClient || null;
+    // 因子代开关（Jev 退役）：引擎按策略包 modules 版本键以 deps.factorMode 注入——
+    // true = 维度题答案出自 factor-responders，本服务零 Jev
+    this._factorMode = deps.factorMode === true;
 
     // T198/FP30 arbBot 钱包集（deps.arbBotWallets 直注=单测路径零 DB）：ctor 预热
     // fire-and-forget（一次分页拉全表 ~5k 行；完成前首信号拿空集=臂钝化该笔
@@ -155,6 +168,7 @@ class BuyPointCheckService {
       settleIdleHits: 0, settleIdleTimeouts: 0,  // waitIdle 双模观测
       shadowAudits: 0, shadowMismatches: 0, shadowErrors: 0, // mem 对拍护栏观测
       persistSkipped: 0, // persist=false 跳写计数（回测隔离观测）
+      factorAnswered: 0, // 因子代（Jev 退役）答案产出计数
       factorNoted: 0, factorAssessed: 0, factorBlocked: 0, factorInsufficient: 0, factorErrors: 0, // T143 因子门观测
       ppAggregated: 0, ppErrors: 0, ppSkippedDisabled: 0, // T193 参与者画像观察键
     };
@@ -163,6 +177,9 @@ class BuyPointCheckService {
   get enabled() { return this._enabled; }
   /** T143 因子门灰度开关（factorCheck.enabled，缺省 false——引擎 fail-open 放行进 cheat 门） */
   get factorEnabled() { return this._factorEnabled === true; }
+
+  /** 因子代（Jev 退役）模式：维度题答案由 factor-responders 产出 */
+  get factorMode() { return this._factorMode; }
 
   /** 实验 stop 优雅等流（上限 maxWaitMs——settle+Jev 最长几十秒，不值得堵停机） */
   async drain(maxWaitMs = 5000) {
@@ -303,13 +320,16 @@ class BuyPointCheckService {
       }
 
       // 2) LLM 模块（ESM dynamic import；失败=机制不可用，loud warn 后静默）
-      try {
-        await this._ensureLlm();
-      } catch (e) {
-        this.stats.errors++;
-        this._failUntil.set(token, this._now() + this._failCooldownMs);
-        this._log('warn', `LLM 模块加载失败，本次跳过 | ${token} ${e?.message || e}`);
-        return { status: 'fail', reason: 'llm_load' };
+      //    因子代不加载（零 Jev）
+      if (!this._factorMode) {
+        try {
+          await this._ensureLlm();
+        } catch (e) {
+          this.stats.errors++;
+          this._failUntil.set(token, this._now() + this._failCooldownMs);
+          this._log('warn', `LLM 模块加载失败，本次跳过 | ${token} ${e?.message || e}`);
+          return { status: 'fail', reason: 'llm_load' };
+        }
       }
 
       // 3) 失败冷却
@@ -352,7 +372,8 @@ class BuyPointCheckService {
         // T198/FP30：arbBot 钱包集注入（BP 门 digest 同步带键留痕；零查库同上）
         arbBotWallets: await this._loadArbBotWallets(),
       });
-      const { state } = buildBuyPointState(snapshot);
+      // state 只服务 Jev 提示词——因子代不建（省一次全量文本渲染）
+      const state = this._factorMode ? null : buildBuyPointState(snapshot).state;
 
       // 6a) T213b 好散户币通路包策略（buyPoint='stuffingOnly'）：只评塞单门——
       // exactEqualBlockMaxWallets ≥8（BP77 同线同键，纯机械作弊形状）拒，其余
@@ -385,8 +406,11 @@ class BuyPointCheckService {
         }
       }
 
-      // 7) Jev（超时竞速；迟到结果丢弃防锚重复行）
-      const res = await this._runJev(state, this._llm.buildBuyPointQuestions());
+      // 7) 判定：Jev（超时竞速；迟到结果丢弃防锚重复行）/ 因子代（纯计算，无竞速）
+      const res = this._factorMode
+        ? { ok: true, result: answerBuyPointQuestions(snapshot) }
+        : await this._runJev(state, this._llm.buildBuyPointQuestions());
+      if (this._factorMode) this.stats.factorAnswered++;
       if (!res.ok) {
         if (res.kind === 'timeout') {
           this.stats.timeouts++;
@@ -461,7 +485,10 @@ class BuyPointCheckService {
     }
   }
 
-  get _version() { return this._llm ? this._llm.BUY_POINT_QUESTIONS_VERSION : null; }
+  /** 观测行版本域（落库 / prompt 首行键共用）：因子代=独立版本串，与 Jev 代判定域不串 */
+  get _version() {
+    return this._factorMode ? BUY_POINT_FACTOR_VERSION : (this._llm ? this._llm.BUY_POINT_QUESTIONS_VERSION : null);
+  }
 
   _now() { return this._deps.now ? this._deps.now() : Date.now(); }
 

@@ -633,9 +633,13 @@ async function testActivityExempt() {
     svcSrc.includes('cheatSeen && !this._isCheatExemptEligible('));
   ok('F4 timeout late 包豁免+翻案变换（迟到结果不把豁免票错拉黑；CD381 重检迟到翻正同解除）',
     svcSrc.includes('chain.then((r) => this._maybeUnblock(token, this._applyActivityExempt(r)))'));
-  ok('F4 四出口统一变换（this._applyActivityExempt 调用恰 4 处：blocked/sticky/late/chain）',
-    (svcSrc.match(/this\._applyActivityExempt\(/g) || []).length === 4,
+  // 第五处 = 因子代出口（Jev 退役，2026-11-25）：gateBuyPoint 的 _factorMode 分支同款
+  // this._applyActivityExempt(this._maybeUnblock(token, judged))——出口变换不因换答案来源而漏
+  ok('F4 五出口统一变换（this._applyActivityExempt 调用恰 5 处：blocked/sticky/late/chain/factor）',
+    (svcSrc.match(/this\._applyActivityExempt\(/g) || []).length === 5,
     (svcSrc.match(/this\._applyActivityExempt\(/g) || []).length);
+  ok('F4 因子代出口变换带翻案（_applyActivityExempt(this._maybeUnblock(token, judged)) 在场）',
+    svcSrc.includes('this._applyActivityExempt(this._maybeUnblock(token, judged))'));
 
   // F5 域一致锁：CJS 豁免域 ⊇ 题集 ACTIVITY_LEVELS（ESM dynamic import 防漂移）
   const q = await import(path.join(__dirname, '../src/market-analysis/llm/cheat-questions.mjs'));
@@ -909,8 +913,10 @@ async function testActivityExempt() {
   check('F9 出口：mid∧cheat（桶不在豁免集 ∧ 无 burst）→ 原样返回无 exemptDenied（资格缺席非 denied，早退在桶判定前）',
     { grade: r9g.grade, exempt: r9g.exempt, exemptDenied: r9g.exemptDenied },
     { grade: 'cheat', exempt: undefined, exemptDenied: undefined });
-  ok('F9 源码锁：_isCheatExemptEligible 单一子式两消费点（拉黑登记/bootstrap——与出口逐案等价三点同构）+ _isCheatBurstExempt 两消费点（出口 ultra 分支/子式 ultra 分支）+ ultraCheatDenied 计数器恢复 + _isUltraCheatDenied 全删',
-    (svcSrc.match(/this\._isCheatExemptEligible\(/g) || []).length === 2
+  // 第三消费点 = 因子代拉黑登记（Jev 退役，2026-11-25，_factorChain）——同一子式把关，
+  // 三点（Jev 链登记 / bootstrap / 因子代登记）与出口逐案等价
+  ok('F9 源码锁：_isCheatExemptEligible 单一子式三消费点（Jev 链拉黑登记/bootstrap/因子代拉黑登记——与出口逐案等价同构）+ _isCheatBurstExempt 两消费点（出口 ultra 分支/子式 ultra 分支）+ ultraCheatDenied 计数器恢复 + _isUltraCheatDenied 全删',
+    (svcSrc.match(/this\._isCheatExemptEligible\(/g) || []).length === 3
     && (svcSrc.match(/this\._isCheatBurstExempt\(/g) || []).length === 2
     && svcSrc.includes('ultraCheatDenied: 0')
     && (svcSrc.match(/this\._isUltraCheatDenied\(/g) || []).length === 0);

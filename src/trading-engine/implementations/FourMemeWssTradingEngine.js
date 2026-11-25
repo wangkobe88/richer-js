@@ -363,6 +363,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // modules 键在场=启用（版本键经 module-registry 解析；ops 旋钮 gate.awaitMs/
     // alwaysRecheck/activityExemptLevels/memSource/settleDelayMs 仍走实验 ws 段）
     const _packMod = (m) => this._strategyDefinition?.modules?.[m] != null;
+    // Jev 退役·因子代（2026-11-25 用户裁定）：模块版本键 = 因子代键 → 对应 service
+    // 以 deps.factorMode 注入（结论出自 factor-responders，零 Jev）。三键独立判定
+    // （混代包合法——逐门消融对拍用）
+    const { FACTOR_GENERATION_KEY } = require('../../market-analysis/module-registry');
+    const _packFactor = (m) => this._strategyDefinition?.modules?.[m] === FACTOR_GENERATION_KEY;
     // ①+② mem 源注入（2026-11-04 settle 提速）：waitIdle 恒注入（事件驱动 settle——
     // resolver per-token watermark 清空即出窗，帽=service settleDelayMs 与固定等待
     // 现状同延迟上界；resolver 未启用=无回查零延迟立即 true）；pullTicks 仅
@@ -379,6 +384,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           ? this._senderResolver.waitTokenIdle(token, _cheatSettleCap + 1000)
           : true),
         ...(this._cheatMemEnabled ? { pullTicks: (token) => this._cheatRingPull(token) } : {}),
+        factorMode: _packFactor('cheatCheck'),
       });
     this._cheatGateAwaitMs = Number.isFinite(_cheatCfg.gate && _cheatCfg.gate.awaitMs)
       && _cheatCfg.gate.awaitMs > 0 ? _cheatCfg.gate.awaitMs : 15000;
@@ -417,6 +423,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           ? this._senderResolver.waitTokenIdle(token, _bpSettleCap + 1000)
           : true),
         ...(this._bpMemEnabled ? { pullTicks: (token) => this._cheatRingPull(token) } : {}),
+        factorMode: _packFactor('buyPointCheck'),
       });
     this._bpGateAwaitMs = Number.isFinite(_bpCfg.gate && _bpCfg.gate.awaitMs)
       && _bpCfg.gate.awaitMs > 0 ? _bpCfg.gate.awaitMs : 15000;

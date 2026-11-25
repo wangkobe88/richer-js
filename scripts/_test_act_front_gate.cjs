@@ -317,7 +317,10 @@ async function main() {
 
   // ═══════════════ E. FP N 升格臂证伪撤回（对拍 2026-11-18 同日）═══════════════
   console.log('E. FP N 通道升格臂撤回（对拍证伪）');
-  ok(FACTOR_PREBUY_VERSION === 'FP44', `FP 版本=FP44（T210 停滞再启动通路现行；断言随版本演进同步——2026-11-20 修存量漂移 FP28、2026-11-21/22 同步 FP35/FP38、2026-11-22 T210 同步 FP44〔存量 FP42/43 漂移一并修））（实际 ${FACTOR_PREBUY_VERSION}）`);
+  // ⚠ 版本锁随 FP 演进同步（存量漂移：2026-11-20 FP28、11-21/22 FP35/FP38、11-22 T210 FP44、
+  //   2026-11-25 Jev 退役·因子代立项时 FP47〔T237 四题〕——断言先于 E 段其余用例失败即整件 exit，
+  //   漂移须第一时间修）
+  ok(FACTOR_PREBUY_VERSION === 'FP47', `FP 版本=FP47（T237 Jev 死板计算题因子化现行；断言随版本演进同步——历史：11-20 FP28、11-21/22 FP35/FP38、11-22 T210 FP44、11-25 FP47）（实际 ${FACTOR_PREBUY_VERSION}）`);
   {
     // 最小 snapshot 直调：N 臂无条件拦会误伤 A_strong∧high 豁免票（萨摩耶 N=6.3
     // −0.014/我画地为牢 N=0.0 +0.0875/PAYAI N=9.5 +0.0762，净 −0.15 > FFFF
@@ -374,6 +377,71 @@ async function main() {
       { gate: { actStageColdExempt: true } });
     const rBurst = await burstSvc.evaluateActFront('0xtok', META, {}, {});
     ok(rBurst.path === 'burst_exempt', '冷票 low∧burst → burst_exempt（豁免优先）');
+  }
+
+  // ═══════════════ G. 因子代（Jev 退役，2026-11-25 用户裁定）：AF 门零 I/O 直通 ═══════════════
+  // 策略包 modules.actFrontGate 取因子代键 → 引擎 deps.factorMode 注入：AF2 精简代不判档
+  // （act/sbw/wash 全 null）——零 Jev、零拉数、无竞速、每信号现评；分流仍走 actFrontRoute
+  // （act 缺席 = mid_full 照走 cheat 门）。低活跃的极端形状由门链最前的 FP act_low 臂承接。
+  console.log('G. 因子代 AF 门（Jev 退役）');
+  {
+    // G1 service 全路径：LLM 桩即便会给 low 也绝不被问（Jev 代同一桩在 A 段产 reject_low）
+    const db = makeDb({ ticks: genTicks(10) });
+    const llm = makeLlm({ answers: afAnswers('low') });
+    const svc = new CheatCheckService({ enabled: true, settleDelayMs: 0, timeoutMs: 500, minTicks: 6 }, null,
+      { dbClient: db.client, now: () => 1000000, loadLlm: async () => llm.mod, factorMode: true });
+    const r1 = await svc.evaluateActFront('0xtok', META, {}, { awaitMs: 1 });
+    ok(r1.status === 'assessed' && r1.path === 'mid_full' && r1.act === null && r1.sbw === null && r1.wash === null,
+      `因子代 → assessed/mid_full、三档全 null（实际 ${JSON.stringify(r1)}）`);
+    ok(r1.version === 'AF2' && r1.model === 'factor@AF2' && r1.stageCold === undefined && r1.stallRestart === undefined,
+      '版本 AF2 + 来源标记；无 stageCold / stallRestart 留痕（未判档即无）');
+    ok(db.state.tickQueries === 0 && llm.calls.afAsk === 0 && llm.calls.cheatAsk === 0,
+      `零拉数零 Jev（tickQueries=${db.state.tickQueries} afAsk=${llm.calls.afAsk}）`);
+    const r2 = await svc.evaluateActFront('0xtok', META, {}, { awaitMs: 1 });
+    ok(r2.path === 'mid_full' && svc.stats.actFrontFactorJudged === 2 && svc.stats.actFrontNoted === 2
+      && svc.stats.actFrontRouted.mid_full === 2 && svc.stats.actFrontTimeouts === 0,
+      '每信号现评、awaitMs=1 也不竞速超时（纯计算即时返回）');
+    // G2 灰度键不影响因子代：actStageColdExempt 开关在精简代无作用面（不判档）
+    const svcCold = new CheatCheckService({ enabled: true, settleDelayMs: 0, gate: { actStageColdExempt: true } }, null,
+      { dbClient: db.client, now: () => 1000000, factorMode: true });
+    ok((await svcCold.evaluateActFront('0xtok', META, {}, {})).path === 'mid_full', 'actStageColdExempt 开关在因子代无作用面');
+    // G3 引擎挂点 × 真 service：pass / 不跳 cheat / metadata 落 actFrontGate 段（Jev 代同构）
+    const { AbstractTradingEngine } = require('../src/trading-engine/core/AbstractTradingEngine');
+    const metas = [], statuses = [];
+    const mini = Object.create(AbstractTradingEngine.prototype);
+    Object.assign(mini, {
+      _actFrontGateEnabled: true, _cheatCheckService: svc,
+      logger: { warn: () => {}, info: () => {} },
+      _updateSignalMetadata: async (id, data) => { metas.push({ id, keys: Object.keys(data), data }); },
+      _updateSignalStatus: async (id, st, info) => { statuses.push({ id, st, info }); },
+    });
+    const res = await mini._actFrontGateEvaluate('0xtok', { token: '0xtok', symbol: 'S' }, null, 'sig-g', {});
+    ok(res.pass === true && res.skipCheat === false && res.info.path === 'mid_full',
+      `引擎挂点：pass + 不跳 cheat（实际 ${JSON.stringify(res)}）`);
+    ok(statuses.length === 0 && metas.length === 1 && metas[0].keys[0] === 'actFrontGate'
+      && metas[0].data.actFrontGate.model === 'factor@AF2',
+      '无拒买状态；metadata.actFrontGate 段带来源标记');
+    // G4 类型 policy actFront:'pass' 优先级不变（类型直通留痕 policy_pass，因子代同样不问判定）
+    const resP = await mini._actFrontGateEvaluate('0xtok', { token: '0xtok', symbol: 'S' }, null, 'sig-g2',
+      { pointTypePolicy: { actFront: 'pass' } });
+    ok(resP.pass === true && resP.skipCheat === false && resP.info.policy === 'actFront:pass'
+      && metas[metas.length - 1].data.actFrontGate.status === 'policy_pass',
+      'pointType policy actFront:pass → policy_pass 直通（类型豁免优先于门本体）');
+    // G5 反证：因子判定若给 low → 引擎挂点照常拒（后续活跃度因子分类器接入即生效）
+    const lowSvc = new CheatCheckService({ enabled: true, settleDelayMs: 0 }, null,
+      { dbClient: db.client, now: () => 1000000, factorMode: true,
+        actFrontFactorJudge: () => ({ act: 'low', sbw: 'none', wash: 'none', model: 'factor@AF2' }) });
+    const miniLow = Object.create(AbstractTradingEngine.prototype);
+    Object.assign(miniLow, {
+      _actFrontGateEnabled: true, _cheatCheckService: lowSvc,
+      logger: { warn: () => {}, info: () => {} },
+      _updateSignalMetadata: async () => {},
+      _updateSignalStatus: async (id, st, info) => { statuses.push({ id, st, info }); },
+    });
+    const resLow = await miniLow._actFrontGateEvaluate('0xtok', { token: '0xtok', symbol: 'S' }, null, 'sig-g3', {});
+    ok(resLow.pass === false && resLow.reason.includes('act_front_low')
+      && statuses.length === 1 && statuses[0].info.reason === 'act_front_low',
+      '反证：因子判 low → 引擎挂点拒买 reason=act_front_low（分流函数未旁路）');
   }
 
   console.log(`\n✅ _test_act_front_gate 全部通过（${passed} 断言）`);

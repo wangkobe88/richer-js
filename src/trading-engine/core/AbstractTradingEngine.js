@@ -1457,6 +1457,12 @@ class AbstractTradingEngine extends ITradingEngine {
   // _buyPointCheckService/_cheatGateAwaitMs/_bpGateAwaitMs/_cheatBlockedTokens/
   // _cheatProjectedTokens/_signalSourceTriggerCounts/_tokenPool/_factorAggregator/
   // _sellingTokens/_buyingTokens 由子类 ctor 保证） ============
+  //
+  // 因子代（Jev 退役，2026-11-25 用户裁定）：策略包 modules.{cheatCheck,actFrontGate,
+  // buyPointCheck} 取因子代键时，service 以 deps.factorMode 注入——AF1 / cheat / BP
+  // 三门的结论改由 market-analysis/factor-responders 产出（零 Jev），返回形状与
+  // Jev 代同构，本文件四门挂点零分叉。signalGateReal 在因子代下的含义=门链真评估
+  // （不再是「真调 Jev」）。
 
   /** signalGate 腿触发计数查询（per token×legId；进程态重启归零） */
   _sgTriggerCount(tokenAddress, legId) {
@@ -1695,6 +1701,9 @@ class AbstractTradingEngine extends ITradingEngine {
       strongbackerLike: res.strongbackerLike ?? 0,
       exempt: res.exempt ?? null, // CD379 活跃度豁免留痕 { code:'activity_<桶>', originalGrade }
       unblocked: res.unblocked === true, // CD381 翻案留痕（重检解除拉黑）
+      // 因子代来源标记（Jev 退役：service 返回 model='factor@<版本>' 才带键——
+      // Jev 代返回无此键，metadata 形状不变）
+      ...(res.model ? { model: res.model } : {}),
     };
   }
 
