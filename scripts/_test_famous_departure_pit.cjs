@@ -130,8 +130,12 @@ console.log('B. point-type-router 类型 famous_participation_pit');
     const r = classifyPointType({ ...PIT, currentVsLaunchPct: 36, earlyReturn: 36 });
     assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
-  check('B6 超涨（athVsFloorPct=190 >150）→ 不命中', () => {
-    const r = classifyPointType({ ...PIT, athVsFloorPct: 190 });
+  check('B6 ath 190.65 命中（PT40 抬线 200——ChillGuy 案「高度不算高」）', () => {
+    const r = classifyPointType({ ...PIT, athVsFloorPct: 190.65 });
+    assert.strictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B6b ath 357 不命中（超汪汪队 39s「开盘暴涨」案仍拦）', () => {
+    const r = classifyPointType({ ...PIT, athVsFloorPct: 357 });
     assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
   check('B7 龄上界外（901 >900）→ 不命中', () => {
@@ -158,8 +162,12 @@ console.log('B. point-type-router 类型 famous_participation_pit');
     const r = classifyPointType({ ...PIT, mcapFromPeakPct: 70 });
     assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
-  check('B11 龄下界（29 <30）→ 不命中', () => {
-    const r = classifyPointType({ ...PIT, tokenAgeSec: 29 });
+  check('B11 龄 24 命中（PT40 下界 20——小狗山 24s 点案）', () => {
+    const r = classifyPointType({ ...PIT, tokenAgeSec: 24 });
+    assert.strictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B11b 龄 19 <20 → 不命中（15s 抢速门基线不碰）', () => {
+    const r = classifyPointType({ ...PIT, tokenAgeSec: 19 });
     assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
 }
