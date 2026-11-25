@@ -194,6 +194,14 @@ console.log('B. point-type-router 类型 famous_participation_pit');
     const r = classifyPointType({ ...PIT, max5sRisePct: 109, famousEarlyBuySharePct: 38.36 });
     assert.strictEqual(r.type, 'famous_participation_pit');
   });
+  check('B8n PT46 破发豁免：陡升∧低占比∧launchMinVsFloorPct=4.22 <5 → 命中（binance quote 域真破发案）', () => {
+    const r = classifyPointType({ ...PIT, max5sRisePct: 85, famousEarlyBuySharePct: 17.68, launchMinVsFloorPct: 4.22 });
+    assert.strictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8o PT46 未近破发（6.95 ≥5）∧陡升∧低占比 → 不命中（币安之夜仍拦）', () => {
+    const r = classifyPointType({ ...PIT, max5sRisePct: 74, famousEarlyBuySharePct: 23.37, launchMinVsFloorPct: 6.95 });
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
+  });
   check('B8m PT45 不陡（45 ≤50）→ 命中（斜率门不触发——小狗山渐进爬案）', () => {
     const r = classifyPointType({ ...PIT, max5sRisePct: 45, famousEarlyBuySharePct: 15 });
     assert.strictEqual(r.type, 'famous_participation_pit');
