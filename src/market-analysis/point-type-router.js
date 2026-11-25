@@ -231,6 +231,11 @@ const POINT_TYPES = [
         // 24h 全局窗口 bt-v269 档层实证 [2,3.9) 档 23 票 −0.721/正票率 17.4%
         // （高流量=出货段形状）；1.9=类整数线纪律 2→1.9，[1.9,2) 实测 2 票均
         // 非赢家零成本；4 个正票被切知情接受。
+        // **PT48 三修（2026-11-25 用户裁定「先卡 athVsFloor 小于 150」）**：
+        // 案源 콕——多轮涨跌后回落点被 MA 斜率惯性误入（ath 343%）；athVsFloor
+        // <150=「历史峰值未超地板 2.5 倍」与 T234/T238 宽度控制同族（T236 三刀
+        // athVsLaunch<60 是更严的「没涨过」口径，本类型允许一定涨幅的持续趋势
+        // 但拒绝多轮大振幅）；null=无可靠价 fail-closed 不命中。
         // 「前期暴拉断点」分布实证无分离度（目标 v60 中位 184.9 vs 反例 184.8）——
         // 80 cap 本身即抗暴拉主闸，断点刻意不加。age≥60s 替代「趋势持续」语义
         // （120s 与 curVs≤80 自相矛盾：30~80% 域窗多在前 120s，校准实证零候选窗）。
@@ -244,7 +249,8 @@ const POINT_TYPES = [
         condition: 'tokenAgeSec >= 60 '
             + 'AND currentVsLaunchPct >= 30 AND currentVsLaunchPct <= 80 '
             + 'AND priceMa60SlopePct >= 5 AND priceMa60SlopePct <= 60 '
-            + 'AND actTotalBnb30s <= 1.9',
+            + 'AND actTotalBnb30s <= 1.9 '
+            + 'AND athVsFloorPct < 150',
         policy: {
           factorCheckArms: 'skip',
           actFront: 'pass',
