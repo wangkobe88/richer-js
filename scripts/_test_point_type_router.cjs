@@ -179,6 +179,24 @@ console.log('B. assertPointTypesValid 启动防线');
   check('B3 非法 policy 维度/值 throw（构造性验证经源码形状——注册表现值合法即过）', () => {
     assert.doesNotThrow(() => assertPointTypesValid(faKeys));
   });
+  check('B4 类型缺 active 字段 throw（2026-11-25 起必填）', () => {
+    const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
+    POINT_TYPES.push({ id: 'tmp_missing_active', condition: null, policy: {} });
+    try {
+      assert.throws(() => assertPointTypesValid(faKeys), /缺 active 布尔字段/);
+    } finally {
+      POINT_TYPES.pop();
+    }
+  });
+  check('B5 active 非布尔 throw（undefined 语义陷阱——漏填不等于 false）', () => {
+    const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
+    POINT_TYPES.push({ id: 'tmp_bad_active', condition: null, policy: {}, active: 'no' });
+    try {
+      assert.throws(() => assertPointTypesValid(faKeys), /缺 active 布尔字段/);
+    } finally {
+      POINT_TYPES.pop();
+    }
+  });
 }
 
 console.log('C. 引擎未启用路径（_classifyPointType null 语义）');
@@ -232,48 +250,44 @@ console.log('D. T225 strongbacker_solo_dance（一个钱包的独舞，2026-11-2
   check('D9 拉盘波绑卖（ZEC 同 slot 对倒 0.508）→ normal', () =>
     assert.strictEqual(classifyPointType(Object.assign({}, SOLO, { quietSurgeSellBnb: 0.5084 })).type, 'normal'));
 }
-console.log('E. T236 slow_develop_early（缓慢发育潜力币早期点位，2026-11-24）');
+console.log('E. T236 slow_develop_early（缓慢发育潜力币早期点位，active:false 不激活——2026-11-25 用户裁定「给 pointType 增加一个是否激活的参数，像这个还在迭代中的，激活为否，不生效」）');
 {
   const SLOW = {
     // 一姐 0xfc23…7777 锚真值形状（bt-v254 扫描口径）
     athVsLaunchPct: 39.9, sinceLaunchTrades: 26, bundledAvgTradeBnb300: 0.1893,
   };
-  check('E1 一姐形状命中（PT35 全豁+塞单门 policy：FP skip/AF1 pass/cheat skip/BP stuffingOnly）', () => {
+  check('E1 一姐形状命中三刀条件但类型 active:false → 跳过回落 normal（policy={} 全门链现行）', () => {
     const r = classifyPointType(SLOW);
-    assert.strictEqual(r.type, 'slow_develop_early');
-    assert.deepStrictEqual(r.policy, {
-      factorCheckArms: 'skip',
-      actFront: 'pass',
-      cheatCheck: 'skip',
-      buyPoint: 'stuffingOnly',
-    });
-    for (const k of ['athVsLaunchPct', 'sinceLaunchTrades', 'bundledAvgTradeBnb300']) {
-      assert.ok(k in r.snapshot, `snapshot 缺 ${k}`);
-    }
+    assert.strictEqual(r.type, 'normal');
+    assert.deepStrictEqual(r.policy, {});
+    assert.deepStrictEqual(r.snapshot, {});
   });
-  check('E2 athVs 边界：59.9 <60 命中 / 60 ≥60 不命中（发布后没涨过太多）', () => {
-    assert.strictEqual(classifyPointType({ ...SLOW, athVsLaunchPct: 59.9 }).type, 'slow_develop_early');
-    assert.strictEqual(classifyPointType({ ...SLOW, athVsLaunchPct: 60 }).type, 'normal');
+  check('E2 边界形状（athVs 59.9/笔数 40/avg 0.13~0.1999）→ 一律 normal（类型未激活零豁免面）', () => {
+    assert.strictEqual(classifyPointType({ ...SLOW, athVsLaunchPct: 59.9 }).type, 'normal');
+    assert.strictEqual(classifyPointType({ ...SLOW, sinceLaunchTrades: 40 }).type, 'normal');
+    assert.strictEqual(classifyPointType({ ...SLOW, bundledAvgTradeBnb300: 0.13 }).type, 'normal');
+    assert.strictEqual(classifyPointType({ ...SLOW, bundledAvgTradeBnb300: 0.1999 }).type, 'normal');
   });
-  check('E3 总笔数边界：40 命中 / 41 不命中（慢速）', () => {
-    assert.strictEqual(classifyPointType({ ...SLOW, sinceLaunchTrades: 40 }).type, 'slow_develop_early');
-    assert.strictEqual(classifyPointType({ ...SLOW, sinceLaunchTrades: 41 }).type, 'normal');
-  });
-  check('E4 捆绑平均额带边界：[0.13,0.2) 双闭开', () => {
-    assert.strictEqual(classifyPointType({ ...SLOW, bundledAvgTradeBnb300: 0.13 }).type, 'slow_develop_early');
-    assert.strictEqual(classifyPointType({ ...SLOW, bundledAvgTradeBnb300: 0.1299 }).type, 'normal');
-    assert.strictEqual(classifyPointType({ ...SLOW, bundledAvgTradeBnb300: 0.1999 }).type, 'slow_develop_early');
-    assert.strictEqual(classifyPointType({ ...SLOW, bundledAvgTradeBnb300: 0.2 }).type, 'normal');
-  });
-  check('E5 athVs null（无可靠价）→ normal fail-closed 不误配', () => {
+  check('E3 athVs null（无可靠价）→ normal fail-closed 不误配', () => {
     assert.strictEqual(classifyPointType({ ...SLOW, athVsLaunchPct: null }).type, 'normal');
   });
-  check('E6 优先级：athVs 50 同时满足黄金坑全套 → famous_holder_cold_pit 优先命中（famous 背书票保持更强豁免）', () => {
+  check('E4 优先级：athVs 50 同时满足黄金坑全套 → famous_holder_cold_pit 优先命中（famous 背书票保持更强豁免）', () => {
     const overlap = { ...GOLDEN, athVsLaunchPct: 50 };
     assert.strictEqual(classifyPointType(overlap).type, 'famous_holder_cold_pit');
   });
-  check('E7 空票（0 笔 0 额）→ normal（0 <0.13 有证据零值不命中）', () => {
+  check('E5 空票（0 笔 0 额）→ normal（0 <0.13 有证据零值不命中）', () => {
     assert.strictEqual(classifyPointType({ athVsLaunchPct: 10, sinceLaunchTrades: 0, bundledAvgTradeBnb300: 0 }).type, 'normal');
+  });
+  check('E6 激活参数机制：全类型带 active 布尔字段；slow_develop_early 唯一 false，其余全 true', () => {
+    const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
+    const ids = new Set();
+    for (const t of POINT_TYPES) {
+      assert.ok(!ids.has(t.id), `类型 id 重复 ${t.id}`);
+      ids.add(t.id);
+      assert.strictEqual(typeof t.active, 'boolean', `类型 ${t.id} 缺 active 字段`);
+      if (t.id === 'slow_develop_early') assert.strictEqual(t.active, false, 'slow_develop_early 应为未激活');
+      else assert.strictEqual(t.active, true, `类型 ${t.id} 应为激活`);
+    }
   });
 }
 console.log(`\n全部通过 ${passed}/${passed}`);
