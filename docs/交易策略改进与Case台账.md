@@ -2354,3 +2354,42 @@ AND crashSpeedPctPerSec > -10                             -- 崩盘接刀门②�
 **验证**：_test_factor_prebuy_check 360 绿 / holder_concentration_factor 24 / cheat_shadow_judge 22 / cheat_detection_lib 660（含锚数锁 88） / cheat_grade 142（黄金集 42 票零变化）/ cheat_gate_engine 180 / cheat_detection_service 200 / buy_point_lib 588 / retail_path 14 / strategy_pack 45 / stall_restart 78 / unknown_factor 24 全绿。fourmeme_fa_factors 键集断言=存量失败（基线提取坏，新 11 键已登记 ADDED_KEYS=202，债待修）。非影响域单测失败均经 stash 对比确认存量。
 
 **余留**：①182 真调对拍——BP runner 代码臂对照列（误伤面=Jev 非拒桶但代码 hit 逐票复核）+cheat 365 票「Jev 档 × 代码档」分离度报告；②ⓟ 六组候选线（急跌深线/同深差/臂A卖线/wash 四线/insider 四线/holder 分界+簇佐证）对拍校准后用户裁定；③cheat 影子分离度达标→转正裁定（A 主判/L 通道切换）；④holders/entry 因子生产分布观察。
+
+## T238 famous_departure_pit 新点位类型 + priority 18 专属腿：famous 低价参与后离场的坑（2026-11-25 用户裁定「增加这个新的 pointType」；案号说明：T237 已被 Jev 因子化四题占用——本条目正式号 **T238**，过程稿/commit 63b57b6c/单测/代码注释中写 T237 处均指本条目；案源=来财 0xc84a…7777，金狗台账 JG-39）
+
+**起因（金狗「希望进 famous 坑臂」标签 5 票召回研究）**：用户给未买入票打标签分类，5 票标「希望进 famous 坑臂」（彪弟/超级汪汪队/ChillGuy/来财/小狗山，标签统一整理见 JG-39）。bt-v261（v17 包）全量回测归因=**现有 famous 两键结构性抓不住「famous 低价参与后离场的坑」形状**：
+
+- `famousCopyWalletCircPct`（黄金坑类型用）=名单钱包**净持仓在场**——5 票 famous 钱包全是开盘快进快出（1~15s 买、几秒~几十秒卖光，净持仓≈0），键恒 0；
+- `famousSmartHighBuyBnb/N`（conviction 类型用）=**高位重参与**（买时 curVs≥40%）——这些钱包全在开盘低价段买，键恒 0。
+
+5 票 famous 全史参与额 1.35~3.2B 全部真实（名单交集取证：彪弟 6 F 钱包 1.971B/来财 3 F 钱包 1s 内 2.4B），用户观察正确，但「参与痕迹」在因子层面不存在。
+
+**形状三锚**（condition 全文）：
+```
+tokenAgeSec >= 30 AND tokenAgeSec <= 900
+AND athVsFloorPct <= 150 AND mcapFromPeakPct <= 62
+AND (currentVsLaunchPct <= 28.5 OR earlyReturn < 15) AND currentVsLaunchPct <= 33.5
+AND famousLifetimeBuyBnb >= 0.5        -- ★新 FA 键：famous 名单全史累计买入额（0 语义）
+AND famousCopyWalletCircPct <= 1       -- 已离场（与上式联立=参与过但基本走光）
+AND famousFollowBlockMaxWallets <= 8   -- 同块跟单宽松形状门
+AND (anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03)  -- 反弹确认（PT9）
+```
+刻意**不放 act 冷窗族**：开场 famous 大买大卖=形状本征，act 窗必高（来财 30s act30s=13.4），冷窗线必误伤；低活跃风险由 policy actFront:'pass' + 三锚兜底。
+
+**policy**（用户裁定 T234 定稿同款）`{factorCheckArms:'skip', actFront:'pass', cheatCheck:'skip', buyPoint:'stuffingOnly'}`——famous 离场砸盘形状天然触发 FP dump 族与 cheat slowGrind 假阳性；引擎拉黑短路在门链外层保留；BP67 塞单门零成本兜底。
+
+**专属触发腿 priority 18**（condition 与类型同款，p16/p17 自触发先例）：ladder 主流腿挂开盘簇门（来财首波 11 钱包+waves 3），30s 黄金窗口全腿零触发——无专属腿则类型空转。fpRetry=0（policy 全豁后 FP 恒过，重评无意义）；maxTriggers=1。
+
+**端到端兑现（本地 case_ticks 真 FA 重放）**：来财 39~42s 窗口 p18 腿触发 6 次、分类 famous_departure_pit（famousLifetimeBuyBnb=2.424/curVs=26.6/athVsFloor=148.79 贴 150 线 1.2 点）→ 锚后 60s +103%/600s +1200%。**同专题 4 票刻意不召回**（彪弟/ChillGuy famous 未真离场〔a05ec35f 170s 进场持有/0x85b605b4 纯卖但 a83b 净 +0.302 在场〕、超汪汪队/小狗山 域外或超涨——T210「给一个好票模式一条通路，不求召回」同款定位）。
+
+**FA 新键 famousLifetimeBuyBnb**：famous 名单全史累计买入额（不判价不判尘——尘已被 tick 层挡；单调累计不随卖出回退「参与过」口径）；双段写点（价格段 !deferWallet/wallet 段 smartBotEligible）每 tick 恰计一次（T133 同款）；0 语义（名单未启用/空/无命中=0 fail-open，与 famousCopyWalletCircPct 族同）。
+
+**版本**：POINT_TYPE_VERSION PT36→PT37；包 trading-standard-v1 v17→v18（买 17 腿）。
+
+**commit**：63b57b6c（FA 键+router 类型+单测 18 断言+deploy 脚本 p18 腿+FA 键集白名单存量补登 8 键〔athVsFloorPct/sinceLaunchTrades/bundledAvgTradeBnb300/bundledEffBuyers300/cheatSameBlockHoldCircPct/cheatEqualBandHoldCircPct/cheatBuyerWalletCount/bpHolderConcentration 历史漏登〕+T234 三键一并补登）。
+
+**验证**：_test_famous_departure_pit 18/0；point_type_router 51/51；famous_conviction_pit 29；famous_follow_slot 17；copy_wallet_roster_factors 34；fourmeme_fa_factors 42（键集白名单修复后）；strategy_library_validate_legs 46；unknown_factor_reject 24；backtest_narrative_gate 12 全绿。scan-unknown-factor-conditions 零命中。包 deploy dry-run 校验通过，182 --commit 已部署（v17→v18）。
+
+**对拍（bt-v262-jindog-v18-full144 vs bt-v261，2026-11-25，182 跑，77s 回放 136,854 ticks）**：**31 票 +10.2029 BNB（+164.56%）vs 28 票 +8.9073 = +1.2956**。逐票：来财 +1.2966 案源完整兑现（12:31:49.2=创建后 39.2s p18 腿 fire〔本地重放 39~42s 窗口精确一致〕→ pointType=famous_departure_pit → 0.2B 买入 → 5.7min 后卖 1.4966B=+648%）；SI 0xac50 −0.0013（ladder p1 触发票分类命中离场坑类型→全豁放行→90s 止损——**policy 全豁代价首证**，量级=Jev 噪声地板千分之一）；火星酱 +0.0003（debounce 相位噪声，pt=normal 非本类型）；**其余 28 票逐位零变化零误伤**。
+
+**余留**：①对拍分布复核（p18 召回面+误伤面）②19 标签统一后「高热无间断」词序变体是否归一待裁 ③低价族标签语义有意区分保留（前期次低价 vs 买点次低价）④sell 侧「拿住」：来财类票买入后现行卖腿是否过早清仓（famous 离场坑二波潜力票的持有策略）
