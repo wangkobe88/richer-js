@@ -359,7 +359,7 @@ const PACK_DEFINITION = {
     {
       "action": "buy",
       "priority": 20,
-      "condition": "tokenAgeSec >= 3 AND tokenAgeSec <= 60 AND actTotalBnb >= 0.1 AND tradesPerSecSinceLaunch >= 1.5 AND blockGapLe1Pct64 >= 85 AND mcapFromPeakPct >= 30 AND currentVsLaunchPct <= 120",
+      "condition": "tokenAgeSec >= 3 AND tokenAgeSec <= 60 AND actTotalBnb >= 0.1 AND tradesPerSecSinceLaunch >= 1.5 AND blockGapLe1Pct64 >= 85 AND mcapFromPeakPct >= 30 AND (currentVsLaunchPct <= 200 OR earlyReturn <= 30)",
       "maxExecutions": null,
       "buyPhase": "first",
       "signalGate": {
@@ -371,7 +371,7 @@ const PACK_DEFINITION = {
           "neutral"
         ]
       },
-      "description": "做市节奏臂（T237 2026-11-25 用户提案「做市痕迹票：有庄在搞事，一般来讲会很强势」——金狗集合做市/操控 32 票实证，pointType 类型=market_maker_rhythm_pit〔PT48，label「做市节奏盘-每块有交易-机械阶梯拉盘-中途深砸次低价坑-闪电毕业暴拉币」，active:false 迭代期〕）。形状六键：①龄窗 3~60s（★刻意不含全腿 15s 抢速门——bt-v261 实证 32 票 28 张零信号：做市票 15s 时价格已 +200~500% 或已毕业，现行腿结构性够不着；3s 下界=节奏键至少 2 个间隔有据）②tradesPerSecSinceLaunch≥1.5（新 FA 键=全史笔数÷秒龄；做市中位 2.47 vs 对照 0.57，对照最高 1.23）③blockGapLe1Pct64≥85（新 FA 键=最近 64 tick 块间隔 ≤1 占比=「每 block 都有交易」的因子化；做市中位 95.1 vs 对照 61.2）④mcapFromPeakPct≥30（坑=拉盘中途深砸——深度≥30% 谷后回升≥50% 谷深，n=166 坑实证）⑤curVs≤120（用户裁定「那就取 120% 试试」——做市票没有相对发行价的低价，早期坑谷位 −34%~+120%）⑥actTotalBnb≥0.1（ladder 全腿基线）。实证基础（182 case_ticks+graduation 事件）：24 张闪电毕业票 flap 生命 9~72s（MINI CAO 17s +598%/币安生活 9s +955%/BABYSTAR 15s +597%，graduation 事件逐票核实）；节奏三指标与对照干净分离（30min 窗中位 tps 2.47 vs 0.57/blkCov 81% vs 17%/gapLe1 95.1% vs 61.2%）；早期窗（龄 3-60s fire 口径）MM 28/32 命中、对照 2/14（Donkey/花里奇早期 rush 假阳性面，以回测对拍定夺）。门链=pointType 全豁 policy（FP skip/AF1 pass/cheat skip/BP stuffingOnly——秒级生命 Jev 门物理赶不上〔awaitMs 15s 级 vs 坑持续 1-3s〕，做市形状天然触发 wash/slow_grind 假阳性〔一姐案 A_strong 同款〕；引擎拉黑短路在门链外层保留；BP67 塞单门零成本兜底；T234 定稿同款论证）。超快票（生命 <5s）live 物理接不住，用户裁定「可以不跟」——virtual 照抓，live 认漏。active:false 迭代期=腿照 fire 但类型不豁免〔信号走 normal 全门链=天然 A/B 对照〕，bt 对拍后翻 true",
+      "description": "做市节奏臂（T240 2026-11-25 用户提案「做市痕迹票：有庄在搞事，一般来讲会很强势」——金狗集合做市/操控 32 票实证，pointType 类型=market_maker_rhythm_pit〔PT49，label「做市节奏盘-每块有交易-机械阶梯拉盘-中途深砸次低价坑-闪电毕业暴拉币」，active:false 迭代期〕）。形状六键：①龄窗 3~60s（★刻意不含全腿 15s 抢速门——bt-v261 实证 32 票 28 张零信号：做市票 15s 时价格已 +200~500% 或已毕业，现行腿结构性够不着；3s 下界=节奏键至少 2 个间隔有据）②tradesPerSecSinceLaunch≥1.5（新 FA 键=全史笔数÷秒龄；做市中位 2.47 vs 对照 0.57，对照最高 1.23）③blockGapLe1Pct64≥85（新 FA 键=最近 64 tick 块间隔 ≤1 占比=「每 block 都有交易」的因子化；做市中位 95.1 vs 对照 61.2）④mcapFromPeakPct≥30（坑=拉盘中途深砸——深度≥30% 谷后回升≥50% 谷深，n=166 坑实证）⑤价格域（**v2 二修 2026-11-25 用户裁定「使用 curVs，阈值可以调整，但 earlyReturn 的定价太依赖首次购买的额度，可以作为辅助」**：主价键 curVs≤200〔平台地板锚稳定；v1=120 实测 bt-v262 闪电票零 fire——引擎口径坑谷分布+回测 debounce 200ms 评估网格双重夹击下单 tick 通过窗撞不上，组合扫描 200/30 档召回 7 张闪电票且假阳性面 10 最小〕OR 辅助臂 earlyReturn≤30〔首价尺救援兜底，扫描实测零边际〕）⑥actTotalBnb≥0.1（ladder 全腿基线）。实证基础（182 case_ticks+graduation 事件）：24 张闪电毕业票 flap 生命 9~72s（MINI CAO 17s +598%/币安生活 9s +955%/BABYSTAR 15s +597%，graduation 事件逐票核实）；节奏三指标与对照干净分离（30min 窗中位 tps 2.47 vs 0.57/blkCov 81% vs 17%/gapLe1 95.1% vs 61.2%）；早期窗（龄 3-60s fire 口径）MM 28/32 命中、对照 2/14（假阳性面以回测对拍定夺）；召回上限 ~10/28〔币安生活/BSI 类坑浅或坑晚于 +300%，任何合理线值接不住=「超快拉盘票不跟」自然边界〕。门链=pointType 全豁 policy（FP skip/AF1 pass/cheat skip/BP stuffingOnly——秒级生命 Jev 门物理赶不上〔awaitMs 15s 级 vs 坑持续 1-3s〕，做市形状天然触发 wash/slow_grind 假阳性〔一姐案 A_strong 同款〕；引擎拉黑短路在门链外层保留；BP67 塞单门零成本兜底；T234 定稿同款论证）。超快票（生命 <5s）live 物理接不住，用户裁定「可以不跟」——virtual 照抓，live 认漏。active:false 迭代期=腿照 fire 但类型不豁免〔信号走 normal 全门链=天然 A/B 对照〕，bt 对拍后翻 true",
       "cards": 4
     }
   ],
