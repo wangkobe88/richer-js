@@ -290,4 +290,59 @@ console.log('E. T236 slow_develop_early（缓慢发育潜力币早期点位，ac
     }
   });
 }
+console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2026-11-25）');
+{
+  const TREND = {
+    tokenAgeSec: 120, currentVsLaunchPct: 55, priceMa60SlopePct: 20, actTotalBnb30s: 1.2,
+  };
+  check('F1 形状命中 → steady_trend_climb + 全豁 policy', () => {
+    const r = classifyPointType(TREND);
+    assert.strictEqual(r.type, 'steady_trend_climb');
+    assert.strictEqual(r.label, '趋势成形-中低速持续拉盘-低位域入场-持续上涨币');
+    assert.deepStrictEqual(r.policy, { factorCheckArms: 'skip', actFront: 'pass', cheatCheck: 'skip', buyPoint: 'stuffingOnly' });
+    assert.strictEqual(r.version, POINT_TYPE_VERSION);
+    assert.deepStrictEqual(Object.keys(r.snapshot).sort(), ['actTotalBnb30s', 'currentVsLaunchPct', 'priceMa60SlopePct', 'tokenAgeSec']);
+  });
+  check('F2 域上界恰 80 过线 / 80.1 → normal（用户裁定「最多接受上涨 80% 的点位」）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, currentVsLaunchPct: 80 }).type, 'steady_trend_climb');
+    assert.strictEqual(classifyPointType({ ...TREND, currentVsLaunchPct: 80.1 }).type, 'normal');
+  });
+  check('F3 域下界恰 30 过线 / 29.9 → normal（趋势形成需要一定价格高度）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, currentVsLaunchPct: 30 }).type, 'steady_trend_climb');
+    assert.strictEqual(classifyPointType({ ...TREND, currentVsLaunchPct: 29.9 }).type, 'normal');
+  });
+  check('F4 斜率带 5/60 恰过线；4.9 太平 / 60.1 太陡 → normal（用户方法「拒绝太平也拒绝太陡」）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, priceMa60SlopePct: 5 }).type, 'steady_trend_climb');
+    assert.strictEqual(classifyPointType({ ...TREND, priceMa60SlopePct: 60 }).type, 'steady_trend_climb');
+    assert.strictEqual(classifyPointType({ ...TREND, priceMa60SlopePct: 4.9 }).type, 'normal');
+    assert.strictEqual(classifyPointType({ ...TREND, priceMa60SlopePct: 60.1 }).type, 'normal');
+  });
+  check('F5 act30s 恰 3.9 过线（类整数线纪律 4→3.9）；3.91 → normal（垂直段 5~19B 全切）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, actTotalBnb30s: 3.9 }).type, 'steady_trend_climb');
+    assert.strictEqual(classifyPointType({ ...TREND, actTotalBnb30s: 3.91 }).type, 'normal');
+  });
+  check('F6 龄恰 60 过线 / 59 → normal（120s 与 curVs≤80 自相矛盾，182 校准实证零候选窗）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, tokenAgeSec: 60 }).type, 'steady_trend_climb');
+    assert.strictEqual(classifyPointType({ ...TREND, tokenAgeSec: 59.9 }).type, 'normal');
+  });
+  check('F7 priceMa60SlopePct null → normal（前窗空 fail-closed：裸比较恒 false）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, priceMa60SlopePct: null }).type, 'normal');
+  });
+  check('F8 排位：famous_participation_pit 优先命中（30~33.5 域重叠带 earlyReturn 双尺臂）', () => {
+    const overlap = {
+      ...TREND, currentVsLaunchPct: 32, earlyReturn: 10,
+      athVsFloorPct: 100, mcapFromPeakPct: 30,
+      famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5,
+    };
+    assert.strictEqual(classifyPointType(overlap).type, 'famous_participation_pit');
+  });
+  check('F9 类型注册形状：active:true 且位于 famous 系之后/slow_develop_early 之前', () => {
+    const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
+    const ids = POINT_TYPES.map((t) => t.id);
+    const i = ids.indexOf('steady_trend_climb');
+    assert.ok(i > ids.indexOf('famous_participation_pit'), '排位须在 famous_participation_pit 之后');
+    assert.ok(i < ids.indexOf('slow_develop_early'), '排位须在 slow_develop_early 之前');
+    assert.strictEqual(POINT_TYPES[i].active, true);
+  });
+}
 console.log(`\n全部通过 ${passed}/${passed}`);

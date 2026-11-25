@@ -80,6 +80,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     chg5Pct: factorResults.chg5Pct ?? null,
     chg10Pct: factorResults.chg10Pct ?? null,
     chg30Pct: factorResults.chg30Pct ?? null,
+    // T239 持续趋势斜率（2026-11-25 金狗两分类提案）：MA60 均线 60s 地平线涨跌 %
+    // （校准带 [5,60]）——新 pointType/腿条件主键，信号复盘需落库；旧 FA/前窗空
+    // → null 不掩盖
+    priceMa60SlopePct: factorResults.priceMa60SlopePct ?? null,
     // T142 破发豁免锚（2026-11-15）：现价 vs 平台常量发行价（纯常量不吃地板）——
     // T145 起退出 ladder 门串改纯观察（语义修正：「经历过破发」移交
     // launchMinVsFloorPct），信号复盘仍落库；旧 FA/无常量平台 → null 不掩盖

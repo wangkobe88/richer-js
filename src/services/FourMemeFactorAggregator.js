@@ -102,7 +102,8 @@ const HOLDER_TREND_SKIP_SLOTS = 4;
 // T185 可靠价短窗动量原料窗（chg5Pct/chg10Pct/chg30Pct，2026-11-18 recoveryHold
 // 「正在回涨」判据载体）：65s=最长动量窗 30s 的 2× 余量，_pruneRelPriceTrend 摊销
 // 裁剪同窗（2×65s 头段出局）；与 BP snapshot chgOf 口径逐字同源（现价 vs W 秒前
-// 最近可靠价，窗内无更早价自序列首价起算）
+// 最近可靠价，窗内无更早价自序列首价起算）。T239 priceMa60SlopePct 同原料
+// （2026-11-25 持续趋势类型）：需要 (t-120,t-60] 窗故 2×65s 保留恰够——勿缩短
 const CHG_TREND_WINDOW_MS = 65 * 1000;
 
 /**
@@ -124,6 +125,35 @@ function _chgOfWindow(arr, winSec) {
     if (prev === null) prev = arr[0].price;
     if (!(prev > 0)) return null;
     return parseFloat(((last.price / prev - 1) * 100).toFixed(2));
+}
+
+/**
+ * T239 持续趋势斜率（纯函数，2026-11-25 金狗「上涨趋势形成后一直拉盘/散户慢速
+ * 拉升盘」两分类提案——用户方法「价格均值回归线：线往上，拒绝太陡也拒绝太平」）：
+ * MA60 = 最近 60s 可靠价均值；键值 = MA60(末) 较 MA60(末-60s) 的涨跌 %
+ * （=60s 均线在 60s 地平线上的斜率，校准带 [5,60]）。
+ * 口径（与 182 校准脚本 tmp-jg-trend-calib.cjs 逐字同源）：
+ *   - 现窗 (末ts-60s, 末ts] / 前窗 (末ts-120s, 末ts-60s]，半开闭
+ *   - 窗内 ≥1 行即算（部分覆盖接受——校准同口径：年轻票前窗自序列首行起算）
+ *   - cutoff 基准=序列末 ts（断流票斜率冻结=无新证据不冒充「趋势还在走」）
+ *   - 任一窗空/均线非正价 → null fail-closed（裸比较恒 false：新类型恒不命中）
+ *   - 原料=_relPriceTrend（chainLate/outlier/尘不进）；保留窗 2×65s=130s ≥120s
+ *     （本键需要前窗，_pruneRelPriceTrend 勿缩短）
+ */
+function _priceMaSlopeOf(arr) {
+    if (!arr || arr.length === 0) return null;
+    const last = arr[arr.length - 1];
+    if (!(last.price > 0)) return null;
+    const t = last.ts;
+    let sumNow = 0, nNow = 0, sumPrev = 0, nPrev = 0;
+    for (const p of arr) {
+        if (p.ts > t - 60000) { sumNow += p.price; nNow++; }
+        if (p.ts > t - 120000 && p.ts <= t - 60000) { sumPrev += p.price; nPrev++; }
+    }
+    if (!(nNow > 0) || !(nPrev > 0)) return null;
+    const maNow = sumNow / nNow, maPrev = sumPrev / nPrev;
+    if (!(maPrev > 0)) return null;
+    return parseFloat(((maNow / maPrev - 1) * 100).toFixed(2));
 }
 // T147 锚后等额捆绑买入簇检测（Echo 二案 2026-11-16 用户裁定「买入后又出现异常现象
 // （大量捆绑买入），需要立即卖出」）：卖臂 bundle-wave-exit 原料——同 block 内等额
@@ -5209,6 +5239,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             chg5Pct: _chgOfWindow(state._relPriceTrend, 5),
             chg10Pct: _chgOfWindow(state._relPriceTrend, 10),
             chg30Pct: _chgOfWindow(state._relPriceTrend, 30),
+            // T239 持续趋势斜率（2026-11-25 金狗「上涨趋势形成后一直拉盘/散户慢速
+            // 拉升盘」两分类——用户方法「价格均值回归线往上，拒绝太陡也拒绝太平」）：
+            // MA60 均线在 60s 地平线上的涨跌 %，校准带 [5,60]（bt 校准：域内点斜率
+            // <5=太平、>60=垂直发射）；前窗空=未见足量可靠价 null fail-closed
+            // （新类型条件恒不命中）。详见 _priceMaSlopeOf
+            priceMa60SlopePct: _priceMaSlopeOf(state._relPriceTrend),
             // T142 破发豁免锚（2026-11-15 ASTER 0x31e2…7777 案，用户裁定「价格已经
             // 完全破发，这种情况理应豁免」）：现价 vs 平台常量发行价——**纯常量、
             // 刻意不吃 T130/T134 地板**（地板锚被砸穿后反弹会掩盖「已破发」事实：

@@ -28,7 +28,7 @@ const { buildStallLegCondition } = require('../src/trading-engine/core/stall-sel
 const STALL_LEG_CONDITION = buildStallLegCondition();
 
 const ENTRY_NAME = 'trading-standard-v1';
-const ENTRY_DESC = '现行最优交易策略包：ladder v39 十七腿（v34 十四腿+T224 黄金坑臂+T225 独舞臂 priority 17+T238 famous 参与坑臂 priority 18〔2026-11-25 用户裁定「增加这个新的 pointType」+同日二修「那就不要要求非要完全离场……famous 持有并不是坏事」——famous_participation_pit 类型（PT38）专属自触发腿，案源来财 0xc84a…7777：famous 参与过+坑位+反弹确认形状，详见包腿 description 与金狗台账 JG-39〕；〔2026-11-23 用户裁定「把这个 pointType 对应的策略正式发布，合并到系统当前的交易策略中」——pointType strongbacker_solo_dance（PT19，policy actFront:pass+cheatCheck:g23NoE+臂豁免 fam_holding_thin/oversell_residual）；bt-v224 验证 LAB +225.81%/개구리씨 +138.48%/6 死盘全拦〕〔2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系好散户币黄金坑买腿并入主包 priority 16 兜底臂〔T231：队列线 0.19+龄上界撤除；T232：冷窗 15s 线 0.4〕〕；T214/v35 初版强庄臂（firstBigBuyerHoldPct≥40 线）经 T215 命中面否证已回退留档——终版独舞九键重立为 T225）+ **T229 早回场 OR 臂**〔2026-11-24 用户指令「给常规的所有臂，也增加一个 earlyReturn 的或条件」——十四腿价格门改 (基线 OR (earlyReturn<15 ∧ curVs≤33.5))，GWC 0xb712 重生波回踩 30.26% 一窗错过案（JG-38 第二生命），常量与黄金坑臂同族〕+ 卖 18 腿（16 现行+famous-trim 两段）+ stall 断流卖腿（T232 腿化：55s 基础/almost 域 90s，idleSecSinceLastSubstantialTick 因子表达式，进入 factorSellFilter 统一过滤）+ 五门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死；p18 参与坑臂 fpRetry=0——policy 全豁后 FP 恒过重评无意义）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
+const ENTRY_DESC = '现行最优交易策略包：ladder v39 十八腿（v34 十四腿+T224 黄金坑臂+T225 独舞臂 priority 17+T238 famous 参与坑臂 priority 18+T239 持续趋势臂 priority 19〔2026-11-25 用户提案「金狗『上涨趋势形成后一直拉盘』『散户慢速拉升盘』两分类单独成立一个 pointType」——steady_trend_climb 类型（PT41）专属自触发腿，域 30~80%+MA60 斜率带 5~60+act30s≤3.9 双管，policy 全豁+stuffingOnly 先豁再收，详见包腿 description 与交易台账 T239〕〔2026-11-25 用户裁定「增加这个新的 pointType」+同日二修「那就不要要求非要完全离场……famous 持有并不是坏事」——famous_participation_pit 类型（PT38）专属自触发腿，案源来财 0xc84a…7777：famous 参与过+坑位+反弹确认形状，详见包腿 description 与金狗台账 JG-39〕；〔2026-11-23 用户裁定「把这个 pointType 对应的策略正式发布，合并到系统当前的交易策略中」——pointType strongbacker_solo_dance（PT19，policy actFront:pass+cheatCheck:g23NoE+臂豁免 fam_holding_thin/oversell_residual）；bt-v224 验证 LAB +225.81%/개구리씨 +138.48%/6 死盘全拦〕〔2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系好散户币黄金坑买腿并入主包 priority 16 兜底臂〔T231：队列线 0.19+龄上界撤除；T232：冷窗 15s 线 0.4〕〕；T214/v35 初版强庄臂（firstBigBuyerHoldPct≥40 线）经 T215 命中面否证已回退留档——终版独舞九键重立为 T225）+ **T229 早回场 OR 臂**〔2026-11-24 用户指令「给常规的所有臂，也增加一个 earlyReturn 的或条件」——十四腿价格门改 (基线 OR (earlyReturn<15 ∧ curVs≤33.5))，GWC 0xb712 重生波回踩 30.26% 一窗错过案（JG-38 第二生命），常量与黄金坑臂同族〕+ 卖 18 腿（16 现行+famous-trim 两段）+ stall 断流卖腿（T232 腿化：55s 基础/almost 域 90s，idleSecSinceLastSubstantialTick 因子表达式，进入 factorSellFilter 统一过滤）+ 五门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死；p18 参与坑臂 fpRetry=0——policy 全豁后 FP 恒过重评无意义）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
 
 const PACK_DEFINITION = {
   "buyLegs": [
@@ -336,6 +336,24 @@ const PACK_DEFINITION = {
         ]
       },
       "description": "famous 参与坑臂（T238 2026-11-25 用户裁定「增加这个新的 pointType」+二修「那就不要要求非要完全离场。其实如果价格降低到位了，没有离场有什么关系？famous 持有并不是坏事」+三修「豁免 famous 特别多的（5 个或以上）……可能过拟合，如果之后发现问题再回退」+四修「都执行」〔ath 150→200 解锁 ChillGuy 190.65+龄下界 30→20 解锁小狗山 24s 点〕；pointType 类型=famous_participation_pit〔PT40；PT37 初版 id famous_departure_pit 已随二修改名〕）。案源=来财 0xc84a…7777（金狗 JG 专题 5 票「希望进 famous 坑臂」召回研究）：famous 3 钱包 1s 内买 2.4B、4~16s 卖光（快进快出离场）→ 39~42s 坑位窗口 → 锚后 60s +103%/600s +1200%；对拍 bt-v262 +1.2966 案源完整兑现（39.2s p18 fire→+648%）、SI −0.0013 全豁代价首证。形状三锚：①参与痕迹 famousLifetimeBuyBnb≥0.5B（famous 名单全史累计买入额单调「参与过」口径——famous 参与过的盘，离场=坑更干净、在场=持有背书两可，PT38 起不要求离场；≥0.5 自身防「从未参与」票）②坑位域（curVs 双尺+athVsFloor≤200〔PT40 抬线：190=「高度不算高」、580/357=「开盘暴涨」仍拦，宽度控制留待后续〕+mcapFromPeak≤62，T234 同款线）③反弹确认（锚买盘门）+同块跟单≤8。**PT39 锚门豁免臂**：famousLifetimeBuyN≥5（新键 famous 全史参与钱包数）时锚买盘门豁免——famous 众多=最强买盘确认；彪弟案 6 F 钱包快进快出+86s 死寂点锚前 15s 无买（0.002<0.03）被锚门挡死但 famous 众背书下死寂点=拉盘方起点（锚后 600s +1195%）；豁免臂只开锚门（ath 线/域/龄照判）。刻意不放 act 冷窗族（开场 famous 大买大卖形状本征 act 窗必高——来财 30s act30s=13.4），低活跃风险由 policy 全豁（FP skip/AF1 pass/cheat skip/BP stuffingOnly，T234 定稿同款）+三锚兜底；引擎拉黑短路在门链外层保留。专属腿自触发（p16/p17 同款）：ladder 主流腿挂开盘簇门（首波 11 钱包+waves 3）30s 窗口零触发，无腿则类型空转。刻意不召回域外/超涨票（超汪汪队 39s ath 357+mcap 73.58 双锁「开盘暴涨」、小狗山 20:19 北京时刻=创建后 24s 点已由龄 20 解锁——T210「不求召回」同款定位）。验证=金狗集合 bt-v261 基线对拍（bt-v262 v18 包；bt-v263/264/265=v19/v20/v21 二三/四修对拍，5 票小集合 famous坑5票）",
+      "cards": 4
+    },
+    {
+      "action": "buy",
+      "priority": 19,
+      "condition": "tokenAgeSec >= 60 AND currentVsLaunchPct >= 30 AND currentVsLaunchPct <= 80 AND priceMa60SlopePct >= 5 AND priceMa60SlopePct <= 60 AND actTotalBnb30s <= 3.9 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15",
+      "maxExecutions": null,
+      "buyPhase": "first",
+      "signalGate": {
+        "maxTriggers": 1,
+        "recheckCondition": null,
+        "fpRetry": 0,
+        "bpPassLevels": [
+          "good",
+          "neutral"
+        ]
+      },
+      "description": "持续趋势臂（T239 2026-11-25 用户提案「金狗『上涨趋势形成后一直拉盘』『散户慢速拉升盘』两分类单独成立一个 pointType」+四项裁定：①价格域最多接受 +80%「先看召回」②斜率带 5~60%/60s+act30s≤3.9 双管（类整数线纪律 4→3.9）③policy 先全豁再收紧④前期暴拉断点先跑分布——分布实证无分离度刻意不加；pointType 类型=steady_trend_climb〔PT41，label「趋势成形-中低速持续拉盘-低位域入场-持续上涨币」〕）。用户方法（原话）「价格均值回归线，线是否往上（拒绝太陡峭的向上，也拒绝太平）」：新键 priceMa60SlopePct=MA60 均线在 60s 地平线上的涨跌 %。形状五键：①龄 ≥60s（趋势形成最短年龄——120s 与 curVs≤80 自相矛盾：30~80% 域窗多在前 120s，182 校准实证 age≥120 零候选窗）②域 30~80%（用户裁定「最多接受上涨 80% 的点位」——80 cap 本身即抗暴拉主闸：驴来 v30=134/WISP/PONZI 等快票全被域本身杀掉）③斜率带 5~60（<5=太平死寂、>60=垂直发射接盘期——CZ AI 71~176/BIAGENCY 51~78 全切）④act30s≤3.9（垂直段买量 5~19B/30s 全切；Percy 峰值 6.3 切尾段点知情接受）⑤ladder 全腿基线 actTotalBnb≥0.1+age≥15。182 校准（case_ticks 5s 网格，48 目标票=两标签∪17 反例=快拉标签差集）：召回 14/48（29%）——窗口 +300s 中位 2.00x、30min 内 ≥2x 95%（36/38）、反例渗透 1/17（BNB͏ 0xf8ab 同带黄金坑标签）；cap 扫描 120/150/200/300/500=召回 18/20/23/26/29、渗透 6/8/11/13/15——80 档后每抬档窗口质量缓降（≥2x 95→91→92→86→82→66%），用户裁定先 80 落 V1 跑真实回测再看放宽。门链=pointType 全豁 policy（FP skip/AF1 pass/cheat skip/BP stuffingOnly——慢速低活跃是形状本征，FP act 族/尾段/卸货臂结构性冲突，T236 slow_develop_early 同款论证；slow_grind_pump 即本类型形状本征 cheat 16 题跳过；引擎拉黑短路在门链外层保留；BP67 塞单门零成本兜底；「先全部豁免，然后再看如何收紧」）。⚠已知边界：calib 结局统计有金狗集合幸存者偏差，真实 A/B 以金狗回测对拍为准；已买入对照 我画地为牢/Muu-chan/AGENTINE 从 80 档起命中、RESILIENT/胖五（垂直票）不命中=形状筛选与可买性对齐",
       "cards": 4
     }
   ],
