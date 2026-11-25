@@ -2717,6 +2717,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 写点=_noteFamousLifetimeBuy 双段（价格段 !deferWallet / wallet 段
             // smartBotEligible）每 tick 恰计一次；0=无命中/名单未启用（0 语义）
             _famousLifetimeBuyBnb: 0,
+            // PT39（2026-11-25 用户裁定「豁免 famous 特别多的（5 个或以上）」）：
+            // 参与钱包数（独立地址 Set，与上式同写点同口径单调累计）——famous
+            // ≥5 票豁免锚买盘门（famous 众多=最强买盘确认，比等一笔 0.03B 买单强）
+            _famousLifetimeBuyWallets: new Set(),
             // famous_conviction_pit（PT24）块口径跟单键原料：famous 买后**同块**非 famous
             // 买入钱包数全生命周期单调 max（famousFollowBlockMaxWallets；与 T221 2s 键
             // 并行共存）。锚 [{bn,set}] 容量界 16 + bn 推进闭合（见 _noteFollowCrowdByBlock）
@@ -3319,8 +3323,12 @@ class FourMemeFactorAggregator extends EventEmitter {
     _noteFamousLifetimeBuy(state, walletAddr, bnbAmount) {
         if (!_famousCopyWallets || !_famousCopyWallets.size) return;
         if (!(bnbAmount > 0)) return;
-        if (!_famousCopyWallets.has(walletAddr.toLowerCase())) return;
+        const w = walletAddr.toLowerCase();
+        if (!_famousCopyWallets.has(w)) return;
         state._famousLifetimeBuyBnb = (state._famousLifetimeBuyBnb || 0) + bnbAmount;
+        // PT39：参与钱包数（独立地址单调累计——famous ≥5 豁免锚买盘门）
+        if (!state._famousLifetimeBuyWallets) state._famousLifetimeBuyWallets = new Set();
+        state._famousLifetimeBuyWallets.add(w);
     }
 
     /**
@@ -4948,6 +4956,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 口径单调累计；0=无命中/名单未启用 fail-open——与 famousCopyWalletCircPct
         // <= 1 联立=参与过但基本离场，单用不构成证据）
         const famousLifetimeBuyBnb = state._famousLifetimeBuyBnb || 0;
+        // PT39（2026-11-25 用户裁定）：famous 全史参与钱包数（独立地址单调累计；
+        // 0=无命中 fail-open）——famous ≥5 票豁免 p18 锚买盘门
+        const famousLifetimeBuyN = state._famousLifetimeBuyWallets ? state._famousLifetimeBuyWallets.size : 0;
         // famous_conviction_pit（PT24）块口径跟单键（同块语义全生命周期单调 max——读点=
         // max(已并入〔锚闭合/逐出时〕, 活跃锚) O(16)；0=无 famous 买/名单未启用 fail-open）
         const famousFollowBlockMaxWallets = (() => {
@@ -5461,6 +5472,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // famous_departure_pit（PT37）臂 A 键：famous 名单全史累计买入额
             // （0=无命中/名单未启用 fail-open——见计算处注释块）
             famousLifetimeBuyBnb,
+            // PT39（2026-11-25 用户裁定「豁免 famous 特别多的（5 个或以上）」）：
+            // famous 全史参与钱包数（独立地址单调累计；0=无命中 fail-open）
+            famousLifetimeBuyN,
             // T222 臭名昭著钱包总流通持仓占比（集合合计正净持仓 ÷ 流通；0=未启用/
             // 无命中 fail-open——见计算处注释块）
             notoriousWalletCircPct,

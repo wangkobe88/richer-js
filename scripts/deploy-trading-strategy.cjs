@@ -323,7 +323,7 @@ const PACK_DEFINITION = {
     {
       "action": "buy",
       "priority": 18,
-      "condition": "tokenAgeSec >= 30 AND tokenAgeSec <= 900 AND athVsFloorPct <= 150 AND mcapFromPeakPct <= 62 AND (currentVsLaunchPct <= 28.5 OR earlyReturn < 15) AND currentVsLaunchPct <= 33.5 AND famousLifetimeBuyBnb >= 0.5 AND famousFollowBlockMaxWallets <= 8 AND (anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03)",
+      "condition": "tokenAgeSec >= 30 AND tokenAgeSec <= 900 AND athVsFloorPct <= 150 AND mcapFromPeakPct <= 62 AND (currentVsLaunchPct <= 28.5 OR earlyReturn < 15) AND currentVsLaunchPct <= 33.5 AND famousLifetimeBuyBnb >= 0.5 AND famousFollowBlockMaxWallets <= 8 AND (famousLifetimeBuyN >= 5 OR anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03)",
       "maxExecutions": null,
       "buyPhase": "first",
       "signalGate": {
@@ -335,7 +335,7 @@ const PACK_DEFINITION = {
           "neutral"
         ]
       },
-      "description": "famous 参与坑臂（T238 2026-11-25 用户裁定「增加这个新的 pointType」+同日二修「那就不要要求非要完全离场。其实如果价格降低到位了，没有离场有什么关系？famous 持有并不是坏事」；pointType 类型=famous_participation_pit〔PT38；PT37 初版 id famous_departure_pit 已随二修改名——departure=离场不再贴切，审计维度 bump〕）。案源=来财 0xc84a…7777（金狗 JG 专题 5 票「希望进 famous 坑臂」召回研究）：famous 3 钱包 1s 内买 2.4B、4~16s 卖光（快进快出离场）→ 39~42s 坑位窗口（curVs=26.6/athVsFloor=148.79 贴 150 线 1.2 点/mcapFromPeak=50.5/锚买盘=1/同块跟单 2）→ 锚后 60s +103%/600s +1200%；对拍 bt-v262 +1.2966 案源完整兑现（39.2s p18 fire→+648%）、SI −0.0013 全豁代价首证。形状三锚：①参与痕迹 famousLifetimeBuyBnb≥0.5B（新键 famous 名单全史累计买入额单调「参与过」口径——famous 参与过的盘，离场=坑更干净、在场=持有背书两可，PT38 起不要求离场；≥0.5 自身防「从未参与」票）②坑位域（curVs 双尺+athVsFloor≤150+mcapFromPeak≤62，T234 同款线）③反弹确认（锚买盘门）+同块跟单≤8。刻意不放 act 冷窗族（开场 famous 大买大卖形状本征 act 窗必高——来财 30s act30s=13.4），低活跃风险由 policy 全豁（FP skip/AF1 pass/cheat skip/BP stuffingOnly，T234 定稿同款）+三锚兜底；引擎拉黑短路在门链外层保留。专属腿自触发（p16/p17 同款）：ladder 主流腿挂开盘簇门（首波 11 钱包+waves 3）30s 窗口零触发，无腿则类型空转。刻意不召回域外/超涨票（超汪汪队 curVs 最低 36.8 域外、小狗山 ath 519 超线——T210「不求召回」同款定位）。验证=金狗集合 bt-v261 基线对拍（bt-v262 v18 包；bt-v263 v19 包为二修对拍）",
+      "description": "famous 参与坑臂（T238 2026-11-25 用户裁定「增加这个新的 pointType」+二修「那就不要要求非要完全离场。其实如果价格降低到位了，没有离场有什么关系？famous 持有并不是坏事」+三修「豁免 famous 特别多的（5 个或以上）……可能过拟合，如果之后发现问题再回退」；pointType 类型=famous_participation_pit〔PT39；PT37 初版 id famous_departure_pit 已随二修改名〕）。案源=来财 0xc84a…7777（金狗 JG 专题 5 票「希望进 famous 坑臂」召回研究）：famous 3 钱包 1s 内买 2.4B、4~16s 卖光（快进快出离场）→ 39~42s 坑位窗口 → 锚后 60s +103%/600s +1200%；对拍 bt-v262 +1.2966 案源完整兑现（39.2s p18 fire→+648%）、SI −0.0013 全豁代价首证。形状三锚：①参与痕迹 famousLifetimeBuyBnb≥0.5B（famous 名单全史累计买入额单调「参与过」口径——famous 参与过的盘，离场=坑更干净、在场=持有背书两可，PT38 起不要求离场；≥0.5 自身防「从未参与」票）②坑位域（curVs 双尺+athVsFloor≤150+mcapFromPeak≤62，T234 同款线）③反弹确认（锚买盘门）+同块跟单≤8。**PT39 锚门豁免臂**：famousLifetimeBuyN≥5（新键 famous 全史参与钱包数）时锚买盘门豁免——famous 众多=最强买盘确认；彪弟案 6 F 钱包快进快出+86s 死寂点锚前 15s 无买（0.002<0.03）被锚门挡死但 famous 众背书下死寂点=拉盘方起点（锚后 600s +1195%）；豁免臂只开锚门（ath 线/域/龄照判）。刻意不放 act 冷窗族（开场 famous 大买大卖形状本征 act 窗必高——来财 30s act30s=13.4），低活跃风险由 policy 全豁（FP skip/AF1 pass/cheat skip/BP stuffingOnly，T234 定稿同款）+三锚兜底；引擎拉黑短路在门链外层保留。专属腿自触发（p16/p17 同款）：ladder 主流腿挂开盘簇门（首波 11 钱包+waves 3）30s 窗口零触发，无腿则类型空转。刻意不召回域外/超涨票（超汪汪队 curVs 最低 36.8 域外、小狗山 ath 519 超线——T210「不求召回」同款定位）。验证=金狗集合 bt-v261 基线对拍（bt-v262 v18 包；bt-v263/264=v19/v20 二修/三修对拍，5 票小集合 famous坑5票）",
       "cards": 4
     }
   ],

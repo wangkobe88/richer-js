@@ -744,7 +744,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // famousLifetimeBuyBnb=famous_departure_pit（PT37）臂 A 键（famous 名单全史
         // 累计买入额，0 语义——详见 _test_famous_departure_pit.cjs）
         'famousSmartHighBuyBnb', 'famousSmartHighBuyN', 'famousFollowBlockMaxWallets',
-        'famousLifetimeBuyBnb',
+        'famousLifetimeBuyBnb', 'famousLifetimeBuyN',
         // 2026-11-25 存量补登（同批核对，共 8 键零漏登）：athVsFloorPct（T234 六修
         // 地板口径 ath 键）、sinceLaunchTrades/bundledAvgTradeBnb300/bundledEffBuyers300
         // （T236 三刀三键）、cheatSameBlockHoldCircPct/cheatEqualBandHoldCircPct/

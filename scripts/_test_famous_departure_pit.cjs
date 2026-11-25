@@ -64,6 +64,9 @@ console.log('A. FA 键 famousLifetimeBuyBnb（famous 名单全史累计买入额
   check('A2 累计 0.505（0.3+0.2+0.005；卖不减、名单外不计）', () => {
     assert.strictEqual(f.famousLifetimeBuyBnb, 0.505);
   });
+  check('A2b PT39 参与钱包数 N=2（fa/fb 独立地址；卖不减、名单外不计、同址重复买不重复计）', () => {
+    assert.strictEqual(f.famousLifetimeBuyN, 2);
+  });
   // 双段恰一次：defer 路径价格段跳过、wallet 段补跑
   const fa2 = newFA({ famous: ['fa'] });
   const dt = mkTick({ ts: T0 + 1000, side: 'buy', bnb: 0.3, tok: 2e8, px: PX, w: 'fa' });
@@ -86,6 +89,7 @@ console.log('A. FA 键 famousLifetimeBuyBnb（famous 名单全史累计买入额
   });
   check('A5 键在 getFactorKeys（三防线自动认得）', () => {
     assert.ok(new Set(fa.getFactorKeys()).has('famousLifetimeBuyBnb'));
+    assert.ok(new Set(fa.getFactorKeys()).has('famousLifetimeBuyN'));
   });
   resetRosters();
 }
@@ -134,8 +138,16 @@ console.log('B. point-type-router 类型 famous_participation_pit');
     const r = classifyPointType({ ...PIT, tokenAgeSec: 901 });
     assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
-  check('B8 锚买盘门缺失（非买锚 ∧ 15s 买 0.02 <0.03）→ 不命中（反弹确认）', () => {
-    const r = classifyPointType({ ...PIT, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0.02 });
+  check('B8 锚买盘门缺失（非买锚 ∧ 15s 买 0.02 <0.03 ∧ famous N<5）→ 不命中（反弹确认）', () => {
+    const r = classifyPointType({ ...PIT, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0.02, famousLifetimeBuyN: 3 });
+    assert.notStrictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8b PT39 豁免臂：famous 参与众 N=5 时锚门豁免（非买锚 ∧ 15s 买 0 → 命中；彪弟 86s 死寂点案）', () => {
+    const r = classifyPointType({ ...PIT, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0, famousLifetimeBuyN: 5 });
+    assert.strictEqual(r.type, 'famous_participation_pit');
+  });
+  check('B8c PT39 豁免臂：N=4 不豁免（线 5 严格；ChillGuy 4 F 钱包仍挂锚门或 ath 线）', () => {
+    const r = classifyPointType({ ...PIT, anchorTickIsBuy: 0, anchor15sMaxBuyBnb: 0, famousLifetimeBuyN: 4 });
     assert.notStrictEqual(r.type, 'famous_participation_pit');
   });
   check('B9 跟单拥挤（同块 9 >8）→ 不命中', () => {
