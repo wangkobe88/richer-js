@@ -1061,6 +1061,8 @@ function computeDerived(snapshot, famousRoster) {
   let nearTail10TickN = null, nearTail10BnbPerMin = null, nearPre20BnbPerMin = null;
   let nearTail5TickN = null, nearTail5BuyN = null, nearTail5BuyBnb = null;
   let nearTail10SellWallets = null;
+  let nearTail10BuyN = null, nearTail10BuyBnb = null;
+  let nearSegBuyBnb = null, nearSegSellBnb = null;
   // D3.75 段前背景两键（0xba67f3e1…7777 案，act 题⑦密集臂段前背景反锚原料）：
   // nearPre10GapSec=尾 10s 窗首行距其上一行的秒数（尾段脉冲紧前的纯静默长度）；
   // nearPre10Wallets=尾 10s 窗紧前 NEAR_PRE_BG_SEC(120)s 背景段内非尘埃独立
@@ -1118,6 +1120,7 @@ function computeDerived(snapshot, famousRoster) {
     if (spanSec > NEAR_SEG_SEC) {
       const fromDt = dts[dts.length - 1] - NEAR_SEG_SEC;
       let segN = 0, segBuyN = 0, segSellN = 0, segBnbSum = 0;
+      let segBuyBnbSum = 0, segSellBnbSum = 0;
       const segBuyAmts = [];
       const segDts = [];
       for (const t of ticks) {
@@ -1125,14 +1128,18 @@ function computeDerived(snapshot, famousRoster) {
         segN++;
         segDts.push(t.dt);
         segBnbSum += t.bnb || 0;
-        if (t.side === 'BUY') { segBuyN++; segBuyAmts.push(t.bnb || 0); }
-        else segSellN++;
+        if (t.side === 'BUY') { segBuyN++; segBuyAmts.push(t.bnb || 0); segBuyBnbSum += t.bnb || 0; }
+        else { segSellN++; segSellBnbSum += t.bnb || 0; }
       }
       nearSegTickN = segN;
       nearSegTicksPerMin = +((segN / NEAR_SEG_SEC) * 60).toFixed(2);
       nearSegBnbPerMin = +((segBnbSum / NEAR_SEG_SEC) * 60).toFixed(2);
       nearSegBuyN = segBuyN;
       nearSegSellN = segSellN;
+      // AF3 密集臂两腿成色反锚原料（act-judge）：临近段买/卖额拆分——「卖额远大于
+      // 买额（参考 ≥3 倍量级）时吞吐数字由出货拉起，不构成吞吐可观」（题面⑦）
+      nearSegBuyBnb = +segBuyBnbSum.toFixed(4);
+      nearSegSellBnb = +segSellBnbSum.toFixed(4);
       segBuyAmts.sort((a, b) => a - b);
       if (segBuyAmts.length) nearSegBuyMedianBnb = +(segBuyAmts[Math.floor((segBuyAmts.length - 1) / 2)].toFixed(6));
       let sg = 0;
@@ -1153,13 +1160,15 @@ function computeDerived(snapshot, famousRoster) {
     // （绝不冒充）。──
     const _lastDt = dts[dts.length - 1];
     let _t10N = 0, _t10Bnb = 0, _t5N = 0, _t5BuyN = 0, _t5BuyBnb = 0, _pre20Bnb = 0;
+    let _t10BuyN = 0, _t10BuyBnb = 0;
     const _t10SellW = new Set();
     for (const t of ticks) {
       if (t.dt === null || t.dt === undefined) continue;
       if (t.dt > _lastDt - 10) {
         _t10N++;
         _t10Bnb += t.bnb || 0;
-        if (t.side !== 'BUY' && t.wallet) _t10SellW.add(t.wallet);
+        if (t.side === 'BUY') { _t10BuyN++; _t10BuyBnb += t.bnb || 0; }
+        else if (t.wallet) _t10SellW.add(t.wallet);
         if (t.dt > _lastDt - 5) {
           _t5N++;
           if (t.side === 'BUY') { _t5BuyN++; _t5BuyBnb += t.bnb || 0; }
@@ -1175,6 +1184,10 @@ function computeDerived(snapshot, famousRoster) {
     nearTail5BuyN = _t5BuyN;
     nearTail5BuyBnb = +_t5BuyBnb.toFixed(4);
     nearTail10SellWallets = _t10SellW.size;
+    // AF3 出货臂原料（act-judge）：尾 10s 买笔数/买额——「买入趋零或只剩尘埃单」
+    // 与 nearTail10SellWallets 联立判协同出货（题面⑦出货臂）
+    nearTail10BuyN = _t10BuyN;
+    nearTail10BuyBnb = +_t10BuyBnb.toFixed(4);
 
     // ── D3.75 段前背景两键：案值 0xba67…7777（2026-11-02 12:06:16 买点）全窗
     // 9 笔——0x2696cac8 一钱包买 0.7188 → 分三笔卖光（对倒离场），尾 1s 同块
@@ -2165,9 +2178,11 @@ function computeDerived(snapshot, famousRoster) {
     buyMedianBnb, throughputBnbPerMin, maxDrawdownPct,
     nearSegTickN, nearSegTicksPerMin, nearSegBuyMedianBnb, nearSegBnbPerMin,
     nearSegMaxGapSec, nearSegBuyN, nearSegSellN,
+    nearSegBuyBnb, nearSegSellBnb,
     // CD394 尾窗键（act 题⑦定档主锚判读原料——尾 10s/前 20s/尾 5s）
     nearTail10TickN, nearTail10BnbPerMin, nearPre20BnbPerMin,
     nearTail5TickN, nearTail5BuyN, nearTail5BuyBnb, nearTail10SellWallets,
+    nearTail10BuyN, nearTail10BuyBnb,
     // D3.73 时间衰减加权活跃度（act 题时间结构判读原料——非 burst 时 high 档须过此线）
     actWeightedThroughputBnbPerMin,
     // D3.75 段前背景两键（act 题⑦密集臂段前背景反锚——脉冲紧前静默/段前独立钱包）

@@ -133,14 +133,24 @@ const SILENT = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {
 (async () => {
 
 console.log('A. 版本常量与来源标记');
-check('A1 三版本常量', [FR.CHEAT_FACTOR_VERSION, FR.ACT_FRONT_FACTOR_VERSION, FR.BUY_POINT_FACTOR_VERSION], ['CF1', 'AF2', 'BPF3']);
-check('A2 model 标记', [FR.factorModel('CF1'), FR.factorModel(FR.ACT_FRONT_FACTOR_VERSION)], ['factor@CF1', 'factor@AF2']);
+check('A1 三版本常量', [FR.CHEAT_FACTOR_VERSION, FR.ACT_FRONT_FACTOR_VERSION, FR.BUY_POINT_FACTOR_VERSION], ['CF1', 'AF3', 'BPF3']);
+check('A2 model 标记', [FR.factorModel('CF1'), FR.factorModel(FR.ACT_FRONT_FACTOR_VERSION)], ['factor@CF1', 'factor@AF3']);
 
-console.log('\nB. AF 因子判定（精简代）');
-const af = FR.judgeActFrontFactor();
-check('B1 act / sbw / wash 全 null（未评估不冒充）', af, { act: null, sbw: null, wash: null, model: 'factor@AF2' });
+console.log('\nB. AF 因子判定（AF3 判档因子版——判序细节见 _test_act_judge）');
+const { judgeActLevel } = require('../src/market-analysis/act-judge');
+// 快照缺席 → act null fail-open（上游放行，不冒充）
+const af = FR.judgeActFrontFactor(null);
+check('B1 快照缺席 act/sbw/wash 全 null（无证据不冒充）', af, { act: null, sbw: null, wash: null, model: 'factor@AF3' });
 check('B2 分流照走 cheat 门（act 缺席 = mid_full）', actFrontRoute(af.act, af.sbw === 'burst', af.wash, false, false), 'mid_full');
 check('B3 不落任何拒买 / 故障路径', ['reject_low', 'reject_ultra', 'reject_wash', 'fail_open'].includes(actFrontRoute(af.act, false, af.wash)), false);
+// 真快照判档：全窗稀疏四腿联立 → low；sbw 缺席 → reject_low
+const mkDerived = (o) => ({ spanSec: 120, tickCount: 20, ticksPerMin: 9, idlePct: 30, maxGapSec: 45,
+  buyMedianBnb: 0.02, throughputBnbPerMin: 0.5, maxDrawdownPct: 3, buyN: 12, sellN: 8,
+  totalBuyBnb: 0.5, totalSellBnb: 0.2, ...o });
+const sparseAf = FR.judgeActFrontFactor({ derived: mkDerived({}) });
+check('B4 真快照判 low（全窗四腿联立稀疏）', [sparseAf.act, sparseAf.sbw, actFrontRoute(sparseAf.act, false, sparseAf.wash)], ['low', 'none', 'reject_low']);
+const sparseAf2 = judgeActLevel(mkDerived({}), {});
+check('B5 judgeActLevel 直接判 low', [sparseAf2.act, sparseAf2.arm], ['low', 'sparse_four_legs']);
 
 console.log('\nC. cheat 因子判定（精简代）');
 const cf = FR.judgeCheatFactor(null);
@@ -204,7 +214,7 @@ check('D5 塞单锚缺席容缺放行', bpMapper.buildBuyPointObservation(bp.ans
 
 
 const resolved = await registry.resolveModules({ factorCheck: 'v1', cheatCheck: 'v2', actFrontGate: 'v2', buyPointCheck: 'v2', pointType: 'v1' });
-check('E1 因子代键解析到因子版本', [resolved.cheatCheck, resolved.actFrontGate, resolved.buyPointCheck], ['CF1', 'AF2', 'BPF3']);
+check('E1 因子代键解析到因子版本', [resolved.cheatCheck, resolved.actFrontGate, resolved.buyPointCheck], ['CF1', 'AF3', 'BPF3']);
 const listed = registry.listModuleVersions();
 check('E2 三模块恰两代（v1 Jev / v2 因子）', [listed.cheatCheck, listed.actFrontGate, listed.buyPointCheck],
   [['v1', 'v2'], ['v1', 'v2'], ['v1', 'v2']]);
@@ -213,7 +223,7 @@ check('E4 全注册表每模块 ≤2 代（规约锁）', Object.values(listed).
 check('E5 FACTOR_GENERATION_KEY / isFactorGeneration', [registry.FACTOR_GENERATION_KEY, registry.isFactorGeneration('v2'), registry.isFactorGeneration('v1'), registry.isFactorGeneration(undefined)],
   ['v2', true, false, false]);
 const mixed = await registry.resolveModules({ cheatCheck: 'v1', actFrontGate: 'v2' });
-check('E6 混代包合法（逐门消融对拍）', mixed, { cheatCheck: (await import(path.join(ROOT, 'src/market-analysis/llm/cheat-questions.mjs'))).CHEAT_QUESTIONS_VERSION, actFrontGate: 'AF2' });
+check('E6 混代包合法（逐门消融对拍）', mixed, { cheatCheck: (await import(path.join(ROOT, 'src/market-analysis/llm/cheat-questions.mjs'))).CHEAT_QUESTIONS_VERSION, actFrontGate: 'AF3' });
 let threw = '';
 try { registry.assertModuleKey('cheatCheck', 'v3'); } catch (e) { threw = e.message; }
 ok('E7 未知版本键仍 fail-fast', threw.includes('未知版本键'), threw);
@@ -344,17 +354,28 @@ console.log('\nF. service 因子模式（T241 Phase 4 清理后：独立入口�
     Array.from({ length: 5 }, () => [0, 0, 0, 0]));
   check('F7b 全程零拉数零落表', [db.st.tickQueries, db.st.inserts.length, db.st.otherTables.length], [0, 0, 0]);
 
-  // F8 AF 门：零 I/O 直通（引擎因子路径不传 Jev 入参——此处同款空调用）
-  const a1 = await svc.evaluateActFront('0xtok', META, {}, {});
-  check('F8 evaluateActFront → assessed/mid_full/AF2', a1,
-    { status: 'assessed', act: null, sbw: null, wash: null, path: 'mid_full', version: 'AF2', model: 'factor@AF2' });
-  check('F8 零拉数', [db.st.tickQueries, db.st.otherTables.length], [0, 0]);
-  check('F8 路径计数走 mid_full（不计 fail_open）', [svc.stats.actFrontRouted.mid_full, svc.stats.actFrontRouted.fail_open, svc.stats.actFrontFactorJudged], [1, 0, 1]);
+  // F8 AF 门（AF3 判档因子版）：拉数+判档（与 Jev 链同款原料路径；判定零 Jev）；
+  // normalTicks=10 行 9s 窗（spanSec≤30 近段锚全 null → 全窗综合：66.7 笔/分 <70 → mid）
+  const db8 = mkDb({ ticksDesc: normalTicks });
+  const svc8 = new CheatCheckService({ enabled: true, settleDelayMs: 0 }, SILENT, { dbClient: db8.client, factorMode: true, loadLlm: neverLlm, now: () => 1700000000000 });
+  const a1 = await svc8.evaluateActFront('0xtok', META, {}, {});
+  // normalTicks=10 行全在 9s 窗内（短窗=尾窗：尾 10s 密集买+前 20s 无行未断崖）
+  // → 密集臂（短窗代理）→ high → high_skip（跳过 cheat，Jev 同款路由）
+  check('F8 evaluateActFront → 拉数判档 assessed/high/high_skip/AF3', a1,
+    { status: 'assessed', act: 'high', sbw: 'none', wash: null, path: 'high_skip', version: 'AF3', model: 'factor@AF3' });
+  check('F8 拉数恰一次（零 Jev 零 LLM）', [db8.st.tickQueries, db8.st.otherTables.length], [1, 1]);
+  check('F8 路径计数走 high_skip（不计 fail_open）', [svc8.stats.actFrontRouted.high_skip, svc8.stats.actFrontRouted.fail_open, svc8.stats.actFrontFactorJudged], [1, 0, 1]);
   check('F8 disabled 语义不变', await new CheatCheckService({}, null, { factorMode: true }).evaluateActFront('0xtok', {}, {}), { status: 'disabled' });
-  check('F8 Jev 入参（awaitMs / anchorMs）不消费、无 inflight join', [svc._actFrontInflight.size, svc.stats.actFrontJoined, svc.stats.actFrontTimeouts], [0, 0, 0]);
-  // F9 AF 门：注入判定返回 low → 分流函数照常产 reject_low（后续分类器接入即生效）
-  const s9 = new CheatCheckService({ enabled: true }, SILENT, { dbClient: db.client, factorMode: true,
-    actFrontFactorJudge: () => ({ act: 'low', sbw: 'none', wash: 'none', model: 'factor@AF2' }) });
+  check('F8 无 inflight join / 无竞速（因子链独立入口）', [svc8._actFrontInflight.size, svc8.stats.actFrontJoined, svc8.stats.actFrontTimeouts], [0, 0, 0]);
+  // F8b 稀疏形状 → 判 low → reject_low（AF3 拦截本体）
+  const sparseTicks = Array.from({ length: 8 }, (_, i) => row(100 + i * 25, i % 2 ? 'sell' : 'buy', 0.01, { wallet: 500 + i }));
+  const db8b = mkDb({ ticksDesc: sparseTicks });
+  const svc8b = new CheatCheckService({ enabled: true, settleDelayMs: 0 }, SILENT, { dbClient: db8b.client, factorMode: true, loadLlm: neverLlm, now: () => 1700000000000 });
+  const a1b = await svc8b.evaluateActFront('0xtok', META, {}, {});
+  check('F8b 稀疏死寂形状 → low → reject_low', [a1b.status, a1b.act, a1b.path], ['assessed', 'low', 'reject_low']);
+  // F9 AF 门：注入判定返回 low → 分流函数照常产 reject_low
+  const s9 = new CheatCheckService({ enabled: true, settleDelayMs: 0 }, SILENT, { dbClient: db.client, factorMode: true,
+    actFrontFactorJudge: () => ({ act: 'low', sbw: 'none', wash: 'none', model: 'factor@AF3' }) });
   check('F9 反证：因子判 low → reject_low', (await s9.evaluateActFront('0xtok', {}, {})).path, 'reject_low');
 
   // F10 BP 门因子模式：不加载 LLM；塞单门 / minTicks 预门保留；落行版本域独立
@@ -421,7 +442,7 @@ console.log('\nG. 引擎挂点集成 + 接线源码锁');
 {
   const mkEng = (ticks, { cheatSvc, signalGate = { maxTriggers: 1 } } = {}) => {
     const d = mkDb({});
-    const cheat = cheatSvc || new CheatCheckService({ enabled: true }, SILENT, { dbClient: d.client, factorMode: true, loadLlm: neverLlm, now: () => 1700000000000 });
+    const cheat = cheatSvc || new CheatCheckService({ enabled: true, settleDelayMs: 0 }, SILENT, { dbClient: d.client, factorMode: true, loadLlm: neverLlm, now: () => 1700000000000, pullTicks: memPull(ticks) });
     const bp = new BuyPointCheckService({ enabled: true, settleDelayMs: 0 }, SILENT,
       { dbClient: d.client, factorMode: true, loadLlm: neverLlm, now: () => 1700000000000, pullTicks: memPull(ticks), arbBotWallets: new Set() });
     const metas = [], statuses = [];
@@ -442,7 +463,7 @@ console.log('\nG. 引擎挂点集成 + 接线源码锁');
   FA.clearCheatGatePriceAnchor('0xtok');
   const g = mkEng(normalTicks);
   const a = await g.eng._actFrontGateEvaluate('0xtok', TOKEN, {}, 'sig-1', { factorResults: {} });
-  check('G1 AF 门挂点：pass / 不跳 cheat', a, { pass: true, skipCheat: false, info: { status: 'assessed', act: null, sbw: null, wash: null, path: 'mid_full', version: 'AF2', model: 'factor@AF2' } });
+  check('G1 AF 门挂点：拉数判档 high → pass / high_skip 跳 cheat（Jev 同款路由）', a, { pass: true, skipCheat: true, info: { status: 'assessed', act: 'high', sbw: 'none', wash: null, path: 'high_skip', version: 'AF3', model: 'factor@AF3' } });
   const c = await g.eng._cheatGateEvaluateBinary('0xtok', TOKEN, {}, 'sig-1', { maxTriggers: 1 }, { factorResults: { currentVsLaunchPct: 12 } });
   const judgedRef = FR.judgeCheatFactor(null);
   check('G1 cheat 门挂点：pass + info 同构（档位/锚原样透传）+ model 来源', { p: c.pass, i: c.info },
@@ -563,14 +584,16 @@ console.log('\nG. 引擎挂点集成 + 接线源码锁');
     const g7f = mkEng(normalTicks);
     const r7f = await g7f.eng._cheatGateEvaluateBinary('0xtok', TOKEN, {}, 'sig-7f', { maxTriggers: 1 }, { pointTypePolicy: { cheatCheck: 'skip' }, factorResults: {} });
     check('G7f 类型 policy 直通（cheatCheck:skip）仍在因子挂点之前生效', [r7f.pass, r7f.info], [true, { status: 'policy_pass', policy: 'cheatCheck:skip', levels: { stallBurstWave: null } }]);
-    // BP / AF 因子路径不传 awaitMs（引擎挂点调用参数锁：以桩捕获 opts）
+    // BP / AF 因子路径不传 awaitMs（引擎挂点调用参数锁：以桩捕获 opts）；
+    // AF3 判档因子版拉数需要 token meta 与 anchorMs——只不传 Jev 竞速上限 awaitMs
     const g7g = mkEng(normalTicks);
     const bpOpts = []; g7g.eng._buyPointCheckService.gateBuyPoint = async (t, m, c, o) => { bpOpts.push(o); return { status: 'insufficient_ticks', anchorTickCount: 0 }; };
-    const afOpts = []; g7g.eng._cheatCheckService.evaluateActFront = async (t, m, c, o) => { afOpts.push([m, o]); return { status: 'assessed', act: null, sbw: null, wash: null, path: 'mid_full', version: 'AF2', model: 'factor@AF2' }; };
+    const afOpts = []; g7g.eng._cheatCheckService.evaluateActFront = async (t, m, c, o) => { afOpts.push([m, o]); return { status: 'assessed', act: 'mid', sbw: 'none', wash: null, path: 'mid_full', version: 'AF3', model: 'factor@AF3' }; };
     await g7g.eng._bpGateEvaluate('0xtok', TOKEN, {}, 'sig-7g', { maxTriggers: 1 }, { anchorMs: 1700000010000 });
     await g7g.eng._actFrontGateEvaluate('0xtok', TOKEN, {}, 'sig-7g', { anchorMs: 1700000010000 });
     check('G7g BP 因子路径：只传锚（anchorMs），不传 Jev 竞速上限 awaitMs', [bpOpts, Object.keys(bpOpts[0] || {})], [[{ anchorMs: 1700000010000 }], ['anchorMs']]);
-    check('G7g AF 因子路径：Jev 入参（token meta / awaitMs / anchorMs）一概不传', afOpts, [[{}, {}]]);
+    check('G7g AF 因子路径：token meta 与 anchorMs 照传（拉数判档原料），awaitMs 不传', [Object.keys(afOpts[0][1]), afOpts[0][1], 'awaitMs' in afOpts[0][1]],
+      [['anchorMs'], { anchorMs: 1700000010000 }, false]);
   }
   // G8 引擎源码锁：三挂点的因子分支位置与独立挂点零 Jev 状态机
   {
@@ -595,8 +618,8 @@ console.log('\nG. 引擎挂点集成 + 接线源码锁');
       && /forceRecheck: true/.test(bin), '');
     ok('G8 _bpGateEvaluate：awaitMs 只在非因子路径传',
       code.includes("...(this._buyPointCheckService.factorMode === true ? {} : { awaitMs: this._bpGateAwaitMs })"), '');
-    ok('G8 _actFrontGateEvaluate：因子路径空 meta / 空 opts',
-      code.includes("const meta = _factorAf ? {} : {") && code.includes("_factorAf ? {} : {\n          awaitMs: this._cheatGateAwaitMs,"), '');
+    ok('G8 _actFrontGateEvaluate：AF3 因子路径照传 token meta 与 anchorMs、awaitMs 仅 Jev 代传',
+      code.includes("...(!_factorAf ? { awaitMs: this._cheatGateAwaitMs } : {})"), '');
     const liveCode = stripComments(live);
     ok('G8 实时引擎信号链入口：拉黑双源短路整段不进因子路径',
       /this\._cheatCheckService\.factorMode !== true\s*&&\s*\(this\._cheatBlockedTokens\.has\(tokenAddress\) \|\| this\._cheatCheckService\.isGateBlocked\(tokenAddress\)\)/.test(liveCode), '');

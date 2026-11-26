@@ -508,7 +508,7 @@ function testF() {
         && JSON.stringify(jev.definition.buyLegs) === JSON.stringify(PACK_DEFINITION.buyLegs)
         && JSON.stringify(jev.definition.sellLegs) === JSON.stringify(PACK_DEFINITION.sellLegs));
     check('F6 因子版本常量与键一致（v2 解析=CF/AF/BPF 现行常量）',
-        FR.CHEAT_FACTOR_VERSION === 'CF1' && FR.ACT_FRONT_FACTOR_VERSION === 'AF2' && FR.BUY_POINT_FACTOR_VERSION === 'BPF3');
+        FR.CHEAT_FACTOR_VERSION === 'CF1' && FR.ACT_FRONT_FACTOR_VERSION === 'AF3' && FR.BUY_POINT_FACTOR_VERSION === 'BPF3');
 }
 
 // ═══════════════ 主流程 ═══════════════

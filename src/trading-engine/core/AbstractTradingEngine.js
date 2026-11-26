@@ -2296,10 +2296,10 @@ class AbstractTradingEngine extends ITradingEngine {
       }
       return { pass: true, skipCheat: false, info };
     }
-    // 因子代（Jev 退役；T241 Phase 4）：AF2 不判档（零 I/O）——Jev 链入参（token
-    // meta / awaitMs 竞速上限 / anchorMs 拉数锚）不传；返回形状与分流后处理共用
+    // 因子代（Jev 退役）：AF3 判档因子版（act-judge）——拉数需要 token meta 与
+    // anchorMs 同 Jev 链（拉数锚=回测 as-of）；awaitMs 竞速上限仅 Jev 链消费
     const _factorAf = this._cheatCheckService.factorMode === true;
-    const meta = _factorAf ? {} : {
+    const meta = {
       address: token.token,
       symbol: token.symbol || null,
       name: token.name || null,
@@ -2312,8 +2312,8 @@ class AbstractTradingEngine extends ITradingEngine {
     try {
       res = await this._cheatCheckService.evaluateActFront(tokenAddress, meta,
         { experimentId: this._experimentId, signalId },
-        _factorAf ? {} : {
-          awaitMs: this._cheatGateAwaitMs,
+        {
+          ...(!_factorAf ? { awaitMs: this._cheatGateAwaitMs } : {}),
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
         });
     } catch (e) {

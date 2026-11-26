@@ -43,8 +43,8 @@ const { gradeObservation, levelsFromObservation, CHEAT_RULESET_IDS } = require('
 
 /** 作弊门因子代版本 */
 const CHEAT_FACTOR_VERSION = 'CF1';
-/** 前置活跃度门因子代版本（Jev 代为 AF1） */
-const ACT_FRONT_FACTOR_VERSION = 'AF2';
+/** 前置活跃度门因子代版本（Jev 代为 AF1；AF3=判档因子版） */
+const ACT_FRONT_FACTOR_VERSION = 'AF3';
 /** 买点门因子代版本（BPF3=不再答维度题：crash 形态迁因子门 FP48；BPF2=crash 形态复核臂在 BP 应答器） */
 const BUY_POINT_FACTOR_VERSION = 'BPF3';
 
@@ -111,13 +111,24 @@ function judgeCheatFactor(snapshot = null, opts = {}) {
 }
 
 /**
- * 前置活跃度门因子判定（AF2 精简代）：不判档——act / sbw / wash 全 null。
- * 分流仍走 actFrontRoute（act 缺席 = mid_full，照走 cheat 门），由调用方执行。
- * @param {Object|null} _snapshot - cheat 快照；精简代不消费
- * @returns {{act:null, sbw:null, wash:null, model:string}}
+ * 前置活跃度门因子判定（AF3 判档因子版，2026-11-26 用户指令「活跃度判定这块尽量
+ * 对齐 Jev，并且同样需要拦截 low/ultra」）：act 四档=judgeActLevel（act-judge.js，
+ * Jev activity_level 题判序全量因子化——⑦四臂+全窗背景校验+D3.73 时间结构）；
+ * sbw=judgeStallBurstWave（CD422 波绑定+CD398 流向硬腿同源代码判定）；
+ * wash 暂 null（Jev reject_wash 面极小，标定后单独立项——见 act-judge.js 头注）。
+ * 分流仍走 actFrontRoute（low/ultra∧sbw≠burst → reject），由调用方执行。
+ * @param {Object|null} snapshot - cheat 快照；null/无锚=act null fail-open（上游放行）
+ * @returns {{act:string|null, sbw:'burst'|'none'|null, wash:null, model:string}}
  */
-function judgeActFrontFactor(_snapshot = null) {
-  return { act: null, sbw: null, wash: null, model: factorModel(ACT_FRONT_FACTOR_VERSION) };
+function judgeActFrontFactor(snapshot = null) {
+  const derived = (snapshot && snapshot.derived) || null;
+  if (!derived) {
+    return { act: null, sbw: null, wash: null, model: factorModel(ACT_FRONT_FACTOR_VERSION) };
+  }
+  const { judgeActLevel, judgeStallBurstWave } = require('./act-judge');
+  const sbw = judgeStallBurstWave(derived);
+  const level = judgeActLevel(derived, { sbwBurst: sbw === 'burst' });
+  return { act: level.act, sbw, wash: null, model: factorModel(ACT_FRONT_FACTOR_VERSION) };
 }
 
 /**

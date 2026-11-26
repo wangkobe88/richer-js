@@ -478,14 +478,12 @@ class CheatCheckService {
     if (!token) return { status: 'invalid_token' };
     this.stats.actFrontNoted++;
 
-    // 因子代（Jev 退役）：AF2 精简代不判档（act / sbw / wash 全 null）——零 I/O，
-    // 分流仍走 actFrontRoute（act 缺席 = mid_full，照走 cheat 门）
+    // 因子代（Jev 退役）：AF3 判档因子版（act-judge.js 判序）——拉数与 Jev 链同款
+    // （settle/冷却/拉数/minTicks/快照），判定用纯函数替代 Jev 3 题；low/ultra∧
+    // sbw≠burst 经 actFrontRoute 拒（reject_low/reject_ultra）
     if (this._factorMode) {
       this.stats.actFrontFactorJudged++;
-      const j = this._actFrontFactorJudge(null);
-      const path = actFrontRoute(j.act, j.sbw === 'burst', j.wash, false, false);
-      this.stats.actFrontRouted[path] = (this.stats.actFrontRouted[path] || 0) + 1;
-      return { status: 'assessed', act: j.act, sbw: j.sbw, wash: j.wash, path, version: ACT_FRONT_FACTOR_VERSION, model: j.model };
+      return this._actFrontFactorChain(token, tokenMeta, context, opts);
     }
 
     let chain = this._actFrontInflight.get(token);
@@ -652,6 +650,87 @@ class CheatCheckService {
       this.stats.actFrontRouted.fail_open++;
       return { status: 'fail', reason: e?.message || String(e) };
     }
+  }
+
+  /**
+   * AF 因子代（AF3）判定链：拉数（settle/冷却/拉数/minTicks/快照——与 Jev 链同款
+   * 原料路径）+ judgeActFrontFactor 纯函数判档 + actFrontRoute 分流。Jev 链
+   * `_actFrontChain` 原样保留（回滚基线）；本链刻意独立实现（Phase 4 独立入口语义：
+   * 不走 Jev 状态机，无 inflight join/awaitMs 竞速/迟到包）。
+   */
+  async _actFrontFactorChain(token, tokenMeta, context, opts) {
+    try {
+      const pulled = await this._actFrontPull(token, tokenMeta, context, opts);
+      if (!pulled.ok) return pulled.result;
+      const { snapshot, stageCold, stageAthVsLaunchPct, stallRestart } = pulled;
+
+      const j = this._actFrontFactorJudge(snapshot);
+      const path = actFrontRoute(j.act, j.sbw === 'burst', j.wash, stageCold, j.act === 'low' && stallRestart.hit);
+      this.stats.actFrontRouted[path] = (this.stats.actFrontRouted[path] || 0) + 1;
+      // stageCold/athVsLaunchPct 留痕（T205 同 Jev 链形状）；T210 停滞再启动留痕（act=low）
+      return {
+        status: 'assessed', act: j.act, sbw: j.sbw, wash: j.wash, path,
+        version: ACT_FRONT_FACTOR_VERSION, model: j.model,
+        ...(this._gateActStageCold ? { stageCold, athVsLaunchPct: stageAthVsLaunchPct } : {}),
+        ...(j.act === 'low' ? { stallRestart } : {}),
+      };
+    } catch (e) {
+      // 接线级异常：fail-open 放行进 cheat（cheat/BP 门兜底）
+      this.stats.errors++;
+      this._log('warn', `AF 因子链异常 | ${token} ${e?.message || e}`);
+      this.stats.actFrontRouted.fail_open++;
+      return { status: 'fail', reason: e?.message || String(e) };
+    }
+  }
+
+  /**
+   * AF 拉数共享段（因子链专用；Jev 链保留自己的原顺序零改动）：settle（waitIdle
+   * 竞速帽）→ 失败冷却 → 拉数（anchorMs=回测 as-of 锚）→ minTicks 预门 →
+   * snapshot + stageCold（T205 阶段前提）+ stallRestart（T210）。
+   * 返回 {ok:true, snapshot, stageCold, stageAthVsLaunchPct, stallRestart} 或
+   * {ok:false, result}（短路结果直接透传给 evaluateActFront）。
+   */
+  async _actFrontPull(token, tokenMeta, context, opts) {
+    // 1) settle（与 Jev 链同款双模）
+    const waitIdle = this._deps.waitIdle;
+    if (waitIdle && this._settleDelayMs > 0) {
+      await Promise.race([
+        Promise.resolve(waitIdle(token)),
+        new Promise((r) => setTimeout(r, this._settleDelayMs)),
+      ]);
+      if (!this._deps.pullTicks) {
+        await new Promise((r) => setTimeout(r, this._settleFlushMs));
+      }
+    } else if (this._settleDelayMs > 0) {
+      await new Promise((r) => setTimeout(r, this._settleDelayMs));
+    }
+
+    // 2) 失败冷却（与 cheat 链共享 per-token _failUntil）
+    const failUntil = this._failUntil.get(token) || 0;
+    if (this._now() < failUntil) {
+      this.stats.cooldownSkipped++;
+      this.stats.actFrontRouted.fail_open++;
+      return { ok: false, result: { status: 'fail', reason: 'cooldown' } };
+    }
+
+    // 3) 拉数 + minTicks 预门（不足 → fail-open 放行进 cheat）
+    const _anchorMs = Number.isFinite(opts.anchorMs) && opts.anchorMs > 0 ? opts.anchorMs : null;
+    const pull = await this._pullTicks(token, _anchorMs);
+    if (pull.anchorTickCount < this._minTicks) {
+      this.stats.skippedInsufficientTicks++;
+      this.stats.actFrontRouted.fail_open++;
+      return { ok: false, result: { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount } };
+    }
+
+    // 4) 快照 + 阶段前提/停滞再启动原料
+    const createMeta = await this._loadCreateMeta(token);
+    const meta = this._normalizeMeta(token, tokenMeta, pull, createMeta);
+    const snapshot = buildSnapshotFromRows(pull.rows, meta, { capped: pull.capped, anchorTickCount: pull.anchorTickCount });
+    const _stageAth = snapshot.derived && typeof snapshot.derived.athVsLaunchPct === 'number'
+      ? snapshot.derived.athVsLaunchPct : null;
+    const _stageCold = this._gateActStageCold && isColdStage(_stageAth);
+    const _stallRestart = evaluateStallRestart(snapshot.derived);
+    return { ok: true, snapshot, stageCold: _stageCold, stageAthVsLaunchPct: _stageAth, stallRestart: _stallRestart };
   }
 
   /**
