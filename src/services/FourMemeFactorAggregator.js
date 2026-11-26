@@ -357,6 +357,13 @@ const LAUNCH_BUNDLE_WAVE_MIN_WALLETS = 5;
 // 低估；lifetime* 三键存本 Map，prune 不清、跨 state 生命；跨进程重启丢失=已知限制
 // （同 graduationProgress）。addr 小写；写点=processTick 计数段（与 totalBuyBnb 同位）。
 const _lifetimeVolumes = new Map(); // addr -> { buy: number, sell: number }
+// 新钱包判定画像集（2026-11-26 用户裁定「无 GMGN 画像/胜率为 0 全部视为新钱包」）：
+// addr -> winrate（gmgn_wallet_profiles 30d 快照，引擎启动一次性注入）；
+// fresh = 集内无该地址 ∨ winrate===0。⚠注入必须在首 tick 之前（增量维护依赖归属不变，
+// 注入晚于喂数=存量钱包 fresh 归属错）。未注入 → freshWalletHoldPct 发射 null
+// fail-closed（条件裸比较恒 false 不触发）。
+const _freshWalletWinrates = new Map(); // addr -> winrate
+let _freshProfilesInjected = false;
 // 出生锚 = state.createdAtMs（live=TokenCreate 块时间 / 回测=experiment_tokens discovered_at，
 // 与 age 同基准；母版 firstTickAt 本身是墓碑/DB discovered_at 证据链≈创建时间，语义对齐）。
 // 距出生已 >40m 的老票不入册（防引擎中途启动把存量票当 newborn 灌满截面；richer-js FA 无 DB
@@ -1880,6 +1887,16 @@ class FourMemeFactorAggregator extends EventEmitter {
                 const _prev = state._walletNetTokens.get(walletAddr) || 0;
                 const _cur = _prev + delta;
                 state._walletNetTokens.set(walletAddr, _cur);
+                // 新钱包持仓占比（freshWalletHoldPct）增量维护（2026-11-26 用户裁定
+                // 「无 GMGN 画像/胜率为 0 全部视为新钱包」+「砍 ≥80% 一刀」）：
+                // 正净持仓合计与 holderCount 同款跨界维护；fresh 归属由画像集判定
+                // （生命周期内不变→增量归纳等价）；任意序重放收敛（只依赖单钱包序列）
+                if (state._allHoldTokens === undefined) state._allHoldTokens = 0;
+                if (state._freshHoldTokens === undefined) state._freshHoldTokens = 0;
+                state._allHoldTokens += Math.max(0, _cur) - Math.max(0, _prev);
+                if (this._isFreshWallet(walletAddr)) {
+                    state._freshHoldTokens += Math.max(0, _cur) - Math.max(0, _prev);
+                }
                 // holderCount 增量维护（P2a 2026-10-12 回测性能案）：跨 0 边界 ±1，
                 // 与全 map 重数 #{net>0} 逐 tick 等价（归纳：每步只动一个钱包的净持仓，
                 // 正↔正/负↔负 计数不变；holderCount 单写点在此、初值 0）——替代每
@@ -2604,6 +2621,24 @@ class FourMemeFactorAggregator extends EventEmitter {
      *   传入 tick 虚拟时刻，缺省墙钟——实时 setInterval 调用点不传零变化（同
      *   buildFactorMap(state, asOf) 的禁 Date.now 前视红线家族）
      */
+    /**
+     * 注入新钱包判定画像集（2026-11-26 用户裁定「无 GMGN 画像/胜率为 0 全部视为
+     * 新钱包」）——引擎启动一次性调用（首 tick 前；gmgn_wallet_profiles 30d 快照）。
+     * @param {Map<string, number>} winrates addr(小写) -> winrate（0~1）
+     */
+    setFreshWalletProfiles(winrates) {
+        _freshWalletWinrates.clear();
+        for (const [a, w] of winrates || []) _freshWalletWinrates.set(String(a).toLowerCase(), Number(w) || 0);
+        _freshProfilesInjected = true;
+    }
+
+    /** 新钱包判定（无画像 ∨ 胜率 0）——注入缺失时恒 false（键发射 null 的兜底语义） */
+    _isFreshWallet(w) {
+        if (!_freshProfilesInjected || !w) return false;
+        if (!_freshWalletWinrates.has(w)) return true;
+        return _freshWalletWinrates.get(w) === 0;
+    }
+
     pruneStaleTokens(maxAgeMs, heldTokens = new Set(), nowMs) {
         const now = nowMs != null ? nowMs : Date.now();
         let pruned = 0;
@@ -5451,6 +5486,13 @@ class FourMemeFactorAggregator extends EventEmitter {
                 const lv = _lifetimeVolumes.get(state.tokenAddress);
                 return lv ? lv.buy + lv.sell : 0;
             })(),
+            // 新钱包持仓占比（2026-11-26 用户裁定「无 GMGN 画像/胜率为 0 全部视为新钱包」
+            // +「砍 ≥80% 一刀」——机器盘新钱包持仓占比高）：新钱包正净持仓 token ÷ 全部
+            // 钱包正净持仓 token ×100。画像集未注入 → null fail-closed（条件裸比较恒
+            // false 不触发）；无持仓 → 0（有证据零值）。增量维护见 _applyWalletAggregation
+            freshWalletHoldPct: _freshProfilesInjected
+                ? ((state._allHoldTokens || 0) > 0 ? parseFloat(((state._freshHoldTokens || 0) / state._allHoldTokens * 100).toFixed(2)) : 0)
+                : null,
             // 独立买入钱包数（T76 2026-10-27 注意力空转观测键原料）：K 组对敲族
             // _buyerAddresses 全史 Set 的 size——曾买入即计入（清仓不回退），与
             // buyVolumeBnb 同刻同源；GMGN 层 gmgnVisitorsPerBuyer 比值的分母
