@@ -32,8 +32,10 @@
 
 const ACT_JUDGE_VERSION = 'AF3';
 
-/** ⑦密集臂吞吐线（题面参考 ≥2~3 BNB/分钟；取 2.0） */
-const NEAR_ALIVE_BPM_MIN = 2.0;
+/** ⑦密集臂吞吐线（题面参考 ≥2~3 BNB/分钟；首轮标定 2.0 对 Jev high 欠认
+ *   （idle_major 误伤 144 的主因=没认「临近仍活」），取 1.5——死寂线 1.0 与
+ *   参考线 2 之间的灰色带归「仍活」方向） */
+const NEAR_ALIVE_BPM_MIN = 1.5;
 /** 金额吞吐死寂线（题面参考 <1 BNB/分钟——死寂臂/③/四腿联立共用） */
 const THROUGHPUT_DEAD_BPM = 1.0;
 /** 全窗 high 档吞吐相称线（题面参考 ≥10 BNB/分钟） */
@@ -44,8 +46,12 @@ const TPM_HIGH = 70;
 const TPM_ULTRA = 140;
 /** 全窗量级四腿联立密度线（题面「密度个位数」，取 <10） */
 const TPM_SPARSE = 10;
-/** 买盘中位尘埃线（题面常见交易档 0.05 下探一个量级——「<0.05」是四腿联立线） */
-const BUY_MEDIAN_DUST_BNB = 0.01;
+/** 节奏稀疏参考线（题面「<15 笔/分钟偏稀」；D3.2 ACTIVITY_LOW_TPM 同线） */
+const ACTIVITY_LOW_TPM_REF = 15;
+/** 买盘中位尘埃线（题面「尾笔 0.11 外全是 <0.002 尘单滴答」样本尘埃级；首轮标定
+ *   0.01 线对 Jev high/mid 误伤 104（near_dead），0.005=尘埃滴答与真实小买的界）
+ *   ——「中位 0.05 上下只是稀疏」是 mid 方向，尘埃是「尘单堆笔数」） */
+const BUY_MEDIAN_DUST_BNB = 0.005;
 /** 买盘中位常见交易档（四腿联立「低于常见交易档」线，题面参考 <0.05） */
 const BUY_MEDIAN_COMMON_BNB = 0.05;
 /** ④单向死水回撤浅线（题面参考 <5%） */
@@ -235,7 +241,16 @@ function judgeActLevel(derived = {}, opts = {}) {
 
   // ── 均不命中 → 全窗+临近段综合定档（题面「按全窗+临近段综合要素定档」；
   //    临近段双向活跃=密集臂主腿（尾 5s 买）缺失时的综合 high 腿——「买入暂歇
-  //    非出货」样本：临近 30s 20 笔买卖双向、尾 10s 买入暂歇 → 落高档）──
+  //    非出货」样本：临近 30s 20 笔买卖双向、尾 10s 买入暂歇 → 落高档）。
+  //    低档腿「节奏稀疏笔均尘埃」（题面「节奏稀疏笔均尘埃→低」）：单笔量级
+  //    正常（中位 0.05 上下）的稀疏盘不属此腿（只是节奏稀疏=mid 方向）──
+  const tpm0 = num(derived.ticksPerMin);
+  const avg0 = num(derived.avgTradeBnb);
+  if (tpm0 !== null && tpm0 < ACTIVITY_LOW_TPM_REF
+    && avg0 !== null && avg0 < BUY_MEDIAN_COMMON_BNB) {
+    act = 'low';
+    arm = 'sparse_dust';
+  }
   if (act === null) {
     const tpm = num(derived.ticksPerMin);
     const thr = num(derived.throughputBnbPerMin);
