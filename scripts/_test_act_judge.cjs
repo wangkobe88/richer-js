@@ -40,8 +40,8 @@ check('A2 无时间轴证据 → act null（fail-open 上游放行）', judgeAct
 
 console.log('\nB. 题面真实样本转写（低档五正例）');
 // ① 大比例无交易期：17 笔 53s 静默 72% → low
-check('B1 无交易期占比 72% → idle_major low', [judgeActLevel(D({ spanSec: 53, tickCount: 17, idlePct: 72, maxGapSec: 26, ticksPerMin: 19, throughputBnbPerMin: 4, buyMedianBnb: 0.08 })).act,
-  judgeActLevel(D({ spanSec: 53, tickCount: 17, idlePct: 72, maxGapSec: 26, ticksPerMin: 19, throughputBnbPerMin: 4, buyMedianBnb: 0.08 })).arm], ['low', 'idle_major']);
+check('B1 无交易期占比 72% → low（近段死寂臂）', [judgeActLevel(D({ spanSec: 53, tickCount: 17, idlePct: 72, maxGapSec: 26, ticksPerMin: 19, throughputBnbPerMin: 4, buyMedianBnb: 0.08, nearSegTickN: 2, nearSegBuyMedianBnb: 0.002, nearSegBnbPerMin: 0.3, nearSegBuyBnb: 0.01, nearSegSellBnb: 0.02, nearTail10BnbPerMin: 0.3, nearPre20BnbPerMin: 0.4, nearTail5BuyN: 0, nearTail5BuyBnb: 0, nearTail10SellWallets: 1, nearTail10BuyN: 0, nearTail10BuyBnb: 0 })).act,
+  judgeActLevel(D({ spanSec: 53, tickCount: 17, idlePct: 72, maxGapSec: 26, ticksPerMin: 19, throughputBnbPerMin: 4, buyMedianBnb: 0.08, nearSegTickN: 2, nearSegBuyMedianBnb: 0.002, nearSegBnbPerMin: 0.3, nearSegBuyBnb: 0.01, nearSegSellBnb: 0.02, nearTail10BnbPerMin: 0.3, nearPre20BnbPerMin: 0.4, nearTail5BuyN: 0, nearTail5BuyBnb: 0, nearTail10SellWallets: 1, nearTail10BuyN: 0, nearTail10BuyBnb: 0 })).arm], ['low', 'near_dead']);
 // ② 单向死水推进：3min 39 笔 36:3 笔、额 9:1、回撤 3%（非极早窗）→ low
 check('B2 单向推进（36:3 笔 / 9:1 额 / 回撤 3%）→ one_way_dead low', [
   judgeActLevel(D({ spanSec: 180, tickCount: 39, ticksPerMin: 14, buyMedianBnb: 0.04, throughputBnbPerMin: 3, maxDrawdownPct: 3, buyN: 36, sellN: 3, totalBuyBnb: 9, totalSellBnb: 1 })).act,
@@ -108,7 +108,7 @@ check('E1 极早窗（28s/19 笔）单向不压档 → 题面本判 high（节�
   judgeActLevel(D({ spanSec: 28, tickCount: 19, ticksPerMin: 40.7, idlePct: 0, maxGapSec: 7, buyMedianBnb: 0.08, throughputBnbPerMin: 4, maxDrawdownPct: 0, buyN: 18, sellN: 1, totalBuyBnb: 27, totalSellBnb: 1, nearSegTickN: null, nearTail10SellWallets: 1, nearTail10BuyN: 12, nearTail10BuyBnb: 1.5, nearTail10BnbPerMin: 4, nearPre20BnbPerMin: 4, nearTail5BuyN: 5, nearTail5BuyBnb: 0.7, nearPre10GapSec: null, nearPre10Wallets: null })).arm,
 ], ['high', 'near_alive']);
 // ⑥ burst 抬档：四腿联立判 low + sbw=burst → mid（burst_raised）
-check('E2 burst 反锚：low 抬 mid', [judgeActLevel(D({ spanSec: 270, tickCount: 43, ticksPerMin: 9.5, throughputBnbPerMin: 0.43, buyMedianBnb: 0.025, maxGapSec: 47, idlePct: 27 }), { sbwBurst: true }).act, judgeActLevel(D({ spanSec: 270, tickCount: 43, ticksPerMin: 9.5, throughputBnbPerMin: 0.43, buyMedianBnb: 0.025, maxGapSec: 47, idlePct: 27 }), { sbwBurst: true }).arm], ['mid', 'burst_raised']);
+check('E2 burst 反锚：low 抬 mid', [judgeActLevel(D({ spanSec: 270, tickCount: 43, ticksPerMin: 9.5, throughputBnbPerMin: 0.43, buyMedianBnb: 0.025, maxGapSec: 47, idlePct: 27, nearSegTickN: 2, nearSegBuyMedianBnb: 0.009, nearSegBnbPerMin: 0.4, nearSegBuyBnb: 0.01, nearSegSellBnb: 0.02, nearTail10BnbPerMin: 0.4, nearPre20BnbPerMin: 0.5, nearTail5BuyN: 0, nearTail5BuyBnb: 0, nearTail10SellWallets: 1, nearTail10BuyN: 0, nearTail10BuyBnb: 0 }), { sbwBurst: true }).act, judgeActLevel(D({ spanSec: 270, tickCount: 43, ticksPerMin: 9.5, throughputBnbPerMin: 0.43, buyMedianBnb: 0.025, maxGapSec: 47, idlePct: 27, nearSegTickN: 2, nearSegBuyMedianBnb: 0.009, nearSegBnbPerMin: 0.4, nearSegBuyBnb: 0.01, nearSegSellBnb: 0.02, nearTail10BnbPerMin: 0.4, nearPre20BnbPerMin: 0.5, nearTail5BuyN: 0, nearTail5BuyBnb: 0, nearTail10SellWallets: 1, nearTail10BuyN: 0, nearTail10BuyBnb: 0 }), { sbwBurst: true }).arm], ['mid', 'burst_raised']);
 // ⑥ burst 不抬 high 之上：high 保持
 check('E3 burst 不影响 high', [judgeActLevel(D({ spanSec: 120, tickCount: 60, ticksPerMin: 30, buyMedianBnb: 0.1, throughputBnbPerMin: 6, maxDrawdownPct: 10, buyN: 35, sellN: 25, totalBuyBnb: 3, totalSellBnb: 2.5, nearSegBnbPerMin: 5, nearSegBuyBnb: 2.2, nearSegSellBnb: 1.5, nearSegBuyMedianBnb: 0.1, nearTail10BnbPerMin: 5.3, nearPre20BnbPerMin: 6.1, nearTail5BuyN: 6, nearTail5BuyBnb: 0.6, nearTail10SellWallets: 3, nearTail10BuyN: 4, nearTail10BuyBnb: 0.5, nearPre10GapSec: 1, nearPre10Wallets: 6, actWeightedThroughputBnbPerMin: 4.5 }), { sbwBurst: true }).act], ['high']);
 // D3.73 时间结构：近段 1.86、加权 1.02（<×0.6）→ 非 burst cap mid
@@ -123,7 +123,11 @@ check('F1 尾窗锚缺席 → 不落出货臂（走全窗综合）', judgeActLev
 check('F2 段前两键 null → 反锚不适用照走密集臂', [judgeActLevel(D({ nearPre10GapSec: null, nearPre10Wallets: null, nearSegBnbPerMin: 5, nearSegBuyBnb: 2.2, nearSegSellBnb: 1.5, nearSegBuyMedianBnb: 0.1, nearTail10BnbPerMin: 5.3, nearPre20BnbPerMin: 6.1, nearTail5BuyN: 6, nearTail5BuyBnb: 0.6, nearTail10SellWallets: 3, nearTail10BuyN: 4, nearTail10BuyBnb: 0.5, actWeightedThroughputBnbPerMin: 5 })).act], ['high']);
 
 console.log('\nG. sbw 因子判定（CD422 波绑定 + CD398 流向）');
-const BURST_KEYS = { burstLastGapSec: 60, burstExitWaveBuyBnb: 0.5, burstExitWaveWallets: 4, burstWaveNetBnb: 0.3, burstWaveWalletNetBnb: 0.2 };
+const BURST_KEYS = { burstLastGapSec: 60, burstExitWaveBuyBnb: 0.5, burstExitWaveWallets: 4, burstWaveNetBnb: 0.3, burstWaveWalletNetBnb: 0.2, burstWaveWalletAvgBnb: 0.07, burstSecSinceWaveEnd: 10 };
+check('G1b 量级不足（0.11 <0.29）→ none', judgeStallBurstWave({ ...BURST_KEYS, burstExitWaveBuyBnb: 0.11 }), 'none');
+check('G1c 尘埃堆波（户均 0.016）→ none', judgeStallBurstWave({ ...BURST_KEYS, burstWaveWalletAvgBnb: 0.016 }), 'none');
+check('G1d 波距锚太远（跨度 >60s）→ none', judgeStallBurstWave({ ...BURST_KEYS, burstSecSinceWaveEnd: 130 }), 'none');
+check('G1e 量级/户均/跨度锚缺席容缺照判 burst', judgeStallBurstWave({ ...BURST_KEYS, burstWaveWalletAvgBnb: null, burstSecSinceWaveEnd: null }), 'burst');
 check('G1 停滞+买入波+流向正 → burst', judgeStallBurstWave(BURST_KEYS), 'burst');
 check('G2 无 ≥30s 静默段 → none', judgeStallBurstWave({ burstLastGapSec: null }), 'none');
 check('G3 波钱包 1（孤笔不成波 CD422）→ none', judgeStallBurstWave({ ...BURST_KEYS, burstExitWaveWallets: 1 }), 'none');

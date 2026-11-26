@@ -79,6 +79,14 @@ const SELL_WALLETS_COOP = 10;
 const TAIL_BUY_DUST_BNB = 0.001;
 /** 成色反锚的最小卖额证据线（卖额 <此值=无出货证据，反锚不成立） */
 const SELL_EVIDENCE_BNB = 0.001;
+/** sbw「一定流量」波买额线（Jev stall_burst_wave 题 criteria 参考 ≥0.29 BNB 级；
+ *   与 T244 activity_burst 类型同线） */
+const BURST_WAVE_MIN_BNB = 0.29;
+/** sbw 波钱包户均尘埃线（尘埃行剔除线同值 0.03——「户均 0.016/0.021 尘埃堆波不算
+ *   流量」样本 vs「户均 0.070 真实」样本） */
+const BURST_WAVE_AVG_MIN_BNB = 0.03;
+/** sbw 跨度线：波末笔距锚 ≤60s（「锚点时刻的当前状态」；波已结束很久=盘面已走完） */
+const BURST_WAVE_MAX_SEC_SINCE_END = 60;
 
 /** 档位全序（cap/抬档用） */
 const ACT_ORDER = { low: 0, mid: 1, high: 2, ultra: 3 };
@@ -254,8 +262,14 @@ function judgeActLevel(derived = {}, opts = {}) {
     }
   }
 
-  // ── 全窗背景校验（只压不抬）──
-  const cap = (level, capArm) => {
+  // ── 全窗背景校验（只压不抬）。near_alive（⑦密集臂）豁免「全窗稀疏」族
+  //    （①静默——题面「全窗稀疏不抹临近真实涌入」，与①的调和由段前背景反锚与
+  //    D3.73 承担；③尘埃假活跃与密集臂吞吐线数学互斥）；④单向死水与全窗四腿
+  //    联立是**独立臂**（题面「两臂独立，任一成立即可压低档位」「即使交易持续
+  //    不断也压低档位」）——照压一切档；D3.73 时间结构是密集臂本身的金额轴约束
+  //    （cap 高）──
+  const cap = (level, capArm, force = false) => {
+    if (!force && arm === 'near_alive') return;
     if (ACT_ORDER[act] > ACT_ORDER[level]) { act = level; arm = capArm; }
   };
   // ① 大比例无交易期（⑥ burst 抬档在最后统一处理）
@@ -277,7 +291,7 @@ function judgeActLevel(derived = {}, opts = {}) {
     && buyN >= sellN * IMBALANCE_N_RATIO
     && buyBnb !== null && sellBnb !== null && buyBnb >= sellBnb * IMBALANCE_BNB_RATIO
     && dd !== null && dd < DRAWDOWN_FLAT_PCT
-    && !earlyWin) cap('low', 'one_way_dead');
+    && !earlyWin) cap('low', 'one_way_dead', true);
   // 全窗量级四腿联立稀疏（间歇死水）
   const tpm3 = num(derived.ticksPerMin);
   const thr3 = num(derived.throughputBnbPerMin);
@@ -286,14 +300,14 @@ function judgeActLevel(derived = {}, opts = {}) {
     && thr3 !== null && thr3 < THROUGHPUT_DEAD_BPM
     && buyMedian !== null && buyMedian < BUY_MEDIAN_COMMON_BNB
     && (idlePct !== null && idlePct >= IDLE_PCT_QUARTER || maxGap !== null && maxGap >= MAX_GAP_LONG_SEC)) {
-    cap('low', 'sparse_four_legs');
+    cap('low', 'sparse_four_legs', true);
   }
   // D3.73 时间结构：非 burst 单点脉冲不给高档（至多中）
   if (!sbwBurst && act === 'high') {
     const segBpm2 = num(derived.nearSegBnbPerMin);
     const weighted = num(derived.actWeightedThroughputBnbPerMin);
     if (segBpm2 !== null && segBpm2 > 0 && weighted !== null
-      && weighted < segBpm2 * TIME_STRUCT_RATIO) cap('mid', 'time_structure');
+      && weighted < segBpm2 * TIME_STRUCT_RATIO) cap('mid', 'time_structure', true);
   }
   // ⑥ burst 反锚：静默后买入涌入不判低（中档起判）
   if (sbwBurst && act === 'low') { act = 'mid'; arm = 'burst_raised'; }
@@ -303,9 +317,11 @@ function judgeActLevel(derived = {}, opts = {}) {
 
 /**
  * 停滞突发波（sbw）因子判定（Jev stall_burst_wave 题的代码版；CD422 波绑定 +
- * CD398 流向硬腿同源）：最后 ≥30s 静默段（burstLastGapSec 非 null=有段）出口后
- * 波窗内买入主导、波钱包 ≥2（孤笔不成波）。返回 'burst'|'none'|null（无波证据
- * fail-closed none）。锚族 null=无段/无波。
+ * CD398 流向硬腿 + criteria 量级线同源）：最后 ≥30s 静默段（burstLastGapSec 非
+ * null=有段）出口后波窗内买入主导、波钱包 ≥2（孤笔不成波）、波买额 ≥0.29
+ * （一定流量）、户均非尘埃（≥0.03 堆波不算）、波距锚 ≤60s（当前状态）。
+ * 量级/户均/跨度锚缺席（旧档断代）容缺照判（不扩大收紧面，CD398 同哲学）；
+ * 无波证据 fail-closed none。返回 'burst'|'none'。
  * @param {Object} derived
  * @returns {'burst'|'none'}
  */
@@ -318,6 +334,14 @@ function judgeStallBurstWave(derived = {}) {
   if (waveBuy === null || waveWallets === null || waveBuy <= 0 || waveWallets < 2) {
     return 'none'; // 无波/孤笔不成波（CD422）
   }
+  // 一定流量：波买额 ≥0.29（「一两笔常见档买单＋零星尘单的量级」不入；criteria 参考线）
+  if (waveBuy < BURST_WAVE_MIN_BNB) return 'none';
+  // 非尘埃堆波：户均 ≥0.03（「几十个钱包户均/中位全挤 0.0X 尘埃档」不算流量）
+  const avg = num(derived.burstWaveWalletAvgBnb);
+  if (avg !== null && avg < BURST_WAVE_AVG_MIN_BNB) return 'none';
+  // 跨度：波末笔距锚 ≤60s（「锚点时刻的当前状态」；波在窗早期=盘面已走完）
+  const since = num(derived.burstSecSinceWaveEnd);
+  if (since !== null && since > BURST_WAVE_MAX_SEC_SINCE_END) return 'none';
   // CD398 流向硬腿：波窗自身净流 / 波钱包全窗净额任一净负=卖方主导不属 burst
   const winNet = num(derived.burstWaveNetBnb);
   if (winNet !== null && winNet < 0) return 'none';
