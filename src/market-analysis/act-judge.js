@@ -110,6 +110,8 @@ const ACT_ORDER = { low: 0, mid: 1, high: 2, ultra: 3 };
 function judgeActLevel(derived = {}, opts = {}) {
   const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   const sbwBurst = opts.sbwBurst === true;
+  // 线值覆盖（标定扫描用；缺省=LINES）
+  const C = opts.lines ? Object.assign({}, LINES, opts.lines) : LINES;
 
   // 证据门：dt 族缺失（无有效时间轴）→ 不可判
   const spanSec = num(derived.spanSec);
@@ -159,8 +161,8 @@ function judgeActLevel(derived = {}, opts = {}) {
   const sellWallets = num(derived.nearTail10SellWallets);
   const t10BuyN = num(derived.nearTail10BuyN);
   const t10BuyBnb = num(derived.nearTail10BuyBnb);
-  if (sellWallets !== null && sellWallets >= SELL_WALLETS_COOP
-    && (t10BuyN === null || t10BuyN <= 1 || (t10BuyBnb !== null && t10BuyBnb < TAIL_BUY_DUST_BNB))) {
+  if (sellWallets !== null && sellWallets >= C.SELL_WALLETS_COOP
+    && (t10BuyN === null || t10BuyN <= 1 || (t10BuyBnb !== null && t10BuyBnb < C.TAIL_BUY_DUST_BNB))) {
     return {
       act: 'ultra', arm: 'coop_dump',
       trace: t('coop_dump', { sellWallets, tail10BuyN: t10BuyN, tail10BuyBnb: t10BuyBnb }).trace,
@@ -173,11 +175,11 @@ function judgeActLevel(derived = {}, opts = {}) {
   const t5BuyN = num(derived.nearTail5BuyN);
   const t5BuyBnb = num(derived.nearTail5BuyBnb);
   const notDropped = pre20Bpm === null || pre20Bpm === 0
-    || (t10Bpm !== null && t10Bpm >= pre20Bpm / TAIL_DROP_RATIO);
+    || (t10Bpm !== null && t10Bpm >= pre20Bpm / C.TAIL_DROP_RATIO);
 
   // 衰减臂 → 至多中（cap 语义：后续背景校验只压不抬自动生效）
   if (pre20Bpm !== null && pre20Bpm > 0 && t10Bpm !== null
-    && t10Bpm < pre20Bpm / TAIL_DROP_RATIO
+    && t10Bpm < pre20Bpm / C.TAIL_DROP_RATIO
     && (t5N === null || t5N <= 1 || t5BuyN === null || t5BuyN === 0)) {
     act = 'mid';
     arm = 'near_decay';
@@ -186,18 +188,18 @@ function judgeActLevel(derived = {}, opts = {}) {
     // 吞吐腿：近段键（spanSec>30）缺席时以尾 10s 吞吐作短窗代理（CD394 短窗盲区修复）
     const segBpmRaw = num(derived.nearSegBnbPerMin);
     const segBpm = segBpmRaw !== null ? segBpmRaw : t10Bpm;
-    let dense = segBpm !== null && segBpm >= NEAR_ALIVE_BPM_MIN
+    let dense = segBpm !== null && segBpm >= C.NEAR_ALIVE_BPM_MIN
       && notDropped
       && t5BuyN !== null && t5BuyN >= 1
-      && t5BuyBnb !== null && t5BuyBnb >= TAIL_BUY_DUST_BNB;
+      && t5BuyBnb !== null && t5BuyBnb >= C.TAIL_BUY_DUST_BNB;
     let denseDenied = null; // 'color' | 'bg' | null
     if (dense) {
       // 成色反锚：近段卖额 ≥ 买额 3 倍（含买额≈0 的纯卖段）=出货拉起的假吞吐；
       // 近段买卖额拆分锚缺席（短窗代理口径）→ 反锚不评（fail-open 方向不扩大收紧）
       const segBuy = num(derived.nearSegBuyBnb);
       const segSell = num(derived.nearSegSellBnb);
-      if (segSell !== null && segSell >= SELL_EVIDENCE_BNB
-        && (segBuy === null || segSell >= segBuy * SELL_DOMINANCE_RATIO)) {
+      if (segSell !== null && segSell >= C.SELL_EVIDENCE_BNB
+        && (segBuy === null || segSell >= segBuy * C.SELL_DOMINANCE_RATIO)) {
         dense = false;
         denseDenied = 'color';
       }
@@ -206,7 +208,7 @@ function judgeActLevel(derived = {}, opts = {}) {
       if (dense) {
         const gap = num(derived.nearPre10GapSec);
         const bgW = num(derived.nearPre10Wallets);
-        if (gap !== null && bgW !== null && gap >= PRE10_GAP_SEC && bgW <= PRE10_WALLETS_MAX) {
+        if (gap !== null && bgW !== null && gap >= C.PRE10_GAP_SEC && bgW <= C.PRE10_WALLETS_MAX) {
           dense = false;
           denseDenied = 'bg';
         }
@@ -218,8 +220,8 @@ function judgeActLevel(derived = {}, opts = {}) {
     } else if (hasNear && denseDenied === null) {
       // 密集臂不成立（主腿缺失）→ 死寂臂
       const segBuyMedian = num(derived.nearSegBuyMedianBnb);
-      if ((segBuyMedian !== null && segBuyMedian < BUY_MEDIAN_DUST_BNB)
-        || (segBpmRaw !== null && segBpmRaw < THROUGHPUT_DEAD_BPM)) {
+      if ((segBuyMedian !== null && segBuyMedian < C.BUY_MEDIAN_DUST_BNB)
+        || (segBpmRaw !== null && segBpmRaw < C.THROUGHPUT_DEAD_BPM)) {
         act = 'low';
         arm = 'near_dead';
       }
@@ -230,8 +232,8 @@ function judgeActLevel(derived = {}, opts = {}) {
     } else if (denseDenied === 'color' && hasNear) {
       // 成色反锚：落死寂臂判读（题面「任一反锚命中=密集臂不成立，落死寂臂判读」）
       const segBuyMedian = num(derived.nearSegBuyMedianBnb);
-      if ((segBuyMedian !== null && segBuyMedian < BUY_MEDIAN_DUST_BNB)
-        || (segBpmRaw !== null && segBpmRaw < THROUGHPUT_DEAD_BPM)) {
+      if ((segBuyMedian !== null && segBuyMedian < C.BUY_MEDIAN_DUST_BNB)
+        || (segBpmRaw !== null && segBpmRaw < C.THROUGHPUT_DEAD_BPM)) {
         act = 'low';
         arm = 'near_dead';
       }
@@ -246,8 +248,8 @@ function judgeActLevel(derived = {}, opts = {}) {
   //    正常（中位 0.05 上下）的稀疏盘不属此腿（只是节奏稀疏=mid 方向）──
   const tpm0 = num(derived.ticksPerMin);
   const avg0 = num(derived.avgTradeBnb);
-  if (tpm0 !== null && tpm0 < ACTIVITY_LOW_TPM_REF
-    && avg0 !== null && avg0 < BUY_MEDIAN_COMMON_BNB) {
+  if (tpm0 !== null && tpm0 < C.ACTIVITY_LOW_TPM_REF
+    && avg0 !== null && avg0 < C.BUY_MEDIAN_COMMON_BNB) {
     act = 'low';
     arm = 'sparse_dust';
   }
@@ -263,12 +265,12 @@ function judgeActLevel(derived = {}, opts = {}) {
     const nearTwoWay = segTickN !== null && segTickN >= 12
       && segBuyN !== null && segBuyN >= 3
       && segSellN !== null && segSellN >= 3
-      && segBpmRaw3 !== null && segBpmRaw3 >= NEAR_ALIVE_BPM_MIN
+      && segBpmRaw3 !== null && segBpmRaw3 >= C.NEAR_ALIVE_BPM_MIN
       && notDropped;
-    if (tpm !== null && tpm >= TPM_ULTRA && thr !== null && thr >= THROUGHPUT_HIGH_BPM) {
+    if (tpm !== null && tpm >= C.TPM_ULTRA && thr !== null && thr >= C.THROUGHPUT_HIGH_BPM) {
       act = 'ultra';
       arm = 'whole_window_ultra';
-    } else if (nearTwoWay || (tpm !== null && tpm >= TPM_HIGH && thr !== null && thr >= THROUGHPUT_HIGH_BPM)) {
+    } else if (nearTwoWay || (tpm !== null && tpm >= C.TPM_HIGH && thr !== null && thr >= C.THROUGHPUT_HIGH_BPM)) {
       act = 'high';
       arm = nearTwoWay ? 'near_two_way' : 'whole_window_high';
     } else {
@@ -289,32 +291,32 @@ function judgeActLevel(derived = {}, opts = {}) {
   };
   // ① 大比例无交易期（⑥ burst 抬档在最后统一处理）
   const idlePct = num(derived.idlePct);
-  if (idlePct !== null && idlePct >= IDLE_PCT_MAJOR) cap('low', 'idle_major');
+  if (idlePct !== null && idlePct >= C.IDLE_PCT_MAJOR) cap('low', 'idle_major');
   // ③ 尘埃假活跃：买盘中位尘埃 ∧ 吞吐死寂
   const buyMedian = num(derived.buyMedianBnb);
   const thr2 = num(derived.throughputBnbPerMin);
-  if (buyMedian !== null && buyMedian < BUY_MEDIAN_DUST_BNB
-    && thr2 !== null && thr2 < THROUGHPUT_DEAD_BPM) cap('low', 'dust_fake_active');
+  if (buyMedian !== null && buyMedian < C.BUY_MEDIAN_DUST_BNB
+    && thr2 !== null && thr2 < C.THROUGHPUT_DEAD_BPM) cap('low', 'dust_fake_active');
   // ④ 单向死水：买入主导失衡 + 回撤浅 + 非极早窗
   const buyN = num(derived.buyN);
   const sellN = num(derived.sellN);
   const buyBnb = num(derived.totalBuyBnb);
   const sellBnb = num(derived.totalSellBnb);
   const dd = num(derived.maxDrawdownPct);
-  const earlyWin = spanSec < EARLY_WIN_SEC && tickCount < EARLY_WIN_N;
+  const earlyWin = spanSec < C.EARLY_WIN_SEC && tickCount < C.EARLY_WIN_N;
   if (buyN !== null && sellN !== null && buyN >= 3 && sellN >= 1
-    && buyN >= sellN * IMBALANCE_N_RATIO
-    && buyBnb !== null && sellBnb !== null && buyBnb >= sellBnb * IMBALANCE_BNB_RATIO
-    && dd !== null && dd < DRAWDOWN_FLAT_PCT
+    && buyN >= sellN * C.IMBALANCE_N_RATIO
+    && buyBnb !== null && sellBnb !== null && buyBnb >= sellBnb * C.IMBALANCE_BNB_RATIO
+    && dd !== null && dd < C.DRAWDOWN_FLAT_PCT
     && !earlyWin) cap('low', 'one_way_dead', true);
   // 全窗量级四腿联立稀疏（间歇死水）
   const tpm3 = num(derived.ticksPerMin);
   const thr3 = num(derived.throughputBnbPerMin);
   const maxGap = num(derived.maxGapSec);
-  if (tpm3 !== null && tpm3 < TPM_SPARSE
-    && thr3 !== null && thr3 < THROUGHPUT_DEAD_BPM
-    && buyMedian !== null && buyMedian < BUY_MEDIAN_COMMON_BNB
-    && (idlePct !== null && idlePct >= IDLE_PCT_QUARTER || maxGap !== null && maxGap >= MAX_GAP_LONG_SEC)) {
+  if (tpm3 !== null && tpm3 < C.TPM_SPARSE
+    && thr3 !== null && thr3 < C.THROUGHPUT_DEAD_BPM
+    && buyMedian !== null && buyMedian < C.BUY_MEDIAN_COMMON_BNB
+    && (idlePct !== null && idlePct >= C.IDLE_PCT_QUARTER || maxGap !== null && maxGap >= C.MAX_GAP_LONG_SEC)) {
     cap('low', 'sparse_four_legs', true);
   }
   // D3.73 时间结构：非 burst 单点脉冲不给高档（至多中）
@@ -322,7 +324,7 @@ function judgeActLevel(derived = {}, opts = {}) {
     const segBpm2 = num(derived.nearSegBnbPerMin);
     const weighted = num(derived.actWeightedThroughputBnbPerMin);
     if (segBpm2 !== null && segBpm2 > 0 && weighted !== null
-      && weighted < segBpm2 * TIME_STRUCT_RATIO) cap('mid', 'time_structure', true);
+      && weighted < segBpm2 * C.TIME_STRUCT_RATIO) cap('mid', 'time_structure', true);
   }
   // ⑥ burst 反锚：静默后买入涌入不判低（中档起判）
   if (sbwBurst && act === 'low') { act = 'mid'; arm = 'burst_raised'; }
@@ -340,8 +342,9 @@ function judgeActLevel(derived = {}, opts = {}) {
  * @param {Object} derived
  * @returns {'burst'|'none'}
  */
-function judgeStallBurstWave(derived = {}) {
+function judgeStallBurstWave(derived = {}, opts = {}) {
   const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const C = opts.lines ? Object.assign({}, LINES, opts.lines) : LINES;
   const lastGap = num(derived.burstLastGapSec);
   if (lastGap === null) return 'none'; // 无 ≥30s 静默段=无停滞前提
   const waveBuy = num(derived.burstExitWaveBuyBnb);
@@ -350,13 +353,13 @@ function judgeStallBurstWave(derived = {}) {
     return 'none'; // 无波/孤笔不成波（CD422）
   }
   // 一定流量：波买额 ≥0.29（「一两笔常见档买单＋零星尘单的量级」不入；criteria 参考线）
-  if (waveBuy < BURST_WAVE_MIN_BNB) return 'none';
+  if (waveBuy < C.BURST_WAVE_MIN_BNB) return 'none';
   // 非尘埃堆波：户均 ≥0.03（「几十个钱包户均/中位全挤 0.0X 尘埃档」不算流量）
   const avg = num(derived.burstWaveWalletAvgBnb);
-  if (avg !== null && avg < BURST_WAVE_AVG_MIN_BNB) return 'none';
+  if (avg !== null && avg < C.BURST_WAVE_AVG_MIN_BNB) return 'none';
   // 跨度：波末笔距锚 ≤60s（「锚点时刻的当前状态」；波在窗早期=盘面已走完）
   const since = num(derived.burstSecSinceWaveEnd);
-  if (since !== null && since > BURST_WAVE_MAX_SEC_SINCE_END) return 'none';
+  if (since !== null && since > C.BURST_WAVE_MAX_SEC_SINCE_END) return 'none';
   // CD398 流向硬腿：波窗自身净流 / 波钱包全窗净额任一净负=卖方主导不属 burst
   const winNet = num(derived.burstWaveNetBnb);
   if (winNet !== null && winNet < 0) return 'none';
@@ -365,17 +368,21 @@ function judgeStallBurstWave(derived = {}) {
   return 'burst';
 }
 
+// 线值集合（单测边界断言与标定脚本调参用；judgeActLevel 经 opts.lines 逐键覆盖）
+const LINES = {
+  NEAR_ALIVE_BPM_MIN, THROUGHPUT_DEAD_BPM, THROUGHPUT_HIGH_BPM, TPM_HIGH, TPM_ULTRA, TPM_SPARSE,
+  BUY_MEDIAN_DUST_BNB, BUY_MEDIAN_COMMON_BNB, DRAWDOWN_FLAT_PCT,
+  IMBALANCE_N_RATIO, IMBALANCE_BNB_RATIO, EARLY_WIN_SEC, EARLY_WIN_N,
+  IDLE_PCT_MAJOR, IDLE_PCT_QUARTER, MAX_GAP_LONG_SEC, TAIL_DROP_RATIO,
+  SELL_DOMINANCE_RATIO, PRE10_GAP_SEC, PRE10_WALLETS_MAX, TIME_STRUCT_RATIO,
+  SELL_WALLETS_COOP, TAIL_BUY_DUST_BNB, SELL_EVIDENCE_BNB,
+  BURST_WAVE_MIN_BNB, BURST_WAVE_AVG_MIN_BNB, BURST_WAVE_MAX_SEC_SINCE_END,
+  ACTIVITY_LOW_TPM_REF,
+};
+
 module.exports = {
   ACT_JUDGE_VERSION,
   judgeActLevel,
   judgeStallBurstWave,
-  // 线值导出（单测边界断言与标定脚本调参用）
-  LINES: {
-    NEAR_ALIVE_BPM_MIN, THROUGHPUT_DEAD_BPM, THROUGHPUT_HIGH_BPM, TPM_HIGH, TPM_ULTRA, TPM_SPARSE,
-    BUY_MEDIAN_DUST_BNB, BUY_MEDIAN_COMMON_BNB, DRAWDOWN_FLAT_PCT,
-    IMBALANCE_N_RATIO, IMBALANCE_BNB_RATIO, EARLY_WIN_SEC, EARLY_WIN_N,
-    IDLE_PCT_MAJOR, IDLE_PCT_QUARTER, MAX_GAP_LONG_SEC, TAIL_DROP_RATIO,
-    SELL_DOMINANCE_RATIO, PRE10_GAP_SEC, PRE10_WALLETS_MAX, TIME_STRUCT_RATIO,
-    SELL_WALLETS_COOP, TAIL_BUY_DUST_BNB, SELL_EVIDENCE_BNB,
-  },
+  LINES,
 };
