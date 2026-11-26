@@ -2630,3 +2630,20 @@ AND (anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03)  -- 反弹确认（PT9�
 - 因子门「活跃度流动性」分块顶部加强调行：因子门活跃度臂判定（`trace.act` 分支，命中标红）+ 触发时刻四窗成交额（T218 键 `actTotalBnb15s/30s/60s/300s`，signal metadata 顶层原值）。两代一视同仁。
 - crash_form 门行改后端自带；历史 BPF2 行仍按 `buyPoint.factorTrace` 合成（后端门行缺席时）。
 - 单测 `_test_factor_gate_categories` 60；既有五层冒烟 `scripts/tmp-signals-five-layer-smoke.cjs` 45/45 不变（首版把「未到达 / 灰色关直通」段也隐藏，被它抓到后收敛——静默只作用于「有留痕且恒放行」的层）。
+
+## T244 活跃度三类型（2026-11-26 用户指令「之前的 normal，改为因子实现后，需要拆分，活跃度高/中/burst 在当前需要对应 3 个 point Type，这样有利于分开进行优化」；commit 5a18756b）
+
+- **定义**（注册表 PT53；排全部形状类型之后、normal 之前，形状类型优先认领；线值=Jev 活跃度题参考线直译+类整数线纪律，非拟合）：
+  - `activity_high`「高活跃度低价票」=`actTotalBnb30s >= 0.99 AND actTraders >= 4`（≈2 BNB/分钟）；
+  - `activity_mid`「中活跃度低价票」=`actTotalBnb30s >= 0.49 AND actTraders >= 2`（≈1 BNB/分钟）；
+  - `activity_burst`「burst 涌入低价票」=`burstStallMs >= 30000 AND burstWaveSec <= 30 AND burstWaveBuyBnb >= 0.29 AND burstWaveBuyN >= 3 AND burstWaveSellBnb < 0.049`（静默阈 30s=CD422 burst 族同线）；
+  - 三者 policy 全 = {}（与 normal 同一份全门语义）=**只拆分类、零行为变化**；normal 标签改「普通点位（低活跃 / 未进活跃度类型）」=兜底桶（低活跃/ultra/因子缺席仍落此，不是没了）。
+- **FA burst 波五键**（活跃度类型原料）：`burstStallMs/burstWaveSec/burstWaveBuyBnb/burstWaveSellBnb/burstWaveBuyN`——30s 静默阈独立状态机（processTick 判 gap 在 quiet 族之后、lastTickAt 更新前；迟到 guard 同款），与 t7 quiet 族（阈 60s，T225 独舞腿/类型消费）两套状态互不干扰（刻意不为 burst 调低 quiet 阈值）；FactorBuilder 时序快照白名单透传五键（不落库即丢）。
+- **标定**（1361 个 Jev AF1 带标签信号 × 触发时刻因子，182 act-calib）：`actTotalBnb30s` 对 low vs 非 low 的 AUC 0.89~0.93；high vs mid 是连续谱（单因子 AUC 0.6~0.7）；规则搜索三类一致上限 ~61~65%——档位语义按线值重新定义，不以复刻 Jev 标签为目标。
+- **验证=零行为变化**（做市类型按用户指令「测试效果的时候请关闭它」关闭——六类型清单不含 `market_maker_rhythm_pit`；182，w1003 48h）：
+  - T243 旧代码基线先在它自己的 worktree（ebcc3c69）建行跑（新版克隆脚本写全注册表、旧代码不认识 activity 类型会拒启——防线正确）；**首跑发现 880 vs 883 票 + 124 个 token 卖侧差异，逐票归因根因=工装缺陷而非代码差**：`data/kol-study/smartmoney-accum.json`（smartHold 名单，不进 git）在该 worktree 缺失 → smartHold 恒放行（8888 案 B 拦 4 次卖 A 零拦、卖早 4.5min）+ `famousSmartHighBuyBnb`（famous ∪ smartmoney 并集键）恒 0 → famous 类型永不命中、相关信号回落 normal 被 FP 拒（릴테이 案）。补文件重跑：
+  - **bt-v318（T243 代码六类型+名单补齐）vs bt-v315（T244 代码九类型）：引擎内存结果逐位一致**——初始 100 → 最终 104.6665 BNB、信号 4499、交易 2131 全同；落库行仅差 2 行=bt-v318 跑时遇「strategy_signals 批量 72s 超时 → 该批行丢失 → trades 因 signal_id 外键失败级联丢行」（日志实锤；`token_symbol` 超 varchar(100/50) 丢行是三棵树共有存量 bug，不破坏对比）。**拆分零行为变化成立。**
+  - 同代码重跑确定：bt-v319（bt-v315 自身重跑）trades 2127/2127 逐笔一致。
+- **类型分布（bt-v315，九类型，做市关闭）**：883 票 / 胜率 33.2% / +6.4365B（+3.64%）；normal 兜底 961 信号→99 票（ROI +18.69% 胜率 44.4%）/ activity_mid 550→89 票（+4.37%）/ activity_high 941→65 票（+3.23%）/ activity_burst 45→23 票（+7.89%）/ steady_trend_climb 587→545 票（+0.33%）/ famous_participation_pit 75→52 票（−11.50%）/ cold_pit 3 票 +1.3225B / solo_dance 1 票 +0.5547B / conviction 6 票 +0.1388B。分类因子分位：high 的 T30 1.25/2.98/7.64、actTraders 4/8/30；mid 的 T30 0.54/0.80/1.94；burst 的 burstStallMs 39s/95s/768s。
+- **normal 桶现状（用户口径「低活跃、ultra 自始至终阻挡不买入」）**：FP 的 act_low 仍是 normal 桶第一拒因（118 次），但该臂是 T144 收窄的「只拦极端」——**拦的面比 Jev AF1 reject_low 窄**；成交的 normal 票不含 act_low 命中的，但含 Jev 会判 low 的中度低活跃（T241 Q2 裁定先放行的敞口，现有结局数据）。**找回低活跃阻挡的两条路待用户裁定**：①normal 类型加活跃度因子门（用 act-calib 的 1361 个 Jev 标签标定线值）；②按 Jev 判据放宽 act_low 臂。
+- 单测：`_test_burst_wave_factors` 19（状态机/与 quiet 族隔离/迟到 guard/快照透传/源码口径）、`_test_point_type_router` +14（89：排位/零行为锁/线值边界/burst 五腿/形状优先/实验级开关/随机 2000 组合）、创建页真实 DOM 冒烟改注册表驱动 18/18。
