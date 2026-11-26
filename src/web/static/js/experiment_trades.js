@@ -555,7 +555,8 @@ class ExperimentTrades {
     // 获取该代币的所有成功交易，按时间排序
     const tokenTrades = this.tradesData
       .filter(t => t.token_address === tokenAddress && (t.status === 'success' || t.trade_status === 'success'))
-      .sort((a, b) => new Date(a.created_at || a.executed_at) - new Date(b.created_at || b.executed_at));
+      .sort((a, b) => (new Date(a.created_at || a.executed_at) - new Date(b.created_at || b.executed_at))
+        || (new Date(a.executed_at || a.created_at) - new Date(b.executed_at || b.created_at)));
 
     if (tokenTrades.length === 0) {
       return null;
@@ -564,6 +565,8 @@ class ExperimentTrades {
     // FIFO 队列跟踪买入成本
     const buyQueue = []; // { amount: number, cost: number, price: number }
     let totalRealizedPnL = 0; // 已实现盈亏
+    // 引擎全清卖标记（循环内只记标记，残量吸收放最后，防同秒多笔卖单乱序误伤）
+    let fullCloseSeen = false;
     let totalBNBSpent = 0; // 总花费 BNB
     let totalBNBReceived = 0; // 总收到 BNB
 
@@ -612,18 +615,29 @@ class ExperimentTrades {
           }
         }
 
-        // 全清腿残量归零（同 token-returns 页 2026-10-28 普通人 0x934b…7777 案：
-        // live 税币链上卖量可能小于账面买入量，FIFO 尾巴不是真持仓）
-        if ((Number(trade.metadata?.sellPercentage) >= 1
-          || Number(trade.metadata?.cardTrade?.after) === 0) && buyQueue.length > 0) {
-          buyQueue.forEach(buy => { costOfSold += buy.cost; });
-          buyQueue.length = 0;
+        // 全清卖只记标记（2026-11-26 Темир 0x00498f 案：同秒多笔卖单乱序时循环内
+        // 清零会把未处理的兄弟半仓成本并进本笔；残量吸收移到最后，防顺序依赖）
+        if (Number(trade.metadata?.sellPercentage) >= 1
+          || Number(trade.metadata?.cardTrade?.after) === 0) {
+          fullCloseSeen = true;
         }
 
         totalBNBReceived += outputAmount;
         totalRealizedPnL += (outputAmount - costOfSold);
       }
     });
+
+    // 全清腿残量归零（2026-10-28 普通人 0x934b…7777 案：live 税币链上卖量可能
+    // 小于账面买入量，FIFO 尾巴不是真持仓——税损已实现）。★吸收必须在全部行
+    // 处理完后做（Темир 0x00498f 案：两笔同秒半仓卖单顺序不稳定，循环内清零会把
+    // 未处理的兄弟半仓成本并进本笔）；全部处理完后队列剩余只可能是真税损尾巴，
+    // 从已实现盈亏中扣掉、不再计入剩余持仓估值
+    if (fullCloseSeen && buyQueue.length > 0) {
+      let tailCost = 0;
+      buyQueue.forEach(buy => { tailCost += buy.cost; });
+      totalRealizedPnL -= tailCost;
+      buyQueue.length = 0;
+    }
 
     // 计算剩余持仓
     let remainingTokens = 0;

@@ -37,6 +37,38 @@ const NARRATIVE_CATEGORY_MAP = {
   'super_ip_fast':         { label: '快车道', cls: 'text-rose-300', title: '已废弃 · superIP 快车道（C83 前旧行）' },
 };
 
+// 点位类型短名（T216 pointType：信号 fire 时刻的分类，落 strategy_signals.metadata.pointType）
+// 收益表列宽有限——徽章显示短名，信号自带的完整 label 进 tooltip；未收录的 type id
+// （模块新增类型）直接显示信号自带 label，不依赖本表。⚠短名一律 ≤4 个汉字不带英文：
+// 本表容器宽度恒定（max-w-7xl），加列的空间只能从相邻列挤——列宽由最宽短名决定，
+// 带英文前缀（famous 参与坑）实测把列撑到 117px 并挤竖排相邻表头
+const POINT_TYPE_SHORT = {
+  famous_holder_cold_pit:   '黄金坑',
+  strongbacker_solo_dance:  '独舞',
+  famous_conviction_pit:    '强认同坑',
+  famous_participation_pit: '参与坑',
+  steady_trend_climb:       '持续趋势',
+  slow_develop_early:       '缓慢发育',
+  market_maker_rhythm_pit:  '做市节奏',
+  // T244 活跃度三类型（2026-11-26；注册表每个类型都要有短名——本表与注册表对锁）
+  activity_high:            '高活跃',
+  activity_mid:             '中活跃',
+  activity_burst:           '突发涌入',
+  normal:                   '普通',
+};
+
+/** 字符串全角宽度估算（CJK=1，其余≈0.55）——点位类型徽章单行/折行判据 */
+function fullWidth(s) {
+  let n = 0;
+  for (const ch of String(s)) n += ch.charCodeAt(0) > 0x2e7f ? 1 : 0.55;
+  return n;
+}
+
+/** HTML 转义（点位类型列的文本/tooltip 来源=DB JSONB） */
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 class ExperimentTokenReturns {
   constructor() {
     this.experimentId = null;
@@ -67,6 +99,11 @@ class ExperimentTokenReturns {
     this.tokenSymbolMap = new Map();
     // 代币分类（token_profiles：wash/pump_dump/high_mcap_wash/quality/high_mcap/normal/low_quality/low_activity）
     this.tokenCategoryMap = new Map();
+    // 点位类型（T216）：买入信号 id → metadata.pointType（null=信号无该段）；后置加载到达即补渲染
+    this.pointTypeBySignalId = new Map();
+    this.pointTypeState = 'idle';   // idle | loading | ready | error（error=列内显式标「加载失败」）
+    this.pointTypeError = null;
+    this.tokenBuySignalIdsMap = new Map(); // tokenAddress → 成功买入成交的 signal_id（成交时间正序去重）
     // 当前编辑的代币地址
     this.currentEditingToken = null;
 
@@ -192,6 +229,9 @@ class ExperimentTokenReturns {
       this.tradeAmount = Number(this.experimentData.config?.tradeAmount) > 0
         ? Number(this.experimentData.config.tradeAmount) : null;
       this.buildTokenCardsMap();
+      // 点位类型：先建买入信号 ID 索引并置 loading 态（首屏列内显示「…」，数据到达后补渲染）
+      this.buildTokenBuySignalIdsMap();
+      this.pointTypeState = 'loading';
       this.manualSellLocks.clear(); // 全量重建（行截断/解锁都能正确收敛）
       this.manualBuyLocks.clear();
 
@@ -359,6 +399,17 @@ class ExperimentTokenReturns {
         .then(() => this.applyFilterAndSort())
         .catch(() => {});
 
+      // 点位类型后置加载（同叙事列不阻塞首屏）；失败置 error 态列内显式标「加载失败」——
+      // 查询失败不冒充「无类型」
+      this.loadPointTypeData()
+        .then(() => this.applyFilterAndSort())
+        .catch((e) => {
+          console.error('加载点位类型失败:', e);
+          this.pointTypeError = e.message || String(e);
+          this.pointTypeState = 'error';
+          this.applyFilterAndSort();
+        });
+
       // 手动交易命令状态轮询（有 pending/executing 时 2s 加速，否则 10s 巡检）
       this.startManualStatusPolling();
     } catch (error) {
@@ -411,7 +462,8 @@ class ExperimentTokenReturns {
     // 获取该代币的所有成功交易，按时间排序
     const tokenTrades = this.tradesData
       .filter(t => t.token_address === tokenAddress && (t.status === 'success' || t.trade_status === 'success'))
-      .sort((a, b) => new Date(a.created_at || a.executed_at) - new Date(b.created_at || b.executed_at));
+      .sort((a, b) => (new Date(a.created_at || a.executed_at) - new Date(b.created_at || b.executed_at))
+        || (new Date(a.executed_at || a.created_at) - new Date(b.executed_at || b.created_at)));
 
     if (tokenTrades.length === 0) {
       return null;
@@ -426,6 +478,9 @@ class ExperimentTokenReturns {
     // 交易对数组
     const tradePairs = [];
     let pairIndex = 0;
+    // 引擎全清卖标记（sellPercentage>=1 或 cardTrade.after===0）——循环内只记标记，
+    // 残量归零吸收放到全部行处理完之后（见循环后），防同秒多笔卖单乱序误伤
+    let fullCloseSeen = false;
 
     tokenTrades.forEach(trade => {
       const direction = trade.trade_direction || trade.direction || trade.action;
@@ -473,7 +528,8 @@ class ExperimentTokenReturns {
             amount: sellAmount,
             cost: unitCost * sellAmount,
             buyTime: oldestBuy.buyTime,
-            buyPrice: oldestBuy.price
+            buyPrice: oldestBuy.price,
+            signalId: oldestBuy.trade?.signal_id || null // 点位类型列：回溯该对买入信号的类型
           });
 
           remainingToSell -= sellAmount;
@@ -485,16 +541,12 @@ class ExperimentTokenReturns {
           }
         }
 
-        // 全清腿残量归零（2026-10-28 普通人 0x934b…7777 案：flap 税币买侧余额差法
-        // 实收 717,544，25 分钟后链上余额被税/反射抽剩 699,608——live 卖出行
-        // input_amount=链上实际卖量 < 买入量，FIFO 尾巴 17,936 被误判「持仓中」
-        // 并误渲染「卖出全部」按钮）。全清判据（virtual/live/毕业/手工卖统一写）：
-        // metadata.sellPercentage>=1 或 cardTrade.after===0——引擎已清仓，剩余买入
-        // 数量归零、成本并入本对（税损已实现，不再计入剩余持仓估值）
-        if ((Number(trade.metadata?.sellPercentage) >= 1
-          || Number(trade.metadata?.cardTrade?.after) === 0) && buyQueue.length > 0) {
-          buyQueue.forEach(buy => { pairCost += buy.cost; });
-          buyQueue.length = 0;
+        // 全清卖只记标记（2026-11-26 Темир 0x00498f 案：两笔同秒半仓卖单 created_at
+        // 全等，循环内清零会把尚未处理的兄弟半仓成本并进本对——全清卖先到→本对成本
+        // 翻倍 0.2、收益率误显 −48.13%；残量归零吸收移到最后，防顺序依赖）
+        if (Number(trade.metadata?.sellPercentage) >= 1
+          || Number(trade.metadata?.cardTrade?.after) === 0) {
+          fullCloseSeen = true;
         }
 
         // 创建交易对
@@ -515,6 +567,7 @@ class ExperimentTokenReturns {
             holdDuration, // 分钟
             buyPrice,
             sellPrice,
+            signalIds: [...new Set(matchedBuys.map(b => b.signalId).filter(Boolean))], // 该对匹配买入的信号 ID（点位类型列用）
             amount: pairAmount,
             cost: pairCost,
             received: outputAmount,
@@ -527,6 +580,23 @@ class ExperimentTokenReturns {
         }
       }
     });
+
+    // 全清腿残量归零（2026-10-28 普通人 0x934b…7777 案：flap 税币买侧余额差法
+    // 实收 717,544，25 分钟后链上余额被税/反射抽剩 699,608——live 卖出行
+    // input_amount=链上实际卖量 < 买入量，FIFO 尾巴 17,936 被误判「持仓中」
+    // 并误渲染「卖出全部」按钮）。★吸收必须在全部行处理完后做：两笔同秒半仓
+    // 卖单顺序不稳定，循环内清零会把未处理的兄弟半仓成本并进本对（Темир 案）；
+    // 全部行处理完后队列剩余只可能是真税损尾巴——税损已实现，成本并入最后一对
+    //（不再计入剩余持仓估值），兄弟半仓早被各自循环匹配完、此时吸收=0
+    if (fullCloseSeen && buyQueue.length > 0 && tradePairs.length > 0) {
+      const lastPair = tradePairs[tradePairs.length - 1];
+      let tailCost = 0;
+      buyQueue.forEach(buy => { tailCost += buy.cost; });
+      lastPair.cost += tailCost;
+      lastPair.pnl = lastPair.received - lastPair.cost;
+      lastPair.returnRate = (lastPair.pnl / lastPair.cost) * 100;
+      buyQueue.length = 0;
+    }
 
     // 计算剩余持仓（未完成交易的买入）
     let remainingAmount = 0;
@@ -798,6 +868,11 @@ class ExperimentTokenReturns {
         <td class="px-2 py-2 text-center">
           ${this.renderNarrativeRating(item.tokenAddress)}
         </td>
+        <td class="px-2 py-2 text-center">
+          <div class="flex flex-col items-center gap-0.5">
+            ${this.renderPointTypeCell(this.tokenBuySignalIdsMap.get(item.tokenAddress))}
+          </div>
+        </td>
         <td class="px-2 py-2 text-right">
           ${this.renderMaxChange(item.tokenAddress)}
         </td>
@@ -872,6 +947,11 @@ class ExperimentTokenReturns {
         <td class="px-2 py-2 text-center text-gray-600">-</td>
         <td class="px-2 py-2 text-center text-gray-600">-</td>
         <td class="px-2 py-2 text-center text-gray-600">-</td>
+        <td class="px-2 py-2 text-center">
+          <div class="flex flex-col items-center gap-0.5">
+            ${this.renderPointTypeCell(pair.signalIds)}
+          </div>
+        </td>
         <td class="px-2 py-2 text-right text-gray-600 text-xs">
           买入: $${pair.buyPrice?.toFixed(8) || 'N/A'}<br>
           卖出: $${pair.sellPrice?.toFixed(8) || 'N/A'}
@@ -905,7 +985,7 @@ class ExperimentTokenReturns {
   renderUnmatchedBuyRow(item, defaultExpanded = false) {
     return `
       <tr class="table-row pair-row ${defaultExpanded ? '' : 'hidden'}" data-token="${item.tokenAddress}" data-unmatched-row="true">
-        <td class="px-2 py-2 pl-8 text-gray-400" colspan="14">
+        <td class="px-2 py-2 pl-8 text-gray-400" colspan="15">
           <div class="flex items-center text-xs">
             <svg class="w-3 h-3 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -1791,6 +1871,125 @@ class ExperimentTokenReturns {
       console.error('删除标注失败:', error);
       alert('删除失败: ' + error.message);
     }
+  }
+
+  // ==================== 点位类型列（T216 pointType）====================
+
+  /**
+   * 每 token 的买入信号 ID 索引：成功买入成交按成交时间正序、同信号多笔成交去重
+   * （与 calculateTokenPnL 同口径：只认 success 行、同款排序键）——点位类型列按买入顺序展示
+   */
+  buildTokenBuySignalIdsMap() {
+    const buys = this.tradesData
+      .filter(t => {
+        const direction = t.trade_direction || t.direction || t.action;
+        return (direction === 'buy' || direction === 'BUY')
+          && (t.status === 'success' || t.trade_status === 'success')
+          && t.signal_id && t.token_address;
+      })
+      .sort((a, b) => (new Date(a.created_at || a.executed_at) - new Date(b.created_at || b.executed_at))
+        || (new Date(a.executed_at || a.created_at) - new Date(b.executed_at || b.created_at)));
+    const map = new Map();
+    for (const t of buys) {
+      const list = map.get(t.token_address);
+      if (!list) {
+        map.set(t.token_address, [t.signal_id]);
+      } else if (!list.includes(t.signal_id)) {
+        list.push(t.signal_id);
+      }
+    }
+    this.tokenBuySignalIdsMap = map;
+  }
+
+  /**
+   * 加载点位类型（按买入成交的 signal_id 子集 POST——只取 metadata.pointType 子键，
+   * 不拉整行大列；与叙事列同款后置加载）。失败由调用方置 error 态。
+   */
+  async loadPointTypeData() {
+    const signalIds = [...new Set([...this.tokenBuySignalIdsMap.values()].flat())];
+    if (signalIds.length === 0) {
+      this.pointTypeState = 'ready';
+      return;
+    }
+    const response = await fetch(`/api/experiment/${this.experimentId}/signals/point-types`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signalIds })
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result = await response.json();
+    if (!result.success || !Array.isArray(result.data)) throw new Error(result.error || '响应格式错误');
+    for (const row of result.data) {
+      this.pointTypeBySignalId.set(row.signal_id, row.point_type ?? null);
+    }
+    this.pointTypeState = 'ready';
+  }
+
+  /**
+   * 点位类型列单元（主行=该代币全部买入信号的类型；明细行=该交易对匹配买入的类型），
+   * 按信号顺序去重展示。各态互不冒充：类型徽章 /「-」信号无该段（策略包未启用
+   * pointType 模块、非 signalGate 腿）/「⚠ 类型缺失」实验包已启用模块但信号无该段 /
+   *「…」加载中 /「⚠ 信号缺失」成交关联的信号行查不到
+   * @param {string[]} signalIds - 买入信号 ID（成交时间正序）
+   * @returns {string} 单元 HTML
+   */
+  renderPointTypeCell(signalIds) {
+    if (this.pointTypeState === 'error') {
+      return `<span class="text-red-400 text-xs cursor-help" title="${escapeHtml(this.pointTypeError)}">加载失败</span>`;
+    }
+    if (!signalIds || signalIds.length === 0) {
+      return '<span class="text-gray-600 text-xs" title="买入成交未关联信号（手工买入等无触发信号）">-</span>';
+    }
+    const seen = new Set();
+    const parts = [];
+    for (const signalId of signalIds) {
+      const frag = this._pointTypeFragment(signalId);
+      if (seen.has(frag.key)) continue;
+      seen.add(frag.key);
+      parts.push(frag.html);
+    }
+    return parts.join('');
+  }
+
+  /**
+   * 单个买入信号的点位类型片段 {key, html}（key=去重键：类型 id 或占位态）
+   * 字段逐键校验类型——API JSONB 形状不可控，异常显式标「数据异常」不中断整表渲染
+   */
+  _pointTypeFragment(signalId) {
+    const pt = this.pointTypeBySignalId.get(signalId);
+    if (pt === undefined) {
+      // ready 态仍查无=服务端未返回该信号行；否则=加载中（刷新期命中旧缓存照常显示）
+      return this.pointTypeState === 'ready'
+        ? { key: '_missing', html: '<span class="text-yellow-400 text-xs cursor-help" title="成交关联的信号行未找到（trades.signal_id 在 strategy_signals 无对应行）">⚠ 信号缺失</span>' }
+        : { key: '_loading', html: '<span class="text-gray-500 text-xs" title="点位类型加载中">…</span>' };
+    }
+    if (pt === null) {
+      // 实验包已启用模块却无类型段=信号初始元数据未留存（异常形状，显式标记不冒充「无类型」；
+      // 实证：bt-v274 27/900 BUY 信号初始键全丢——回测写缓冲跨批 UPDATE 整列覆盖）
+      const moduleVersion = this.experimentData?.config?.strategyResolved?.modules?.pointType;
+      if (typeof moduleVersion === 'string' && moduleVersion) {
+        return { key: '_lost', html: `<span class="text-yellow-400 text-xs cursor-help" title="${escapeHtml(`实验策略包已启用 pointType（${moduleVersion}），但该信号行无类型段：信号初始元数据未留存`)}">⚠ 类型缺失</span>` };
+      }
+      return { key: '_none', html: '<span class="text-gray-600 text-xs" title="信号无点位类型段（策略包未启用 pointType 模块，或非 signalGate 买腿触发）">-</span>' };
+    }
+    const type = typeof pt.type === 'string' ? pt.type : '';
+    const label = typeof pt.label === 'string' ? pt.label : '';
+    if (!type || !label) {
+      return { key: '_bad', html: `<span class="text-yellow-400 text-xs cursor-help" title="${escapeHtml('点位类型段形状异常：' + JSON.stringify(pt).slice(0, 200))}">⚠ 数据异常</span>` };
+    }
+    const version = typeof pt.version === 'string' ? pt.version : '';
+    const isNormal = type === 'normal';
+    const name = POINT_TYPE_SHORT[type] || label;
+    const cls = isNormal ? 'bg-gray-600 text-white' : 'bg-indigo-900 text-indigo-100 border border-indigo-400';
+    // 短名（全角宽 ≤4）单行；长名（未收录类型的完整 label）限宽折行——列宽不被长 label 撑开
+    const wrapCls = fullWidth(name) <= 4
+      ? 'whitespace-nowrap'
+      : 'inline-block max-w-[7.5rem] whitespace-normal text-center leading-tight';
+    const title = `${isNormal ? '普通点位：未命中任何类型，门链按现行全链走' : label}（${type}${version ? ' · ' + version : ''}）`;
+    return {
+      key: type,
+      html: `<span class="px-2 py-0.5 rounded text-xs font-medium cursor-help ${wrapCls} ${cls}" title="${escapeHtml(title)}">${escapeHtml(name)}</span>`
+    };
   }
 
   /**
