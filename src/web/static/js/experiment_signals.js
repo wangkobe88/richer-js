@@ -1862,7 +1862,7 @@ class ExperimentSignals {
                   if (!items.length) return '';
                   return new Date(items[0].raw.x).toLocaleString('zh-CN');
                 },
-                label(item) {
+                label: (item) => {
                   // 成交点（双口径标注）：展示成交价/信号价/延迟/滑移，与 tick 气泡（_raw）区分
                   if (item.raw._trade) {
                     const t = item.raw;
