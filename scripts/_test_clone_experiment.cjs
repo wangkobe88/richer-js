@@ -18,6 +18,8 @@
  *   I. applyPackReference：旧形状无 --pack throw / --pack 转换剥旧腿+libraryRefs /
  *      新形状缺省沿用 strategyId / strategyResolved 恒剥（陈旧审计）/
  *      stats·eventRecording·permanentBlockCondition 恒保留
+ *   L. T242 applyPointTypes：--point-types 只激活列出的类型（全注册表布尔表）/ default 剥段 /
+ *      fail-fast（未知 id / 漏 normal / 空串）/ 源码锁
  *
  * 用法：node scripts/_test_clone_experiment.cjs
  */
@@ -244,6 +246,53 @@ console.log('J. applyPackReference（策略包引用转换）');
   ok('K3 case 来源留痕', /Case 集合来源: /.test(src));
   // 旧版只认 startTime/endTime 曾误拒 sourceExperimentId-only 克隆——确认旧文案已退役
   ok('K4 旧双通道文案退役', !/回测基底缺 startTime\/endTime（缺一 fail-fast 拒启）/.test(src));
+}
+
+// L. T242 applyPointTypes（2026-11-26 用户指令「将 pointType 的开关激活改为实验层面可配置项」；
+//    clone --point-types <default|id,…>）
+{
+  console.log('L. T242 applyPointTypes：--point-types 只激活列出的类型');
+  const { applyPointTypes } = require('./clone-experiment.cjs');
+  const { POINT_TYPES } = require('../src/market-analysis/point-type-router');
+  const IDS = POINT_TYPES.map((t) => t.id);
+  {
+    const cfg = {}; const changes = [];
+    const a = applyPointTypes(cfg, 'normal', changes);
+    ok('L1 只激活 normal → 全注册表布尔表（仅 normal true，其余显式 false）',
+      Object.keys(a).join(',') === IDS.join(',') && IDS.every((id) => a[id] === (id === 'normal')));
+    ok('L2 落 config.pointTypes.active + 留痕', cfg.pointTypes.active === a && changes.length === 1 && changes[0].includes('config.pointTypes.active='));
+  }
+  {
+    const cfg = {}; const changes = [];
+    const a = applyPointTypes(cfg, ' normal , steady_trend_climb,steady_trend_climb ', changes);
+    ok('L3 多类型+空白+重复 id → normal/steady_trend_climb 激活，其余显式 false（含注册表 active:true 者）',
+      a.normal === true && a.steady_trend_climb === true && a.famous_holder_cold_pit === false
+      && a.market_maker_rhythm_pit === false && a.slow_develop_early === false);
+  }
+  {
+    const cfg = { pointTypes: { active: { normal: true } } }; const changes = [];
+    const a = applyPointTypes(cfg, 'default', changes);
+    ok('L4 default → 剥段回落注册表缺省+留痕', a === null && !('pointTypes' in cfg) && changes.length === 1);
+    const cfg2 = {}; const ch2 = [];
+    ok('L5 default 而基底无段 → 零改动', applyPointTypes(cfg2, 'default', ch2) === null && ch2.length === 0 && !('pointTypes' in cfg2));
+  }
+  throwsWith('L6 未知类型 throw（信息列可用 id）', () => applyPointTypes({}, 'normal,nope', []), '未知类型 nope');
+  throwsWith('L7 漏 normal throw', () => applyPointTypes({}, 'steady_trend_climb', []), '必须包含 normal');
+  throwsWith('L8 空串 throw', () => applyPointTypes({}, ' , ', []), '须为 default');
+  {
+    const cfg = { strategyId: 'x', backtest: { startTime: 'a', endTime: 'b' } };
+    const before = JSON.stringify(cfg);
+    applyPointTypes(cfg, 'normal', []);
+    ok('L9 只动 pointTypes 段（其余 config 原样）', JSON.stringify({ ...cfg, pointTypes: undefined }) === before);
+  }
+  {
+    const fs = require('fs');
+    const src = fs.readFileSync(path.join(__dirname, 'clone-experiment.cjs'), 'utf8');
+    ok('L10 源码锁：--point-types 接线 + 引用包未启用 pointType 时克隆阶段 fail-fast',
+      /applyPointTypes\(cfg, pointTypesArg, changes\)/.test(src)
+      && /未启用 modules\.pointType——点位类型激活覆盖无消费点/.test(src)
+      && /点位类型激活（实验级覆盖/.test(src));
+  }
 }
 
 console.log(`\n${'='.repeat(60)}`);

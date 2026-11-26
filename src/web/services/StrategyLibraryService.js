@@ -74,6 +74,7 @@ function validateBurstCooldownSection(bc) {
  *   - sellDebounce 覆盖段（T109）仅卖腿；sellPercentage/factorSellFilter 退役字段携带即 400
  *   - signalGate（T117）仅买腿、与七旧门字段互斥、recheckCondition 键域校验
  *   - buyPhase（T100）/cheatCheckCondition（CD158）仅买腿
+ *   - pointType（T242 腿↔点位类型绑定）仅买腿、须为注册表内非 normal 类型 id
  *   - groups/cycle 不再校验也不再报错（重存自然剥离）
  * @param {string} side - 'buy' | 'sell'
  * @param {Array} legs - 腿集合
@@ -154,6 +155,19 @@ function validateLegs(side, legs) {
         if (String(leg.cheatCheckCondition || '').trim() !== '' && side !== 'buy') {
             errors.push(`腿[${i}] 非买腿携带 cheatCheckCondition（CD158 买信号驱动作弊门：该字段仅买腿可配）`);
         }
+        // T242 腿↔点位类型绑定（专属触发腿）：仅买腿可配；须为注册表内非 normal 类型 id
+        // （引擎 _resolveStrategyPack assertLegPointTypeBindings 同口径拒启）
+        if (leg.pointType !== undefined && leg.pointType !== null) {
+            if (side !== 'buy') {
+                errors.push(`腿[${i}] 非买腿携带 pointType（T242 腿↔点位类型绑定：该字段仅买腿可配）`);
+            } else {
+                const { POINT_TYPES } = require('../../market-analysis/point-type-router');
+                const ids = POINT_TYPES.filter((t) => t.id !== 'normal').map((t) => t.id);
+                if (typeof leg.pointType !== 'string' || !ids.includes(leg.pointType)) {
+                    errors.push(`腿[${i}] pointType 绑定非法 ${JSON.stringify(leg.pointType)}（T242：须为注册表内非 normal 类型 id——${ids.join('/')}）`);
+                }
+            }
+        }
         // 信号源门链段（T117）：仅买腿可配，与七个旧门字段互斥
         const sg = normalizeSignalGate(leg.signalGate);
         if (sg.error) {
@@ -203,6 +217,7 @@ function validateLegs(side, legs) {
  *   - burstCooldown 段可选；在场则形状校验（引擎直读键，脏值入库即拦）
  *   - modules 可选（缺省=四门全关）；每键经 module-registry assertModuleKey
  *     （未知模块名/版本键 400——引擎侧同口径拒启）
+ *   - 买腿携带 pointType 绑定（T242）而 modules.pointType 未启用 → 400（绑定无消费点）
  * @param {Object} definition
  * @returns {{valid: boolean, errors: Array<string>}}
  */
@@ -252,6 +267,15 @@ function validatePack(definition) {
                 errors.push(`modules 携带未知模块名 ${unknownMods.join('/')}（可用：${MODULE_NAMES.join('/')}）`);
             }
         }
+    }
+    // T242 腿↔点位类型绑定依赖类型路由：买腿携带 pointType 而 modules.pointType 未启用
+    // = 绑定无消费点（引擎 assertLegPointTypeBindings 同口径拒启）
+    const ptModuleOn = definition.modules !== undefined && definition.modules !== null
+        && typeof definition.modules === 'object' && !Array.isArray(definition.modules)
+        && definition.modules.pointType !== undefined && definition.modules.pointType !== null;
+    if (!ptModuleOn && Array.isArray(definition.buyLegs)
+        && definition.buyLegs.some((l) => l && typeof l === 'object' && l.pointType !== undefined && l.pointType !== null)) {
+        errors.push('买腿携带 pointType 绑定但 modules.pointType 未启用（T242：腿↔点位类型绑定依赖类型路由，无模块=绑定无消费点）');
     }
     return { valid: errors.length === 0, errors };
 }

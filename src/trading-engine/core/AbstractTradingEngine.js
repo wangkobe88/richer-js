@@ -64,6 +64,9 @@ class AbstractTradingEngine extends ITradingEngine {
     this._portfolioManager = null;
     this._roundSummary = null;
     this._logger = null;
+    // T242 点位类型有效激活表（_resolveStrategyPack 解析；null=包未启用 modules.pointType）
+    this._pointTypeActiveById = null;
+    this._pointTypeDisabledLegs = [];
 
     // 实验相关
     this._experiment = null;
@@ -429,6 +432,9 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   async _resolveStrategyPack() {
     const cfg = this._experiment.config || {};
+    // T242 点位类型有效激活表/停用专属腿：入口归零（早退路径同样不留上一轮残留）
+    this._pointTypeActiveById = null;
+    this._pointTypeDisabledLegs = [];
     const legacyLegs = cfg.strategiesConfig
       && (Array.isArray(cfg.strategiesConfig.buyStrategies) || Array.isArray(cfg.strategiesConfig.sellStrategies));
     if (!cfg.strategyId) {
@@ -466,6 +472,44 @@ class AbstractTradingEngine extends ITradingEngine {
       this._logger.info(this._experimentId, this.constructor.name,
         `🧭 pointType 模块启用 | ${require('../../market-analysis/point-type-router').POINT_TYPE_VERSION}`);
     }
+    // T242 实验级点位类型激活（2026-11-26 用户指令「将 pointType 的开关激活改为实验层面
+    // 可配置项」）：有效激活表 = 注册表缺省 ∪ 实验 config.pointTypes.active 覆盖。同一份
+    // 表管分类（_classifyPointType）与专属触发腿（携带 pointType 绑定的买腿类型未激活即
+    // 不组装——_buildStrategyConfig 过滤）。启动防线三条 throw 拒启：实验携覆盖段但包未
+    // 启用模块 / 覆盖段脏（未知类型/非布尔/停用 normal）/ 腿绑定非法或绑定而无模块；
+    // 另：覆盖把买腿清空 = 永不触发，拒启。审计落 strategyResolved.pointTypes。
+    const pointTypeModuleOn = !!(def.modules && def.modules.pointType);
+    const {
+      resolvePointTypeOverride, effectivePointTypeActive, assertLegPointTypeBindings,
+    } = require('../../market-analysis/point-type-router');
+    if (cfg.pointTypes !== undefined && cfg.pointTypes !== null && !pointTypeModuleOn) {
+      throw new Error(
+        '[pointType] 实验 config.pointTypes 在场但策略包未启用 modules.pointType——点位类型激活覆盖无消费点，'
+        + '拒启（请换用启用 pointType 的策略包或删除该段）');
+    }
+    const legBindings = assertLegPointTypeBindings(def.buyLegs, pointTypeModuleOn);
+    let pointTypeAudit = null;
+    if (pointTypeModuleOn) {
+      const override = resolvePointTypeOverride(cfg.pointTypes);
+      this._pointTypeActiveById = effectivePointTypeActive(override);
+      this._pointTypeDisabledLegs = legBindings
+        .filter((b) => this._pointTypeActiveById[b.pointType] === false)
+        .map((b) => b.priority);
+      if (def.buyLegs.every((leg) => leg.pointType && this._pointTypeActiveById[leg.pointType] === false)) {
+        throw new Error(
+          `[pointType] 实验 ${this._experimentId} 的点位类型激活覆盖使买腿清空（专属腿 P${this._pointTypeDisabledLegs.join('/P')} 全部停用）——永不触发，拒启`);
+      }
+      pointTypeAudit = {
+        source: override ? 'experiment' : 'registry',
+        active: Object.keys(this._pointTypeActiveById).filter((id) => this._pointTypeActiveById[id] === true),
+        inactive: Object.keys(this._pointTypeActiveById).filter((id) => this._pointTypeActiveById[id] === false),
+        disabledLegs: [...this._pointTypeDisabledLegs],
+      };
+      this._logger.info(this._experimentId, this.constructor.name,
+        `🧭 pointType 激活（${pointTypeAudit.source === 'experiment' ? '实验级覆盖' : '注册表缺省'}）| 激活 ${pointTypeAudit.active.join('/')}`
+        + ` | 未激活 ${pointTypeAudit.inactive.join('/') || '无'}`
+        + ` | 专属腿停用 ${this._pointTypeDisabledLegs.length ? 'P' + this._pointTypeDisabledLegs.join('/P') : '无'}`);
+    }
     // T233 stallClose 段退役 fail-fast（2026-11-24 腿化）：v16 及更早包携带 stallClose
     // 段 → 拒启防静默失去断流保护（危险方向——stall 卖腿是新的唯一载体）
     if (def.stallClose) {
@@ -481,9 +525,12 @@ class AbstractTradingEngine extends ITradingEngine {
       version: data.version,
       resolvedAt: new Date().toISOString(),
       modules: modulesResolved,
+      // T242：包启用 pointType 才带（有效激活表审计——回测复现/对拍核对的依据）
+      ...(pointTypeAudit ? { pointTypes: pointTypeAudit } : {}),
     };
     this._logger.info(this._experimentId, this.constructor.name,
-      `📦 策略包解析 | ${data.name} v${data.version} | 买${def.buyLegs.length}/卖${def.sellLegs.length} 腿` +
+      `📦 策略包解析 | ${data.name} v${data.version} | 买${def.buyLegs.length - this._pointTypeDisabledLegs.length}/${def.sellLegs.length} 腿` +
+      (this._pointTypeDisabledLegs.length ? `（包 ${def.buyLegs.length} 买腿，专属腿停用 P${this._pointTypeDisabledLegs.join('/P')}）` : '') +
       ` | burstCooldown=${def.burstCooldown != null ? 'on' : 'off'}` +
       ` | modules=${Object.entries(modulesResolved).map(([k, v]) => `${k}:${v}`).join(' ') || '无（四门全关）'}`);
     // 审计写回（best-effort）：整 config 替换，竞态窗口=启动瞬间 web 端同改 config
@@ -507,14 +554,20 @@ class AbstractTradingEngine extends ITradingEngine {
   /**
    * 构建策略配置（T202 起薄读 _resolveStrategyPack 的缓存——腿唯一来源是
    * 策略库包，两引擎组装点（FourMemeWss:709 / Backtest:459）零改动）
+   * T242：携带 pointType 绑定的买腿，其类型在有效激活表里未激活 → 不组装（专属腿
+   * 停用）。包未启用 pointType（_pointTypeActiveById=null）= 包数组原引用零变化。
    * @protected
    * @returns {Object} 策略配置 {buyStrategies, sellStrategies}
    * @throws {Error} 如果实验没有配置交易策略
    */
   _buildStrategyConfig() {
     if (this._strategyDefinition) {
+      const activeById = this._pointTypeActiveById;
+      const buyLegs = this._strategyDefinition.buyLegs;
       return {
-        buyStrategies: this._strategyDefinition.buyLegs,
+        buyStrategies: activeById
+          ? buyLegs.filter((leg) => !(leg.pointType && activeById[leg.pointType] === false))
+          : buyLegs,
         sellStrategies: this._strategyDefinition.sellLegs,
       };
     }
@@ -2053,13 +2106,15 @@ class AbstractTradingEngine extends ITradingEngine {
    * T216 点位类型辨别与对应策略（pointType 模块）：信号 fire 时刻纯因子分类。
    * 包携带 modules.pointType 才启用；返回 null=未启用=门链全现行 bit 不变。
    * 引擎启动防线（assertPointTypesValid）在 _resolveStrategyPack 尾部。
+   * T242：传有效激活表（注册表缺省 ∪ 实验 config.pointTypes.active 覆盖）——未激活
+   * 类型不分类（信号回落后续类型/normal 兜底）。
    */
   _classifyPointType(factorResults) {
     if (!this._strategyResolved || !this._strategyResolved.modules || !this._strategyResolved.modules.pointType) {
       return null;
     }
     const { classifyPointType } = require('../../market-analysis/point-type-router');
-    return classifyPointType(factorResults);
+    return classifyPointType(factorResults, this._pointTypeActiveById);
   }
 
   async _factorGateEvaluate(tokenAddress, token, faState, signalId, ctx = {}) {

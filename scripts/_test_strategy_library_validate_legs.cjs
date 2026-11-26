@@ -14,6 +14,8 @@
  *      gmgn=GMGN 集——分集防双向误报）
  *   D. 语法错误拦截（parseCondition throw → 腿非法）
  *   E. side 与腿字段错配放行（引擎「携带不生效」语义）
+ *   I. T242 腿↔点位类型绑定 pointType：仅买腿可配 / 注册表内非 normal 类型 id /
+ *      validatePack 绑定须配 modules.pointType（引擎 assertLegPointTypeBindings 同口径）
  *
  * 用法：node scripts/_test_strategy_library_validate_legs.cjs
  */
@@ -206,6 +208,48 @@ console.log('H. signalGate 段（T117 信号源门链）');
   check('signalGate 纯盘面腿（无旧门字段）合法', validateLegs('buy', [
     { condition: 'tradeCount >= 8 AND buyVolumeBnb >= 0.75', signalGate: { cheatRecheck: true } },
   ]).valid, true);
+}
+
+// ═══ I. T242 腿↔点位类型绑定 pointType（2026-11-26；仅买腿可配、注册表内非 normal 类型 id；绑定须配 pointType 模块）═══
+console.log('I. pointType 腿↔类型绑定（T242 实验级点位类型激活）');
+{
+  const { validatePack } = require('../src/web/services/StrategyLibraryService');
+  const { POINT_TYPES } = require('../src/market-analysis/point-type-router');
+  const ids = POINT_TYPES.map((t) => t.id);
+  check('前置：注册表含五大专属类型 + normal', ['famous_holder_cold_pit', 'strongbacker_solo_dance', 'famous_participation_pit',
+    'steady_trend_climb', 'market_maker_rhythm_pit', 'normal'].every((id) => ids.includes(id)), true);
+  check('买腿携带合法绑定通过', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', pointType: 'steady_trend_climb' },
+  ]).valid, true);
+  check('绑定可为注册表未激活类型（slow_develop_early：入库不拦，激活归实验层）', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', pointType: 'slow_develop_early' },
+  ]).valid, true);
+  check('绑定 normal 拒（兜底类型无专属腿语义）', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', pointType: 'normal' },
+  ]).errors.some((e) => e.includes('pointType 绑定非法')), true);
+  check('绑定未知类型拒（信息列可用 id）', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', pointType: 'nope' },
+  ]).errors.some((e) => e.includes('pointType 绑定非法') && e.includes('steady_trend_climb')), true);
+  check('绑定非字符串拒', validateLegs('buy', [
+    { condition: 'tradeCount >= 8', pointType: 16 },
+  ]).errors.some((e) => e.includes('pointType 绑定非法')), true);
+  check('卖腿携带 pointType 拒（仅买腿可配）', validateLegs('sell', [
+    { condition: 'profitPercent >= 20', cards: 1, pointType: 'steady_trend_climb' },
+  ]).errors.some((e) => e.includes('仅买腿')), true);
+
+  const mk = (modules, buyLegs) => ({ buyLegs, sellLegs: [{ priority: 2, cards: 'all', condition: 'profitPercent <= -40' }], ...(modules ? { modules } : {}) });
+  check('validatePack：绑定 + 启用 pointType 模块通过', validatePack(mk({ pointType: 'v1' }, [
+    { condition: 'tradeCount >= 8', pointType: 'steady_trend_climb' },
+  ])).valid, true);
+  check('validatePack：绑定而无 modules → 拒（绑定无消费点）', validatePack(mk(null, [
+    { condition: 'tradeCount >= 8', pointType: 'steady_trend_climb' },
+  ])).errors.some((e) => e.includes('modules.pointType 未启用')), true);
+  check('validatePack：绑定而模块段无 pointType 键 → 拒', validatePack(mk({ cheatCheck: 'v1' }, [
+    { condition: 'tradeCount >= 8', pointType: 'steady_trend_climb' },
+  ])).errors.some((e) => e.includes('modules.pointType 未启用')), true);
+  check('validatePack：无绑定的包不受该规则影响（无模块照常合法）', validatePack(mk(null, [
+    { condition: 'tradeCount >= 8' },
+  ])).valid, true);
 }
 
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);

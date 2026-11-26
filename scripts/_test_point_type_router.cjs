@@ -6,6 +6,9 @@
  *   B. assertPointTypesValid：FA 真键集全过；未知因子 throw；policy 非法维度/值 throw；
  *      normal 必须末位
  *   C. 未启用模块路径：引擎 _classifyPointType null 语义（strategyResolved 无 pointType → null）
+ *   G. T242 实验级激活：resolvePointTypeOverride 真值表+fail-fast / effectivePointTypeActive
+ *      合成 / classifyPointType 带表（零行为变化锁·只激活 normal·实验级启用·阶梯回落）/
+ *      assertLegPointTypeBindings 腿↔类型绑定防线 / 引擎三处消费源码锁
  */
 'use strict';
 const assert = require('assert');
@@ -350,6 +353,130 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     assert.ok(i > ids.indexOf('famous_participation_pit'), '排位须在 famous_participation_pit 之后');
     assert.ok(i < ids.indexOf('slow_develop_early'), '排位须在 slow_develop_early 之前');
     assert.strictEqual(POINT_TYPES[i].active, true);
+  });
+}
+console.log('G. T242 实验级点位类型激活（2026-11-26 用户指令「将 pointType 的开关激活改为实验层面可配置项」）');
+{
+  const R = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
+  const { resolvePointTypeOverride, effectivePointTypeActive, assertLegPointTypeBindings, POINT_TYPES } = R;
+  const IDS = POINT_TYPES.map((t) => t.id);
+  const registryDefault = Object.fromEntries(POINT_TYPES.map((t) => [t.id, t.active !== false]));
+  const onlyNormal = Object.fromEntries(IDS.map((id) => [id, id === 'normal']));
+  const throwsWith = (fn, needle) => {
+    try { fn(); } catch (e) { assert.ok(String(e.message).includes(needle), `错误信息不含「${needle}」: ${e.message}`); return; }
+    assert.fail('未抛出');
+  };
+  const TREND = { tokenAgeSec: 120, currentVsLaunchPct: 55, priceMa60SlopePct: 20, actTotalBnb30s: 1.2, athVsFloorPct: 100 };
+
+  check('G1 无覆盖段（undefined/null）→ null（存量实验零变化）', () => {
+    assert.strictEqual(resolvePointTypeOverride(undefined), null);
+    assert.strictEqual(resolvePointTypeOverride(null), null);
+  });
+  check('G2 合法覆盖 → 仅列出键的拷贝；源对象不被改写', () => {
+    const cfg = { active: { steady_trend_climb: false, normal: true } };
+    const o = resolvePointTypeOverride(cfg);
+    assert.deepStrictEqual(o, { steady_trend_climb: false, normal: true });
+    o.steady_trend_climb = true;
+    assert.strictEqual(cfg.active.steady_trend_climb, false, '覆盖解析不得改写实验 config');
+  });
+  check('G3 脏覆盖 fail-fast（启动防线同款 throw）', () => {
+    throwsWith(() => resolvePointTypeOverride([]), '须为对象');
+    throwsWith(() => resolvePointTypeOverride('normal'), '须为对象');
+    throwsWith(() => resolvePointTypeOverride({ active: { normal: true }, foo: 1 }), '未知键 foo');
+    throwsWith(() => resolvePointTypeOverride({}), 'active 须为对象');
+    throwsWith(() => resolvePointTypeOverride({ active: [] }), 'active 须为对象');
+    throwsWith(() => resolvePointTypeOverride({ active: {} }), '为空');
+    throwsWith(() => resolvePointTypeOverride({ active: { no_such_type: false } }), '未知类型 "no_such_type"');
+    throwsWith(() => resolvePointTypeOverride({ active: { normal: 'true' } }), '须为布尔');
+    throwsWith(() => resolvePointTypeOverride({ active: { normal: 0 } }), '须为布尔');
+    throwsWith(() => resolvePointTypeOverride({ active: { normal: false } }), 'normal 兜底类型不可停用');
+  });
+  check('G4 有效激活表=注册表缺省 ∪ 覆盖（列出的用覆盖、未列出的沿用注册表）', () => {
+    assert.deepStrictEqual(effectivePointTypeActive(null), registryDefault);
+    const eff = effectivePointTypeActive({ steady_trend_climb: false, slow_develop_early: true });
+    for (const id of IDS) {
+      const want = id === 'steady_trend_climb' ? false : id === 'slow_develop_early' ? true : registryDefault[id];
+      assert.strictEqual(eff[id], want, `类型 ${id}`);
+    }
+    assert.deepStrictEqual(Object.keys(eff), IDS, '有效表须恰覆盖注册表全部类型');
+    assert.strictEqual(effectivePointTypeActive(undefined).slow_develop_early, false);
+  });
+  check('G5 零行为变化锁：无覆盖时带表分类 ≡ 注册表缺省分类（逐位）', () => {
+    const eff = effectivePointTypeActive(null);
+    for (const fx of [GOLDEN, PARTIAL, TREND, {}, { tokenAgeSec: 600 }]) {
+      assert.deepStrictEqual(classifyPointType(fx, eff), classifyPointType(fx));
+    }
+  });
+  check('G6 只激活 normal：原本命中类型与兜底的因子表一律 normal（policy {} / snapshot {} / 版本保留）', () => {
+    for (const fx of [GOLDEN, TREND, PARTIAL]) {
+      const r = classifyPointType(fx, onlyNormal);
+      assert.strictEqual(r.type, 'normal', `因子表应落 normal：${JSON.stringify(fx).slice(0, 60)}`);
+      assert.deepStrictEqual(r.policy, {});
+      assert.deepStrictEqual(r.snapshot, {});
+      assert.strictEqual(r.version, POINT_TYPE_VERSION);
+    }
+    // 同一因子表在注册表缺省下确实命中类型（反证：G6 的 normal 是覆盖所致，不是夹具本来不命中）
+    assert.strictEqual(classifyPointType(GOLDEN).type, 'famous_holder_cold_pit');
+    assert.strictEqual(classifyPointType(TREND).type, 'steady_trend_climb');
+  });
+  check('G7 实验级可启用注册表未激活类型（slow_develop_early：注册表 false → 覆盖 true）', () => {
+    const SLOW = { athVsLaunchPct: 39.9, sinceLaunchTrades: 26, bundledAvgTradeBnb300: 0.189 };
+    assert.strictEqual(classifyPointType(SLOW).type, 'normal', '注册表缺省未激活');
+    assert.strictEqual(classifyPointType(SLOW, effectivePointTypeActive({ slow_develop_early: true })).type, 'slow_develop_early');
+  });
+  check('G8 停用阶梯中间类型 → 信号回落后续类型（F8 重叠带：famous_participation_pit 停用后改判 steady_trend_climb）', () => {
+    const overlap = {
+      ...TREND, currentVsLaunchPct: 32, earlyReturn: 10,
+      athVsFloorPct: 100, mcapFromPeakPct: 30,
+      famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5, buyVolumeBnb: 5, max5sRisePct: 30, famousEarlyBuySharePct: 60,
+    };
+    assert.strictEqual(classifyPointType(overlap).type, 'famous_participation_pit');
+    const eff = effectivePointTypeActive({ famous_participation_pit: false });
+    const r = classifyPointType(overlap, eff);
+    assert.strictEqual(r.type, 'steady_trend_climb');
+    assert.deepStrictEqual(r.policy, { factorCheckArms: 'skip', actFront: 'pass', cheatCheck: 'skip', buyPoint: 'stuffingOnly' });
+  });
+  check('G9 表里缺某类型键 → 该类型沿用注册表缺省（不静默当未激活）', () => {
+    assert.strictEqual(classifyPointType(GOLDEN, {}).type, 'famous_holder_cold_pit');
+    assert.strictEqual(classifyPointType(TREND, {}).type, 'steady_trend_climb');
+    assert.strictEqual(classifyPointType(GOLDEN, { normal: true }).type, 'famous_holder_cold_pit');
+  });
+  check('G10 腿↔类型绑定启动防线：无绑定 [] / 合法绑定清单（index+priority+类型）', () => {
+    assert.deepStrictEqual(assertLegPointTypeBindings([{ priority: 1, condition: 'tradeCount >= 6' }], false), []);
+    assert.deepStrictEqual(assertLegPointTypeBindings(undefined, true), []);
+    const b = assertLegPointTypeBindings([
+      { priority: 1, condition: 'tradeCount >= 6' },
+      { priority: 16, pointType: 'famous_holder_cold_pit', condition: 'tradeCount >= 6' },
+      { priority: 19, pointType: 'steady_trend_climb', condition: 'tradeCount >= 6' },
+    ], true);
+    assert.deepStrictEqual(b, [
+      { index: 1, priority: 16, pointType: 'famous_holder_cold_pit' },
+      { index: 2, priority: 19, pointType: 'steady_trend_climb' },
+    ]);
+  });
+  check('G11 绑定 fail-fast：非字符串 / normal / 未知 id / 绑定而无 pointType 模块', () => {
+    throwsWith(() => assertLegPointTypeBindings([{ priority: 16, pointType: 16 }], true), '绑定非法 16');
+    throwsWith(() => assertLegPointTypeBindings([{ priority: 16, pointType: 'normal' }], true), '绑定非法 "normal"');
+    throwsWith(() => assertLegPointTypeBindings([{ priority: 16, pointType: 'nope' }], true), '绑定非法 "nope"');
+    throwsWith(() => assertLegPointTypeBindings([{ priority: 19, pointType: 'steady_trend_climb' }], false), '未启用 modules.pointType');
+  });
+  check('G12 注册表自洽：注册表缺省下全部类型激活除 slow_develop_early；normal 末位', () => {
+    assert.deepStrictEqual(IDS.filter((id) => !registryDefault[id]), ['slow_develop_early']);
+    assert.strictEqual(IDS[IDS.length - 1], 'normal');
+  });
+  check('G13 源码锁：引擎三处消费（_resolveStrategyPack 解析+绑定防线 / _buildStrategyConfig 过滤 / _classifyPointType 传表）', () => {
+    const fs = require('fs');
+    const src = fs.readFileSync(path.join(ROOT, 'src/trading-engine/core/AbstractTradingEngine.js'), 'utf8');
+    const resolveBody = src.slice(src.indexOf('async _resolveStrategyPack()'), src.indexOf('_buildStrategyConfig() {'));
+    assert.ok(/resolvePointTypeOverride\(cfg\.pointTypes\)/.test(resolveBody), '_resolveStrategyPack 须解析实验覆盖');
+    assert.ok(/effectivePointTypeActive\(override\)/.test(resolveBody), '_resolveStrategyPack 须合成有效激活表');
+    assert.ok(/assertLegPointTypeBindings\(def\.buyLegs, pointTypeModuleOn\)/.test(resolveBody), '_resolveStrategyPack 须过绑定防线');
+    assert.ok(/this\._pointTypeActiveById = null;\s*\n\s*this\._pointTypeDisabledLegs = \[\];/.test(resolveBody), '无覆盖/无模块路径须显式归零（防复用对象残留）');
+    const buildStart = src.indexOf('_buildStrategyConfig() {');
+    const buildBody = src.slice(buildStart, src.indexOf('\n  }\n', buildStart));
+    assert.ok(buildBody.includes('没有配置交易策略'), '未取到 _buildStrategyConfig 方法体');
+    assert.ok(/leg\.pointType && activeById\[leg\.pointType\] === false/.test(buildBody), '_buildStrategyConfig 须按有效表过滤绑定腿');
+    assert.ok(/classifyPointType\(factorResults, this\._pointTypeActiveById\)/.test(src), '_classifyPointType 须传有效激活表');
   });
 }
 console.log(`\n全部通过 ${passed}/${passed}`);

@@ -294,6 +294,33 @@ console.log('\nE2. 因子代对拍包派生（deploy-factor-generation-pack 纯�
     err(() => deriveFactorPack({ buyLegs: [], sellLegs: [], modules: { cheatCheck: 'v9' } })).includes('未知版本键'),
     err(() => deriveFactorPack({ buyLegs: [], sellLegs: [], modules: [] })).includes('形状非法'),
   ], [true, true, true, true]);
+  // T241 主包切因子代（2026-11-26 用户裁定）后角色对调：Jev 基线臂改由 --to v1 派生
+  const { TARGET_DEFAULT_NAMES, DEFAULT_NAME_JEV } = require(path.join(ROOT, 'scripts/deploy-factor-generation-pack.cjs'));
+  const MODS2 = { factorCheck: 'v1', cheatCheck: 'v2', actFrontGate: 'v2', buyPointCheck: 'v2', pointType: 'v1' };
+  const main = {
+    buyLegs: [{ priority: 16, cards: 4, pointType: 'famous_holder_cold_pit' }],
+    sellLegs: [{ priority: 1, cards: 'all' }], modules: { ...MODS2 },
+  };
+  const jev = deriveFactorPack(main, null, 'v1');
+  check('E2-10 --to v1：因子代主包 → Jev 基线包（三门回 v1，腿含 pointType 绑定逐字一致）',
+    [jev.definition.modules, jev.swapped, jev.kept, jev.already, JSON.stringify(jev.definition.buyLegs) === JSON.stringify(main.buyLegs)],
+    [{ ...MODS1 }, ['cheatCheck', 'actFrontGate', 'buyPointCheck'], [], [], true]);
+  const same = deriveFactorPack(main);
+  check('E2-11 缺省方向（--to v2）对已是因子代的源包：零 swapped（main 据此拒入库——对拍退化成 A=B）',
+    [same.swapped, same.already, same.kept], [[], ['cheatCheck', 'actFrontGate', 'buyPointCheck'], []]);
+  const mixed = deriveFactorPack(main, ['buyPointCheck'], 'v1');
+  check('E2-12 --only × --to v1 混代（逐门消融）',
+    [mixed.definition.modules.buyPointCheck, mixed.definition.modules.cheatCheck, mixed.swapped, mixed.kept],
+    ['v1', 'v2', ['buyPointCheck'], ['cheatCheck', 'actFrontGate']]);
+  check('E2-13 非法目标代次 fail-fast / 缺省产物名按代次',
+    [err(() => deriveFactorPack(main, null, 'v3')).includes('仅支持 v1'), TARGET_DEFAULT_NAMES, DEFAULT_NAME_JEV],
+    [true, { v1: 'trading-standard-jev', v2: 'trading-standard-factor' }, 'trading-standard-jev']);
+  check('E2-14 主包锁：三门已切因子代 v2，Jev 基线可一步派生', (() => {
+    const { PACK_DEFINITION } = require(path.join(ROOT, 'scripts/deploy-trading-strategy.cjs'));
+    const j = deriveFactorPack(PACK_DEFINITION, null, 'v1');
+    return [PACK_DEFINITION.modules.cheatCheck, j.definition.modules.cheatCheck, j.definition.modules.actFrontGate,
+      j.definition.modules.buyPointCheck, j.swapped.length];
+  })(), ['v2', 'v1', 'v1', 'v1', 3]);
 }
 
 console.log('\nF. service 因子模式');

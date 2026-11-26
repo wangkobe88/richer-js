@@ -7,6 +7,9 @@
 // 运行时都解析最新版，对拍退化成 A=B（交易台账 T239 三修口径教训）。对拍 = 两个包条目：
 //   A = 主包 trading-standard-v1（modules v1，Jev 代）
 //   B = trading-standard-factor（本脚本产物，modules v2）
+// 主包切换因子代后（2026-11-26 用户裁定「主包切因子代」）角色对调：主包 = 因子代，
+// Jev 代基线改由本脚本 --to v1 派生（缺省名 trading-standard-jev）——主包已是因子代时
+// 缺省方向（--to v2）产物与主包等价，脚本拒入库（对拍退化成 A=B）。
 //
 // ⚠ 主包演进（加腿 / 改条件）后须重跑本脚本重派生，否则因子包的腿滞后于主包——
 //   对拍结论混入腿差异。脚本每次从库里取最新版，产物 description 记录派生源版本。
@@ -18,8 +21,9 @@
 //
 // 用法：node scripts/deploy-factor-generation-pack.cjs
 //         [--src <主包名|uuid>]（缺省 trading-standard-v1）
-//         [--name <因子包名>]（缺省 trading-standard-factor）
+//         [--name <产物包名>]（缺省：--to v2 → trading-standard-factor；--to v1 → trading-standard-jev）
 //         [--only cheatCheck,actFrontGate,buyPointCheck]（缺省三门全换）
+//         [--to v1|v2]（目标代次，缺省 v2 因子代；v1 = Jev 代——主包切因子代后派生 Jev 基线臂）
 //         [--commit]（写库；须在 182 跑——本地 VPN 写库不可靠。缺省 dry-run 本地可跑，
 //                    只做一次单行读）
 // 产物引用：node scripts/clone-experiment.cjs --src <基底> --name <新名> --pack trading-standard-factor
@@ -29,20 +33,28 @@ const { FACTOR_GENERATION_KEY, assertModuleKey } = require('../src/market-analys
 
 const DEFAULT_SRC = 'trading-standard-v1';
 const DEFAULT_NAME = 'trading-standard-factor';
-/** 可换因子代的模块（= 有因子代的三个 Jev 门） */
+const DEFAULT_NAME_JEV = 'trading-standard-jev';
+/** 可换代的模块（= 有因子代的三个 Jev 门） */
 const FACTOR_MODULES = ['cheatCheck', 'actFrontGate', 'buyPointCheck'];
+/** 目标代次键 → 缺省产物包名（v1 = Jev 代 / v2 = 因子代） */
+const TARGET_DEFAULT_NAMES = Object.freeze({ v1: DEFAULT_NAME_JEV, [FACTOR_GENERATION_KEY]: DEFAULT_NAME });
 
 /**
- * 派生因子代包定义（纯函数，零 DB——单测直测）。
+ * 派生对拍包定义（纯函数，零 DB——单测直测）：把选中门的 modules 版本键换成目标代次键。
  * @param {Object} srcDef - 源包 definition
  * @param {string[]} [onlyKeys] - 只换这些门（缺省三门全换）
- * @returns {{definition:Object, swapped:string[], kept:string[]}}
- *   swapped=换成因子代的模块；kept=源包里有 Jev 代键但本次保留的模块
- * @throws {Error} 源包 modules 形状非法 / onlyKeys 含无因子代的模块
+ * @param {string} [targetKey] - 目标代次键（缺省因子代 v2；v1 = Jev 代）
+ * @returns {{definition:Object, swapped:string[], kept:string[], already:string[]}}
+ *   swapped=本次换成目标代次的模块；kept=源包里开着但本次保留的模块；
+ *   already=选中但源包本就是目标代次的模块（零变化）
+ * @throws {Error} 源包 modules 形状非法 / onlyKeys 含无因子代的模块 / 目标代次键非法
  */
-function deriveFactorPack(srcDef, onlyKeys) {
+function deriveFactorPack(srcDef, onlyKeys, targetKey = FACTOR_GENERATION_KEY) {
   if (!srcDef || typeof srcDef !== 'object' || Array.isArray(srcDef)) {
     throw new Error('源包 definition 非对象');
+  }
+  if (!(targetKey in TARGET_DEFAULT_NAMES)) {
+    throw new Error('--to 仅支持 v1（Jev 代）/ v2（因子代）');
   }
   const keys = Array.isArray(onlyKeys) && onlyKeys.length ? onlyKeys : FACTOR_MODULES.slice();
   for (const k of keys) {
@@ -57,30 +69,37 @@ function deriveFactorPack(srcDef, onlyKeys) {
   const definition = JSON.parse(JSON.stringify(srcDef));
   const swapped = [];
   const kept = [];
+  const already = [];
   const mods = definition.modules && typeof definition.modules === 'object' ? { ...definition.modules } : {};
   for (const k of FACTOR_MODULES) {
     if (!(k in mods)) continue; // 源包没开这门 → 不新增
     assertModuleKey(k, mods[k]); // 源包键非法 fail-fast（不冒充可派生）
-    if (keys.includes(k)) {
-      mods[k] = FACTOR_GENERATION_KEY;
-      swapped.push(k);
-    } else {
+    if (!keys.includes(k)) {
       kept.push(k);
+    } else if (mods[k] === targetKey) {
+      already.push(k);
+    } else {
+      mods[k] = targetKey;
+      swapped.push(k);
     }
   }
   if (Object.keys(mods).length) definition.modules = mods;
-  return { definition, swapped, kept };
+  return { definition, swapped, kept, already };
 }
 
 async function main() {
   const argv = process.argv.slice(2);
   const argOf = (flag) => { const i = argv.indexOf(flag); return i >= 0 ? argv[i + 1] : undefined; };
   const srcArg = argOf('--src') || DEFAULT_SRC;
-  const name = argOf('--name') || DEFAULT_NAME;
+  const toArg = argOf('--to') || FACTOR_GENERATION_KEY;
+  if (!(toArg in TARGET_DEFAULT_NAMES)) {
+    throw new Error(`--to 仅支持 v1（Jev 代）/ v2（因子代），实际 ${JSON.stringify(toArg)}`);
+  }
+  const name = argOf('--name') || TARGET_DEFAULT_NAMES[toArg];
   const onlyArg = argOf('--only');
   const onlyKeys = onlyArg ? onlyArg.split(',').map((s) => s.trim()).filter(Boolean) : null;
   if (argv.includes('--help') || argv.includes('-h')) {
-    console.log('用法: node scripts/deploy-factor-generation-pack.cjs [--src <主包名|uuid>] [--name <因子包名>] [--only cheatCheck,actFrontGate,buyPointCheck] [--commit]');
+    console.log('用法: node scripts/deploy-factor-generation-pack.cjs [--src <源包名|uuid>] [--name <产物包名>] [--only cheatCheck,actFrontGate,buyPointCheck] [--to v1|v2] [--commit]');
     return;
   }
 
@@ -93,10 +112,10 @@ async function main() {
   const src = (rows || [])[0];
   if (!src) throw new Error(`源策略包不存在: ${srcArg}`);
   if (src.name === name) {
-    throw new Error(`因子包名不得与源包同名（"${name}"）——同名=原位覆盖主包，对拍退化成 A=B；换 --name`);
+    throw new Error(`产物包名不得与源包同名（"${name}"）——同名=原位覆盖源包，对拍退化成 A=B；换 --name`);
   }
 
-  const { definition, swapped, kept } = deriveFactorPack(src.definition, onlyKeys);
+  const { definition, swapped, kept, already } = deriveFactorPack(src.definition, onlyKeys, toArg);
   const { validatePack } = require('../src/web/services/StrategyLibraryService');
   const check = validatePack(definition);
   if (!check.valid) {
@@ -108,10 +127,10 @@ async function main() {
   console.log(`  modules: ${fmtMods(src.definition && src.definition.modules) || '无'}`);
   console.log(`产物: ${name}`);
   console.log(`  modules: ${fmtMods(definition.modules) || '无'}`);
-  console.log(`  换因子代: ${swapped.join(' ') || '（无——源包未开任何 Jev 门）'}${kept.length ? ` | 保留 Jev 代: ${kept.join(' ')}` : ''}`);
+  console.log(`  换${toArg === 'v1' ? 'Jev 代' : '因子代'}: ${swapped.join(' ') || '（无）'}${kept.length ? ` | 保留源键: ${kept.join(' ')}` : ''}${already.length ? ` | 源已是目标代次: ${already.join(' ')}` : ''}`);
   console.log(`  腿: 买 ${(definition.buyLegs || []).length} / 卖 ${(definition.sellLegs || []).length}（与源包逐字一致）`);
   if (!swapped.length) {
-    console.log('\n⚠ 源包的三门都不在场——产物与源包等价，对拍无意义；不入库。');
+    console.log(`\n⚠ 选中门在源包里无一需要换（未开 / 已是目标代次 ${toArg}）——产物与源包等价，对拍退化成 A=B；不入库。`);
     return;
   }
 
@@ -121,8 +140,8 @@ async function main() {
   }
   const { StrategyLibraryService } = require('../src/web/services/StrategyLibraryService');
   const svc = new StrategyLibraryService();
-  const description = `因子代对拍包（Jev 退役）：由 ${src.name} v${src.version} 派生，仅 ${swapped.join('/')} 换因子代键 ${FACTOR_GENERATION_KEY}`
-    + `${kept.length ? `（${kept.join('/')} 保留 Jev 代）` : ''}。⚠主包演进后须重跑 deploy-factor-generation-pack.cjs 重派生。`;
+  const description = `${toArg === 'v1' ? 'Jev 代对拍包（因子代主包的 Jev 基线臂）' : '因子代对拍包（Jev 退役）'}：由 ${src.name} v${src.version} 派生，仅 ${swapped.join('/')} 换版本键 ${toArg}`
+    + `${kept.length ? `（${kept.join('/')} 保留源键）` : ''}。⚠源包演进后须重跑 deploy-factor-generation-pack.cjs 重派生。`;
   const cur = (await svc.list()).find((x) => x.name === name);
   if (!cur) {
     const row = await svc.create({ name, description, definition });
@@ -143,4 +162,4 @@ async function main() {
 if (require.main === module) {
   main().then(() => process.exit(0)).catch((e) => { console.error('FATAL', (e && e.stack) || e); process.exit(1); });
 }
-module.exports = { deriveFactorPack, FACTOR_MODULES, DEFAULT_SRC, DEFAULT_NAME };
+module.exports = { deriveFactorPack, FACTOR_MODULES, DEFAULT_SRC, DEFAULT_NAME, DEFAULT_NAME_JEV, TARGET_DEFAULT_NAMES };

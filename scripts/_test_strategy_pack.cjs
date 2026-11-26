@@ -9,6 +9,9 @@
  *      definition 非法拒启/modules 未知键拒启/成功缓存+strategyResolved 写回
  *      （best-effort 失败不阻塞）
  *   D. _buildStrategyConfig：薄读缓存 / 无包 throw
+ *   E. T242 实验级点位类型激活：无覆盖零行为变化 / 只激活 normal（专属腿停用+分类
+ *      落 normal+审计）/ 部分覆盖 / fail-fast 六条 / 包无模块原引用 / 早退归零
+ *   F. 主包内容锁：专属腿 P16~P20 绑定 / 门链因子代 v2 / Jev 基线可派生
  *
  * dbManager 单例打桩手法同 _test_embedded_collector_architecture.cjs（必须在
  * 被测模块 require 前完成）；ExperimentFactory.getInstance 测试内替换（还原）。
@@ -342,6 +345,172 @@ function testD() {
         'strategyId');
 }
 
+// ═══════════════ E. T242 实验级点位类型激活（引擎集成） ═══════════════
+async function testE() {
+    console.log('\n━━━ E. T242 实验级点位类型激活（_resolveStrategyPack / _buildStrategyConfig / _classifyPointType） ━━━');
+    const router = require('../src/market-analysis/point-type-router');
+    const IDS = router.POINT_TYPES.map((t) => t.id);
+    const onlyNormal = Object.fromEntries(IDS.map((id) => [id, id === 'normal']));
+    const SELL = [{ priority: 2, cards: 'all', condition: 'profitPercent <= -40' }];
+    const P1 = { priority: 1, cards: 4, condition: 'tradeCount >= 6' };
+    const P16 = { priority: 16, cards: 4, pointType: 'famous_holder_cold_pit', condition: 'tradeCount >= 60' };
+    const P19 = { priority: 19, cards: 4, pointType: 'steady_trend_climb', condition: 'tradeCount >= 600' };
+    const mkDef = (ptOn, buyLegs) => ({
+        buyLegs, sellLegs: SELL, modules: { cheatCheck: 'v1', ...(ptOn ? { pointType: 'v1' } : {}) },
+    });
+    const fakeThis = (config) => ({
+        _experiment: { id: 'exp-t242', config: JSON.parse(JSON.stringify(config)) },
+        _experimentId: 'exp-t242',
+        _logger: silentLogger,
+    });
+    const call = (self) => AbstractTradingEngine.prototype._resolveStrategyPack.call(self);
+    const build = (self) => AbstractTradingEngine.prototype._buildStrategyConfig.call(self);
+    const classify = (self, fx) => AbstractTradingEngine.prototype._classifyPointType.call(self, fx);
+    let seq = 0xe0;
+    const setPack = (def) => {
+        activeDb.packError = null;
+        seq += 1;
+        activeDb.packRow = {
+            id: `00000000-0000-0000-0000-${String(seq).padStart(12, '0')}`, name: 'pt-包', version: 1,
+            definition: JSON.parse(JSON.stringify(def)),
+        };
+        return activeDb.packRow.id;
+    };
+    let writeCfg = null;
+    const origGI = factoryMod.ExperimentFactory.getInstance;
+    factoryMod.ExperimentFactory.getInstance = () => ({
+        updateConfig: async (id, cfg) => { writeCfg = cfg; return { success: true }; },
+    });
+    try {
+        const id = setPack(mkDef(true, [P1, P16, P19]));
+
+        // E1 包启用 pointType、实验无覆盖 → 注册表缺省，零行为变化
+        const self = fakeThis({ strategyId: id });
+        await call(self);
+        check('E1a 无覆盖 → 有效激活表 = 注册表缺省',
+            JSON.stringify(self._pointTypeActiveById) === JSON.stringify(router.effectivePointTypeActive(null)));
+        check('E1b 无覆盖不停用任何专属腿', Array.isArray(self._pointTypeDisabledLegs) && self._pointTypeDisabledLegs.length === 0);
+        const out = build(self);
+        check('E1c 买腿全组装（3 条）且包缓存数组不被改写',
+            out.buyStrategies.length === 3 && self._strategyDefinition.buyLegs.length === 3
+            && out.sellStrategies === self._strategyDefinition.sellLegs);
+        check('E1d 审计 strategyResolved.pointTypes：source=registry / 未激活=slow_develop_early / 无停用腿',
+            self._strategyResolved.pointTypes.source === 'registry'
+            && self._strategyResolved.pointTypes.inactive.join(',') === 'slow_develop_early'
+            && self._strategyResolved.pointTypes.disabledLegs.length === 0
+            && self._strategyResolved.pointTypes.active[0] !== 'normal'
+            && self._strategyResolved.pointTypes.active[self._strategyResolved.pointTypes.active.length - 1] === 'normal');
+        check('E1e 写回 config 携带 pointTypes 审计', writeCfg.strategyResolved.pointTypes === self._strategyResolved.pointTypes);
+        const TREND = { tokenAgeSec: 120, currentVsLaunchPct: 55, priceMa60SlopePct: 20, actTotalBnb30s: 1.2, athVsFloorPct: 100 };
+        check('E1f 无覆盖时引擎分类走类型（steady_trend_climb 夹具）', classify(self, TREND).type === 'steady_trend_climb');
+
+        // E2 只激活 normal（用户指令「此处只激活 normal 这一个 pointType」）
+        const self2 = fakeThis({ strategyId: id, pointTypes: { active: onlyNormal } });
+        writeCfg = null;
+        await call(self2);
+        check('E2a 只激活 normal → 专属腿 P16/P19 停用', self2._pointTypeDisabledLegs.join(',') === '16,19');
+        const out2 = build(self2);
+        check('E2b 只组装无绑定的普通腿（P1）', out2.buyStrategies.length === 1 && out2.buyStrategies[0].priority === 1);
+        check('E2c 包缓存原样（3 腿，过滤不落盘）', self2._strategyDefinition.buyLegs.length === 3);
+        check('E2d 审计 source=experiment / active=[normal] / inactive=其余全部 / disabledLegs=[16,19]',
+            self2._strategyResolved.pointTypes.source === 'experiment'
+            && JSON.stringify(self2._strategyResolved.pointTypes.active) === '["normal"]'
+            && JSON.stringify(self2._strategyResolved.pointTypes.inactive) === JSON.stringify(IDS.filter((x) => x !== 'normal'))
+            && JSON.stringify(self2._strategyResolved.pointTypes.disabledLegs) === '[16,19]');
+        check('E2e 写回 config 保留实验 pointTypes 段', writeCfg.pointTypes.active.normal === true
+            && writeCfg.pointTypes.active.steady_trend_climb === false && writeCfg.pointTypes.active.famous_holder_cold_pit === false);
+        check('E2f 引擎分类：原本命中类型的因子表落 normal（policy {}）',
+            classify(self2, TREND).type === 'normal' && JSON.stringify(classify(self2, TREND).policy) === '{}'
+            && classify(self2, { tokenAgeSec: 5 }).type === 'normal');
+
+        // E3 部分覆盖：normal + steady_trend_climb
+        const self3 = fakeThis({ strategyId: id, pointTypes: { active: { ...onlyNormal, steady_trend_climb: true } } });
+        await call(self3);
+        check('E3 部分覆盖（normal+steady_trend_climb）→ 仅停用 P16，P19 照常',
+            self3._pointTypeDisabledLegs.join(',') === '16'
+            && build(self3).buyStrategies.map((l) => l.priority).join(',') === '1,19'
+            && classify(self3, TREND).type === 'steady_trend_climb');
+
+        // E4 fail-fast 六条（启动防线；throw 后不缓存包）
+        const packNoPt = setPack(mkDef(false, [P1]));
+        await throwsWithAsync('E4a 实验携 pointTypes 但包未启用 modules.pointType → throw',
+            () => call(fakeThis({ strategyId: packNoPt, pointTypes: { active: onlyNormal } })), '未启用 modules.pointType');
+        const id2 = setPack(mkDef(true, [P1, P16, P19]));
+        await throwsWithAsync('E4b 覆盖未知类型 → throw',
+            () => call(fakeThis({ strategyId: id2, pointTypes: { active: { nope: false } } })), '未知类型');
+        await throwsWithAsync('E4c 停用 normal → throw',
+            () => call(fakeThis({ strategyId: id2, pointTypes: { active: { normal: false } } })), '不可停用');
+        const badBind = setPack(mkDef(true, [P1, { priority: 20, cards: 4, pointType: 'nope', condition: 'tradeCount >= 6' }]));
+        await throwsWithAsync('E4d 腿绑定未知类型 → throw',
+            () => call(fakeThis({ strategyId: badBind })), '绑定非法');
+        const bindNoMod = setPack(mkDef(false, [P1, { priority: 16, cards: 4, pointType: 'famous_holder_cold_pit', condition: 'tradeCount >= 60' }]));
+        await throwsWithAsync('E4e 腿绑定而包无 pointType 模块 → throw',
+            () => call(fakeThis({ strategyId: bindNoMod })), '未启用 modules.pointType');
+        const allBound = setPack(mkDef(true, [P16, P19]));
+        {
+            const self = fakeThis({ strategyId: allBound, pointTypes: { active: onlyNormal } });
+            await throwsWithAsync('E4f 覆盖使买腿清空 → throw',
+                () => call(self), '使买腿清空');
+            check('E4g fail-fast 后不缓存包（不半初始化）', self._strategyDefinition === undefined && self._strategyResolved === undefined);
+        }
+
+        // E5 包未启用 pointType 且无覆盖 → 包数组原引用零变化、无 pointTypes 审计键
+        const id5 = setPack(mkDef(false, [P1]));
+        const self5 = fakeThis({ strategyId: id5 });
+        await call(self5);
+        check('E5 包无 pointType 模块：有效表 null / 买腿原引用 / 审计无 pointTypes 键',
+            self5._pointTypeActiveById === null && build(self5).buyStrategies === self5._strategyDefinition.buyLegs
+            && self5._strategyResolved.pointTypes === undefined && classify(self5, TREND) === null);
+
+        // E6 早退路径（无 strategyId）同样归零——防复用对象残留上一轮激活表
+        const self6 = {
+            _pointTypeActiveById: { normal: true }, _pointTypeDisabledLegs: [99],
+            _experiment: { id: 'exp-t242', config: {} }, _experimentId: 'exp-t242', _logger: silentLogger,
+        };
+        await call(self6);
+        check('E6 无 strategyId 早退 → 激活表/停用腿归零', self6._pointTypeActiveById === null && self6._pointTypeDisabledLegs.length === 0);
+    } finally {
+        factoryMod.ExperimentFactory.getInstance = origGI;
+    }
+}
+
+// ═══════════════ F. 主包内容锁（T241 主包切因子代 + T242 专属腿绑定） ═══════════════
+function testF() {
+    console.log('\n━━━ F. 主包内容锁（T241 主包切因子代 + T242 专属腿↔类型绑定） ━━━');
+    const { PACK_DEFINITION } = require('../scripts/deploy-trading-strategy.cjs');
+    const { POINT_TYPES } = require('../src/market-analysis/point-type-router');
+    const { deriveFactorPack } = require('../scripts/deploy-factor-generation-pack.cjs');
+    const FR = require('../src/market-analysis/factor-responders');
+    const BIND = {
+        16: 'famous_holder_cold_pit', 17: 'strongbacker_solo_dance', 18: 'famous_participation_pit',
+        19: 'steady_trend_climb', 20: 'market_maker_rhythm_pit',
+    };
+    const legs = PACK_DEFINITION.buyLegs;
+    const bound = legs.filter((l) => l.pointType !== undefined);
+    check('F1 专属腿恰 P16~P20 携带绑定且类型逐条正确；ladder 十四腿无绑定',
+        bound.length === 5
+        && legs.every((l) => (l.priority in BIND) === (l.pointType !== undefined) && (l.pointType === undefined || l.pointType === BIND[l.priority]))
+        && legs.filter((l) => l.pointType === undefined).map((l) => l.priority).join(',') === '1,2,3,4,5,6,7,8,9,10,11,12,13,14',
+        JSON.stringify(bound.map((l) => [l.priority, l.pointType])));
+    check('F2 绑定类型全部在注册表且注册表缺省激活（缺省未激活=主包静默丢专属腿）',
+        bound.every((l) => POINT_TYPES.some((t) => t.id === l.pointType && t.active === true)));
+    const mods = PACK_DEFINITION.modules;
+    check('F3 主包启用 pointType 模块且 validatePack 通过', mods.pointType === 'v1' && validatePack(PACK_DEFINITION).valid === true);
+    check('F4 主包门链 = 因子代（T241 用户裁定「主包切因子代」）：三门 v2，factorCheck/pointType v1',
+        mods.cheatCheck === FACTOR_GENERATION_KEY && mods.actFrontGate === FACTOR_GENERATION_KEY
+        && mods.buyPointCheck === FACTOR_GENERATION_KEY && mods.factorCheck === 'v1' && mods.pointType === 'v1',
+        JSON.stringify(mods));
+    const jev = deriveFactorPack(PACK_DEFINITION, null, 'v1');
+    check('F5 Jev 基线可派生：--to v1 三门回 v1，腿逐字一致（回滚/对拍通道）',
+        jev.swapped.join(',') === 'cheatCheck,actFrontGate,buyPointCheck'
+        && jev.definition.modules.cheatCheck === 'v1' && jev.definition.modules.actFrontGate === 'v1'
+        && jev.definition.modules.buyPointCheck === 'v1'
+        && JSON.stringify(jev.definition.buyLegs) === JSON.stringify(PACK_DEFINITION.buyLegs)
+        && JSON.stringify(jev.definition.sellLegs) === JSON.stringify(PACK_DEFINITION.sellLegs));
+    check('F6 因子版本常量与键一致（v2 解析=CF/AF/BPF 现行常量）',
+        FR.CHEAT_FACTOR_VERSION === 'CF1' && FR.ACT_FRONT_FACTOR_VERSION === 'AF2' && FR.BUY_POINT_FACTOR_VERSION === 'BPF2');
+}
+
 // ═══════════════ 主流程 ═══════════════
 (async () => {
     await testA();
@@ -349,6 +518,8 @@ function testD() {
     testB();
     await testC();
     testD();
+    await testE();
+    testF();
     console.log(`\n============================================================`);
     console.log(`策略包（T202 策略库二期）单测：${passed} 通过，${failed} 失败`);
     if (failed > 0) process.exit(1);

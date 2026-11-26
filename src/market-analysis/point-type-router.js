@@ -10,6 +10,15 @@
  * 参数，像这个还在迭代中的，激活为否，不生效」）：active:false = 分类跳过（不命中/
  * 无 policy/无 metadata 留痕，回落后续类型），迭代完成翻 true 时 bump POINT_TYPE_VERSION。
  *
+ * T242 实验级激活（2026-11-26 用户指令「将 pointType 的开关激活改为实验层面可配置项」）：
+ * 注册表 active = 全局缺省（随代码走）；实验 config.pointTypes.active = {类型 id: 布尔}
+ * 逐类型覆盖（未列出的类型沿用注册表缺省）。同一份有效激活表管两处——
+ *   ① 分类：classifyPointType 跳过未激活类型（信号回落后续类型/normal 兜底）；
+ *   ② 专属触发腿：买腿可携带 `pointType: <类型 id>` 绑定（p16~p20 自触发同款），
+ *      类型未激活即该腿不组装（引擎 _buildStrategyConfig 过滤）——只关分类不关腿时，
+ *      「关掉类型」只是把它的信号改道 normal 走全门（类型空转、腿照触发），开关量不到
+ *      类型本身的贡献。绑定是包数据（策略本体），激活是实验数据（对拍可切）。
+ *
  * 形态仿 factor-pre-buy-check.js：CJS 纯函数 + 版本常量；改判定/加类型必 bump
  * POINT_TYPE_VERSION（module-registry v1 键解析本常量落 strategyResolved 审计）。
  * condition 复用腿条件同款 ConditionEvaluator（FA 因子表达式）；启动防线
@@ -433,14 +442,101 @@ function assertPointTypesValid(factorKeys) {
 }
 
 /**
+ * T242 实验级激活覆盖解析（纯函数；引擎 _resolveStrategyPack 调用，启动防线同款 throw
+ * 拒启——脏覆盖静默生效=实验跑的不是所配的类型集）。
+ * @param {*} cfgPointTypes - 实验 config.pointTypes（undefined/null = 无覆盖段）
+ * @returns {Object|null} null=无覆盖段；否则=覆盖表 {类型 id: 布尔}（仅实验列出的键）
+ * @throws {Error} 形状非法 / 未知键 / 未知类型 id / 非布尔 / normal 停用 / 空覆盖
+ */
+function resolvePointTypeOverride(cfgPointTypes) {
+    if (cfgPointTypes === undefined || cfgPointTypes === null) return null;
+    if (typeof cfgPointTypes !== 'object' || Array.isArray(cfgPointTypes)) {
+        throw new Error('[pointType] 实验 config.pointTypes 须为对象 {active: {类型 id: 布尔}}');
+    }
+    const unknownKeys = Object.keys(cfgPointTypes).filter((k) => k !== 'active');
+    if (unknownKeys.length > 0) {
+        throw new Error(`[pointType] 实验 config.pointTypes 携带未知键 ${unknownKeys.join('/')}（仅支持 active）`);
+    }
+    const active = cfgPointTypes.active;
+    if (!active || typeof active !== 'object' || Array.isArray(active)) {
+        throw new Error('[pointType] 实验 config.pointTypes.active 须为对象 {类型 id: 布尔}');
+    }
+    const ids = Object.keys(active);
+    if (ids.length === 0) {
+        throw new Error('[pointType] 实验 config.pointTypes.active 为空（无覆盖请删除该段）');
+    }
+    const known = POINT_TYPES.map((t) => t.id);
+    for (const id of ids) {
+        if (!known.includes(id)) {
+            throw new Error(`[pointType] 实验 config.pointTypes.active 未知类型 "${id}"（可用：${known.join('/')}）`);
+        }
+        if (typeof active[id] !== 'boolean') {
+            throw new Error(`[pointType] 实验 config.pointTypes.active.${id} 须为布尔，实际 ${JSON.stringify(active[id])}`);
+        }
+    }
+    if (active.normal === false) {
+        throw new Error('[pointType] normal 兜底类型不可停用——未命中任何类型的信号恒走 normal 全门语义，'
+            + '停用只会丢分类留痕（要停的是各类型时 normal 恒保留）');
+    }
+    return { ...active };
+}
+
+/**
+ * 有效激活表（纯函数）：注册表缺省 ∪ 实验覆盖 → 全注册表类型的布尔表。
+ * @param {Object|null} override - resolvePointTypeOverride 产物
+ * @returns {Object} {类型 id: 布尔}（注册表每个类型恰一键）
+ */
+function effectivePointTypeActive(override) {
+    const out = {};
+    for (const type of POINT_TYPES) {
+        out[type.id] = override && Object.prototype.hasOwnProperty.call(override, type.id)
+            ? override[type.id] === true
+            : type.active !== false;
+    }
+    return out;
+}
+
+/**
+ * T242 买腿↔点位类型绑定启动防线（纯函数，引擎 _resolveStrategyPack 调用）：携带
+ * `pointType` 的腿必须是买腿、绑定注册表内非 normal 类型 id，且策略包启用了
+ * modules.pointType（无模块=绑定无消费点）。
+ * @param {Array<Object>} buyLegs - 策略包买腿
+ * @param {boolean} moduleEnabled - 包是否启用 modules.pointType
+ * @returns {Array<{index:number,priority:*,pointType:string}>} 绑定清单
+ */
+function assertLegPointTypeBindings(buyLegs, moduleEnabled) {
+    const known = POINT_TYPES.map((t) => t.id);
+    const bindings = [];
+    (buyLegs || []).forEach((leg, i) => {
+        if (!leg || leg.pointType === undefined || leg.pointType === null) return;
+        const id = leg.pointType;
+        if (typeof id !== 'string' || id === 'normal' || !known.includes(id)) {
+            throw new Error(`[pointType] 买腿[${i}]（P${leg.priority ?? '-'}）pointType 绑定非法 ${JSON.stringify(id)}`
+                + `（须为注册表内非 normal 类型 id：${known.join('/')}）`);
+        }
+        if (!moduleEnabled) {
+            throw new Error(`[pointType] 买腿 P${leg.priority} 携带 pointType 绑定 ${id} 但策略包未启用 modules.pointType——`
+                + '绑定无消费点（腿↔类型绑定依赖类型路由），拒启');
+        }
+        bindings.push({ index: i, priority: leg.priority, pointType: id });
+    });
+    return bindings;
+}
+
+/**
  * 点位类型分类（纯函数，信号 fire 时刻 FA 因子表求值——回测/虚拟/live 三态同源）
  * @param {Object} factorResults - fire 时刻 FA 因子表（与腿条件同一张表）
+ * @param {Object|null} [activeById] - T242 有效激活表（effectivePointTypeActive 产物；
+ *        省略=注册表缺省，存量调用零变化）
  * @returns {{type:string,label:string,policy:Object,version:string,snapshot:Object}|null}
  *          null=未启用模块（调用方=全现行）；normal 兜底恒非 null。
  */
-function classifyPointType(factorResults) {
+function classifyPointType(factorResults, activeById = null) {
     for (const type of POINT_TYPES) {
-        if (type.active === false) continue; // 迭代中类型不激活：不分类不生效（2026-11-25 用户裁定）
+        const active = activeById && Object.prototype.hasOwnProperty.call(activeById, type.id)
+            ? activeById[type.id] === true
+            : type.active !== false;
+        if (!active) continue; // 未激活类型（注册表 active:false / T242 实验级停用）：不分类不生效
         if (type.condition == null) {
             // normal 兜底：snapshot 取空（无引用因子）
             return { type: type.id, label: type.label, policy: type.policy, version: POINT_TYPE_VERSION, snapshot: {} };
@@ -467,4 +563,7 @@ module.exports = {
     POINT_TYPES,
     classifyPointType,
     assertPointTypesValid,
+    resolvePointTypeOverride,
+    effectivePointTypeActive,
+    assertLegPointTypeBindings,
 };

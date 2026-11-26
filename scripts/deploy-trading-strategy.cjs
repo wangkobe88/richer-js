@@ -13,6 +13,9 @@
 //    （16 条现行 + T161 famous-trim 两段）；提取规范化一处：卖腿「profitPercent > 100」
 //    cards='1'（字符串）烘焙为数字 1（引擎 normalizeCards 等价归一，非策略变化）。
 //  * modules 四键 v1 = 模板四门全开形状（FP32/D3.81/AF1/BP69 经 module-registry 解析）。
+//    2026-11-26 主包切因子代（T241 Jev 退役，用户裁定）：cheatCheck/actFrontGate/buyPointCheck
+//    三键 v1 → v2（CF1/AF2/BPF2）；factorCheck/pointType 仍 v1。专属触发腿 P16~P20 带
+//    pointType 绑定（T242 实验级类型激活：未激活类型的专属腿不组装）。
 // docs/当前最优买卖策略.md §二/§三/§四 为核对闸——修改包内容必须同步 docs 与交易台账。
 //
 // 版本语义：同名 upsert——definition 键序无关深比较无变化 SKIP、有变化 version+1；
@@ -28,7 +31,7 @@ const { buildStallLegCondition } = require('../src/trading-engine/core/stall-sel
 const STALL_LEG_CONDITION = buildStallLegCondition();
 
 const ENTRY_NAME = 'trading-standard-v1';
-const ENTRY_DESC = '现行最优交易策略包：ladder v39 十九腿（v34 十四腿+T224 黄金坑臂+T225 独舞臂 priority 17+T238 famous 参与坑臂 priority 18+T239 持续趋势臂 priority 19+T237 做市节奏臂 priority 20〔2026-11-25 用户提案「做市痕迹票：有庄在搞事，一般来讲会很强势」——金狗集合做市/操控 32 票实证 24 张闪电毕业票，节奏键 tradesPerSecSinceLaunch/blockGapLe1Pct64 识别+深砸坑 curVs≤120 入场〔用户裁定「那就取 120% 试试」〕+pointType market_maker_rhythm_pit active:false 迭代期，详见包腿 description 与交易台账 T237〕〔2026-11-25 用户提案「金狗『上涨趋势形成后一直拉盘』『散户慢速拉升盘』两分类单独成立一个 pointType」——steady_trend_climb 类型（PT41；PT47 act30s 3.9→1.9「砍吧」；PT48 athVsFloor<150「先卡」；PT49 chg30≤30+反磨顶「就这么搞吧」）专属自触发腿，域 30~80%+MA60 斜率带 5~60+act30s≤1.9+ath 幅宽门 双管，policy 全豁+stuffingOnly 先豁再收，详见包腿 description 与交易台账 T239〕〔2026-11-25 用户裁定「增加这个新的 pointType」+同日二修「那就不要要求非要完全离场……famous 持有并不是坏事」——famous_participation_pit 类型（PT38）专属自触发腿，案源来财 0xc84a…7777：famous 参与过+坑位+反弹确认形状，详见包腿 description 与金狗台账 JG-39〕；〔2026-11-23 用户裁定「把这个 pointType 对应的策略正式发布，合并到系统当前的交易策略中」——pointType strongbacker_solo_dance（PT19，policy actFront:pass+cheatCheck:g23NoE+臂豁免 fam_holding_thin/oversell_residual）；bt-v224 验证 LAB +225.81%/개구리씨 +138.48%/6 死盘全拦〕〔2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系好散户币黄金坑买腿并入主包 priority 16 兜底臂〔T231：队列线 0.19+龄上界撤除；T232：冷窗 15s 线 0.4〕〕；T214/v35 初版强庄臂（firstBigBuyerHoldPct≥40 线）经 T215 命中面否证已回退留档——终版独舞九键重立为 T225）+ **T229 早回场 OR 臂**〔2026-11-24 用户指令「给常规的所有臂，也增加一个 earlyReturn 的或条件」——十四腿价格门改 (基线 OR (earlyReturn<15 ∧ curVs≤33.5))，GWC 0xb712 重生波回踩 30.26% 一窗错过案（JG-38 第二生命），常量与黄金坑臂同族〕+ 卖 18 腿（16 现行+famous-trim 两段）+ stall 断流卖腿（T232 腿化：55s 基础/almost 域 90s，idleSecSinceLastSubstantialTick 因子表达式，进入 factorSellFilter 统一过滤）+ 五门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死；p18 参与坑臂 fpRetry=0——policy 全豁后 FP 恒过重评无意义）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）';
+const ENTRY_DESC = '现行最优交易策略包：ladder v39 十九腿（v34 十四腿+T224 黄金坑臂+T225 独舞臂 priority 17+T238 famous 参与坑臂 priority 18+T239 持续趋势臂 priority 19+T237 做市节奏臂 priority 20〔2026-11-25 用户提案「做市痕迹票：有庄在搞事，一般来讲会很强势」——金狗集合做市/操控 32 票实证 24 张闪电毕业票，节奏键 tradesPerSecSinceLaunch/blockGapLe1Pct64 识别+深砸坑 curVs≤120 入场〔用户裁定「那就取 120% 试试」〕+pointType market_maker_rhythm_pit active:false 迭代期，详见包腿 description 与交易台账 T237〕〔2026-11-25 用户提案「金狗『上涨趋势形成后一直拉盘』『散户慢速拉升盘』两分类单独成立一个 pointType」——steady_trend_climb 类型（PT41；PT47 act30s 3.9→1.9「砍吧」；PT48 athVsFloor<150「先卡」；PT49 chg30≤30+反磨顶「就这么搞吧」）专属自触发腿，域 30~80%+MA60 斜率带 5~60+act30s≤1.9+ath 幅宽门 双管，policy 全豁+stuffingOnly 先豁再收，详见包腿 description 与交易台账 T239〕〔2026-11-25 用户裁定「增加这个新的 pointType」+同日二修「那就不要要求非要完全离场……famous 持有并不是坏事」——famous_participation_pit 类型（PT38）专属自触发腿，案源来财 0xc84a…7777：famous 参与过+坑位+反弹确认形状，详见包腿 description 与金狗台账 JG-39〕；〔2026-11-23 用户裁定「把这个 pointType 对应的策略正式发布，合并到系统当前的交易策略中」——pointType strongbacker_solo_dance（PT19，policy actFront:pass+cheatCheck:g23NoE+臂豁免 fam_holding_thin/oversell_residual）；bt-v224 验证 LAB +225.81%/개구리씨 +138.48%/6 死盘全拦〕〔2026-11-23 用户裁定「把这个策略正式落定成当前策略的一部分」+「跟当前策略合并在一起」——T213~T223 系好散户币黄金坑买腿并入主包 priority 16 兜底臂〔T231：队列线 0.19+龄上界撤除；T232：冷窗 15s 线 0.4〕〕；T214/v35 初版强庄臂（firstBigBuyerHoldPct≥40 线）经 T215 命中面否证已回退留档——终版独舞九键重立为 T225）+ **T229 早回场 OR 臂**〔2026-11-24 用户指令「给常规的所有臂，也增加一个 earlyReturn 的或条件」——十四腿价格门改 (基线 OR (earlyReturn<15 ∧ curVs≤33.5))，GWC 0xb712 重生波回踩 30.26% 一窗错过案（JG-38 第二生命），常量与黄金坑臂同族〕+ 卖 18 腿（16 现行+famous-trim 两段）+ stall 断流卖腿（T232 腿化：55s 基础/almost 域 90s，idleSecSinceLastSubstantialTick 因子表达式，进入 factorSellFilter 统一过滤）+ 五门 v1（FP32/D3.81/AF1/BP69）；T203 fpRetry=2 全买腿（2026-11-22 T203c 用户裁定「重评最多两次，一共 3 次」+「不需要延迟，只要 debounce 过了就行」——FP 拒后门内重评至多两次〔首评+重评共 3 评〕，重评间隔=debounce 节奏 200ms，30s 地平线；原 v2 fpRetry=1+间隔 2s 被 bt-v178 0xb6ee 案源本尊饿死；p18 参与坑臂 fpRetry=0——policy 全豁后 FP 恒过重评无意义）；burstCooldown 段已移除（2026-11-22 用户裁定「对金狗伤害太大」临时关闭 T189 两批卖出——批1/批2 承接窗对慢热承接形状结构性过短〔JG-4/13/19/34 攒批族：ZKind 24s 切+牛屁 29s 切均卖后 ×10 级〕，恢复=definition 加回 burstCooldown:{} 即可）；〔2026-11-26 用户裁定「Jev 已经充值，但系统可以不用再使用了；主包切因子代」（T241 Jev 退役）：cheatCheck/actFrontGate/buyPointCheck 三门 modules 版本键 v1（Jev 代 D3.81/AF1/BP69）→ v2（因子代 CF1/AF2/BPF2，结论出自 factor-responders 纯函数零 Jev；Jev 代代码原样保留——回滚=键改回 v1 重部署）；factorCheck（FP47 本就纯代码）与 pointType 不变〕；〔同日 T242 用户指令「将 pointType 的开关激活改为实验层面可配置项」：专属触发腿 P16~P20 各带 pointType 绑定（腿↔类型绑定是包数据，类型激活是实验 config.pointTypes.active——未激活类型的专属腿不组装）；注册表缺省全激活=本包零行为变化〕';
 
 const PACK_DEFINITION = {
   "buyLegs": [
@@ -287,6 +290,7 @@ const PACK_DEFINITION = {
     {
       "action": "buy",
       "priority": 16,
+      "pointType": "famous_holder_cold_pit",
       "condition": "tokenAgeSec >= 160 AND buyVolumeBnb >= 4 AND buyVolumeBnb <= 15 AND (currentVsLaunchPct <= 28.5 OR earlyReturn < 15) AND currentVsLaunchPct <= 33.5 AND athVsLaunchPct >= 40 AND athVsLaunchPct <= 100 AND mcapFromPeakPct <= 50 AND bigBuyersCount >= 3 AND bigBuyersHeldDust >= 3 AND actTotalBnb15s <= 0.4 AND actTotalBnb30s <= 0.4 AND actTotalBnb60s <= 0.5 AND actTotalBnb90s <= 1.0 AND actTotalBnb60Ex15Buy <= 0.15 AND actTotalBnb90Ex60Buy <= 0.12 AND famousFollowSlotMaxWallets <= 8 AND notoriousWalletCircPct <= 30 AND (anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03) AND famousCopyWalletCircPct > 0",
       "maxExecutions": null,
       "buyPhase": "first",
@@ -305,6 +309,7 @@ const PACK_DEFINITION = {
     {
       "action": "buy",
       "priority": 17,
+      "pointType": "strongbacker_solo_dance",
       "condition": "quietSpanMs >= 60000 AND quietSurgeBuyBnb >= 0.4 AND quietSurgeSec <= 30 AND quietExitVsLaunchPct >= 0 AND quietExitVsLaunchPct <= 28.5 AND currentVsLaunchPct > 0 AND currentVsLaunchPct <= 28.5 AND quietExitBigBuyers == 1 AND quietExitLatchHoldPct > 0 AND quietExitEndWithSell == 1 AND actTotalBnb60Ex15 <= 0.05 AND quietExitOthersBuyBnb <= 0.3 AND quietSurgeSellBnb <= 0.05 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15 AND launchBundleClusterSize < 10 AND launchSellBundleClusterSize < 10 AND (launchBuyBundleWaves < 2 OR launchBuyBundleDominancePct < 30) AND cheatCrewBuyBnb == 0",
       "maxExecutions": null,
       "buyPhase": "first",
@@ -323,6 +328,7 @@ const PACK_DEFINITION = {
     {
       "action": "buy",
       "priority": 18,
+      "pointType": "famous_participation_pit",
       "condition": "tokenAgeSec >= 20 AND tokenAgeSec <= 300 AND buyVolumeBnb >= 3 AND athVsFloorPct <= 200 AND mcapFromPeakPct <= 62 AND (currentVsLaunchPct <= 28.5 OR earlyReturn < 15) AND currentVsLaunchPct <= 33.5 AND famousLifetimeBuyBnb >= 0.5 AND (max5sRisePct <= 50 OR famousEarlyBuySharePct >= 30 OR launchMinVsFloorPct < 5) AND (famousLifetimeBuyN >= 3 OR (famousLifetimeBuyN == 2 AND smartLifetimeBuyN >= 3)) AND famousFollowBlockMaxWallets <= 8 AND (famousLifetimeBuyN >= 5 OR anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03)",
       "maxExecutions": null,
       "buyPhase": "first",
@@ -341,6 +347,7 @@ const PACK_DEFINITION = {
     {
       "action": "buy",
       "priority": 19,
+      "pointType": "steady_trend_climb",
       "condition": "tokenAgeSec >= 60 AND currentVsLaunchPct >= 30 AND currentVsLaunchPct <= 80 AND priceMa60SlopePct >= 5 AND priceMa60SlopePct <= 60 AND actTotalBnb30s <= 1.9 AND athVsFloorPct < 150 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15",
       "maxExecutions": null,
       "buyPhase": "first",
@@ -359,6 +366,7 @@ const PACK_DEFINITION = {
     {
       "action": "buy",
       "priority": 20,
+      "pointType": "market_maker_rhythm_pit",
       "condition": "tokenAgeSec >= 3 AND tokenAgeSec <= 60 AND actTotalBnb >= 0.1 AND tradesPerSecSinceLaunch >= 1.5 AND blockGapLe1Pct64 >= 85 AND mcapFromPeakPct >= 30 AND (currentVsLaunchPct <= 200 OR earlyReturn <= 30)",
       "maxExecutions": null,
       "buyPhase": "first",
@@ -565,9 +573,9 @@ const PACK_DEFINITION = {
   ],
   "modules": {
     "factorCheck": "v1",
-    "cheatCheck": "v1",
-    "actFrontGate": "v1",
-    "buyPointCheck": "v1",
+    "cheatCheck": "v2",
+    "actFrontGate": "v2",
+    "buyPointCheck": "v2",
     "pointType": "v1"
   }
 };
@@ -586,7 +594,7 @@ async function main() {
     (PACK_DEFINITION.sellLegs.some((l) => (l.condition || '').includes('idleSecSinceLastSubstantialTick')) ? '在包' : '不在包') + '）'
     + ' | burstCooldown=' + (PACK_DEFINITION.burstCooldown ? JSON.stringify(PACK_DEFINITION.burstCooldown) : '(关——2026-11-22 金狗伤害临时关闭)') + ' | modules=' + mods);
   for (const [i, l] of PACK_DEFINITION.buyLegs.entries()) {
-    console.log('  📈 P' + (l.priority ?? '-') + ' cards=' + (l.cards ?? '-') + ' mt=' + ((l.signalGate && l.signalGate.maxTriggers) ?? '-') + ': ' + (l.condition || '').slice(0, 72));
+    console.log('  📈 P' + (l.priority ?? '-') + (l.pointType ? '→' + l.pointType : '') + ' cards=' + (l.cards ?? '-') + ' mt=' + ((l.signalGate && l.signalGate.maxTriggers) ?? '-') + ': ' + (l.condition || '').slice(0, 72));
   }
   for (const [i, l] of PACK_DEFINITION.sellLegs.entries()) {
     console.log('  📉 P' + (l.priority ?? '-') + ' cards=' + (l.cards ?? '-') + ' bypass=' + (l.bypassDebounce ? 1 : 0) + ': ' + (l.condition || '').slice(0, 72));

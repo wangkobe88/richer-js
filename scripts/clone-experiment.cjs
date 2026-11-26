@@ -33,6 +33,8 @@
 //                                     [--pack <策略包名|uuid>]（旧形状基底必填；新形状=换包）
 //                                     [--mode live|virtual]（缺省=继承基底模式）
 //                                     [--executor <executorId>] | [--reuse-wallet <expId>]（mode=live 必择一）
+//                                     [--point-types <default|类型id,…>]（T242 点位类型激活：只激活列出的类型，
+//                                       须含 normal；缺省继承基底 config.pointTypes）
 //                                     [--reserve-native 0.01] [--slippage 20] [--max-gas 10] [--max-position-tokens 0]
 // 示例：
 //   node scripts/clone-experiment.cjs --src c73b62be-... --name bt-v164-xxx-36h --dry
@@ -197,7 +199,47 @@ function convertMode(cfg, baseMode, targetMode, opts) {
   return { cfg, mode, changes };
 }
 
-module.exports = { LIVE_STD_WS, LIVE_STD_TOP, ensureLiveStandardSections, convertMode, stripPackOwnedKeys, applyPackReference };
+/** T242 点位类型激活覆盖（纯函数，单测覆盖；2026-11-26 用户指令「将 pointType 的开关
+ * 激活改为实验层面可配置项」）。实验 config.pointTypes.active = {类型 id: 布尔} 逐类型
+ * 覆盖注册表 active 缺省（引擎 _resolveStrategyPack 解析；未激活类型的专属触发腿
+ * 〔携带 pointType 绑定的买腿〕不组装）。
+ *  spec = 'default'      → 剥 cfg.pointTypes（回落注册表缺省；克隆基底带覆盖段时可用来还原）
+ *  spec = 'a,b,…'        → 「只激活这些类型」：写全注册表类型布尔表——列出的 true、
+ *                          未列出的显式 false（含注册表当前 active:true 者）
+ *  fail-fast：未知类型 id / 漏 normal 兜底 / 空串 → throw。
+ *  返回写入的 active 表（default 返回 null）。 */
+function applyPointTypes(cfg, spec, changes) {
+  const { POINT_TYPES } = require('../src/market-analysis/point-type-router');
+  const ids = POINT_TYPES.map((t) => t.id);
+  if (spec === 'default') {
+    if ('pointTypes' in cfg) {
+      delete cfg.pointTypes;
+      changes.push('剥 config.pointTypes（点位类型激活回落注册表缺省）');
+    }
+    return null;
+  }
+  const list = [...new Set(String(spec).split(',').map((s) => s.trim()).filter(Boolean))];
+  if (list.length === 0) {
+    throw new Error('--point-types 须为 default 或逗号分隔的类型 id（可用：' + ids.join('/') + '）');
+  }
+  const unknown = list.filter((id) => !ids.includes(id));
+  if (unknown.length) {
+    throw new Error('--point-types 未知类型 ' + unknown.join('/') + '（可用：' + ids.join('/') + '）');
+  }
+  if (!list.includes('normal')) {
+    throw new Error('--point-types 必须包含 normal 兜底类型——未命中任何类型的信号恒走 normal，不列只丢分类留痕');
+  }
+  const active = {};
+  for (const id of ids) active[id] = list.includes(id);
+  cfg.pointTypes = { active };
+  changes.push('config.pointTypes.active=' + JSON.stringify(active));
+  return active;
+}
+
+module.exports = {
+  LIVE_STD_WS, LIVE_STD_TOP, ensureLiveStandardSections, convertMode, stripPackOwnedKeys, applyPackReference,
+  applyPointTypes,
+};
 
 async function main() {
   const { dbManager } = require('../src/services/dbManager');
@@ -207,6 +249,7 @@ async function main() {
   const dry = process.argv.includes('--dry');
   const packArg = arg('pack');
   const modeArg = arg('mode');
+  const pointTypesArg = arg('point-types');
   const executorId = arg('executor');
   const reuseWalletExp = arg('reuse-wallet');
   if (process.argv.includes('--no-gates')) {
@@ -216,6 +259,7 @@ async function main() {
   if (!src || !name) {
     console.error('用法: --src <expId> --name <名> [--desc ..] [--dry] [--pack <策略包名|uuid>]\n' +
       '                       [--mode live|virtual] [--executor <executorId> | --reuse-wallet <expId>]\n' +
+      '                       [--point-types <default|类型id,…>]（T242 点位类型激活：只激活列出的类型，须含 normal）\n' +
       '                       [--reserve-native N] [--slippage N] [--max-gas N] [--max-position-tokens N]');
     process.exit(1);
   }
@@ -262,6 +306,9 @@ async function main() {
   // ── T202 归包键剥离 + 策略包引用转换（旧形状必须 --pack，纯函数抛错 fail-fast）──
   stripPackOwnedKeys(cfg, changes);
   const packRef = applyPackReference(cfg, packId, changes);
+
+  // ── T242 点位类型激活覆盖（--point-types；纯函数抛错 fail-fast）──
+  const pointTypesActive = pointTypesArg !== undefined ? applyPointTypes(cfg, pointTypesArg, changes) : null;
 
   // ── 钱包/live 参数解析（DB/文件读取在 main；形状照抄 web-server live 创建段）──
   let wallet = null;
@@ -340,11 +387,37 @@ async function main() {
     console.log('引用策略包: ' + lib.name + ' v' + lib.version + ' | 买' + ((def.buyLegs || []).length) + '/卖' + ((def.sellLegs || []).length) + ' 腿' +
       ' | stallClose=' + (def.stallClose ? 'on' : 'off') + ' burstCooldown=' + (def.burstCooldown != null ? 'on' : 'off') +
       ' | modules=' + mods);
+    // T242：点位类型激活覆盖依赖包的 modules.pointType——覆盖段在场而包未启用 = 引擎拒启，
+    // 克隆阶段先行拦（不出拒启产物）
+    if (cfg.pointTypes !== undefined && cfg.pointTypes !== null
+      && !(def.modules && typeof def.modules === 'object' && def.modules.pointType != null)) {
+      throw new Error('产物 config.pointTypes 在场但引用策略包 ' + lib.name + ' v' + lib.version
+        + ' 未启用 modules.pointType——点位类型激活覆盖无消费点（换启用 pointType 的包，或 --point-types default 剥除）');
+    }
+    // 覆盖段形状（含基底继承来的陈旧类型 id）走引擎同口径校验——脏段在克隆阶段就拦
+    if (cfg.pointTypes !== undefined && cfg.pointTypes !== null) {
+      require('../src/market-analysis/point-type-router').resolvePointTypeOverride(cfg.pointTypes);
+    }
+    // T242 可观测性：覆盖段停用了类型但引用包买腿无任何 pointType 绑定 → 停用只影响分类，
+    // 专属触发腿照常触发（信号改道 normal）——如实提示，不替用户改包
+    if (cfg.pointTypes && cfg.pointTypes.active) {
+      const offIds = Object.keys(cfg.pointTypes.active).filter((k) => cfg.pointTypes.active[k] === false && k !== 'normal');
+      const bound = (def.buyLegs || []).filter((l) => l && typeof l === 'object' && typeof l.pointType === 'string').map((l) => 'P' + l.priority);
+      const offBound = (def.buyLegs || []).filter((l) => l && offIds.includes(l.pointType)).map((l) => 'P' + l.priority);
+      console.log('专属触发腿绑定: ' + (bound.length ? bound.join('/') : '（引用包买腿无 pointType 绑定）')
+        + (offIds.length ? ' | 因未激活而不组装: ' + (offBound.join('/') || '无') : ''));
+    }
   }
 
   console.log('基底:', e.experiment_name, '| mode:', baseMode + (modeArg ? ' → ' + mode : ''), '| platform:', cfg.platform);
   console.log('窗口:', cfg.backtest ? cfg.backtest.startTime + ' ~ ' + cfg.backtest.endTime : '(非回测)');
   console.log('策略: strategyId=' + cfg.strategyId + (packRef.isLegacy ? '（旧形状转换）' : ''));
+  if (cfg.pointTypes && cfg.pointTypes.active) {
+    const on = Object.keys(cfg.pointTypes.active).filter((k) => cfg.pointTypes.active[k] === true);
+    const off = Object.keys(cfg.pointTypes.active).filter((k) => cfg.pointTypes.active[k] === false);
+    console.log('点位类型激活（实验级覆盖' + (pointTypesActive ? '' : '：继承基底') + '）: 激活 ' + on.join('/')
+      + ' | 未激活 ' + (off.join('/') || '无'));
+  }
   console.log('修正 ' + changes.length + ' 处' + (changes.length ? '：\n  - ' + changes.join('\n  - ') : '（零改动）'));
 
   if (mode === 'live') {
