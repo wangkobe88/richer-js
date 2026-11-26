@@ -44,9 +44,10 @@ function makeMockDb(opts = {}) {
       c.insert = async (rows) => {
         await gate();
         insertCalls++;
-        const fail = opts.failNthInsert && insertCalls === opts.failNthInsert;
+        const fail = (opts.failNthInsert && insertCalls === opts.failNthInsert)
+          || (opts.failInsertIf ? opts.failInsertIf(rows) : false);
         if (!fail) writes.push({ table, op: 'insert', rows });
-        return { error: fail ? { message: 'batch rejected' } : null };
+        return { error: fail ? { message: 'value too long for type character varying(50)' } : null };
       };
       c.upsert = async (rows) => {
         await gate();
@@ -210,6 +211,25 @@ const sig = (id, metadata = {}) => ({ id, experiment_id: 'exp', metadata });
     const upd = db.writes.find(w => w.op === 'update');
     assert('update metadata 原样发（不与已落库 insert 合并——与旧版行为 bit 一致）',
       upd?.payload?.metadata?.late === 1 && upd?.payload?.metadata?.price === undefined);
+  }
+
+  // ═══ I 单条也失败：坏行被丢 + 日志点名超 50 字符列（T242 对比时发现 trades 行静默丢失） ═══
+  {
+    console.log('\n[I] 批插与单条都失败：坏行丢弃、好行照常落库、错误日志点名超长列');
+    const errs = [];
+    const capLogger = { info() {}, warn() {}, error: (id, tag, msg) => errs.push(msg) };
+    // 含 reason 超 50 字符的行 → 批插与单条都拒（模拟 varchar(50) 溢出）
+    const db = makeMockDb({ failInsertIf: (rows) => rows.some(r => r.reason && r.reason.length > 50) });
+    const wb = new BacktestWriteBuffer(db, capLogger);
+    wb.addTradeInsert({ id: 't-good', experiment_id: 'exp', reason: 'ok' });
+    wb.addTradeInsert({ id: 't-bad', experiment_id: 'exp', reason: 'x'.repeat(110) });
+    const st = await wb.flush('exp');
+    assert('好行落库 / 坏行丢弃（不计入 inserted）', st.tradesInserted === 1
+      && db.writes.filter(w => w.table === 'trades').length === 1
+      && db.writes.find(w => w.table === 'trades').rows[0].id === 't-good', `tradesInserted=${st.tradesInserted}`);
+    assert('错误日志点名超 50 字符列与长度', errs.some(m => m.includes('单条插入 trades 失败')
+      && m.includes('id=t-bad') && m.includes('超 50 字符列: reason(110)')), JSON.stringify(errs));
+    assert('好行的单条 insert 无错误日志（点名只落在坏行）', !errs.some(m => m.includes('id=t-good')));
   }
 
   console.log('\n══════════════════════════════');

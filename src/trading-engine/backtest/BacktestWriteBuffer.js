@@ -293,8 +293,14 @@ class BacktestWriteBuffer {
             .insert([record]);
           if (singleError) {
             if (this._logger) {
+              // 诊断（T242 对比时发现）：trades 多列 varchar(50)，批内个别行超长 → 整批回退逐条后
+              // 该行被丢；日志列出超 50 字符的字符串列，否则无从得知丢的是哪列哪行
+              const longCols = Object.entries(record || {})
+                .filter(([, v]) => typeof v === 'string' && v.length > 50)
+                .map(([k, v]) => `${k}(${v.length})`);
               this._logger.error(experimentId, 'BacktestWriteBuffer',
-                `单条插入 ${table} 失败: ${singleError.message}, id=${record.id}`);
+                `单条插入 ${table} 失败: ${singleError.message}, id=${record.id}`
+                + (longCols.length ? ` | 超 50 字符列: ${longCols.join(' ')}` : ''));
             }
           } else {
             inserted++;
