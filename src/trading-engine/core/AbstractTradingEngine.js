@@ -1955,6 +1955,8 @@ class AbstractTradingEngine extends ITradingEngine {
             model: res.model ?? null, usage: res.usage ?? null,
             // T193 参与者画像观察键（additive；灰度关/回测=缺省不序列化）
             ...(res.participantProfile ? { participantProfile: res.participantProfile } : {}),
+            // 因子代判据留痕（BPF2 crash 形态复核：分支 + 判据数值；Jev 代无此键=形状不变）
+            ...(res.factorTrace ? { factorTrace: res.factorTrace } : {}),
           };
           this.logger.info(this._experimentId, 'SignalGate',
             `BP 门${pass ? '放行' : '拒买'} | ${token.symbol || tokenAddress.slice(0, 10)} assessment=${bucket}（pass=[${passLevels.join('/')}]）`);

@@ -3,7 +3,7 @@
  * 门链因子应答器单测（Jev 退役·因子代，2026-11-25 用户裁定）——零 DB 零网络
  *
  * 覆盖：
- *   A. 版本常量与来源标记（CF1 / AF2 / BPF1；model='factor@<版本>'）
+ *   A. 版本常量与来源标记（CF1 / AF2 / BPF2；model='factor@<版本>'）
  *   B. AF 因子判定（精简代）：不判档不拒，分流照走 cheat 门（mid_full），不落
  *      reject_* / fail_open
  *   C. cheat 因子判定（精简代）：恒 healthy、全键 null（未评估≠none 不冒充）；
@@ -100,6 +100,25 @@ const stuffingTicks = Array.from({ length: 9 }, (_, i) => row(10 + i, 'buy', 0.1
 /** 正常形状：10 笔金额各异（无同块等额簇） */
 const normalTicks = Array.from({ length: 10 }, (_, i) => row(10 + i, i % 3 === 2 ? 'sell' : 'buy', 0.03 + i * 0.037, { wallet: 200 + i }));
 const thinTicks = normalTicks.slice(0, 3); // < minTicks 6
+const prow = (i, side, bnb, price, o = {}) => ({ ...row(i, side, bnb, o), price_bnb: price });
+/** BPF2 crash 形态复核命中形状：0~12s 买单拉到 1.40e-8 → 14s 起只有卖单、价格逐笔走低到
+ *  1.00e-8（锚=末笔卖：较窗高 −28.6%=提示臂①、5s 动量 −11.9%=未反弹、尾 10s 买 0 卖 8 笔） */
+const crashFormTicks = [
+  ...[0, 2, 4, 6, 8, 10, 12].map((i, k) => prow(i, 'buy', 0.1, (1.0 + k * 0.0667) * 1e-8, { wallet: 300 + k })),
+  ...[[14, 1.30], [16, 1.26], [18, 1.22], [20, 1.18], [21, 1.135], [22, 1.11], [23, 1.085], [24, 1.055], [25, 1.03], [26, 1.00]]
+    .map(([i, p], k) => prow(i, 'sell', 0.08, p * 1e-8, { wallet: 400 + k })),
+];
+/** 同上但尾 10s 出现一笔买（t=25）= 有换手 → 放行 */
+const crashFormTurnoverTicks = crashFormTicks.filter((t) => !String(t.block_time).endsWith('25.000Z'))
+  .concat([prow(25, 'buy', 0.05, 1.03e-8, { wallet: 500 })]).sort((a, b) => new Date(a.block_time) - new Date(b.block_time));
+/** 同上但末三笔回升（1.06 → 1.10 → 1.125）= 有回调 → 放行 */
+const crashFormReboundTicks = crashFormTicks.map((t) => {
+  const m = String(t.block_time).slice(17, 19);
+  if (m === '24') return { ...t, price_bnb: 1.06e-8 };
+  if (m === '25') return { ...t, price_bnb: 1.10e-8 };
+  if (m === '26') return { ...t, price_bnb: 1.125e-8 };
+  return t;
+});
 const memPull = (ticksAsc) => async () => ({ rows: ticksAsc, anchorTickCount: ticksAsc.length, capped: false });
 const META = { symbol: 'TST', name: 'Test', platform: 'flap', createdAtMs: T0, totalSupply: 1e9, creatorAddress: w(9) };
 
@@ -110,7 +129,7 @@ const SILENT = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {
 (async () => {
 
 console.log('A. 版本常量与来源标记');
-check('A1 三版本常量', [FR.CHEAT_FACTOR_VERSION, FR.ACT_FRONT_FACTOR_VERSION, FR.BUY_POINT_FACTOR_VERSION], ['CF1', 'AF2', 'BPF1']);
+check('A1 三版本常量', [FR.CHEAT_FACTOR_VERSION, FR.ACT_FRONT_FACTOR_VERSION, FR.BUY_POINT_FACTOR_VERSION], ['CF1', 'AF2', 'BPF2']);
 check('A2 model 标记', [FR.factorModel('CF1'), FR.factorModel(FR.ACT_FRONT_FACTOR_VERSION)], ['factor@CF1', 'factor@AF2']);
 
 console.log('\nB. AF 因子判定（精简代）');
@@ -154,12 +173,13 @@ check('C12 锚原值透传（投影白名单键挑出；routerEntryBuyPct 只供
   [null, 30, null]);
 check('C13 cheatFactorLevels 精简代恒空', FR.cheatFactorLevels({ derived: { routerEntryBuyPct: 0 } }), {});
 
-console.log('\nD. BP 因子答案（精简代）');
+console.log('\nD. BP 因子答案（BPF2：crash 形态复核因子臂 + 其余维度缺席）');
 const bp = FR.answerBuyPointQuestions();
-check('D1 维度全缺席', bp, { answers: {}, model: 'factor@BPF1', usage: null });
+check('D1 无快照：维度全缺席 + 判据留痕（no_snapshot）', [bp.answers, bp.model, bp.usage, bp.factor.crashForm.hit, bp.factor.crashForm.branch],
+  [{}, 'factor@BPF2', null, false, 'no_snapshot']);
 const REF_DIMS = bpMapper.buildBuyPointObservation({}, {}).dimensions; // Jev 代 mapper 对空答案的产物=维度键集参照
 const dims = bpMapper.buildBuyPointObservation(bp.answers, { exactEqualBlockMaxWallets: 3 }).dimensions;
-check('D2 维度键集与 Jev 代 mapper 同构、值全 null', [Object.keys(dims), Object.values(dims).every((v) => v === null)],
+check('D2 维度键集与 Jev 代 mapper 同构、未命中时值全 null', [Object.keys(dims), Object.values(dims).every((v) => v === null)],
   [Object.keys(REF_DIMS), true]);
 check('D2b 维度题逐题容缺（维度键含已退役 price_trend / price_level——形状兼容键，Jev 代同）', Object.keys(dims).sort(),
   ['entry_shape', 'holder_concentration', 'market_pattern', 'price_level', 'price_trend']);
@@ -169,9 +189,68 @@ check('D4 塞单门线下放行（7 钱包）', bpMapper.buildBuyPointObservatio
   { bucket: 'neutral', prob: null, rule: 'gates_passed' });
 check('D5 塞单锚缺席容缺放行', bpMapper.buildBuyPointObservation(bp.answers, {}).assessment.rule, 'gates_passed');
 
+console.log('\nD6. crash 形态复核 judgeCrashForm（BPF2）——真值表 / 边界 / 研究集反例');
+{
+  // 基底 = 研究集命中形状：提示臂①深跌 ∧ 仍在线性下行 ∧ 尾 10s 买归零卖未停 ∧ 锚在场
+  const base = (o = {}) => ({
+    chg5Pct: -4.6, chg10Pct: -4.6, chg30Pct: 9.7, currentVsAthPct: -24.4, nearMaxDn5Pct: -25.5, curVsMinGapPct: 10.9,
+    recentDip5Pct: -10.6, activity: { nearTail10BuyN: 0, nearTail10SellBnb: 0.11 }, ...o,
+  });
+  const act = (o) => base({ activity: { nearTail10BuyN: 0, nearTail10SellBnb: 0.11, ...o } });
+  const hit = (bd) => FR.judgeCrashForm(bd).hit;
+  const br = (bd) => FR.judgeCrashForm(bd).branch;
+  check('D6-1 全条件成立 → hit / crash_form', [hit(base()), br(base())], [true, 'crash_form']);
+  check('D6-2 提示臂四选一各自单独成立', [
+    hit(base({ currentVsAthPct: -25.01, chg30Pct: 9.7, nearMaxDn5Pct: -5, curVsMinGapPct: 30 })),
+    hit(base({ currentVsAthPct: -8, chg30Pct: -25.01, nearMaxDn5Pct: -5, curVsMinGapPct: 30 })),
+    hit(base({ currentVsAthPct: -8, chg30Pct: 9.7, nearMaxDn5Pct: -15.01, curVsMinGapPct: 30 })),
+    hit(base({ currentVsAthPct: -8, chg30Pct: 9.7, nearMaxDn5Pct: -5, curVsMinGapPct: 2 })),
+  ], [true, true, true, true]);
+  check('D6-3 提示臂四臂全不中 → no_hint（火星酱形状：仅缓跌、离低点 5 个点）',
+    [hit(base({ currentVsAthPct: -7.6, chg30Pct: -7.6, nearMaxDn5Pct: -12, curVsMinGapPct: 5 })), br(base({ currentVsAthPct: -7.6, chg30Pct: -7.6, nearMaxDn5Pct: -12, curVsMinGapPct: 5 }))],
+    [false, 'no_hint']);
+  check('D6-4 提示臂边界：恰在线上不中（≤ 严格含线：-25 / -25 / -15 / 2 恰值命中，线外 0.01 不中）', [
+    hit(base({ chg30Pct: -25, currentVsAthPct: -24.99, nearMaxDn5Pct: -14.99, curVsMinGapPct: 2.01 })),
+    hit(base({ chg30Pct: -24.99, currentVsAthPct: -24.99, nearMaxDn5Pct: -14.99, curVsMinGapPct: 2.01 })),
+    hit(base({ currentVsAthPct: -25, chg30Pct: -24.99, nearMaxDn5Pct: -14.99, curVsMinGapPct: 2.01 })),
+    hit(base({ nearMaxDn5Pct: -15, currentVsAthPct: -24.99, chg30Pct: -24.99, curVsMinGapPct: 2.01 })),
+    hit(base({ curVsMinGapPct: 2, currentVsAthPct: -24.99, chg30Pct: -24.99, nearMaxDn5Pct: -14.99 })),
+  ], [true, false, true, true, true]);
+  check('D6-5 提示臂键缺席容缺：其余臂仍可命中；四键全 null → no_hint', [
+    hit(base({ currentVsAthPct: null, chg30Pct: null, curVsMinGapPct: null })),
+    br(base({ currentVsAthPct: null, chg30Pct: null, nearMaxDn5Pct: null, curVsMinGapPct: null })),
+  ], [true, 'no_hint']);
+  check('D6-6 有回调 → 放行（chg5 恰 -1.5 仍命中；-1.49 起判反弹）', [
+    hit(base({ chg5Pct: -1.5 })), br(base({ chg5Pct: -1.49 })), br(base({ chg5Pct: 0 })), br(base({ chg5Pct: 6.4 })),
+  ], [true, 'rebounding', 'rebounding', 'rebounding']);
+  check('D6-7 有换手 → 放行（尾 10s 买 1 笔即算买方在场，哪怕是尘埃单）', [hit(act({ nearTail10BuyN: 1 })), br(act({ nearTail10BuyN: 3 }))],
+    [false, 'turnover_present']);
+  check('D6-8 卖单已停 → 放行（买归零卖也归零 = 量能枯竭平静，非单边下跌）', [hit(act({ nearTail10SellBnb: 0 })), br(act({ nearTail10SellBnb: 0 }))],
+    [false, 'no_sell']);
+  check('D6-9 锚缺席不判（题面反锚①「判缺不猜」）——四个关键锚任一 null 即 anchors_missing', [
+    br(base({ recentDip5Pct: null })), br(base({ chg5Pct: null })), br(act({ nearTail10BuyN: null })), br(act({ nearTail10SellBnb: null })), br(null),
+  ], ['anchors_missing', 'anchors_missing', 'anchors_missing', 'anchors_missing', 'no_snapshot']);
+  // 研究集（BP69 时代 380 个 Jev 标签信号重放，2026-11-26）反例锚：锚缺失面含金狗 쿠우타（+55%）
+  check('D6-10 研究集反例：金狗 쿠우塔形状（尾 10 买 0、仍跌，但 recentDip5 缺席）→ 不判', hit(base({ chg5Pct: -4, recentDip5Pct: null, nearMaxDn5Pct: null })), false);
+  check('D6-11 线值常量导出（改线必同步本断言）', [
+    FR.CRASHFORM_VS_ATH_MAX, FR.CRASHFORM_CHG30_MAX, FR.CRASHFORM_NEAR_DN5_MAX, FR.CRASHFORM_MIN_GAP_MAX, FR.CRASHFORM_CHG5_MAX, FR.CRASHFORM_TAIL_BUY_N_MAX,
+  ], [-25, -25, -15, 2, -1.5, 0]);
+  // 门链接力：命中 → entry_shape=crash → mapper entry_gate 拒；塞单门仍在其前
+  const aHit = FR.answerBuyPointQuestions({ buyDerived: base() });
+  const oHit = bpMapper.buildBuyPointObservation(aHit.answers, { exactEqualBlockMaxWallets: 0 });
+  check('D6-12 命中 → answers.entry_shape=crash(1) → mapper poor/entry_gate', [aHit.answers, aHit.model, oHit.assessment, oHit.dimensions.entry_shape, aHit.factor.crashForm.branch],
+    [{ entry_shape: { type: 'choice', choice: 'crash', probabilities: { crash: 1 } } }, 'factor@BPF2', { bucket: 'poor', prob: 1, rule: 'entry_gate' }, { bucket: 'crash', prob: 1 }, 'crash_form']);
+  check('D6-13 塞单门先于形态门（两者同中 → rule=stuffing_gate）',
+    bpMapper.buildBuyPointObservation(aHit.answers, { exactEqualBlockMaxWallets: 9 }).assessment, { bucket: 'poor', prob: null, rule: 'stuffing_gate' });
+  const aMiss = FR.answerBuyPointQuestions({ buyDerived: act({ nearTail10BuyN: 2 }) });
+  check('D6-14 未命中 → answers 空、留痕带放行分支', [aMiss.answers, aMiss.factor.crashForm.branch, Object.keys(aMiss.factor)], [{}, 'turnover_present', ['crashForm']]);
+  check('D6-15 判据数值随 trace 透出（信号页展示用）', FR.judgeCrashForm(base()).trace,
+    { chg5Pct: -4.6, chg30Pct: 9.7, currentVsAthPct: -24.4, nearMaxDn5Pct: -25.5, curVsMinGapPct: 10.9, recentDip5Pct: -10.6, nearTail10BuyN: 0, nearTail10SellBnb: 0.11 });
+}
+
 console.log('\nE. module-registry');
 const resolved = await registry.resolveModules({ factorCheck: 'v1', cheatCheck: 'v2', actFrontGate: 'v2', buyPointCheck: 'v2', pointType: 'v1' });
-check('E1 因子代键解析到因子版本', [resolved.cheatCheck, resolved.actFrontGate, resolved.buyPointCheck], ['CF1', 'AF2', 'BPF1']);
+check('E1 因子代键解析到因子版本', [resolved.cheatCheck, resolved.actFrontGate, resolved.buyPointCheck], ['CF1', 'AF2', 'BPF2']);
 const listed = registry.listModuleVersions();
 check('E2 三模块恰两代（v1 Jev / v2 因子）', [listed.cheatCheck, listed.actFrontGate, listed.buyPointCheck],
   [['v1', 'v2'], ['v1', 'v2'], ['v1', 'v2']]);
@@ -292,7 +371,10 @@ console.log('\nF. service 因子模式');
   const n = mkBp(normalTicks);
   const n1 = await n.svcBp.gateBuyPoint('0xtok', META, { signalId: 'sig-1' }, { awaitMs: 3000 });
   check('F10 正常形状 → assessed neutral/gates_passed + model', { s: n1.status, a: n1.assessment, m: n1.model, u: n1.usage },
-    { s: 'assessed', a: { bucket: 'neutral', prob: null, rule: 'gates_passed' }, m: 'factor@BPF1', u: null });
+    { s: 'assessed', a: { bucket: 'neutral', prob: null, rule: 'gates_passed' }, m: 'factor@BPF2', u: null });
+  // normalTicks 单调上涨、末 30s 内无任何 5s 内下跌 → recentDip5 缺席 → anchors_missing 放行
+  //（recentDip5 = 末 30s 内最深 5s 跌幅；稀疏 tick / 不跌的盘面天然缺席=「锚缺失不判」的放行面）
+  check('F10 判据留痕透出（未命中=放行分支；无 5s 内下跌 → recentDip5 缺席）', [n1.factorTrace && n1.factorTrace.crashForm.branch, n1.factorTrace.crashForm.hit], ['anchors_missing', false]);
   check('F10 dimensions 键集与 mapper 同构、值全 null', [Object.keys(n1.dimensions), Object.values(n1.dimensions).every((v) => v === null)],
     [Object.keys(REF_DIMS), true]);
   check('F10 anchors 照常产出（研究原料不丢；无同块等额簇=0 有证据零值）', [n1.anchors.exactEqualBlockMaxWallets, n1.anchors.tokenAgeSec], [0, 19]);
@@ -304,18 +386,34 @@ console.log('\nF. service 因子模式');
   const t = mkBp(thinTicks);
   check('F10 minTicks 预门保留（BP10 数据不够就挡住）', await t.svcBp.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 }),
     { status: 'insufficient_ticks', anchorTickCount: 3 });
-  // 落行：persist=true 下写 buy_point_analyses，版本域 BPF1，jev_prompt=null，model 标因子
+  // 落行：persist=true 下写 buy_point_analyses，版本域 BPF2，jev_prompt=null，model 标因子
   const p = mkBp(normalTicks, { persist: true });
   await p.svcBp.gateBuyPoint('0xtok', META, { signalId: 'sig-9', experimentId: 'exp-1' }, {});
   const rowP = p.d.st.inserts[0];
-  check('F10 落行版本域 BPF1 + 答案来源标因子 + 无 jev_prompt', rowP && { qv: rowP.question_version, model: rowP.answers_raw && rowP.answers_raw.model, jp: rowP.jev_prompt, sid: rowP.signal_id },
-    { qv: 'BPF1', model: 'factor@BPF1', jp: null, sid: 'sig-9' });
-  check('F10 _version 因子代独立', [p.svcBp._version, new BuyPointCheckService({ enabled: true }, SILENT, { arbBotWallets: new Set() })._version], ['BPF1', null]);
+  check('F10 落行版本域 BPF2 + 答案来源标因子 + 无 jev_prompt', rowP && { qv: rowP.question_version, model: rowP.answers_raw && rowP.answers_raw.model, jp: rowP.jev_prompt, sid: rowP.signal_id },
+    { qv: 'BPF2', model: 'factor@BPF2', jp: null, sid: 'sig-9' });
+  check('F10 _version 因子代独立', [p.svcBp._version, new BuyPointCheckService({ enabled: true }, SILENT, { arbBotWallets: new Set() })._version], ['BPF2', null]);
   check('F10 缺省 factorMode=false', new BuyPointCheckService({ enabled: true }, SILENT, { dbClient: mkDb({}).client, arbBotWallets: new Set() }).factorMode, false);
   const st = mkBp(stuffingTicks, { persist: true });
   await st.svcBp.gateBuyPoint('0xtok', META, {}, {});
   await st.svcBp.gateBuyPoint('0xtok', META, {}, {});
   check('F10 无粘滞：同票二连各判一次各落一行（BP 本无终态，Jev 代同语义）', [st.svcBp.stats.factorAnswered, st.d.st.inserts.length], [2, 2]);
+
+  // F11 BPF2 crash 形态复核：service 全链（真快照 → 判定 → mapper 门链）
+  const cf = mkBp(crashFormTicks);
+  const cf1 = await cf.svcBp.gateBuyPoint('0xtok', META, { signalId: 'sig-cf' }, { awaitMs: 3000 });
+  check('F11 缓跌无承接形状 → poor/entry_gate + entry_shape=crash', { s: cf1.status, a: cf1.assessment, es: cf1.dimensions.entry_shape, m: cf1.model },
+    { s: 'assessed', a: { bucket: 'poor', prob: 1, rule: 'entry_gate' }, es: { bucket: 'crash', prob: 1 }, m: 'factor@BPF2' });
+  // 数值手算：chg5=1.00/1.135−1；chg30=窗长 26s 无 30s 前价 → 回落首价=0；vsAth=1.00/1.4002−1；
+  // 近段最深 5s 跌幅=t20(1.18)→t25(1.03)；尾 10s=(16,26] 卖 8 笔×0.08
+  check('F11 判据留痕：分支 + 关键数值', { br: cf1.factorTrace.crashForm.branch, tr: cf1.factorTrace.crashForm.trace },
+    { br: 'crash_form', tr: { chg5Pct: -11.89, chg30Pct: 0, currentVsAthPct: -28.58, nearMaxDn5Pct: -12.71, curVsMinGapPct: 0, recentDip5Pct: -12.71, nearTail10BuyN: 0, nearTail10SellBnb: 0.64 } });
+  const cfT = mkBp(crashFormTurnoverTicks);
+  const cfT1 = await cfT.svcBp.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+  check('F11 尾 10s 有一笔买（有换手）→ 放行 neutral', [cfT1.assessment.rule, cfT1.factorTrace.crashForm.branch], ['gates_passed', 'turnover_present']);
+  const cfR = mkBp(crashFormReboundTicks);
+  const cfR1 = await cfR.svcBp.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
+  check('F11 末段回升（有回调）→ 放行 neutral', [cfR1.assessment.rule, ['rebounding', 'no_hint'].includes(cfR1.factorTrace.crashForm.branch)], ['gates_passed', true]);
 }
 
 console.log('\nG. 引擎挂点集成 + 接线源码锁');
@@ -338,7 +436,7 @@ console.log('\nG. 引擎挂点集成 + 接线源码锁');
     return { eng, metas, statuses };
   };
   const TOKEN = { token: '0xtok', symbol: 'TST', name: 'Test', platform: 'flap', createdAt: 1700000000, creatorAddress: null, totalSupply: 1e9 };
-  // G1 全链直通：AF2 → CF1 → BPF1
+  // G1 全链直通：AF2 → CF1 → BPF2
   const g = mkEng(normalTicks);
   const a = await g.eng._actFrontGateEvaluate('0xtok', TOKEN, {}, 'sig-1', { factorResults: {} });
   check('G1 AF 门挂点：pass / 不跳 cheat', a, { pass: true, skipCheat: false, info: { status: 'assessed', act: null, sbw: null, wash: null, path: 'mid_full', version: 'AF2', model: 'factor@AF2' } });
@@ -352,7 +450,8 @@ console.log('\nG. 引擎挂点集成 + 接线源码锁');
     [{ grade: 'healthy', unhealthyGrades: 0, blocked: false, levels: judgedRef.levels, anchors: judgedRef.anchors, strongbackerLike: 0, codeLevels: null }, true]);
   FA.clearCheatFactors('0xtok');
   const b = await g.eng._bpGateEvaluate('0xtok', TOKEN, {}, 'sig-1', { maxTriggers: 1 }, {});
-  check('G1 BP 门挂点：pass + model 来源', [b.pass, b.info.status, b.info.model, b.info.assessment, b.info.dimensions.market_pattern], [true, 'assessed', 'factor@BPF1', { bucket: 'neutral', prob: null, rule: 'gates_passed' }, null]);
+  check('G1 BP 门挂点：pass + model 来源', [b.pass, b.info.status, b.info.model, b.info.assessment, b.info.dimensions.market_pattern], [true, 'assessed', 'factor@BPF2', { bucket: 'neutral', prob: null, rule: 'gates_passed' }, null]);
+  check('G1 BP info 带判据留痕（未命中；normalTicks 无 5s 内下跌 → recentDip5 缺席放行）', ['factorTrace' in b.info, b.info.factorTrace.crashForm.branch], [true, 'anchors_missing']);
   // cheatCheck 段由引擎买路径在挂点之后写（_evaluateBuyPath：cheatGate.info → metadata）——
   // 挂点自身只返回 info；此处锁 info 形状与 Jev 代同构键集
   check('G1 挂点自带的两段 metadata（actFrontGate / buyPoint；cheatCheck 段归引擎买路径写）', g.metas.map((m) => Object.keys(m.data)[0]), ['actFrontGate', 'buyPoint']);
@@ -373,6 +472,17 @@ console.log('\nG. 引擎挂点集成 + 接线源码锁');
   const g3b = mkEng(stuffingTicks);
   const b3b = await g3b.eng._bpGateEvaluate('0xtok', TOKEN, {}, 'sig-3', { maxTriggers: 1 }, { pointTypePolicy: { buyPoint: 'stuffingOnly' } });
   check('G3b stuffingOnly policy × 塞单形状 → 拒（fail 返回不带 info，与 Jev 代同）', [b3b.pass, b3b.reason, b3b.info], [false, 'BP 门拒买（assessed: poor）', undefined]);
+  // G3c BPF2 crash 形态复核 × 引擎挂点：normal 通路（全 BP）命中 → fail-closed 拒 + metadata 留判据
+  const g3c = mkEng(crashFormTicks);
+  const b3c = await g3c.eng._bpGateEvaluate('0xtok', TOKEN, {}, 'sig-3c', { maxTriggers: 1 }, {});
+  check('G3c crash 形态命中 → BP 门拒 reason=bp_gate_assessment', [b3c.pass, b3c.reason, g3c.statuses], [false, 'BP 门拒买（assessed: poor）', [{ id: 'sig-3c', status: 'failed', reason: 'bp_gate_assessment' }]]);
+  const mdC = g3c.metas.find((m) => m.id === 'sig-3c').data.buyPoint;
+  check('G3c metadata.buyPoint：entry_shape=crash + 判据留痕 + model', { es: mdC.dimensions.entry_shape, a: mdC.assessment, br: mdC.factorTrace.crashForm.branch, buyN: mdC.factorTrace.crashForm.trace.nearTail10BuyN, m: mdC.model },
+    { es: { bucket: 'crash', prob: 1 }, a: { bucket: 'poor', prob: 1, rule: 'entry_gate' }, br: 'crash_form', buyN: 0, m: 'factor@BPF2' });
+  // G3d 全豁类型（stuffingOnly）不吃形态臂——与 Jev 代同：类型票 BP 只评塞单门
+  const g3d = mkEng(crashFormTicks);
+  const b3d = await g3d.eng._bpGateEvaluate('0xtok', TOKEN, {}, 'sig-3d', { maxTriggers: 1 }, { pointTypePolicy: { buyPoint: 'stuffingOnly' } });
+  check('G3d stuffingOnly policy × crash 形态 → 直通（类型豁免优先，形态臂不评）', [b3d.pass, b3d.info.assessment.rule], [true, 'policy_stuffing_only']);
   // G4 cheat 门 info：Jev 代返回无 model → metadata 不带键（v1 形状不变）
   const plain = g.eng._cheatGateInfo({ status: 'analyzed', grade: 'healthy', reasons: [] });
   check('G4 _cheatGateInfo：无 model 不带键（Jev 代 metadata 形状不变）', 'model' in plain, false);

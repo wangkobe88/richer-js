@@ -57,7 +57,8 @@
  * 时，引擎以 deps.factorMode 注入：维度题答案改由 factor-responders 产出，**零
  * Jev**——不加载 LLM 模块、不建 state、无竞速。链路其余部分（settle / 拉数 /
  * minTicks 预门 / 快照 / 塞单门 / mapper 门链 / 落行）与 Jev 代同一条，BPF1
- * 精简代下实际在拦的只剩纯代码的塞单门与 minTicks 预门。
+ * 精简代下实际在拦的只剩纯代码的塞单门与 minTicks 预门；BPF2 起 entry_shape 由
+ * crash 形态复核因子臂回答（factor-responders judgeCrashForm）。
  */
 
 const { buildBuyPointSnapshot } = require('./buy-point-snapshot');
@@ -458,6 +459,8 @@ class BuyPointCheckService {
         anchors: obs.anchors,
         model: res.result.model || null,
         usage: res.result.usage || null,
+        // 因子代判据留痕（BPF2：crash 形态复核的分支 + 判据数值；Jev 代无此键）
+        ...(res.result.factor ? { factorTrace: res.result.factor } : {}),
         // T193 参与者画像观察键（additive；灰度关/回测=缺省 undefined 不序列化）
         ...(participantProfile ? { participantProfile } : {}),
       };
