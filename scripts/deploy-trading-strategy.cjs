@@ -348,7 +348,7 @@ const PACK_DEFINITION = {
       "action": "buy",
       "priority": 19,
       "pointType": "steady_trend_climb",
-      "condition": "tokenAgeSec >= 60 AND currentVsLaunchPct >= 30 AND currentVsLaunchPct <= 80 AND priceMa60SlopePct >= 5 AND priceMa60SlopePct <= 60 AND actTotalBnb30s <= 1.9 AND athVsFloorPct < 150 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15",
+      "condition": "tokenAgeSec >= 60 AND currentVsLaunchPct >= 30 AND currentVsLaunchPct <= 80 AND priceMa60SlopePct >= 5 AND priceMa60SlopePct <= 60 AND actTotalBnb30s <= 1.9 AND athVsFloorPct < 150 AND actTotalBnb >= 0.1 AND tokenAgeSec >= 15 AND chg10Pct >= 0 AND chg30Pct >= 0 AND anchorTickIsBuy == 1 AND (mcapFromPeakPct <= 30 OR launchMinVsFloorPct < 0) AND (lifetimeBuyVolumeBnb <= 12 OR launchMinVsFloorPct < 0) AND (sinceLastFamousBigBuySec > 60 OR sinceLastFamousBigBuySec IS NULL) AND (quietSpanMs >= 120000 OR actTotalBnb300s >= 0.5) AND (tokenAgeSec <= 1200 OR quietSpanMs < 300000 OR maxBlockBuyCircPct < 20) AND (tradesRouterPct < 90 OR chg10Pct >= 3 OR chg30Pct >= 3) AND freshWalletHoldPct < 80",
       "maxExecutions": null,
       "buyPhase": "first",
       "signalGate": {
