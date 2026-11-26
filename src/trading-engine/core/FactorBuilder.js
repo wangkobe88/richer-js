@@ -19,8 +19,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
   if (!factorResults) {
     return {};
   }
-
-  return {
+  // 2026-11-26 用户裁定「因子有一些在 typepoint 中不使用，但是并不是不需要计算……
+  // 只要信号触发，因子是必须都计算的，这样也有利于之后进行观察」：白名单之外的全量
+  // FA 因子随信号快照透传（buildFactorMap 在 fire 时刻本就全量计算——此处只是不再
+  // 丢弃）；白名单键保持显式 null 语义（旧 FA 无键 → null 不掩盖），新增键按原值
+  // 透传（fire 时刻实算值，null=计算为 null 的证据语义由各键自身定义）
+  const explicit = {
     // 基础因子
     age: factorResults.age,
     // 秒口径年龄（= age×60 同源；2026-10-01 裁定改落快照——signals 页因子 chip 直读，
@@ -487,6 +491,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 散户入场通道份额；买 <15 笔/零买入 → null；旧 FA/历史信号无键 → null）
     cheatRouterEntryBuyPct: factorResults.cheatRouterEntryBuyPct ?? null,
   };
+  for (const [k, v] of Object.entries(factorResults)) {
+    if (!(k in explicit)) explicit[k] = v;
+  }
+  return explicit;
 }
 
 /**

@@ -349,6 +349,14 @@ console.log('J. FactorBuilder signal 快照透传（experiment_time_series_data 
   check('J3 null 输入早 return {}', () => {
     assert.deepStrictEqual(buildFactorValuesForTimeSeries(null), {});
   });
+  check('J4 全量因子透传（2026-11-26 用户裁定：fire 时刻全量 FA 因子落快照——pointType 未引用的因子也要可观察）', () => {
+    const snap = buildFactorValuesForTimeSeries({ priceMa60SlopePct: 12.5, currentVsLaunchPct: 45, cheatGrade: 0, futureKey: 'x' });
+    assert.strictEqual(snap.priceMa60SlopePct, 12.5, '非白名单键原值透传');
+    assert.strictEqual(snap.currentVsLaunchPct, 45, '非白名单键原值透传 2');
+    assert.strictEqual(snap.cheatGrade, 0, '0 值不得被丢弃（有证据零值语义）');
+    assert.strictEqual(snap.futureKey, 'x', '任意键透传（未来新因子自动可见）');
+    assert.strictEqual(snap.tokenAgeSec, null, '白名单键缺键仍 null 不掩盖');
+  });
 }
 
 // ═══════════════ K. StrategyEngine fail-fast 回归 ═══════════════

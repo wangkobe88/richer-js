@@ -234,7 +234,7 @@ console.log('\nC. 信号页渲染');
   ok('C1 分块头带门数与问题（如 参与结构 · 有没有像样的买家和主力（3 门））', h2.includes('🧩 参与结构 · 有没有像样的买家和主力（3 门）'));
   ok('C1 放行卡不显示命中类别行', !h2.includes('命中类别：'));
   const actBranchHit = render({ signalGate: sgBase, factorCheck: fc(withCat(GATES_LEGACY), { pass: false, reason: 'act_low', arms: ['act_low'], trace: { act: 'act_low_idle' } }) }, { executed: false, execution_status: 'failed', execution_reason: 'factor_gate_act_low' });
-  ok('C1 活跃度臂命中时强调行标红写分支（因子门拒行：下游段照旧显示「未启用·直通 / 未到达」——段缺席展示对两代不变）', actBranchHit.includes('因子门活跃度臂：命中 act_low_idle') && actBranchHit.includes('③ 活跃度 — 未启用·直通') && actBranchHit.includes('④ 作弊 — 未到达') && actBranchHit.includes('⑤ BP 买点 — 未到达'));
+  ok('C1 活跃度臂命中时强调行标红写分支（因子门拒行：下游段照旧显示「未到达」——段缺席展示对两代不变）', actBranchHit.includes('因子门活跃度臂：命中 act_low_idle') && actBranchHit.includes('③ 作弊 — 未到达') && actBranchHit.includes('④ BP 买点 — 未到达') && !actBranchHit.includes('③ 活跃度'));
 
   // C2 历史 BPF2 行：crash 形态复核命中拒（拦截点当时在 BP 门）
   const gates47 = withCat(allGates.filter((g) => g.id !== 'crash_form')); // FP47 时代门行无 crash_form
@@ -269,7 +269,7 @@ console.log('\nC. 信号页渲染');
   const hcf = render({ signalGate: sgBase, factorCheck: fc(gatesCf, { pass: false, reason: 'crash_form', arms: ['crash_form'], trace: { crashForm: { branch: 'crash_form', ...cfTrace } } }) },
     { executed: false, execution_status: 'failed', execution_reason: 'factor_gate_crash_form' });
   ok('C4 渲染无异常', !hcf.includes('__RENDER_ERROR__'), hcf.slice(0, 300));
-  ok('C4 流水线：② 因子检查 🚫 拒 crash_form；下游三段照旧「未到达」（段缺席展示对两代不变）；三卡全无', hcf.includes('② 因子检查 🚫 拒 crash_form') && hcf.includes('③ 活跃度 — 未启用·直通') && hcf.includes('④ 作弊 — 未到达') && hcf.includes('⑤ BP 买点 — 未到达') && cardsIn(hcf).length === 0);
+  ok('C4 流水线：② 因子检查 🚫 拒 crash_form；下游两段照旧「未到达」（段缺席展示对两代不变）；三卡全无', hcf.includes('② 因子检查 🚫 拒 crash_form') && hcf.includes('③ 作弊 — 未到达') && hcf.includes('④ BP 买点 — 未到达') && cardsIn(hcf).length === 0);
   ok('C4 门行命中：点位形态分块 🚫 命中 1，行带判据数值', hcf.includes('🧩 点位形态 · 这个买点是不是在接刀（4 门 · 🚫 命中 1）')
     && hcf.includes('FP48·crash形态（无回调无换手） 🚫') && hcf.includes('尾10s买0笔 卖0.06B'));
   ok('C4 拒因块带「因子门分类: 点位形态」', hcf.includes('因子门分类: 点位形态'));
@@ -301,13 +301,13 @@ console.log('\nC. 信号页渲染');
   ok('C6 Jev 代无代次徽章 / 无因子代文案（活跃度强调行两代一视同仁照常在）', !hjev.includes('因子代') && !hjev.includes('不判档') && hjev.includes('🌡️ 活跃度'));
   ok('C6 Jev 代原文案在位（活跃度门 / 作弊盘检测门 / BP 买入点位门 / 综合概率 / 维度题）',
     hjev.includes('前置活跃度门（第 2 层 · Jev 3 题') && hjev.includes('作弊盘检测门（第 3 层 · Jev 10 题）') && hjev.includes('BP 买入点位门（第 4 层 · Jev 3 题）')
-    && hjev.includes('综合概率 p=0.66') && hjev.includes('维度题（参考不进门链') && hjev.includes('③ 活跃度 ✅ mid·走全链') && hjev.includes('④ 作弊 ✅ healthy') && hjev.includes('⑤ BP 买点 🟡 neutral'));
+    && hjev.includes('综合概率 p=0.66') && hjev.includes('维度题（参考不进门链') && hjev.includes('mid → 照走③全链') && hjev.includes('③ 作弊 ✅ healthy') && hjev.includes('④ BP 买点 🟡 neutral'));
   ok('C6 Jev 代同样按类别分块（分类对两代一视同仁）', hjev.includes('🧩 参与结构 · ') && hjev.includes('🧩 通路 · ') && hjev.includes('BP77·同块等额塞单'));
   const hjevJ = render({
     signalGate: sgBase, factorCheck: { status: 'assessed', pass: true, version: 'FP47', trace: {}, arms: [], gates: GATES_LEGACY },
     actFrontGate: { status: 'assessed', act: 'low', sbw: 'none', wash: 'none', path: 'reject_low', version: 'AF1' },
   }, { executed: false, execution_status: 'failed', execution_reason: 'act_front_low' });
-  ok('C6b Jev 代活跃度拒：③ 拒（low）照常显示；④⑤「未到达」段照旧（段缺席展示对 Jev 代不变）', hjevJ.includes('③ 活跃度 🚫 拒（low）') && hjevJ.includes('④ 作弊 — 未到达') && hjevJ.includes('⑤ BP 买点 — 未到达'));
+  ok('C6b Jev 代活跃度拒：活跃度卡真判定照常显示；③④「未到达」段照旧（段缺席展示对 Jev 代不变）', hjevJ.includes('拒买（low ∧ 非 burst）') && hjevJ.includes('③ 作弊 — 未到达') && hjevJ.includes('④ BP 买点 — 未到达'));
 
   // C7 未登记门行：显式提示，不冒充
   const hund = render({ signalGate: sgBase, factorCheck: fc([{ id: 'zzz_new_arm', label: '门-zzz', value: 'v', line: 'l', hit: false }]), actFrontGate: AF_F, cheatCheck: CH_F, buyPoint: bpFactor(false) }, exec);
