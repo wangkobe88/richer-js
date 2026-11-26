@@ -241,8 +241,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 须首 tick 前（增量维护归属不变前提）；失败 throw 拒启（键 null=条件全拒，
     // 宁拒启不静默）。DB 一次查询与回放/订阅无前视关系（静态快照）。
     try {
-      const { loadFreshWalletWinrates } = require('../core/fresh-wallet-profiles');
-      const { dbManager } = require('../services/dbManager');
+      const { loadFreshWalletWinrates } = require('../../core/fresh-wallet-profiles');
+      const { dbManager } = require('../../services/dbManager');
       this._factorAggregator.setFreshWalletProfiles(await loadFreshWalletWinrates(dbManager.getClient()));
     } catch (e) {
       throw new Error('新钱包画像集注入失败（freshWalletHoldPct 依赖）: ' + (e && e.message));
