@@ -2593,3 +2593,40 @@ AND (anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03)  -- 反弹确认（PT9�
 **读法**：①同腿同卖腿同类型集下，因子代 normal 通路与 Jev 代**基本等价**——本窗净额 +6.5%、多买 56% 的票、单票 ROI 与胜率下降；差异四项各有正负，量级都在 ±0.3~1.0B/48h，没有稳定显著项。②Jev 的 cheat / BP 拒截是对的但量小（≈ 窗口盈亏的 4%）；低活跃拒绝拿掉的是一个「胜率 ~25%、靠右尾」的面，同窗换一组腿符号就翻——不建议为它重做因子臂（右尾不可预测），留观察。③用户原问题的答案：53d7217c 命中 1215 票 vs 45e170af 228 票，主体是主包 v17→v34 的加腿（做市节奏 / 持续趋势 / famous 参与坑，+918 票），Jev 退役只多 +84 票。
 
 **余留**：①web 创建页未加类型开关（入口只有 clone `--point-types` 与直接改 config）②w1019 的 Jev 基线仍缺③做市节奏类型三全局窗负贡献（见 T241 副产品）待用户裁定④回测写缓冲：批内个别 `trades` 行因某列超 varchar(50) 被整行丢弃（每次 4~8 行；本对比已核对成交票数与盈亏不受影响——零「卖而无买」孤儿行），本次给错误日志加了「超 50 字符列」点名，下次跑即可定位是哪列⑤Phase 4 清理未做（因子路径的竞速 / 粘滞接线、Jev v1 引擎接线保留一代）。工具留档：182 `/home/ubuntu/t241/`（`jevpath.js` 信号漏斗 + 配对 / `match305.js` 同点异点拆分 / `final305.js`·`final306.js` 差额对账 / `libstate.js` 库态 / `bpf2sum.js` crash 臂四窗）。
+
+**T241 Phase 4 因子路径清理（2026-11-26，commit 23ae1088；用户指令「因子路径里为 Jev 留的竞速、粘滞接线请清理」）**
+
+- **清理面**：①作弊门 `gateBuyPoint` 因子模式改走独立入口 `_factorGate()`——规则集键 / 拉黑秒回 / forceRecheck 翻案 / healthy 粘滞 / inflight join / awaitMs 竞速+迟到包 / 活跃度豁免出口变换一概不进（Phase 1 让因子分支同走 `_applyActivityExempt(_maybeUnblock(…))` 的「拉黑/豁免/翻案三点同构」设计撤出——那套状态机是围绕「Jev 判定是带状态的结论（终态/可翻案）」建的，因子判定是每信号现算的一次性结论，没有可拉黑/可翻案的状态）；②引擎独立挂点 `_cheatGateFactorEvaluate`：不求值 `signalGate.recheckCondition`、不 CD381 重锚、不投影 FA cheat 键（**因子代下 56 键恒 null——条件串引用须带 `IS NULL OR` 臂**）、判定拒不拉黑不清仓（per-signal，与因子门同构）；无 grade fail-open 进 BP；③AF/BP 挂点不传 Jev 入参（`awaitMs`/`anchorMs`/token meta）；BP 因子入口直接跑链（无 inflight join / awaitMs 竞速 / 超时 late 包）；④实时引擎信号链入口的拉黑双源短路整段不进因子路径；门链汇总行因子代如实标「无竞速/粘滞」。Jev 代 v1 代码原样。
+- **引擎级回归（182，同配置重跑 vs 清理前，`cmp2.js` 多重集+配对行口径）**：主包缺省激活（bt-v307 vs bt-v303）trades 2926/2926 逐笔一致、统计全同（1215 票 / −2.2758B / −0.94%）；只激活 normal（bt-v309 vs bt-v305）trades 784/784 逐笔一致（343 票 / +7.3636B / +10.73%）。信号决策字段（executed / execution_reason / factorCheck.pass·reason / pointType / AF path / cheat grade / BP rule）逐行零值差异；仅 metadata 键两侧随机各丢一些（回测写缓冲跨批丢键存量 bug：两组各 33 行 / 315 行）。⚠`compare.js` 逐行比对在同毫秒并列行上会错位（78 行并列报 12 行不一致）——多重集口径才可信；bt-v308 因 runner 漏传 `--point-types` 实为全量复跑（与 bt-v307 再逐笔一致=确定性二次确认），只激活 normal 臂改由 bt-v309 承担。
+- 单测：`_test_factor_responders` 133（F/G 段重写为 per-signal 语义 + 首版「三点同构」的事故现场反证〔注入桩判 cheat → 不登记拉黑、下一信号照常现评〕+ 引擎三挂点源码锁）；`_test_cheat_gate_engine` 181 / `_test_cheat_detection_service` 源码口径锁同步（出口变换 5→4、豁免资格子式 3→2、拉黑登记 3→2）。关联单测 81 件对 HEAD 隔离基线：21 件存量失败逐件相同、零新增。
+
+**T242 补：web 创建页「点位类型激活」开关 + 服务端入库校验（2026-11-26 用户指令「好，web 创建页加类型开关」；commit 23ae1088）**
+
+- 选包后出现开关区：注册表经 `GET /api/strategy-library/point-types`（代码注册表单一真相源；字面路由注册在 `/:id` 之前）；normal 恒勾选禁用；行上标专属腿（P16~P20）；摘要=激活数 / 因未激活而不组装的专属腿 / 是否写配置；「恢复注册表缺省」；手改后换包保留用户选择；与缺省全等不写 `config.pointTypes`。策略包信息卡模块名按代次中性化（原「Jev作弊门/AF1活跃度门」）并亮出 pointType 键。
+- 复制链：列表页复制载荷携带 `config.pointTypes`（`experiments.js`，模板版本 7.12→7.13），创建页以它为初值；源实验带覆盖而所选包未启用 pointType → 如实提示本次会丢弃。
+- 服务端创建路由：解构 `pointTypes` + `StrategyLibraryService.validateExperimentPointTypes`（形状走 `resolvePointTypeOverride` 单点 + 引用包须启用 `modules.pointType`）不过 400（与引擎拒启、克隆脚本 fail-fast 三处同口径）；实测三道 400 分支（未知类型 / 停用 normal / 未知键），探针零落库。「包未启用 pointType」分支库里没有可触发的合法包（两个无 pointType 的包都是 v16 残留、先被包校验拦），由单测覆盖。
+- **存量 bug 修复（真实 DOM 验证时发现；块由 T202 7074af18 引入、HEAD 上同样存在）**：创建页 `collectFormData` 对不存在的 ws 段取下标（`adv[k][kk]`；复制载荷从不带 `gangWs`、新建模式三个段都没有）必抛 TypeError，且 `collectFormData()` 在 try 之外——提交按钮永久卡在「创建中...」且无任何提示。即 **自 T202 起 web 创建页提交不可用**（期间的实验都经克隆脚本建）。改 `adv[k] && adv[k][kk]`，表单收集移入 try（异常也走恢复按钮+报错）。
+- 纯函数核 `src/web/static/js/point_types_picker.js`（UMD）；单测 `_test_point_types_picker` 38（初值/汇总/行模型/摘要 + 256 种勾选组合恒过引擎校验 + 与克隆 CLI `--point-types` 产物逐键一致 + 注册表接口真路由 + 入库校验 + 接线源码锁）；真实 DOM 冒烟 `scripts/tmp-create-page-point-types-smoke.cjs`（本机 Chrome headless + CDP 零依赖；创建请求页内拦截零落库；T244 起改注册表驱动）。
+
+## T243 crash 形态复核改因子门（FP48 臂 crash_form / BP 因子代 BPF3；2026-11-26 用户裁定「crash 形态复核（纯代码：无回调 + 无换手的单边下跌）没有必要做复核了吧，直接就是作为一个因子门不就好了」；commit ebcc3c69）
+
+- **改动**：`judgeCrashForm` 与六个线值常量从 `factor-responders.js` 整体迁入 `factor-pre-buy-check.js`（判据逐字不变、单一真相源），成因子门臂 `crash_form`（FP47→FP48）：提示臂四选一（vsAth≤-25 ∨ chg30≤-25 ∨ 近段 5s 跌≤-15 ∨ 贴锚窗最低≤2pt）∧ chg5≤-1.5（无回调）∧ 尾 10s 买=0（无换手）∧ 尾 10s 卖>0；挂臂链末位（前臂全放行才轮到=原 BP 位置可达的同一批形状；与更具体的臂同时命中仍报前臂码）；不进作弊类臂清单（cheatOnly 类型让位，与 crash_numeric 同约定）。BP 因子代 BPF2→BPF3：应答器不再答 entry_shape，`factorTrace` 留痕链（service 返回/引擎透传）拆除。门行「FP48·crash形态（无回调无换手）」进了复核才显示分支与判据，未进复核为 `-`。
+- **真快照探针的形状结论**（纯函数，零 DB）：尾 10s 买=0 ⟹ 尾 5s 买=0——30s 内卖单 ≥5 笔时 FP26（尾段买力枯竭，臂链更前）先认领、拒因码是 `tail_no_buyer_pressure`；crash_form 实际接手的是「稀疏卖单阴跌」（30s 内卖单 ≤4 笔、仍在下行、卖单未停）。卖单间隔 >5s 时 recentDip5 缺席 → 判据「锚缺席不判」。
+- **引擎 A/B（182，w1003 48h；迁移前=bt-v307〔BPF2，与 bt-v303 逐笔一致〕/ bt-v309〔BPF2，只激活 normal〕）**：
+
+| 配置 | 迁移前 | 迁移后（bt-v310 / bt-v311） | Δ |
+|---|---|---|---|
+| 缺省全类型 | 1215 票 胜率 27.3% −2.2758B（−0.94%） | 1218 票 27.2% −2.3008B（−0.94%） | +3 票 / −0.025B |
+| 只激活 normal | 343 票 37.9% +7.3636B（+10.73%） | 346 票 37.3% +7.3522B（+10.62%） | +3 票 / −0.011B |
+
+- **差异逐张归因**：①多买 3 张=迁移前被 BP 门 crash 形态拒的票（花奇里萌宠王 −2.4% / ㅤ −4.1% / JACKET 0%）——迁移后 crash_form 是因子门臂，拒后走 T203 fpRetry 门内重评（腿 fpRetry=2），重评 tick 上形态暂不成立（尾 10s 出现一笔买=有换手）即续跑成交；「作为因子门」的自然语义（BP 门时代无重试）。②共同票入场位移 2 张：코코몽 首信号被 crash_form 拒且 30s 内重评未过 → 60s 后下一触发才买，+5.9% → 0%（−0.012B）；JARVIS 经重评续跑路径晚 200ms 更低价买入 +0.0136B；오빠 同额晚 200ms。
+- **读法**：净效应在噪声内（缺省 −0.025B、normal-only −0.011B / 48h），臂拒面本就小（BPF2 时代 w1003 仅 15 张）。两臂做市类型都在场，但 crash_form 只对走因子门的信号生效（做市类型 policy 跳过整个因子门），与做市类型开关无交互。
+- 单测 `scripts/_test_crash_form_gate.cjs` 39（真值表自 `_test_factor_responders` D6 逐字迁入 / 臂链末位 / cheatOnly 让位 / 门行 / BPF3 不再答 / 单一真相源 / 引擎级真快照零 DB）。⚠该测试首版漏零 DB 隔离（service 缺省 `persist:true` 会去写 `buy_point_analyses`——插入因 uuid 非法失败、零落库，只多了一次小读）已改 dbClient 桩 + `persist:false` 并断言全程只经桩读。FP 版本钉同步：`_test_factor_prebuy_check` 360 / `_test_stall_restart` 78 / `_test_act_front_gate` / `_test_buy_point_check_service`。
+
+## T243b 信号页：恒放行三层不再展示（2026-11-26 用户指令「就不必再展示 🌡️ 活跃度门 / 🚨 作弊门 / 🎯 BP 买点门 了吧。如果有必要可以在因子门里头强调一下（例如活跃度）」；commit ebcc3c69）
+
+- 恒放行的层不占流水线段与明细卡：因子代 AF2（不判档）/ CF1（无拒臂）/ BPF（塞单门未命中）与类型 policy 直通（policy_pass）四类留痕只留数据不渲染；真拒买（含历史 BPF2 crash 形态拒）与 Jev 代真判定照常显示；段缺席（未到达 / 灰度关直通）展示不变。信号页脚本是并行会话也在改的共享文件——本次只提交自己的 hunk（补丁函数同时作用于工作树与 HEAD 基底，残差恰为对方未提交的 5 个 hunk）。
+- 顺带修存量显示缺口：类型 policy 直通（`factorCheck:policy_pass`）此前落进「检测层故障 fail-open」误显，流水线改标「类型直通」、不渲染因子门卡；类型 policy 的 BP 拒行标题改「BP 塞单门（类型 policy：只评塞单门）」（原写「Jev 3 题」）。
+- 因子门「活跃度流动性」分块顶部加强调行：因子门活跃度臂判定（`trace.act` 分支，命中标红）+ 触发时刻四窗成交额（T218 键 `actTotalBnb15s/30s/60s/300s`，signal metadata 顶层原值）。两代一视同仁。
+- crash_form 门行改后端自带；历史 BPF2 行仍按 `buyPoint.factorTrace` 合成（后端门行缺席时）。
+- 单测 `_test_factor_gate_categories` 60；既有五层冒烟 `scripts/tmp-signals-five-layer-smoke.cjs` 45/45 不变（首版把「未到达 / 灰色关直通」段也隐藏，被它抓到后收敛——静默只作用于「有留痕且恒放行」的层）。
