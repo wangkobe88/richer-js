@@ -236,17 +236,6 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   async _initializeDataSources() {
-    // 新钱包判定画像集注入（2026-11-26 用户裁定「无 GMGN 画像/胜率为 0 全部视为
-    // 新钱包」+「砍 ≥80% 一刀」）：gmgn_wallet_profiles 30d 快照一次性加载——
-    // 须首 tick 前（增量维护归属不变前提）；失败 throw 拒启（键 null=条件全拒，
-    // 宁拒启不静默）。DB 一次查询与回放/订阅无前视关系（静态快照）。
-    try {
-      const { loadFreshWalletWinrates } = require('../../core/fresh-wallet-profiles');
-      const { dbManager } = require('../../services/dbManager');
-      this._factorAggregator.setFreshWalletProfiles(await loadFreshWalletWinrates(dbManager.getClient()));
-    } catch (e) {
-      throw new Error('新钱包画像集注入失败（freshWalletHoldPct 依赖）: ' + (e && e.message));
-    }
     // 双平台实验（config.platform='both'）：单引擎实例 per-token 分派，两平台共用
     // 资金池/策略状态/consumer 水位；引擎级配置恒 fourmemeWs 段（见 _wsConfigSectionName）
     if (this._experiment?.config?.platform === 'both') {
@@ -577,6 +566,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       maintainClassifierTracks: (wsMerged.onlineProfile || {}).enabled === true,
       maintainTpaTracks: this._experiment?.config?.tokenPositionAnalyzer != null,
     }, this.logger);
+
+    // 新钱包判定画像集注入（2026-11-26 用户裁定「无 GMGN 画像/胜率为 0 全部视为
+    // 新钱包」+「砍 ≥80% 一刀」）：gmgn_wallet_profiles 30d 快照一次性加载——
+    // 须首 tick 前（增量维护归属不变前提）；失败 throw 拒启（键 null=条件全拒，
+    // 宁拒启不静默）。DB 一次查询与回放/订阅无前视关系（静态快照）。
+    try {
+      const { loadFreshWalletWinrates } = require('../../core/fresh-wallet-profiles');
+      const { dbManager } = require('../../services/dbManager');
+      this._factorAggregator.setFreshWalletProfiles(await loadFreshWalletWinrates(dbManager.getClient()));
+    } catch (e) {
+      throw new Error('新钱包画像集注入失败（freshWalletHoldPct 依赖）: ' + (e && e.message));
+    }
     this._factorAggregator.on('factorsUpdated', (data) => this._onFactorsUpdated(data));
     // C84 叙事触发轮参数投影（各键全传——setNarrativeFactorConfig 部分注入语义下，
     // 同进程先跑过回测（Infinity/0）再起实时引擎会继承回测值；用 FA 默认值单一

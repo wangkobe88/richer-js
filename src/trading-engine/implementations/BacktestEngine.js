@@ -294,17 +294,6 @@ class BacktestEngine extends AbstractTradingEngine {
 
   async _initializeDataSources() {
     // 1. 回测配置
-    // 新钱包判定画像集注入（2026-11-26 用户裁定「无 GMGN 画像/胜率为 0 全部视为
-    // 新钱包」+「砍 ≥80% 一刀」）：gmgn_wallet_profiles 30d 快照一次性加载——
-    // 须首 tick 前（增量维护归属不变前提）；失败 throw 拒启（键 null=条件全拒，
-    // 宁拒启不静默）。DB 一次查询与回放/订阅无前视关系（静态快照）。
-    try {
-      const { loadFreshWalletWinrates } = require('../../core/fresh-wallet-profiles');
-      const { dbManager } = require('../../services/dbManager');
-      this._factorAggregator.setFreshWalletProfiles(await loadFreshWalletWinrates(dbManager.getClient()));
-    } catch (e) {
-      throw new Error('新钱包画像集注入失败（freshWalletHoldPct 依赖）: ' + (e && e.message));
-    }
     // token 宇宙双通道（2026-11-15 用户需求「回测实验不绑定虚拟实验，只选数据时间
     // 范围」；ticks 直连后源实验只剩提供 token 集一个实质作用）：
     //   旧通道=sourceExperimentId 在场 → experiment_tokens（存量 bt-v* 照常重跑，
@@ -463,6 +452,18 @@ class BacktestEngine extends AbstractTradingEngine {
       maintainClassifierTracks: false,
       maintainTpaTracks: this._experiment?.config?.tokenPositionAnalyzer != null,
     }, this.logger);
+
+    // 新钱包判定画像集注入（2026-11-26 用户裁定「无 GMGN 画像/胜率为 0 全部视为
+    // 新钱包」+「砍 ≥80% 一刀」）：gmgn_wallet_profiles 30d 快照一次性加载——
+    // 须首 tick 前（增量维护归属不变前提）；失败 throw 拒启（键 null=条件全拒，
+    // 宁拒启不静默）。DB 一次查询与回放/订阅无前视关系（静态快照）。
+    try {
+      const { loadFreshWalletWinrates } = require('../../core/fresh-wallet-profiles');
+      const { dbManager } = require('../../services/dbManager');
+      this._factorAggregator.setFreshWalletProfiles(await loadFreshWalletWinrates(dbManager.getClient()));
+    } catch (e) {
+      throw new Error('新钱包画像集注入失败（freshWalletHoldPct 依赖）: ' + (e && e.message));
+    }
     // T157/T157b 因子卖出过滤门（2026-11-17 famous HOLD 迁移+全腿化）：回测同款
     // 接线（配置键跟随平台 ws 段——flap/gang 实验配在各自 ws 段）；缺段=关零行为；
     // 配置非法/arms 引用未知因子 throw 拒启（fail-fast，归一化+校验单点在基类）
