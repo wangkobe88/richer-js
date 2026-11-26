@@ -9,6 +9,8 @@
  *   G. T242 实验级激活：resolvePointTypeOverride 真值表+fail-fast / effectivePointTypeActive
  *      合成 / classifyPointType 带表（零行为变化锁·只激活 normal·实验级启用·阶梯回落）/
  *      assertLegPointTypeBindings 腿↔类型绑定防线 / 引擎三处消费源码锁
+ *   H. T244 活跃度三类型（activity_high/mid/burst）：排位与零行为变化（policy={}）/
+ *      线值边界 / burst 五腿 / 排序 / 形状类型优先 / 分类快照 / 实验级开关 / 随机表零行为锁
  */
 'use strict';
 const assert = require('assert');
@@ -477,6 +479,102 @@ console.log('G. T242 实验级点位类型激活（2026-11-26 用户指令「将
     assert.ok(buildBody.includes('没有配置交易策略'), '未取到 _buildStrategyConfig 方法体');
     assert.ok(/leg\.pointType && activeById\[leg\.pointType\] === false/.test(buildBody), '_buildStrategyConfig 须按有效表过滤绑定腿');
     assert.ok(/classifyPointType\(factorResults, this\._pointTypeActiveById\)/.test(src), '_classifyPointType 须传有效激活表');
+  });
+}
+console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 normal，改为因子实现后，需要拆分，活跃度高/中/burst 在当前需要对应 3 个 point Type，这样有利于分开进行优化」）');
+{
+  const R = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
+  const IDS = R.POINT_TYPES.map((t) => t.id);
+  const ACT = ['activity_high', 'activity_mid', 'activity_burst'];
+  const HIGH = { actTotalBnb30s: 1.2, actTraders: 5 };
+  const MID = { actTotalBnb30s: 0.6, actTraders: 2 };
+  const BURST = { actTotalBnb30s: 0.3, actTraders: 3, burstStallMs: 45000, burstWaveSec: 4, burstWaveBuyBnb: 0.35, burstWaveBuyN: 3, burstWaveSellBnb: 0 };
+  check('H1 版本 PT53；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
+    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT53');
+    assert.deepStrictEqual(IDS.slice(-4), [...ACT, 'normal']);
+    for (const id of ACT) assert.strictEqual(R.POINT_TYPES.find((t) => t.id === id).active, true, `${id} 须激活`);
+    assert.ok(IDS.indexOf('activity_high') > IDS.indexOf('market_maker_rhythm_pit'), '须排在做市节奏之后');
+  });
+  check('H2 三类型 policy 全 = {}（与 normal 同一份全门语义：本次只拆分类，零行为变化）', () => {
+    for (const id of [...ACT, 'normal']) assert.deepStrictEqual(R.POINT_TYPES.find((t) => t.id === id).policy, {}, `${id} policy`);
+  });
+  check('H3 高/中/burst 各自命中 + 标签以用户命名打头', () => {
+    assert.strictEqual(classifyPointType(HIGH).type, 'activity_high');
+    assert.ok(classifyPointType(HIGH).label.startsWith('高活跃度低价票'));
+    assert.strictEqual(classifyPointType(MID).type, 'activity_mid');
+    assert.ok(classifyPointType(MID).label.startsWith('中活跃度低价票'));
+    assert.strictEqual(classifyPointType(BURST).type, 'activity_burst');
+    assert.ok(classifyPointType(BURST).label.startsWith('burst 涌入低价票'));
+  });
+  check('H4 高线边界：T30 恰 0.99 ∧ 交易者恰 4 → 高；T30 0.989 → 中；交易者 3 → 中', () => {
+    assert.strictEqual(classifyPointType({ actTotalBnb30s: 0.99, actTraders: 4 }).type, 'activity_high');
+    assert.strictEqual(classifyPointType({ actTotalBnb30s: 0.989, actTraders: 9 }).type, 'activity_mid');
+    assert.strictEqual(classifyPointType({ actTotalBnb30s: 5, actTraders: 3 }).type, 'activity_mid');
+  });
+  check('H5 中线边界：T30 恰 0.49 ∧ 交易者恰 2 → 中；T30 0.489 → normal；交易者 1 → normal', () => {
+    assert.strictEqual(classifyPointType({ actTotalBnb30s: 0.49, actTraders: 2 }).type, 'activity_mid');
+    assert.strictEqual(classifyPointType({ actTotalBnb30s: 0.489, actTraders: 9 }).type, 'normal');
+    assert.strictEqual(classifyPointType({ actTotalBnb30s: 3, actTraders: 1 }).type, 'normal');
+  });
+  check('H6 burst 五腿边界（恰值过线、线外一档不中）：stall 30000/29999 · sec 30/30.1 · buy 0.29/0.289 · 笔数 3/2 · 卖 0.048/0.049', () => {
+    const ok = (o) => classifyPointType({ ...BURST, ...o }).type === 'activity_burst';
+    assert.deepStrictEqual([
+      ok({ burstStallMs: 30000 }), ok({ burstStallMs: 29999 }),
+      ok({ burstWaveSec: 30 }), ok({ burstWaveSec: 30.1 }),
+      ok({ burstWaveBuyBnb: 0.29 }), ok({ burstWaveBuyBnb: 0.289 }),
+      ok({ burstWaveBuyN: 3 }), ok({ burstWaveBuyN: 2 }),
+      ok({ burstWaveSellBnb: 0.048 }), ok({ burstWaveSellBnb: 0.049 }),
+    ], [true, false, true, false, true, false, true, false, true, false]);
+  });
+  check('H7 burst 键缺席/null → 不冒充命中，落 normal（null 比较恒假）', () => {
+    for (const k of ['burstStallMs', 'burstWaveSec', 'burstWaveBuyBnb', 'burstWaveBuyN', 'burstWaveSellBnb']) {
+      assert.strictEqual(classifyPointType({ ...BURST, [k]: null }).type, 'normal', `${k} null`);
+    }
+    assert.strictEqual(classifyPointType({ actTotalBnb30s: 0.3, actTraders: 3 }).type, 'normal');
+  });
+  check('H8 排序 高→中→burst：吞吐达高线的强 burst 归高、达中线归中（Jev high|burst→high_skip / mid|burst→mid_full 同理）', () => {
+    assert.strictEqual(classifyPointType({ ...BURST, actTotalBnb30s: 1.3, actTraders: 6 }).type, 'activity_high');
+    assert.strictEqual(classifyPointType({ ...BURST, actTotalBnb30s: 0.7 }).type, 'activity_mid');
+  });
+  check('H9 形状类型优先：同一因子表同时满足做市节奏 / 持续趋势形状 → 归形状类型，不被活跃度桶抢走', () => {
+    const MM = { tokenAgeSec: 30, actTotalBnb: 0.2, tradesPerSecSinceLaunch: 2, blockGapLe1Pct64: 90, mcapFromPeakPct: 40, currentVsLaunchPct: 150, actTotalBnb30s: 2, actTraders: 8, ...BURST };
+    assert.strictEqual(classifyPointType(MM).type, 'market_maker_rhythm_pit');
+    const TR = { tokenAgeSec: 120, currentVsLaunchPct: 55, priceMa60SlopePct: 20, actTotalBnb30s: 1.0, actTotalBnb: 0.2, athVsFloorPct: 100, actTraders: 6 };
+    assert.strictEqual(classifyPointType(TR).type, 'steady_trend_climb');
+  });
+  check('H10 分类因子快照只带本类型条件引用键（信号页类型卡直读）', () => {
+    assert.deepStrictEqual(Object.keys(classifyPointType(HIGH).snapshot), ['actTotalBnb30s', 'actTraders']);
+    assert.deepStrictEqual(Object.keys(classifyPointType(MID).snapshot), ['actTotalBnb30s', 'actTraders']);
+    assert.deepStrictEqual(Object.keys(classifyPointType(BURST).snapshot), ['burstStallMs', 'burstWaveSec', 'burstWaveBuyBnb', 'burstWaveBuyN', 'burstWaveSellBnb']);
+  });
+  check('H11 normal 标签如实=低活跃/未进活跃度类型的兜底', () => assert.strictEqual(R.POINT_TYPES.find((t) => t.id === 'normal').label, '普通点位（低活跃 / 未进活跃度类型）'));
+  check('H12 实验级激活开关同样管三类型：只激活 normal 时原高/中/burst 形状全落 normal', () => {
+    const onlyNormal = Object.fromEntries(IDS.map((id) => [id, id === 'normal']));
+    for (const fx of [HIGH, MID, BURST]) assert.strictEqual(classifyPointType(fx, onlyNormal).type, 'normal', JSON.stringify(fx));
+  });
+  check('H13 启动防线通过（三类型条件全在 FA 键域——burst 五键已进 getFactorKeys）', () => {
+    const FourMemeFactorAggregator = require(path.join(ROOT, 'src/services/FourMemeFactorAggregator.js'));
+    const keys = new FourMemeFactorAggregator({}).getFactorKeys();
+    R.assertPointTypesValid(keys);
+    for (const k of ['burstStallMs', 'burstWaveSec', 'burstWaveBuyBnb', 'burstWaveBuyN', 'burstWaveSellBnb']) assert.ok(keys.has(k), `FA 缺 ${k}`);
+  });
+  check('H14 零行为变化锁：三类型只会认领「去掉它们本应落 normal」的因子表（随机 2000 张表）', () => {
+    const { ConditionEvaluator } = require(path.join(ROOT, 'src/strategies/ConditionEvaluator'));
+    const ev = new ConditionEvaluator();
+    const shapeAst = R.POINT_TYPES.filter((t) => t.active && t.condition != null && !ACT.includes(t.id)).map((t) => ev.parseCondition(t.condition));
+    const activityAst = ACT.map((id) => ev.parseCondition(R.POINT_TYPES.find((t) => t.id === id).condition));
+    let claimed = 0, onShape = 0;
+    for (let i = 0; i < 2000; i++) {
+      const fx = { actTotalBnb30s: (i * 37 % 200) / 100, actTraders: i * 7 % 12, burstStallMs: (i % 3) * 45000, burstWaveSec: (i * 13 % 60) / 2, burstWaveBuyBnb: (i * 11 % 80) / 100, burstWaveBuyN: i % 6, burstWaveSellBnb: (i % 4) * 0.02, tokenAgeSec: (i * 17 % 900) + 3 };
+      const r = classifyPointType(fx);
+      const isAct = ACT.includes(r.type);
+      const anyShape = shapeAst.some((ast) => { try { return ev.evaluate(ast, fx) === true; } catch (e) { return false; } });
+      const anyAct = activityAst.some((ast) => { try { return ev.evaluate(ast, fx) === true; } catch (e) { return false; } });
+      if (isAct) { claimed++; if (anyShape) onShape++; }
+      assert.strictEqual(isAct, !anyShape && anyAct, `表 ${i} 归类 ${r.type} 与「形状全不中 ∧ 活跃度条件有中」不一致`);
+    }
+    assert.ok(claimed > 200, `随机表应有不少落进活跃度桶（实得 ${claimed}）`);
+    assert.strictEqual(onShape, 0, '活跃度桶不得抢走形状类型票');
   });
 }
 console.log(`\n全部通过 ${passed}/${passed}`);

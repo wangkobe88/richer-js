@@ -28,6 +28,10 @@ const check = (name, actual, expected) => {
   const packs = (await (await fetch(`${BASE}/api/strategy-library`)).json()).data || [];
   const MAIN = (packs.find((x) => x.name === PACK_NAME) || {}).id;
   if (!MAIN) throw new Error('策略包不存在: ' + PACK_NAME);
+  // 期望值一律按注册表接口算（行数/顺序/缺省勾选）——注册表加类型本冒烟零改动
+  const TYPES = (await (await fetch(`${BASE}/api/strategy-library/point-types`)).json()).data.types;
+  const IDS = TYPES.map((t) => t.id);
+  const DEF = IDS.map((id) => id === 'normal' || TYPES.find((t) => t.id === id).active === true);
   const prof = `/tmp/rj-cdp/prof-${Date.now()}`;
   const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${prof}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--window-size=1280,1600', 'about:blank'], { stdio: 'ignore' });
   try {
@@ -75,37 +79,41 @@ const check = (name, actual, expected) => {
     check('K1 选包前开关区隐藏', (await domState()).hidden, true);
     await ev(`(() => { const s = document.getElementById('strategy-pack-select'); s.value = '${MAIN}'; s.dispatchEvent(new Event('change')); return true; })()`);
     await waitFor(`!document.getElementById('point-types-section').hidden`, '开关区显示');
+    // K1 选包 → 开关区出现，初值=注册表缺省（行数/顺序/缺省勾选全部按注册表接口算，不写死）
     let st = await domState();
     check('K1 包信息卡模块徽章（含 pointType；三门标因子代）', st.packBadges, ['因子门(FP):v1', '作弊门:v2·因子代', '前置活跃度门:v2·因子代', 'BP买点门:v2·因子代', '点位类型(PT):v1']);
-    check('K1 八行、注册表顺序', st.rows.map((r) => r.id), ['famous_holder_cold_pit', 'strongbacker_solo_dance', 'famous_conviction_pit', 'famous_participation_pit', 'steady_trend_climb', 'slow_develop_early', 'market_maker_rhythm_pit', 'normal']);
-    check('K1 初值：除 slow_develop_early 外全勾；normal 勾选且禁用', st.rows.map((r) => [r.checked, r.disabled]), [[true, false], [true, false], [true, false], [true, false], [true, false], [false, false], [true, false], [true, true]]);
-    check('K1 摘要：缺省态不写配置、专属腿全在', st.summary, '激活 7 / 未激活 1 ｜ 专属腿全在 ｜ 与注册表缺省一致（不写配置）');
+    check(`K1 ${IDS.length} 行、注册表顺序`, st.rows.map((r) => r.id), IDS);
+    check('K1 初值=注册表缺省；normal 勾选且禁用', st.rows.map((r) => [r.checked, r.disabled]), IDS.map((id, i) => [DEF[i], id === 'normal']));
+    const nAct = DEF.filter(Boolean).length;
+    check('K1 摘要：缺省态不写配置、专属腿全在', st.summary, `激活 ${nAct} / 未激活 ${IDS.length - nAct} ｜ 专属腿全在 ｜ 与注册表缺省一致（不写配置）`);
     check('K1 专属腿提示挂在对应类型行', st.rows.filter((r) => r.text.includes('专属腿')).map((r) => r.id + ':' + (r.text.match(/专属腿 P\d+/) || [''])[0]), ['famous_holder_cold_pit:专属腿 P16', 'strongbacker_solo_dance:专属腿 P17', 'famous_participation_pit:专属腿 P18', 'steady_trend_climb:专属腿 P19', 'market_maker_rhythm_pit:专属腿 P20']);
+    const NROW = `document.querySelectorAll('input.point-type-cb').length === ${IDS.length}`;
 
     log('\n[K4] 手改后换包：用户勾选保留；换到另一个启用 pointType 的包开关区仍在');
     await ev(`document.querySelector('input.point-type-cb[data-pt-id="steady_trend_climb"]').click()`);
     const OTHER = await ev(`[...document.querySelectorAll('#strategy-pack-select option')].map((o) => o.value).find((v) => v && v !== '${MAIN}' && v !== '')`);
     await ev(`(() => { const s = document.getElementById('strategy-pack-select'); s.value = '${OTHER}'; s.dispatchEvent(new Event('change')); return true; })()`);
-    await waitFor(`!document.getElementById('point-types-section').hidden && document.querySelectorAll('input.point-type-cb').length === 8`, '换包后开关区');
+    await waitFor(`!document.getElementById('point-types-section').hidden && ${NROW}`, '换包后开关区');
     st = await domState();
-    check('K4 换包后开关区仍在、用户勾选保留（持续趋势仍为未勾，其余缺省）', [st.hidden, st.rows.map((r) => r.checked)], [false, [true, true, true, true, false, false, true, true]]);
+    check('K4 换包后开关区仍在、用户勾选保留（持续趋势仍为未勾，其余缺省）', [st.hidden, st.rows.map((r) => r.checked)], [false, DEF.map((v, i) => (IDS[i] === 'steady_trend_climb' ? false : v))]);
     await ev(`(() => { const s = document.getElementById('strategy-pack-select'); s.value = '${MAIN}'; s.dispatchEvent(new Event('change')); return true; })()`);
     await waitFor(`document.getElementById('point-types-summary').innerText.includes('P19')`, '换回主包');
     await ev(`(() => { const s = document.getElementById('strategy-pack-select'); s.value = ''; s.dispatchEvent(new Event('change')); return true; })()`);
     await waitFor(`document.getElementById('point-types-section').hidden`, '清空选择后开关区隐藏');
     check('K4 清空包选择 → 开关区隐藏（无包可谈激活）', (await domState()).hidden, true);
     await ev(`(() => { const s = document.getElementById('strategy-pack-select'); s.value = '${MAIN}'; s.dispatchEvent(new Event('change')); return true; })()`);
-    await waitFor(`!document.getElementById('point-types-section').hidden && document.querySelectorAll('input.point-type-cb').length === 8`, '重选主包');
+    await waitFor(`!document.getElementById('point-types-section').hidden && ${NROW}`, '重选主包');
 
     log('\n[K2] 勾上 slow_develop_early → 摘要与提交载荷（请求被拦截，零落库）');
     await ev(`document.querySelector('input.point-type-cb[data-pt-id="slow_develop_early"]').click()`);
     st = await domState();
-    check('K2 摘要：P19 不组装 + 将写 config.pointTypes', st.summary, '激活 7 / 未激活 1 ｜ 专属腿不组装：P19 ｜ 提交时写 config.pointTypes');
-    await ev(`(() => { window.__posts = []; const orig = window.fetch; window.fetch = (u, o) => { if (typeof u === 'string' && u.endsWith('/api/experiments') && o && o.method === 'POST') { window.__posts.push(JSON.parse(o.body)); return Promise.resolve({ json: () => Promise.resolve({ success: true, data: { id: 'fake', experiment_name: 'fake' } }) }); } return orig(u, o); }; document.querySelector('[name="experiment_name"]').value = 'rj-cdp-probe'; document.querySelector('form').requestSubmit(); return true; })()`);
+    check('K2 摘要：P19 不组装 + 将写 config.pointTypes', st.summary, `激活 ${nAct} / 未激活 ${IDS.length - nAct} ｜ 专属腿不组装：P19 ｜ 提交时写 config.pointTypes`);
+    const K2_WANT = Object.fromEntries(IDS.map((id) => [id, id === 'normal' || id === 'slow_develop_early' || (DEF[IDS.indexOf(id)] && id !== 'steady_trend_climb')]));
+    const intercept = `(() => { window.__posts = []; const orig = window.fetch; window.fetch = (u, o) => { if (typeof u === 'string' && u.endsWith('/api/experiments') && o && o.method === 'POST') { window.__posts.push(JSON.parse(o.body)); return Promise.resolve({ json: () => Promise.resolve({ success: true, data: { id: 'fake', experiment_name: 'fake' } }) }); } return orig(u, o); }; document.querySelector('[name="experiment_name"]').value = 'rj-cdp-probe'; document.querySelector('form').requestSubmit(); return true; })()`;
+    await ev(intercept);
     await waitFor(`window.__posts.length >= 1`, '提交请求');
     let body = await ev('window.__posts[0]');
-    check('K2 提交载荷带 pointTypes（P19 关、slow_develop_early 开）', body.pointTypes,
-      { active: { famous_holder_cold_pit: true, strongbacker_solo_dance: true, famous_conviction_pit: true, famous_participation_pit: true, steady_trend_climb: false, slow_develop_early: true, market_maker_rhythm_pit: true, normal: true } });
+    check('K2 提交载荷带 pointTypes（P19 关、slow_develop_early 开，其余=注册表缺省）', body.pointTypes, { active: K2_WANT });
     check('K2 载荷 strategyId=主包', body.strategy.strategyId, MAIN);
     await waitFor(`document.getElementById('result-content').innerText.includes('实验创建成功')`, '成功提示', 15000);
     check('K2 提交成功提示渲染（存量提交崩溃已修：按钮不再卡在创建中）', await ev(`[document.getElementById('result-content').innerText.includes('✅'), document.getElementById('submit-btn').textContent]`), [true, '创建中...']);
@@ -114,28 +122,29 @@ const check = (name, actual, expected) => {
     await nav(`${BASE}/create-experiment?_cb=${Date.now()}`);
     await waitFor(`document.querySelectorAll('#strategy-pack-select option').length > 1`, '策略包列表');
     await ev(`(() => { const s = document.getElementById('strategy-pack-select'); s.value = '${MAIN}'; s.dispatchEvent(new Event('change')); return true; })()`);
-    await waitFor(`!document.getElementById('point-types-section').hidden && document.querySelectorAll('input.point-type-cb').length === 8`, '开关区');
+    await waitFor(`!document.getElementById('point-types-section').hidden && ${NROW}`, '开关区');
     await ev(`document.querySelector('input.point-type-cb[data-pt-id="market_maker_rhythm_pit"]').click()`);
     await waitFor(`document.getElementById('point-types-summary').innerText.includes('P20')`, '手改后摘要');
     await ev(`document.getElementById('point-types-reset').click()`);
     await waitFor(`document.getElementById('point-types-summary').innerText.includes('不写配置') && !document.getElementById('point-types-summary').innerText.includes('P20')`, '重置后摘要');
     st = await domState();
-    check('K3 「恢复注册表缺省」：勾选回到缺省（做市节奏重新勾上、slow_develop_early 仍未勾）', st.rows.map((r) => r.checked), [true, true, true, true, true, false, true, true]);
-    await ev(`(() => { window.__posts = []; const orig = window.fetch; window.fetch = (u, o) => { if (typeof u === 'string' && u.endsWith('/api/experiments') && o && o.method === 'POST') { window.__posts.push(JSON.parse(o.body)); return Promise.resolve({ json: () => Promise.resolve({ success: true, data: { id: 'fake', experiment_name: 'fake' } }) }); } return orig(u, o); }; document.querySelector('[name="experiment_name"]').value = 'rj-cdp-probe'; document.querySelector('form').requestSubmit(); return true; })()`);
+    check('K3 「恢复注册表缺省」：勾选回到缺省（做市节奏重新勾上、slow_develop_early 仍未勾）', st.rows.map((r) => r.checked), DEF);
+    await ev(intercept);
     await waitFor(`window.__posts.length >= 1`, '二次提交');
     body = await ev('window.__posts[0]');
     check('K3 缺省态载荷无 pointTypes 键', Object.prototype.hasOwnProperty.call(body, 'pointTypes'), false);
 
     log('\n[K5] 复制模式：源实验带 pointTypes（只激活 normal）→ 开关以它为初值');
-    await ev(`sessionStorage.setItem('copyExperimentData', JSON.stringify({ experiment_name: 'src', experiment_description: '', trading_mode: 'virtual', platform: 'fourmeme', strategyId: '${MAIN}', initial_balance: 100,
-      pointTypes: { active: { famous_holder_cold_pit: false, strongbacker_solo_dance: false, famous_conviction_pit: false, famous_participation_pit: false, steady_trend_climb: false, slow_develop_early: false, market_maker_rhythm_pit: false, normal: true } } }))`);
+    const ONLY_NORMAL = Object.fromEntries(IDS.map((id) => [id, id === 'normal']));
+    const copyData = JSON.stringify({ experiment_name: 'src', experiment_description: '', trading_mode: 'virtual', platform: 'fourmeme', strategyId: MAIN, initial_balance: 100, pointTypes: { active: ONLY_NORMAL } });
+    await ev(`sessionStorage.setItem('copyExperimentData', ${JSON.stringify(copyData)})`);
     await nav(`${BASE}/create-experiment?copy=true&_cb=${Date.now()}`);
     await waitFor(`!document.getElementById('point-types-section').hidden`, '复制模式开关区');
-    await waitFor(`document.querySelectorAll('input.point-type-cb').length === 8`, '复制模式八行');
+    await waitFor(NROW, '复制模式行数');
     st = await domState();
-    check('K5 初值=复制携带覆盖（只激活 normal）', st.rows.map((r) => r.checked), [false, false, false, false, false, false, false, true]);
-    check('K5 摘要：专属腿 P16~P20 全停', st.summary, '激活 1 / 未激活 7 ｜ 专属腿不组装：P16/P17/P18/P19/P20 ｜ 提交时写 config.pointTypes');
-    await ev(`(() => { window.__posts = []; const orig = window.fetch; window.fetch = (u, o) => { if (typeof u === 'string' && u.endsWith('/api/experiments') && o && o.method === 'POST') { window.__posts.push(JSON.parse(o.body)); return Promise.resolve({ json: () => Promise.resolve({ success: true, data: { id: 'fake', experiment_name: 'fake' } }) }); } return orig(u, o); }; document.querySelector('form').requestSubmit(); return true; })()`);
+    check('K5 初值=复制携带覆盖（只激活 normal）', st.rows.map((r) => r.checked), IDS.map((id) => id === 'normal'));
+    check('K5 摘要：专属腿 P16~P20 全停', st.summary, `激活 1 / 未激活 ${IDS.length - 1} ｜ 专属腿不组装：P16/P17/P18/P19/P20 ｜ 提交时写 config.pointTypes`);
+    await ev(intercept);
     await waitFor(`window.__posts.length >= 1`, '复制模式提交');
     body = await ev('window.__posts[0]');
     check('K5 提交载荷带只激活 normal 的 pointTypes', [body.pointTypes && Object.keys(body.pointTypes.active).filter((k) => body.pointTypes.active[k]), body.strategy.strategyId], [['normal'], MAIN]);

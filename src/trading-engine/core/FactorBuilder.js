@@ -281,6 +281,13 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T225 四修：surge 波内卖出累计（对倒拦截——ZEC 同 slot 绑卖案）
     quietSurgeSellBnb: factorResults.quietSurgeSellBnb ?? null,
     quietSurgeSec: factorResults.quietSurgeSec ?? null,
+    // T244 burst 波五键（活跃度 pointType 分类载体，2026-11-26）：静默阈 30s 的独立
+    // 状态机，FA 不可离线重算，不落库即丢；旧 FA 无键 → null 不掩盖
+    burstStallMs: factorResults.burstStallMs ?? null,
+    burstWaveSec: factorResults.burstWaveSec ?? null,
+    burstWaveBuyBnb: factorResults.burstWaveBuyBnb ?? null,
+    burstWaveSellBnb: factorResults.burstWaveSellBnb ?? null,
+    burstWaveBuyN: factorResults.burstWaveBuyN ?? null,
     // T214 强庄胚子两键（2026-11-22 LAB 案，ladder v35 强庄重启臂原料）：出口价 vs
     // T130 地板 + 首笔大买家底仓留存——FA 状态机/latch 不可离线重算（act* 先例），
     // 不落库即丢；旧 FA 无键 → null 不掩盖

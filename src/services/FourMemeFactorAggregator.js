@@ -517,6 +517,10 @@ const ALMOST_LAUNCH_PCT = 10;
 // 名单 ⊆ 挖掘入榜钱包（非全史画像），全量 rawTotal 画像源待后续离线管线；fail-closed 方向下
 // 名单偏小=门更保守，安全侧。
 const SNIPER_TOKEN_COUNT_THR = 50;
+// T244 burst 波静默阈（ms）：相邻 tick 间隔 ≥ 此值 = 一段沉寂，苏醒第一笔开新波。与
+// cheat-snapshot burst 族同线（BURST_STALL_GAP_SEC=30 / CD422）；刻意独立于 quiet 族
+// 的 factorParams.quietThresholdMs（缺省 60000，T225 独舞腿/类型消费——不为 burst 调低）
+const BURST_STALL_GAP_MS = 30000;
 // 窗口常量（定义非调参——改=改口径，须同步 _test_market_regime.cjs；cohort 三参数在
 // FACTOR_PARAM_DEFAULTS，可经 factorParams 覆盖）：
 const MARKET_NEWBORN_WIN_MS = 60 * 60 * 1000;      // marketNewbornCount1h：trailing 60m 出生数
@@ -1731,6 +1735,27 @@ class FourMemeFactorAggregator extends EventEmitter {
             else state._quietSurgeSellBnb += bnbAmount;
         }
 
+        // ── T244 burst 波状态机（活跃度 pointType 原料，2026-11-26）：静默阈 30s（CD422
+        //    burst 族同线）——与上面 t7 quiet 族（阈 quietThresholdMs 缺省 60s）是两套独立
+        //    状态：quiet 族的阈值/波重置被 T225 独舞腿与类型消费，不能为 burst 调低；标定
+        //    实证 Jev burst 票约四成静默不足 60s，60s 阈只能召回一半。判 gap 同样在
+        //    lastTickAt 更新前；ts guard 同款（defer 乱序晚到旧行不污染新波）──
+        if (state.lastTickAt !== null && ts - state.lastTickAt >= BURST_STALL_GAP_MS) {
+            state._burstStallMs = ts - state.lastTickAt;
+            state._burstWaveStartTs = ts;
+            state._burstWaveBuyBnb = 0;
+            state._burstWaveSellBnb = 0;
+            state._burstWaveBuyN = 0;
+        }
+        if (state._burstWaveStartTs !== null && ts >= state._burstWaveStartTs) {
+            if (isBuy) {
+                state._burstWaveBuyBnb += bnbAmount;
+                state._burstWaveBuyN += 1;
+            } else {
+                state._burstWaveSellBnb += bnbAmount;
+            }
+        }
+
         // Math.max 防回拨（2026-10-14 鸡蛋案）：迟到旧 tick 的 ts 会把 lastTickAt 拉回
         // （实测 50.0→48.0 → idleSecSinceLastTick 虚高 3.593 假断流触发 P11 全清）
         state.lastTickAt = state.lastTickAt === null ? ts : Math.max(state.lastTickAt, ts);
@@ -2853,6 +2878,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             _quietSurgeSellBnb: 0,       // T225 四修：当前 surge 波累计卖出 BNB（对倒拦截
                                          //   载体——ZEC 案同 slot 买 0.6∧卖 0.508 绑定；fire
                                          //   时刻读=波内到此刻的卖出）
+            // ── T244 burst 波五键原料（活跃度 pointType）：静默阈 30s 的独立状态机，
+            //    与 t7 quiet 族互不干扰（见 processTick 段注）──
+            _burstStallMs: 0,            // 最近完成的 ≥30s 静默段时长 ms（0=从无静默证据）
+            _burstWaveStartTs: null,     // 当前 burst 波起点 ts（静默后苏醒第一笔；null=从未开波）
+            _burstWaveBuyBnb: 0,         // 当前波累计买入 BNB / 笔数 / 卖出 BNB（新静默段清零）
+            _burstWaveSellBnb: 0,
+            _burstWaveBuyN: 0,
             _quietExitPriceBnb: null,   // T214：最近静默段出口行（苏醒第一笔）可靠价——
                                          //   quietExitVsLaunchPct 分子；null=从未定格/出口行
                                          //   无可靠价（价格族仅可靠价，宁 null 不冒充）
@@ -5682,6 +5714,16 @@ class FourMemeFactorAggregator extends EventEmitter {
             quietSurgeSellBnb: state._quietSurgeSellBnb,
             quietSurgeSec: state._quietSurgeStartTs !== null
                 ? Math.max(0, (now - state._quietSurgeStartTs) / 1000) : null,
+            // T244 burst 波五键（活跃度 pointType 原料；FA 状态机不可离线重算，不落库即丢）：
+            //   burstStallMs=最近完成的 ≥30s 静默段时长（值域 {0}∪[30000,∞)，0=从无静默证据）；
+            //   burstWaveSec=波已持续秒数（now 入参，禁 Date.now；从未开波 null）；
+            //   burstWaveBuyBnb/SellBnb/BuyN=当前波累计（新静默段开新波时清零）
+            burstStallMs: state._burstStallMs,
+            burstWaveSec: state._burstWaveStartTs !== null
+                ? Math.max(0, (now - state._burstWaveStartTs) / 1000) : null,
+            burstWaveBuyBnb: state._burstWaveBuyBnb,
+            burstWaveSellBnb: state._burstWaveSellBnb,
+            burstWaveBuyN: state._burstWaveBuyN,
             // T214 强庄胚子两键（2026-11-22 LAB 0x1a08…7777 案，ladder v35 强庄重启臂
             // 原料）——形状判据「散户出清 ∧ 价格未破发 ∧ 首笔大买家底仓仍在 + 长期
             // 沉寂 + 流量涌入」：
