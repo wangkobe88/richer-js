@@ -179,6 +179,7 @@ class ExperimentSignals {
 
     // 🔥 多代币支持
     this.selectedToken = 'all';  // 当前选择的代币，'all'表示全部
+    this._gmgnProfiles = new Map(); // GMGN 钱包画像缓存（图表气泡 hover tooltip，2026-11-26）
     this.availableTokens = [];   // 可用的代币列表
 
     // 🔥 Tick 图状态（散点图/区块K线共用一份数据与窗口口径）
@@ -1716,6 +1717,15 @@ class ExperimentSignals {
         else sells.push(point);
       }
 
+      // GMGN 画像预取（图表气泡 hover tooltip 展示——tooltip 回调同步读缓存，
+      // 2026-11-26 用户需求「鼠标放到图表交易圆圈上展示 GMGN 画像」）
+      this._prefetchGmgnProfiles([
+        ...buys, ...sells,
+        ...famousMarks.buyPoints, ...famousMarks.sellPoints,
+        ...smartMarks.buyPoints, ...smartMarks.sellPoints,
+        ...arbbotMarks.buyPoints, ...arbbotMarks.sellPoints,
+      ]);
+
       // 信号标注（仅展示当前裁剪窗口内的信号，避免窗口外的信号垂直线撑开 X 轴）
       // + 成交标注（双口径）：细点线并入；成交价点位（▲买/▼卖）以 scatter 叠加
       // + 叙事轮次标注（C84）：析起/析毕虚线
@@ -1914,12 +1924,28 @@ class ExperimentSignals {
                   const bnb = (parseFloat(raw.bnb_amount) || 0).toFixed(4);
                   const price = parseFloat(raw.price_usd || 0);
                   // 钱包显示=发送者优先：sender_address（tx.from 真实 EOA）→ trader_address 回落
-                  const wallet = (raw.sender_address || raw.trader_address || '').slice(0, 8) + '...';
-                  return [
+                  const walletFull = (raw.sender_address || raw.trader_address || '').toLowerCase();
+                  const wallet = walletFull ? walletFull.slice(0, 8) + '...' : '';
+                  const lines = [
                     `${raw.trade_type === 'buy' ? 'BUY' : 'SELL'} | ${bnb} BNB`,
                     `Price: $${price.toExponential(3)}`,
                     `钱包: ${wallet}`,
                   ];
+                  // GMGN 画像（2026-11-26 作弊盘 review：hover 交易圆圈即看买家画像）
+                  if (walletFull) {
+                    const prof = this._gmgnProfiles.get(walletFull);
+                    if (prof) {
+                      const wr = prof.winrate != null ? (100 * Number(prof.winrate)).toFixed(0) + '%' : '—';
+                      const profit = prof.realized_profit != null ? Number(prof.realized_profit).toFixed(1) + 'B' : '—';
+                      const tags = Array.isArray(prof.tags) ? prof.tags.join(', ') : (prof.tags ? String(prof.tags) : '');
+                      const created = prof.created_at_sec ? new Date(Number(prof.created_at_sec) * 1000).toISOString().slice(0, 10) : '—';
+                      lines.push(`GMGN: 胜率${wr} · 利润${profit} · ${prof.token_num ?? '—'}票 · 建册${created}`);
+                      if (tags) lines.push(`标签: ${tags}`);
+                    } else {
+                      lines.push('GMGN: 无画像');
+                    }
+                  }
+                  return lines;
                 },
               },
             },
@@ -1977,6 +2003,26 @@ class ExperimentSignals {
     if (pt._arbbot) return pt._arbbot.wallet || null;
     if (pt._raw) return (pt._raw.sender_address || pt._raw.trader_address || '').toLowerCase() || null;
     return null;
+  }
+
+  /**
+   * GMGN 画像预取（2026-11-26）：图表气泡钱包批量查画像进 this._gmgnProfiles 缓存，
+   * tooltip label 回调同步读（fetch 异步——tooltip 每次 hover 重新回调，画像到达
+   * 后自动出现在下一次 hover）。失败静默（tooltip 显示无画像，不炸图）。
+   */
+  async _prefetchGmgnProfiles(points) {
+    const wallets = [...new Set(points.map((p) => this._pointWallet(p)).filter(Boolean))];
+    if (!wallets.length) return;
+    try {
+      const missing = wallets.filter((w) => !this._gmgnProfiles.has(w));
+      if (!missing.length) return;
+      const r = await fetch(`/api/gmgn-wallet-profiles?wallets=${encodeURIComponent(missing.slice(0, 100).join(','))}`);
+      const d = await r.json();
+      if (!d.success) return;
+      for (const [w, prof] of Object.entries(d.data || {})) this._gmgnProfiles.set(w.toLowerCase(), prof);
+      // 有值时 chart.update() 刷新（hover 中 tooltip 立即补显）
+      if (this.chart) this.chart.update('none');
+    } catch (e) { /* 静默：画像查询失败不影响图表 */ }
   }
 
   /** 🎯 图表点位 → {side:'buy'|'sell', bnb:number}（聚焦条统计用；非 tick 点返回 null） */
@@ -3356,6 +3402,7 @@ class ExperimentSignals {
   renderSignals(signals = null) {
     const container = document.getElementById('signals-container');
     container.innerHTML = '';
+
 
     // 如果没有传入参数，使用所有信号
     let signalsToRender = signals !== null ? signals : this.signals;

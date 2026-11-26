@@ -2138,6 +2138,25 @@ class RicherJsWebServer {
       }
     });
 
+    // 按信号 ID 子集取点位类型（token-returns 页「点位类型」列：trades.signal_id →
+    // strategy_signals.metadata.pointType，T216）。POST 走请求体——成交信号的 ID 数量
+    // 可达数千，放 query string 会超 URL 长度；只回该 JSON 子键不拉整行大列
+    this.app.post('/api/experiment/:id/signals/point-types', async (req, res) => {
+      try {
+        const signalIds = req.body?.signalIds;
+        // ID 形状严格校验（trades.signal_id=uuid 外键列，合法数据恒满足）：非法形状是
+        // 调用方错误 → 400，不放行到 DB 让 PostgREST 报 uuid 语法错冒充服务端 500
+        if (!Array.isArray(signalIds) || !signalIds.every(ExperimentDataService.isSignalId)) {
+          return res.status(400).json({ success: false, error: 'signalIds 须为信号 ID（uuid）数组', data: [] });
+        }
+        const data = await this.dataService.getSignalPointTypesBySignalIds(req.params.id, signalIds);
+        res.json({ success: true, data, count: data.length });
+      } catch (error) {
+        this.logger.error('WebServer', '获取信号点位类型失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message, data: [] });
+      }
+    });
+
     // 获取叙事分析轮次（C84 买腿重构 2026-10-17：新模型腿后台分析留痕——
     // 信号页叙事事件列表/图表标注数据源；被拒 token 的分析轨迹也可查）
     this.app.get('/api/experiment/:id/narrative-rounds', async (req, res) => {
@@ -2236,6 +2255,33 @@ class RicherJsWebServer {
         res.json(data);
       } catch (error) {
         this.logger.error('WebServer', '获取交易记录失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // GMGN 钱包画像批量查询（信号页图表气泡 hover tooltip，2026-11-26 用户需求
+    // 「鼠标放到图表交易圆圈上展示 GMGN 画像」）：wallets=addr1,addr2,…（≤100）
+    // → gmgn_wallet_profiles 画像 map。service key（anon RLS 静默空——红线 3）。
+    // 零画像钱包缺键=前端显示「无画像」。
+    this.app.get('/api/gmgn-wallet-profiles', async (req, res) => {
+      try {
+        const { wallets } = req.query;
+        const list = String(wallets || '').split(',')
+          .map((w) => String(w).trim().toLowerCase())
+          .filter((w) => /^0x[0-9a-f]{40}$/.test(w));
+        if (!list.length) return res.status(400).json({ success: false, error: 'wallets 参数缺失或非法' });
+        if (list.length > 100) return res.status(400).json({ success: false, error: '单次最多 100 个钱包' });
+        const { dbManager } = require('../src/services/dbManager');
+        const client = dbManager.getClient();
+        const { data, error } = await client.from('gmgn_wallet_profiles')
+          .select('address, tags, created_at_sec, stats_period, buy_count, sell_count, token_num, realized_profit, winrate')
+          .in('address', list);
+        if (error) throw new Error('画像查询失败: ' + error.message);
+        const profiles = {};
+        for (const p of data || []) profiles[String(p.address).toLowerCase()] = p;
+        res.json({ success: true, data: profiles });
+      } catch (error) {
+        this.logger.error('WebServer', 'GMGN 钱包画像批量查询失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
