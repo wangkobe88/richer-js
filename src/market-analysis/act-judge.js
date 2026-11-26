@@ -32,12 +32,13 @@
 
 const ACT_JUDGE_VERSION = 'AF3';
 
-/** ⑦密集臂吞吐线（题面参考 ≥2~3 BNB/分钟；首轮标定 2.0 对 Jev high 欠认
- *   （idle_major 误伤 144 的主因=没认「临近仍活」），取 1.5——死寂线 1.0 与
- *   参考线 2 之间的灰色带归「仍活」方向） */
-const NEAR_ALIVE_BPM_MIN = 1.5;
-/** 金额吞吐死寂线（题面参考 <1 BNB/分钟——死寂臂/③/四腿联立共用） */
-const THROUGHPUT_DEAD_BPM = 1.0;
+/** ⑦密集臂吞吐线（题面参考 ≥2~3 BNB/分钟；1361 标签标定最优 1.0——Jev 实际
+ *   行为对「临近仍活」的认线比参考线低，硬执行参考线会系统性欠认 Jev 的 high
+ *   （idle_major 误伤面）；死寂线 1.5 与本题成对，两者之间灰色带归「仍活」） */
+const NEAR_ALIVE_BPM_MIN = 1.0;
+/** 金额吞吐死寂线（题面参考 <1 BNB/分钟；1361 标签标定最优 1.5——Jev 对
+ *   1~1.5 吞吐带的实际行为偏放，硬执行 1.0 对 Jev high/mid 误伤） */
+const THROUGHPUT_DEAD_BPM = 1.5;
 /** 全窗 high 档吞吐相称线（题面参考 ≥10 BNB/分钟） */
 const THROUGHPUT_HIGH_BPM = 10;
 /** 全窗 high 档密度线（D3.2 ACTIVITY_HIGH_TPM 同线） */
@@ -48,10 +49,9 @@ const TPM_ULTRA = 140;
 const TPM_SPARSE = 10;
 /** 节奏稀疏参考线（题面「<15 笔/分钟偏稀」；D3.2 ACTIVITY_LOW_TPM 同线） */
 const ACTIVITY_LOW_TPM_REF = 15;
-/** 买盘中位尘埃线（题面「尾笔 0.11 外全是 <0.002 尘单滴答」样本尘埃级；首轮标定
- *   0.01 线对 Jev high/mid 误伤 104（near_dead），0.005=尘埃滴答与真实小买的界）
- *   ——「中位 0.05 上下只是稀疏」是 mid 方向，尘埃是「尘单堆笔数」） */
-const BUY_MEDIAN_DUST_BNB = 0.005;
+/** 买盘中位尘埃线（题面「尾笔 0.11 外全是 <0.002 尘单滴答」样本尘埃级；1361
+ *   标签标定最优 0.001=尘滴答线——Jev 对 0.001~0.01 的「小买」实际偏放） */
+const BUY_MEDIAN_DUST_BNB = 0.001;
 /** 买盘中位常见交易档（四腿联立「低于常见交易档」线，题面参考 <0.05） */
 const BUY_MEDIAN_COMMON_BNB = 0.05;
 /** ④单向死水回撤浅线（题面参考 <5%） */
@@ -63,14 +63,16 @@ const IMBALANCE_BNB_RATIO = 3;
 /** ④开盘极早窗反锚：窗口时长 <60s 且总笔数 <30 两腿同时成立才豁免 */
 const EARLY_WIN_SEC = 60;
 const EARLY_WIN_N = 30;
-/** ①大比例无交易期（题面参考 ≥50%） */
-const IDLE_PCT_MAJOR = 50;
+/** ①大比例无交易期（题面参考 ≥50%；1361 标签标定最优 60——Jev 对 50~60% 静默
+ *   占比的实际行为偏放；误伤面以 Jev high/mid 的 idle_major 为主体） */
+const IDLE_PCT_MAJOR = 60;
 /** 全窗量级四腿联立：静默占比 ≥1/4 */
 const IDLE_PCT_QUARTER = 25;
 /** 全窗量级四腿联立：最长空窗 ≥40s */
 const MAX_GAP_LONG_SEC = 40;
-/** ⑦衰减臂断崖比（「跌去大半」；案值 3.9 vs 33.7≈跌九成，取 <1/2） */
-const TAIL_DROP_RATIO = 2;
+/** ⑦衰减臂断崖比（「跌去大半」；案值 3.9 vs 33.7≈跌九成；标定最优 3=跌去
+ *   三分之二才认断崖——Jev 对 1/2~2/3 跌幅的实际行为偏放） */
+const TAIL_DROP_RATIO = 3;
 /** ⑦密集臂成色反锚：近段卖额 ≥ 买额 ×此值=出货拉起的假吞吐（题面参考 ≥3 倍） */
 const SELL_DOMINANCE_RATIO = 3;
 /** ⑦密集臂段前背景反锚：尾 10s 脉冲前纯静默（题面参考 ≥15s） */
@@ -91,8 +93,9 @@ const BURST_WAVE_MIN_BNB = 0.29;
 /** sbw 波钱包户均尘埃线（尘埃行剔除线同值 0.03——「户均 0.016/0.021 尘埃堆波不算
  *   流量」样本 vs「户均 0.070 真实」样本） */
 const BURST_WAVE_AVG_MIN_BNB = 0.03;
-/** sbw 跨度线：波末笔距锚 ≤60s（「锚点时刻的当前状态」；波已结束很久=盘面已走完） */
-const BURST_WAVE_MAX_SEC_SINCE_END = 60;
+/** sbw 跨度线：波末笔距锚 ≤45s（「锚点时刻的当前状态」；标定最优 45——60s 对
+ *   Jev 的 sbw 判定偏宽） */
+const BURST_WAVE_MAX_SEC_SINCE_END = 45;
 
 /** 档位全序（cap/抬档用） */
 const ACT_ORDER = { low: 0, mid: 1, high: 2, ultra: 3 };
