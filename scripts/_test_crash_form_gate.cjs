@@ -183,7 +183,7 @@ console.log('\nD. 单一真相源与版本锁');
   const frSrc = fs.readFileSync(path.join(ROOT, 'src/market-analysis/factor-responders.js'), 'utf8');
   const fpSrc = fs.readFileSync(path.join(ROOT, 'src/market-analysis/factor-pre-buy-check.js'), 'utf8');
   ok('D2 factor-responders 体内无判据实现（防两处判据漂移）', !/function judgeCrashForm\(/.test(frSrc) && !/CRASHFORM_VS_ATH_MAX = /.test(frSrc));
-  check('D3 版本常量', [FP.FACTOR_PREBUY_VERSION, FR.BUY_POINT_FACTOR_VERSION, FR.CHEAT_FACTOR_VERSION, FR.ACT_FRONT_FACTOR_VERSION], ['FP48', 'BPF3', 'CF1', 'AF2']);
+  check('D3 版本常量', [FP.FACTOR_PREBUY_VERSION, FR.BUY_POINT_FACTOR_VERSION, FR.CHEAT_FACTOR_VERSION, FR.ACT_FRONT_FACTOR_VERSION], ['FP48', 'BPF3', 'CF1', 'AF3']);
   ok('D4 臂挂点在臂链末位（famous 早窗快闪分支之前、紧邻 else）', /else if \(_crashFormHit\) arms\.push\('crash_form'\);\s*\n\s*else \{ \/\/ FP11 famous 早窗快闪双支/.test(fpSrc));
   const bpSvc = fs.readFileSync(path.join(ROOT, 'src/market-analysis/BuyPointCheckService.js'), 'utf8');
   const eng = fs.readFileSync(path.join(ROOT, 'src/trading-engine/core/AbstractTradingEngine.js'), 'utf8');

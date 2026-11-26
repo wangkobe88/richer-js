@@ -2647,3 +2647,20 @@ AND (anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03)  -- 反弹确认（PT9�
 - **类型分布（bt-v315，九类型，做市关闭）**：883 票 / 胜率 33.2% / +6.4365B（+3.64%）；normal 兜底 961 信号→99 票（ROI +18.69% 胜率 44.4%）/ activity_mid 550→89 票（+4.37%）/ activity_high 941→65 票（+3.23%）/ activity_burst 45→23 票（+7.89%）/ steady_trend_climb 587→545 票（+0.33%）/ famous_participation_pit 75→52 票（−11.50%）/ cold_pit 3 票 +1.3225B / solo_dance 1 票 +0.5547B / conviction 6 票 +0.1388B。分类因子分位：high 的 T30 1.25/2.98/7.64、actTraders 4/8/30；mid 的 T30 0.54/0.80/1.94；burst 的 burstStallMs 39s/95s/768s。
 - **normal 桶现状（用户口径「低活跃、ultra 自始至终阻挡不买入」）**：FP 的 act_low 仍是 normal 桶第一拒因（118 次），但该臂是 T144 收窄的「只拦极端」——**拦的面比 Jev AF1 reject_low 窄**；成交的 normal 票不含 act_low 命中的，但含 Jev 会判 low 的中度低活跃（T241 Q2 裁定先放行的敞口，现有结局数据）。**找回低活跃阻挡的两条路待用户裁定**：①normal 类型加活跃度因子门（用 act-calib 的 1361 个 Jev 标签标定线值）；②按 Jev 判据放宽 act_low 臂。
 - 单测：`_test_burst_wave_factors` 19（状态机/与 quiet 族隔离/迟到 guard/快照透传/源码口径）、`_test_point_type_router` +14（89：排位/零行为锁/线值边界/burst 五腿/形状优先/实验级开关/随机 2000 组合）、创建页真实 DOM 冒烟改注册表驱动 18/18。
+
+## T245 活跃度因子门（AF3 判档因子版；2026-11-26 用户指令「活跃度判定这块尽量对齐 Jev，并且同样需要拦截 low/ultra，总体上买入量级需要跟之前保持基本一致」+「可以单独为活跃度这块，单独设计一些因子，对齐 Jev 的理念」；commit f2b33c30 起）
+
+- **定位**：AF2「不判档不拒」升级为 **AF3 判档因子版**——Jev AF1 活跃度题（activity_level）判序的全量因子化，low/ultra∧sbw≠burst 经 actFrontRoute 拒（reject_low/reject_ultra）。模块键 actFrontGate:v2 不变（键内演进）、版本常量 AF2→AF3；Jev 代 v1 链原样保留（回滚基线）。
+- **判序实现**（`src/market-analysis/act-judge.js` 纯函数，零 DB 零网络；判据单一真相源=题面）：
+  - **⑦临近段四臂**（出货→衰减→密集→死寂；出货/衰减/密集三臂用 CD394 尾窗键——短窗票恒算）：出货臂（尾 10s ≥10 独立卖方钱包几乎纯卖→ultra，照实定档直返不受背景压制）/ 衰减臂（末 10s 吞吐较前 20s 断崖跌 2/3+尾 5s 趋零→至多中）/ 密集臂（近段吞吐可观+未断崖+尾 5s 真实买入→至少高，含成色反锚〔近段卖≥买 3 倍=出货假吞吐〕与段前背景反锚〔gap≥15s∧段前钱包≤2=孤立脉冲至多中〕）/ 死寂臂（近段买中位尘埃∨吞吐死寂→low）；
+  - **全窗背景校验只压不抬**：①静默 ≥60% ③买中位尘埃∧吞吐死寂 ④单向死水（笔比≥5:1∧额比≥3:1∧回撤<5%∧非极早窗）与全窗四腿联立是**独立臂**（题面「两臂独立，任一成立即可压低档位」——④/四腿联立照压 near_alive；①豁免 near_alive「全窗稀疏不抹临近真实涌入」）；
+  - **D3.73 时间结构**（120s 指数衰减加权 < 近段×0.6=单点脉冲至多中，cap 高）；**⑥burst 抬档**（sbw=burst 不判低，中档起判）；
+  - 全窗综合定档含「临近段双向活跃」综合腿（「买入暂歇非出货」样本）与「节奏稀疏笔均尘埃→low」腿；
+  - **sbw=judgeStallBurstWave**（CD422 波绑定+CD398 流向+criteria 量级三腿：波买额≥0.29∧户均≥0.03∧波距锚≤45s；锚缺席容缺照判）。
+- **标定**（182 重放 1361 个 Jev AF1 带标签信号×锚窗快照，act-judge-calib.cjs + act-lines-scan/xval.cjs 网格扫描；线值=opts.lines 参数化接口）：**动作级一致 81.2%**（基线缺省 78.5%；跨窗验证 w1003 80.1% / 24h 85.5% / 金狗 77.8%；漏拦 83 / 误伤 173 vs Jev 拦 634 信号）；落线=IDLE 60 / BUY_MEDIAN_DUST 0.001 / NEAR_ALIVE 1.0 / THROUGHPUT_DEAD 1.5 / TAIL_DROP 3 / BURST_SINCE_END 45——**Jev 软执行 vs 因子硬执行的系统性偏差**：硬执行题面参考线会系统性过严（首轮一致率仅 58.4%），线值按 Jev 实际行为标定而非参考线直译。标定工装坑：meta 须带 platform（athVsLaunchPct 地板价依赖→stallRestart 全挂）。
+- **引擎 A/B（182，w1003 48h，九类型做市关；bt-v320 AF3 vs bt-v315 AF2）**：883 票 → **825 票（−58 票，−6.6%）**；净额 +6.4365 → +6.1528（−0.2837B，−4.4%）；**ROI +3.64% → +3.73%、胜率 33.2% → 34.2%**；AF 拒 120 信号 → 87 张 buy 行净减。被拦票构成=normal 64/activity_mid 18/high 3/burst 1——正票 28 张 +2.1074B（**ARB +0.558 / MOYNOK +0.485 / 隐私人生 +0.368——正是 T242「Jev 拒、因子买」口径的赢家，AF3 拦回=回到 Jev 行为**）、负票 59 张 −0.7928B。拦截量级与 Jev 时代 AF1 拦截面（评估 45 信号/日≈90/48h）一致=「买入量级与之前基本一致」达标。
+- 拉数恢复：AF 因子代从零 I/O 改走拉数链（_actFrontPull：settle/冷却/拉数/minTicks/快照——与 Jev 链同款原料；判定纯函数零 Jev）；引擎挂点照传 token meta 与 anchorMs；回测时长 6→6 分钟级（拉数比 Jev 调用便宜得多）。
+- 金狗集合 6 误伤留档：T210 铁匠 0x39ed（holders 5<6 差一线）/T203 b6ee（波小额 <0.29）/2 张 Jev high 死寂臂/1 张 mid 静默/1 张 sparse_dust——「拦 low」方向对 Jev 放行赢家的代价面。
+- 单测：`_test_act_judge` 32（题面真实样本转写断言+判序真值表+sbw 量级/跨度/尘埃边界）、`_test_factor_responders` 136（F8/G1 判档期望+挂点参数锁）、`_test_strategy_pack` 82 版本钉。
+
+**余留**：①wash 维度暂 null（Jev reject_wash 面极小，标定后单独立项）；②金狗 6 误伤是否单独处置待裁定；③「节奏稀疏笔均尘埃」腿对 24h 窗口的边际待攒批观察。
