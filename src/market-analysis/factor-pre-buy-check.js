@@ -1066,10 +1066,57 @@ function judgeFamousDominanceFall(snapshot) {
  * 组装 FP 门/值对（用户裁定 2026-11-17：「因子过滤这个环节其实也是形成了好多个
  * 门控，跟 Jev 购买前检查模块由各个锚组成门控一样，所以因子过滤的输出也整理
  * 一下形成门/值对这样的格式，在信号页面中也要展示各个门的值」）。
- * 每门 {id,label,value,line,hit,observe}——value/line 为预拼展示串（null 一律 '-'）；
- * hit=该门拦截命中（进 arms/reason）；observe=观察标记门（不拦截）。
+ * 每门 {category,id,label,value,line,hit,observe}——value/line 为预拼展示串（null 一律 '-'）；
+ * hit=该门拦截命中（进 arms/reason）；observe=观察标记门（不拦截）；
+ * category=因子门分类 id（T241b 注册表 FACTOR_GATE_CATEGORY_BY_ID，未登记=null）。
  * @param {object} parts evaluateFactorPreBuy 组装中的各判定结果
  */
+// ═══════════════ 因子门分类（T241b，2026-11-26 用户提案「这次修改过后，因子门就很多了，
+// 建议进行一下因子分类。在信号页面，也已分类为分块展示数据」）═══════════════
+// Jev 退役后门链上的拦截全部落在因子门：①因子门（FP 各臂）+ ⑤BP 门的两条纯代码门
+// （塞单门 / crash 形态复核）。按「这道门回答买家的什么问题」归类——同一道门只归
+// 一类；顺序 = 信号页分块顺序。门行 buildFactorGates 逐行带 category；信号页
+// experiment_signals.js 持同份镜像（历史信号行无 category 字段，按门 id 归类）——
+// 两份由 scripts/_test_factor_gate_categories.cjs 对锁，改分类两侧同步。
+const FACTOR_GATE_CATEGORIES = Object.freeze([
+  Object.freeze({ id: 'participation', label: '参与结构', question: '有没有像样的买家和主力' }),
+  Object.freeze({ id: 'organized', label: '组织性协同', question: '是不是有组织的人在做事（捆绑 / 分仓 / 机器）' }),
+  Object.freeze({ id: 'dumping', label: '砸盘出货', question: '是不是有人在砸盘出货、有没有人接' }),
+  Object.freeze({ id: 'liquidity', label: '活跃度流动性', question: '盘面是死了还是过热' }),
+  Object.freeze({ id: 'entry', label: '点位形态', question: '这个买点是不是在接刀' }),
+  Object.freeze({ id: 'famous', label: 'famous / 聪明钱行为', question: '名单钱包在这个盘做了什么' }),
+  Object.freeze({ id: 'pathway', label: '通路', question: '好票形状（命中 = 豁免放行，不拦截）' }),
+]);
+
+/** 门 id → 类别 id（键集 = 门链全部因子门：①因子门门行 + ⑤BP 门 stuffing_gate / crash_form） */
+const FACTOR_GATE_CATEGORY_BY_ID = Object.freeze({
+  // 参与结构：像样买方 / 大户进场节奏 / 有没有主力
+  pvp: 'participation', big_buy_defer: 'participation', holder_scatter: 'participation',
+  // 组织性协同：捆绑大部队 / 均等分仓 / curve 外筹码分仓 / 机器持筹 / 机器式缓推 / burst 捆绑 / 同块等额塞单
+  launch_squad: 'organized', even_split_crew: 'organized', oversell_residual: 'organized',
+  arb_bot_holdings: 'organized', slow_pump: 'organized', cd405: 'organized', stuffing_gate: 'organized',
+  // 砸盘出货：各类砸盘与承接 / 大户出货 / 卖压残局
+  cd400: 'dumping', cd403: 'dumping', dump_pair: 'dumping', cd412: 'dumping', cd414: 'dumping',
+  cd401: 'dumping', holder_quiet_unload: 'dumping', tail_no_buyer: 'dumping', lifecycle_sell: 'dumping',
+  // 活跃度流动性：低活跃四臂 + 超高两臂 / 尾声延伸 / 启动失败 / 弱波与残局 burst
+  act_idle: 'liquidity', act_sparse: 'liquidity', act_dust: 'liquidity', act_near_dead: 'liquidity',
+  act_ultra_sell: 'liquidity', act_ultra_density: 'liquidity', tail_activity: 'liquidity',
+  launch_fail_dead: 'liquidity', burst_weak: 'liquidity', lifecycle_burst: 'liquidity',
+  // 点位形态：接刀族（尾部接刀 / 恶意砸盘 / crash 数值判序 / crash 形态复核）
+  tail_dip_knife: 'entry', malicious_dump: 'entry', crash_numeric: 'entry', crash_form: 'entry',
+  // famous / 聪明钱行为
+  fam_holding: 'famous', fam_harvest: 'famous', fam_harvest_final: 'famous', fam_burst_wave: 'famous',
+  fam_low_exit: 'famous', fam_early_flip: 'famous', fam_dom_fall: 'famous',
+  // 通路
+  stall_restart: 'pathway',
+});
+
+/** 门 id → 类别 id（未登记的门返回 null——绝不冒充归类；新门须先登记） */
+function factorGateCategory(gateId) {
+  return Object.prototype.hasOwnProperty.call(FACTOR_GATE_CATEGORY_BY_ID, gateId)
+    ? FACTOR_GATE_CATEGORY_BY_ID[gateId] : null;
+}
+
 function buildFactorGates(parts) {
   const d = (v, unit = '') => (v === null || v === undefined ? '-' : `${v}${unit}`);
   const g = [];
@@ -1353,7 +1400,33 @@ function buildFactorGates(parts) {
       hit: parts.armHits.includes('fam_early_flip_partial') || parts.armHits.includes('fam_early_flip_exit'),
     });
   }
-  return g;
+  // FP47a/b 两条数值臂的门行（T241b 分类补齐：每条因子臂都有门行；两者只在命中时
+  // 才产 trace——未命中的值 '-'，不冒充判据数值）
+  {
+    const md = parts.md || null;
+    const mdt = md && md.trace ? md.trace : {};
+    g.push({
+      id: 'malicious_dump', label: 'FP47a·恶意砸盘',
+      value: md && md.hit
+        ? `块${mdt.row === 'pair' ? '双' : '单'} 卖${d(mdt.sellBnb, 'B')} 跌${d(mdt.dropPct, '%')} 卖方${d(mdt.sellers)} 承接比${d(mdt.followBuyRatio)} 距锚${d(mdt.secToAnchor, 's')}`
+        : (md && md.exempt ? `总额${d(mdt.totalVolumeBnb, 'B')}→豁免` : '-'),
+      line: '卖≥0.5B ∧ 块内跌≥10% ∧ 卖方≥4（剔路由）∧ 承接比<0.5（单鲸版 / 相邻两块 / 贴锚臂；总额≥20B 豁免）',
+      hit: parts.armHits.includes('malicious_dump'),
+    });
+  }
+  {
+    const cr = parts.crash || null;
+    const crt = cr && cr.trace ? cr.trace : {};
+    g.push({
+      id: 'crash_numeric', label: 'FP47b·crash数值判序',
+      value: cr && cr.hit
+        ? `分支${cr.branch} chg5${d(crt.chg5Pct, '%')} chg10${d(crt.chg10Pct, '%')}${crt.recentDip5UnrecoveredPct != null ? ` 未收复${d(crt.recentDip5UnrecoveredPct, '%')}` : ''}`
+        : '-',
+      line: '急跌进行时（chg5≤-10 ∧ chg5≈chg10）∨ 趋势打断三口 ∨ 臂B（深段未收复 ∧ 买力不在场）∨ 臂A（尾段买归零 ∧ 卖≥0.4B）',
+      hit: parts.armHits.includes('crash_numeric'),
+    });
+  }
+  return g.map((row) => ({ category: factorGateCategory(row.id), ...row }));
 }
 
 // ═══════════════ CD 四臂升格（CD408；判据=cheat 侧 _exemptDeniedReason 数值照抄） ═══════════════
@@ -2076,7 +2149,7 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     arms, pvpReason: pvp.reason, actLevel: activity.level,
     tailReason: tail.reason, famousReason: famous.reason,
   }, armClass, opts.armExempt);
-  const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, bd: snapshot.buyDerived || {}, armHits: effArms, stallRestart });
+  const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, bd: snapshot.buyDerived || {}, armHits: effArms, stallRestart, md: _md, crash: _crash });
   return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, tail, famous, arms: effArms,
     ...(armClass ? { armClass } : {}),
     gates,
@@ -2142,6 +2215,7 @@ module.exports = {
   judgeFamousDominanceFall, buildFactorGates,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
   judgeMaliciousDump, judgeCrashNumeric,
+  FACTOR_GATE_CATEGORIES, FACTOR_GATE_CATEGORY_BY_ID, factorGateCategory,
   MD_MIN_SELL_BNB, MD_MIN_DROP_PCT, MD_MIN_SELLERS, MD_MAX_FOLLOW_RATIO,
   MD_WHALE_MIN_SELL_BNB, MD_WHALE_MIN_TOP_SELLER_PCT, MD_ANCHOR_MAX_SEC,
   MD_ANCHOR_MAX_BUY_RATIO, MD_TOTAL_VOLUME_EXEMPT_BNB,

@@ -79,6 +79,68 @@ const BP_DIMENSION_HIDDEN = new Set(['price_level', 'price_trend', 'activity_lev
 // 标红展示（2026-11-15 用户指令）
 const BP_MARKET_PATTERN_POOR_BUCKETS = new Set(['famous_monopoly', 'one_wave_dump']);
 const BP_QUALITY_LABELS = { early_bird: '早鸟题', pullback_entry: '回调题' }; // BP48 两质量题退役——仅历史 signal 行（metadata 带 qualities）展示用，新行无该段
+// T241 门链因子代（Jev 退役，2026-11-25 用户裁定）：②活跃度 AF2 / ③作弊 CF1 / ⑤BP BPF2
+// 的结论由 factor-responders 产出、零 Jev；service 返回 model='factor@<版本>'（Jev 代
+// metadata 无 model 键）——三代各自独立识别，历史 Jev 代行照旧按原文案渲染
+const isFactorGen = (info) => typeof (info && info.model) === 'string' && info.model.startsWith('factor@');
+const factorGenVersion = (info) => (isFactorGen(info) ? String(info.model).replace(/^factor@/, '') : '');
+// BPF2 crash 形态复核（Jev 题 BP69「无回调 + 无换手」价格拱复核的因子直译）：分支中文
+// ——判据源=metadata.buyPoint.factorTrace.crashForm（branch + trace 八键）
+const BP_CRASHFORM_BRANCH_LABELS = {
+  crash_form: '🚫 命中：无回调 + 无换手的单边下跌（价格仍在线性下行、尾 10s 买方归零而卖单未停）',
+  no_hint: '未进复核：数值提示臂（较窗高 ≤-25% / 30s 动量 ≤-25% / 近段 5s 跌 ≥15% / 贴窗低点 ≤2 点）全不中',
+  rebounding: '有回调放行：5s 动量已走平/转正（>-1.5%，出现反弹）',
+  turnover_present: '有换手放行：尾 10s 有买单（买方在场）',
+  no_sell: '放行：尾 10s 买归零、卖也归零（量能枯竭的平静，不是单边下跌）',
+  anchors_missing: '不判：关键锚缺席（窗极短 / 稀疏 tick——判缺不猜）',
+  no_snapshot: '不判：无快照',
+};
+// [键, 中文名, 命中线]（命中线=提示臂线或形态条件线；null=只展示数值）
+const BP_CRASHFORM_TRACE_LABELS = [
+  ['chg5Pct', '5s 动量 %', '≤-1.5 未反弹'],
+  ['currentVsAthPct', '较锚窗最高 %', '≤-25'],
+  ['chg30Pct', '30s 动量 %', '≤-25'],
+  ['nearMaxDn5Pct', '近段 5s 最大跌 %', '≤-15'],
+  ['curVsMinGapPct', '距锚窗最低（点）', '≤2'],
+  ['nearTail10BuyN', '尾 10s 买笔数', '=0 无换手'],
+  ['nearTail10SellBnb', '尾 10s 卖 BNB', '>0 卖单未停'],
+  ['recentDip5Pct', '末 30s 最深 5s 段 %', null],
+];
+// 因子门分类（T241b，2026-11-26 用户提案「因子门就很多了，建议进行一下因子分类。在信号
+// 页面，也已分类为分块展示数据」）——镜像自 src/market-analysis/factor-pre-buy-check.js
+// FACTOR_GATE_CATEGORIES / FACTOR_GATE_CATEGORY_BY_ID（单一真相源在后端，
+// scripts/_test_factor_gate_categories.cjs 对锁两份，改分类两侧同步）。
+// 历史信号行的门行无 category 字段 → 页面按门 id 归类；⑤BP 门两条纯代码门
+// （stuffing_gate / crash_form）由页面按 metadata.buyPoint 合成门行并入同一分块视图。
+/* FACTOR_GATE_CATEGORIES:BEGIN */
+const FACTOR_GATE_CATEGORIES = [
+  { id: 'participation', label: '参与结构', question: '有没有像样的买家和主力' },
+  { id: 'organized', label: '组织性协同', question: '是不是有组织的人在做事（捆绑 / 分仓 / 机器）' },
+  { id: 'dumping', label: '砸盘出货', question: '是不是有人在砸盘出货、有没有人接' },
+  { id: 'liquidity', label: '活跃度流动性', question: '盘面是死了还是过热' },
+  { id: 'entry', label: '点位形态', question: '这个买点是不是在接刀' },
+  { id: 'famous', label: 'famous / 聪明钱行为', question: '名单钱包在这个盘做了什么' },
+  { id: 'pathway', label: '通路', question: '好票形状（命中 = 豁免放行，不拦截）' },
+];
+/* FACTOR_GATE_CATEGORIES:END */
+/* FACTOR_GATE_CATEGORY_BY_ID:BEGIN */
+const FACTOR_GATE_CATEGORY_BY_ID = {
+  pvp: 'participation', big_buy_defer: 'participation', holder_scatter: 'participation',
+  launch_squad: 'organized', even_split_crew: 'organized', oversell_residual: 'organized',
+  arb_bot_holdings: 'organized', slow_pump: 'organized', cd405: 'organized', stuffing_gate: 'organized',
+  cd400: 'dumping', cd403: 'dumping', dump_pair: 'dumping', cd412: 'dumping', cd414: 'dumping',
+  cd401: 'dumping', holder_quiet_unload: 'dumping', tail_no_buyer: 'dumping', lifecycle_sell: 'dumping',
+  act_idle: 'liquidity', act_sparse: 'liquidity', act_dust: 'liquidity', act_near_dead: 'liquidity',
+  act_ultra_sell: 'liquidity', act_ultra_density: 'liquidity', tail_activity: 'liquidity',
+  launch_fail_dead: 'liquidity', burst_weak: 'liquidity', lifecycle_burst: 'liquidity',
+  tail_dip_knife: 'entry', malicious_dump: 'entry', crash_numeric: 'entry', crash_form: 'entry',
+  fam_holding: 'famous', fam_harvest: 'famous', fam_harvest_final: 'famous', fam_burst_wave: 'famous',
+  fam_low_exit: 'famous', fam_early_flip: 'famous', fam_dom_fall: 'famous',
+  stall_restart: 'pathway',
+};
+/* FACTOR_GATE_CATEGORY_BY_ID:END */
+// 门行归类（新行带 category 优先；历史行按门 id；未登记=null 不冒充归类）
+const factorGateCategoryOf = (row) => (row && row.category) || FACTOR_GATE_CATEGORY_BY_ID[row && row.id] || null;
 // 档位词 → 配色（none/mid 灰 · weak/noticeable/low 浅黄 · moderate/high amber · strong/dominant/ultra 红）
 function gateBucketClass(bucket) {
   const b = String(bucket || '');
@@ -3357,6 +3419,21 @@ class ExperimentSignals {
       }
       let cheatDetailHtml = '';
       const cc = (metadata || {}).cheatCheck;
+      // T241 BP 门 crash 形态复核拒因明细（bp_gate_assessment ∧ buyPoint.factorTrace.crashForm）：
+      // 分支中文 + 判据八键数值——因子代唯一会拒买的 BP 判定，拒行须可归因
+      let bpRejectDetailHtml = '';
+      const bpi = (metadata || {}).buyPoint;
+      if (executionReason === 'bp_gate_assessment' && bpi && bpi.factorTrace && bpi.factorTrace.crashForm) {
+        const cf = bpi.factorTrace.crashForm;
+        gateLabel = cf.hit
+          ? 'BP 门拒（crash 形态复核命中：无回调 + 无换手的单边下跌）'
+          : (gateLabel || GATE_REASON_LABELS.bp_gate_assessment);
+        bpRejectDetailHtml = `
+          <div class="text-xs text-red-900 mt-1 space-y-0.5">
+            <div>crash 形态复核（BPF${this._escapeHtml(factorGenVersion(bpi).replace(/^BPF/, ''))}，纯代码）：${this._escapeHtml(BP_CRASHFORM_BRANCH_LABELS[cf.branch] || cf.branch || '—')}</div>
+            ${cf.trace ? `<div>${BP_CRASHFORM_TRACE_LABELS.map(([k, label]) => `${label}=${cf.trace[k] == null ? '—' : cf.trace[k]}`).map((s) => this._escapeHtml(s)).join(' · ')}</div>` : ''}
+          </div>`;
+      }
       // T143 因子门拒因明细（factor_gate_* 域）：PVP 判定分支+关键计数+CD 臂码
       let factorRejectDetailHtml = '';
       const fc = (metadata || {}).factorCheck;
@@ -3376,6 +3453,13 @@ class ExperimentSignals {
             ${keyNums ? `<div>${this._escapeHtml(keyNums)}</div>` : ''}
             ${Array.isArray(fc.arms) && fc.arms.length ? `<div>CD 升格臂: ${fc.arms.map((a) => this._escapeHtml(a)).join(' · ')}</div>` : ''}
             <div class="text-gray-600">纯代码判定（FP${this._escapeHtml(String(fc.version || '1'))}，零 Jev）</div>
+            ${(() => {
+              // T241b 命中门所属类别（新行带 category / 历史行按门 id 归类）
+              const hitCats = [...new Set((Array.isArray(fc.gates) ? fc.gates : []).filter((ge) => ge.hit)
+                .map((ge) => factorGateCategoryOf(ge)).filter(Boolean))]
+                .map((cid) => (FACTOR_GATE_CATEGORIES.find((c) => c.id === cid) || {}).label || cid);
+              return hitCats.length ? `<div>因子门分类: ${this._escapeHtml(hitCats.join(' · '))}</div>` : '';
+            })()}
           </div>`;
       }
       if (executionReason.startsWith('cheat_gate_') && cc && cc.grade) {
@@ -3406,6 +3490,7 @@ class ExperimentSignals {
           ${gateLabel ? `<div class="text-xs text-red-700 mt-1">${this._escapeHtml(gateLabel)}</div>` : ''}
           ${cheatDetailHtml}
           ${factorRejectDetailHtml}
+          ${bpRejectDetailHtml}
         </div>
       `;
     }
@@ -3642,7 +3727,12 @@ class ExperimentSignals {
             if (p === 'burst_exempt') return { cls: 'skip', icon: '⏭', text: `${info.act}·burst 豁免`, title: 'sbw=burst 豁免跳过作弊门直进 BP（ba5e 立法）' };
             if (p === 'restart_exempt') return { cls: 'skip', icon: '⏭', text: `${info.act}·停滞再启动通路`, title: 'T210：前期停滞再启动形状命中（stall-restart.js 六腿）——与 burst 同等跳过作弊门直进 BP（cheat/unhealthy 一并豁免，用户知情）' };
             if (p === 'high_skip') return { cls: 'skip', icon: '⏭', text: 'high·跳过作弊', title: '活跃度 high 跳过作弊门直进 BP（CD379 豁免显性化，省 10 题 Jev）' };
-            if (p === 'mid_full') return { cls: 'ok', icon: '✅', text: 'mid·走全链', title: '中等活跃度照走作弊门全 10 题' };
+            if (p === 'mid_full') {
+              // T241 因子代 AF2：本层不判档（低活跃拦截在①因子门 act_low/act_ultra 臂）——
+              // 文案不得冒充「判成 mid」
+              if (isFactorGen(info)) return { cls: 'ok', icon: '✅', text: '不判档·照走④', title: `因子代 ${factorGenVersion(info)}：本层不判活跃度档位、不拒买（低活跃的极端形状由①因子门 act_low / act_ultra 臂承接），直接照走④` };
+              return { cls: 'ok', icon: '✅', text: 'mid·走全链', title: '中等活跃度照走作弊门全 10 题' };
+            }
             return { cls: 'warn', icon: '⚠', text: '放行进全链', title: '档位答案缺席 fail-open' };
           }
           return { cls: 'warn', icon: '⚠', text: '故障·放行', title: '检测层故障 fail-open 放行进作弊门全链' };
@@ -3650,9 +3740,13 @@ class ExperimentSignals {
         if (kind === 'cheat') {
           if (info.status === 'skipped_by_act_front') return { cls: 'skip', icon: '⏭', text: '被③跳过', title: '前置活跃度门分流跳过（high/burst/停滞再启动通路票不烧 10 题 Jev）' };
           if (info.grade) {
-            if (info.grade === 'healthy') return info.exempt
+            if (info.grade === 'healthy') {
+              // T241 因子代 CF1：healthy = 本层无拒臂放行（非 Jev 检测结论）
+              if (isFactorGen(info)) return { cls: 'ok', icon: '✅', text: '放行', title: `因子代 ${factorGenVersion(info)}：作弊组织性形状由①因子门作弊类臂承接，本层无 Jev 档位判定` };
+              return info.exempt
               ? { cls: 'exempt', icon: '🟡', text: `豁免过（原判 ${info.exempt.originalGrade || '?'}）`, title: '活跃度/burst 豁免放行' }
               : { cls: 'ok', icon: '✅', text: 'healthy', title: '作弊检测放行' };
+            }
             return { cls: 'rej', icon: '🚫', text: info.grade, title: info.grade === 'cheat' ? '拉黑不再交易+持仓清仓' : '本信号拒' };
           }
           if (info.status === 'timeout_fail_open') return { cls: 'warn', icon: '⏱', text: '超时·放行', title: '竞速超时放行，迟到结果下轮生效' };
@@ -3664,9 +3758,11 @@ class ExperimentSignals {
         if (kind === 'bp') {
           if (info.status === 'assessed' && info.assessment) {
             const b = String(info.assessment.bucket || '?');
+            // T241 因子代 BPF2：实际在拦的是塞单门与 crash 形态复核（纯代码）
+            const cfHit = !!(info.factorTrace && info.factorTrace.crashForm && info.factorTrace.crashForm.hit);
             if (b === 'good') return { cls: 'ok', icon: '✅', text: 'good', title: 'BP 买点判定 good 放行' };
-            if (b === 'neutral') return { cls: 'ok', icon: '🟡', text: 'neutral', title: 'BP 买点判定 neutral 放行' };
-            return { cls: 'rej', icon: '🚫', text: b, title: `BP 拒（${info.assessment.rule || ''}）` };
+            if (b === 'neutral') return { cls: 'ok', icon: '🟡', text: 'neutral', title: isFactorGen(info) ? `BP 买点门因子判定放行（因子代 ${factorGenVersion(info)}：塞单门与 crash 形态复核都未命中）` : 'BP 买点判定 neutral 放行' };
+            return { cls: 'rej', icon: '🚫', text: b, title: `BP 拒（${info.assessment.rule || ''}${cfHit ? '：crash 形态复核命中——无回调 + 无换手的单边下跌' : ''}）` };
           }
           if (info.status === 'insufficient_ticks') return { cls: 'rej', icon: '🚫', text: '数据不足·拒', title: 'BP10：数据不够就挡住' };
           if (info.status) return { cls: 'rej', icon: '🚫', text: '拒', title: 'BP 门 fail-closed（超时/失败全拒）' };
@@ -3681,8 +3777,10 @@ class ExperimentSignals {
         const pol = pt.policy || {};
         const POLICY_CHIPS = {
           factorCheckArms: { cheatOnly: ['FP：只留作弊臂', 'FP 只评严重作弊类臂（效果提升类全撤）'], skip: ['FP：直通', 'FP 整门跳过'] },
-          actFront: { pass: ['AF1：直通', '前置活跃度门直通（坑位天然低活跃）'] },
-          cheatCheck: { g23: ['CD：g23 规则集', '作弊门现行 G 语义'], g23NoSlowGrind: ['CD：g23NoSlowGrind', '差集规则集：slowGrindPump strong 不拦+去 E 通道（famous 自然带量≠虚假拉盘）'], skip: ['CD：跳过', '跳 16 题 Jev（拉黑短路保留）'] },
+          // T241：活跃度门 / 作弊门的 policy 文案按层语义写（Jev 代=AF1 直通/跳 Jev 题；
+          // 因子代=AF2 不判档/CF1 放行——两种代次下同一条 policy 含义一致）
+          actFront: { pass: ['活跃度门：直通', '前置活跃度门直通（坑位天然低活跃）'] },
+          cheatCheck: { g23: ['作弊门：g23 规则集', '作弊门现行 G 语义'], g23NoSlowGrind: ['作弊门：g23NoSlowGrind', '差集规则集：slowGrindPump strong 不拦+去 E 通道（famous 自然带量≠虚假拉盘）'], skip: ['作弊门：跳过', '跳作弊门（拉黑短路保留）'] },
           buyPoint: { stuffingOnly: ['BP：只评塞单门', 'BP 只评塞单门（≥8 等额同块 stuffing）'], skip: ['BP：直通', 'BP 整门跳过'] },
         };
         const chips = [];
@@ -3709,6 +3807,17 @@ class ExperimentSignals {
         </div>`;
       }
       let signalGateHtml = '';
+      // T241 门链代次徽章：②③⑤三门各自的答案来源（Jev 代无 model 键；因子代带 factor@<版本>）
+      // ——全因子代 / 混代（逐门消融对拍）都如实列出；全 Jev 代不显示（存量行形状不变）
+      const genParts = [
+        isFactorGen(actFrontGateInfo) ? `活跃度 ${factorGenVersion(actFrontGateInfo)}` : '',
+        isFactorGen(cheatCheckInfo) ? `作弊 ${factorGenVersion(cheatCheckInfo)}` : '',
+        isFactorGen(buyPointInfo) ? `BP ${factorGenVersion(buyPointInfo)}` : '',
+      ].filter(Boolean);
+      const genBadge = genParts.length
+        ? `<span class="bg-indigo-900 px-2 py-0.5 rounded border border-indigo-400 text-indigo-100" title="T241 Jev 退役：下列门的结论由纯代码因子产出，零 Jev 调用">⚙ 因子代（零 Jev）：${this._escapeHtml(genParts.join(' · '))}</span>`
+        : '';
+      const allFactorGen = isFactorGen(actFrontGateInfo) && isFactorGen(cheatCheckInfo) && isFactorGen(buyPointInfo);
       if (signalGateInfo) {
         const sg = signalGateInfo;
         const pipeSeg = (n, name, st) => `<span class="px-1.5 py-0.5 rounded border text-xs ${PIPE_CLS[st.cls] || PIPE_CLS.off}" title="${this._escapeHtml(st.title || '')}">${n} ${name} ${st.icon} ${this._escapeHtml(st.text)}</span>`;
@@ -3719,6 +3828,7 @@ class ExperimentSignals {
             <span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">触发腿 <code>${this._escapeHtml(String(sg.legId || '—'))}</code></span>
             <span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">第 ${this._escapeHtml(String(sg.triggerNo ?? '—'))}/${this._escapeHtml(String(sg.maxTriggers ?? 1))} 次触发（触发即消耗·门拒不返还）</span>
             ${Array.isArray(sg.bpPassLevels) && sg.bpPassLevels.length ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">BP 放行档 ${this._escapeHtml(sg.bpPassLevels.join('/'))}</span>` : ''}
+            ${genBadge}
             ${sg.recheckCondition ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">作弊重判（CD381）<code>${this._escapeHtml(sg.recheckCondition)}</code></span>` : ''}
             ${sg.cheatRecheck != null ? `<span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">cheatRecheck=${sg.cheatRecheck ? 'true（unhealthy 每信号重判）' : 'false（unhealthy 粘滞秒回省配额）'}</span>` : ''}
           </div>
@@ -3735,7 +3845,9 @@ class ExperimentSignals {
             <span class="text-gray-600 text-xs">→</span>
             ${pipeSeg('⑤', 'BP 买点', gateLayerState('bp', buyPointInfo))}
           </div>
-          <div class="text-xs text-gray-700 mt-0.5">类型+五层：⓪分类定路由（未启用=全门现行）；五层都过才买；③活跃度 high/burst 豁免时⏭跳过④作弊门直进⑤；②③灰度关=直通、④⑤段缺席=前层已拒未到达</div>
+          <div class="text-xs text-gray-700 mt-0.5">${allFactorGen
+            ? '类型+五层：⓪分类定路由（未启用=全门现行）；五层都过才买；因子代下③④不判档、不拒买（低活跃与组织性作弊形状在①因子门拦），实际在拦的是①因子门与⑤塞单门 / crash 形态复核；②⑤段缺席=前层已拒未到达'
+            : '类型+五层：⓪分类定路由（未启用=全门现行）；五层都过才买；③活跃度 high/burst 豁免时⏭跳过④作弊门直进⑤；②③灰度关=直通、④⑤段缺席=前层已拒未到达'}</div>
         </div>
         `;
       }
@@ -3768,15 +3880,51 @@ class ExperimentSignals {
           const armChips = (Array.isArray(factorCheckInfo.arms) && factorCheckInfo.arms.length
             ? factorCheckInfo.arms.map((a) => `<span class="px-1.5 py-0.5 rounded border border-red-300 bg-red-100 text-red-900 text-xs">${this._escapeHtml(a)}</span>`).join(' ')
             : '');
-          // FP6 门/值对表（用户裁定：因子过滤输出整理成门/值对，信号页展示各门值）
-          const gatesTable = (Array.isArray(factorCheckInfo.gates) && factorCheckInfo.gates.length
-            ? `<details class="mt-1" open><summary class="text-xs text-emerald-800 cursor-pointer select-none">🚪 因子门门/值对（${factorCheckInfo.gates.length} 门${factorCheckInfo.observe ? ' · 含观察标记' : ''}）</summary><div class="mt-1 overflow-x-auto"><table class="w-full text-xs border border-gray-400"><thead><tr class="bg-gray-200"><th class="text-left px-2 py-0.5">门</th><th class="text-left px-2 py-0.5">值</th><th class="text-left px-2 py-0.5">线</th></tr></thead><tbody>${factorCheckInfo.gates.map((ge) => `
+          // 因子门分类分块（T241b，2026-11-26 用户提案「因子门就很多了，建议进行一下
+          // 因子分类。在信号页面，也已分类为分块展示数据」）：门行按类别分块——①因子门
+          // 门行 + ⑤BP 门两条纯代码门（塞单门 / crash 形态复核，按 metadata.buyPoint 合成；
+          // 信号在①被拒时⑤未到达=无这两行）。新行带 category，历史行按门 id 归类。
+          const gateRows = (Array.isArray(factorCheckInfo.gates) ? factorCheckInfo.gates.slice() : []);
+          if (buyPointInfo && buyPointInfo.status === 'assessed') {
+            const eqW = buyPointInfo.anchors ? buyPointInfo.anchors.exactEqualBlockMaxWallets : null;
+            gateRows.push({
+              id: 'stuffing_gate', label: 'BP77·同块等额塞单',
+              value: `同块等额买入最大簇 ${eqW == null ? '—' : eqW} 钱包`,
+              line: '同一区块 ∧ 金额四位小数全等 ∧ ≥8 钱包（⑤BP 买点门，纯代码）',
+              hit: !!(buyPointInfo.assessment && buyPointInfo.assessment.rule === 'stuffing_gate'),
+            });
+            const cf = buyPointInfo.factorTrace && buyPointInfo.factorTrace.crashForm;
+            if (cf) {
+              gateRows.push({
+                id: 'crash_form', label: 'BPF2·crash 形态复核',
+                value: cf.hit ? '命中：无回调 + 无换手的单边下跌' : `未命中（${String(BP_CRASHFORM_BRANCH_LABELS[cf.branch] || cf.branch || '—').replace(/^[^\s：:]+[：:]\s*/, '')}）`,
+                line: '数值提示臂 ∧ chg5≤-1.5（未反弹）∧ 尾 10s 买=0（无换手）∧ 卖>0（⑤BP 买点门，纯代码）',
+                hit: !!cf.hit,
+              });
+            }
+          }
+          const catBlocks = FACTOR_GATE_CATEGORIES
+            .map((c) => ({ ...c, rows: gateRows.filter((row) => factorGateCategoryOf(row) === c.id) }))
+            .filter((b) => b.rows.length);
+          const gateRowHtml = (ge) => `
               <tr class="${ge.hit ? 'bg-red-100' : (ge.observe ? 'bg-amber-100' : (ge.exempt ? 'bg-indigo-100' : ''))}">
                 <td class="px-2 py-0.5 border-t border-gray-300 whitespace-nowrap">${this._escapeHtml(ge.label || ge.id)}${ge.hit ? ' 🚫' : (ge.observe ? ' 👁' : (ge.exempt ? ' ⏭ 通路' : ''))}</td>
                 <td class="px-2 py-0.5 border-t border-gray-300 font-mono">${this._escapeHtml(ge.value || '—')}</td>
                 <td class="px-2 py-0.5 border-t border-gray-300 text-gray-600">${this._escapeHtml(ge.line || '')}</td>
-              </tr>`).join('')}</tbody></table></div></details>`
-            : '');
+              </tr>`;
+          const gatesTable = (catBlocks.length
+            ? catBlocks.map((b) => {
+              const nHit = b.rows.filter((ge) => ge.hit).length;
+              const nMark = b.rows.filter((ge) => ge.observe || ge.exempt).length;
+              return `
+            <details class="mt-1" open>
+              <summary class="text-xs ${nHit ? 'text-red-700 font-bold' : 'text-emerald-800'} cursor-pointer select-none">🧩 ${this._escapeHtml(b.label)} · ${this._escapeHtml(b.question)}（${b.rows.length} 门${nHit ? ` · 🚫 命中 ${nHit}` : ''}${nMark ? ` · 标记 ${nMark}` : ''}）</summary>
+              <div class="mt-1 overflow-x-auto"><table class="w-full text-xs border border-gray-400"><thead><tr class="bg-gray-200"><th class="text-left px-2 py-0.5">门</th><th class="text-left px-2 py-0.5">值</th><th class="text-left px-2 py-0.5">线</th></tr></thead><tbody>${b.rows.map(gateRowHtml).join('')}</tbody></table></div>
+            </details>`;
+            }).join('')
+            : '') + (gateRows.some((row) => !factorGateCategoryOf(row))
+              ? `<div class="mt-1 text-xs text-amber-700">⚠ 未归类的门：${gateRows.filter((row) => !factorGateCategoryOf(row)).map((row) => this._escapeHtml(row.id)).join(', ')}（分类表未登记）</div>`
+              : '');
           // FP6 观察臂标记（不拦截——留待找方案）
           const observeChip = (factorCheckInfo.observe
             ? `<span class="px-1.5 py-0.5 rounded border border-amber-300 bg-amber-100 text-amber-900 text-xs">👁 观察 ${this._escapeHtml(factorCheckInfo.observe.code || '')}（不拦截）</span>`
@@ -3793,6 +3941,7 @@ class ExperimentSignals {
               <span class="text-gray-600">FP${this._escapeHtml(String(factorCheckInfo.version || '1'))}</span>
             </div>
             ${armChips ? `<div class="flex flex-wrap gap-1 mb-1">${armChips} ${observeChip}</div>` : (observeChip ? `<div class="flex flex-wrap gap-1 mb-1">${observeChip}</div>` : '')}
+            ${catBlocks.filter((b) => b.rows.some((ge) => ge.hit)).length ? `<div class="flex flex-wrap items-center gap-1 mb-1 text-xs"><span class="text-red-800">命中类别：</span>${catBlocks.filter((b) => b.rows.some((ge) => ge.hit)).map((b) => `<span class="px-1.5 py-0.5 rounded border border-red-300 bg-red-100 text-red-900">${this._escapeHtml(b.label)}（${b.rows.filter((ge) => ge.hit).length}）</span>`).join(' ')}</div>` : ''}
             ${gatesTable}
             ${traceRows ? `<details class="mt-1"><summary class="text-xs text-emerald-800 cursor-pointer select-none">📐 PVP 判定树计数（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-5">${traceRows}</div></details>` : ''}
           </div>
@@ -3827,7 +3976,19 @@ class ExperimentSignals {
       let actFrontGateHtml = '';
       if (actFrontGateInfo && actFrontGateInfo.status !== 'disabled') {
         const afStatus = actFrontGateInfo.status || '';
-        if (afStatus === 'assessed') {
+        if (isFactorGen(actFrontGateInfo)) {
+          // T241 因子代 AF2：本层不判档、不拒买（低活跃的极端形状由①因子门 act_low /
+          // act_ultra 臂承接）——不得冒充 Jev 代的「活跃度档位 / 分流 path」展示
+          actFrontGateHtml = `
+          <div class="mt-2 pt-2 border-t border-indigo-400">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-indigo-300">🌡️ 活跃度门（第 2 层 · 因子代 ${this._escapeHtml(factorGenVersion(actFrontGateInfo))} · 零 Jev）</div>
+              <span class="text-xs px-2 py-1 rounded-full border bg-green-200 text-green-900 border-green-400">✅ 不判档 → 照走④</span>
+            </div>
+            <div class="text-xs text-gray-700">本层不判活跃度档位、不拒买：低活跃 / 超高活跃的极端形状由①因子门 act_low / act_ultra 臂承接（Jev 代 AF1 的 low 拒买已随 Jev 退役）</div>
+          </div>
+          `;
+        } else if (afStatus === 'assessed') {
           const act = actFrontGateInfo.act || null;
           const sbw = actFrontGateInfo.sbw || null;
           const wash = actFrontGateInfo.wash || null;
@@ -3885,6 +4046,27 @@ class ExperimentSignals {
       let buyPointHtml = '';
       if (buyPointInfo) {
         const bpStatus = buyPointInfo.status || '';
+        // T241 因子代 BPF2：标题按答案来源（Jev 代文案不变）；实际在拦的是塞单门与
+        // crash 形态复核——形态复核的分支 + 判据八键做成判据块（替代 Jev 代维度题区）
+        const bpFactor = isFactorGen(buyPointInfo);
+        const bpTitle = bpFactor
+          ? `🎯 BP 买点门（第 4 层 · 因子代 ${this._escapeHtml(factorGenVersion(buyPointInfo))} · 零 Jev）`
+          : '🎯 BP 买入点位门（第 4 层 · Jev 3 题）';
+        const bpCrashForm = buyPointInfo.factorTrace && buyPointInfo.factorTrace.crashForm;
+        const bpCrashHit = !!(bpCrashForm && bpCrashForm.hit);
+        const bpCrashFormHtml = bpCrashForm ? `
+            <div class="mt-1 p-1.5 rounded border ${bpCrashHit ? 'border-red-400 bg-red-50' : 'border-blue-400 bg-gray-900'}">
+              <div class="flex items-center justify-between gap-2 text-xs">
+                <span class="${bpCrashHit ? 'text-red-900 font-semibold' : 'text-blue-300 font-medium'}">📉 crash 形态复核（纯代码：无回调 + 无换手的单边下跌）</span>
+                <span class="px-1.5 py-0.5 rounded border ${bpCrashHit ? 'bg-red-200 text-red-900 border-red-500 font-bold' : 'bg-gray-200 text-gray-800 border-gray-400'}">${bpCrashHit ? '🚫 命中' : '未命中'}</span>
+              </div>
+              <div class="text-xs ${bpCrashHit ? 'text-red-900' : 'text-gray-700'} mt-0.5">${this._escapeHtml(BP_CRASHFORM_BRANCH_LABELS[bpCrashForm.branch] || bpCrashForm.branch || '—')}</div>
+              ${bpCrashForm.trace ? `<div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-xs mt-1 sm:grid-cols-4">${BP_CRASHFORM_TRACE_LABELS.map(([k, label, line]) => `
+                <div class="flex items-center justify-between gap-1 bg-gray-900 px-1.5 py-0.5 rounded border ${bpCrashHit ? 'border-red-300' : 'border-gray-700'}">
+                  <span class="text-gray-700">${label}${line ? ` <span class="text-gray-600">（${line}）</span>` : ''}</span>
+                  <span class="text-gray-100 font-mono">${bpCrashForm.trace[k] == null ? '—' : this._escapeHtml(String(bpCrashForm.trace[k]))}</span>
+                </div>`).join('')}</div>` : ''}
+            </div>` : '';
         if (bpStatus === 'assessed' && buyPointInfo.assessment) {
           const a = buyPointInfo.assessment;
           const bpBucket = String(a.bucket || '?');
@@ -3935,17 +4117,17 @@ class ExperimentSignals {
           buyPointHtml = `
           <div class="mt-2 pt-2 border-t border-blue-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（第 4 层 · Jev 3 题）</div>
+              <div class="text-xs font-semibold text-blue-300">${bpTitle}</div>
               ${bpBadge}
             </div>
             <div class="flex flex-wrap gap-2 text-xs text-gray-800 mb-1">
-              <span>综合概率 p=${a.prob != null ? Number(a.prob).toFixed(2) : '—'}</span>
+              ${bpFactor ? '' : `<span>综合概率 p=${a.prob != null ? Number(a.prob).toFixed(2) : '—'}</span>`}
               ${a.rule ? `<span>规则 <code class="bg-gray-900 px-1 rounded">${this._escapeHtml(String(a.rule))}</code></span>` : ''}
               ${buyPointInfo.passed === true ? '<span class="text-green-400 font-medium">→ 放行</span>' : '<span class="text-red-400 font-medium">→ 拒</span>'}
               <span class="text-gray-600">model=${this._escapeHtml(String(buyPointInfo.model || '—'))}${buyPointInfo.usage ? ` · in=${buyPointInfo.usage.input_tokens ?? '—'} out=${buyPointInfo.usage.output_tokens ?? '—'}` : ''}</span>
             </div>
             ${qRows ? `<div class="text-xs text-blue-300 mb-1">质量题（任一 good→good，否则任一 neutral→neutral，否则 poor）：</div><div class="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${qRows}</div>` : ''}
-            ${dimRows ? `<details class="mt-1" open><summary class="text-xs text-blue-300 cursor-pointer select-none">📐 维度题（参考不进门链，默认展开）</summary><div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${dimRows}</div></details>` : ''}
+            ${bpFactor ? bpCrashFormHtml : (dimRows ? `<details class="mt-1" open><summary class="text-xs text-blue-300 cursor-pointer select-none">📐 维度题（参考不进门链，默认展开）</summary><div class="mt-1 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">${dimRows}</div></details>` : '')}
             ${anchorRows ? `<details class="mt-1"><summary class="text-xs text-blue-300 cursor-pointer select-none">🧭 盘面锚值 ${Object.keys(buyPointInfo.anchors || {}).length} 锚（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-4">${anchorRows}</div></details>` : ''}
           </div>
           `;
@@ -3953,10 +4135,10 @@ class ExperimentSignals {
           buyPointHtml = `
           <div class="mt-2 pt-2 border-t border-blue-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（第 4 层 · Jev 3 题）</div>
+              <div class="text-xs font-semibold text-blue-300">${bpTitle}</div>
               <span class="text-xs px-2 py-1 bg-gray-200 text-gray-800 rounded-full">未判定·拒</span>
             </div>
-            <div class="text-xs text-gray-700">锚窗 ${this._escapeHtml(String(buyPointInfo.anchorTickCount ?? '—'))} ticks &lt; minTicks 7，不调 Jev 不判定——BP10 裁定 insufficient_ticks 硬拒（数据不够就挡住）</div>
+            <div class="text-xs text-gray-700">锚窗 ${this._escapeHtml(String(buyPointInfo.anchorTickCount ?? '—'))} ticks &lt; minTicks 7，${isFactorGen(buyPointInfo) ? '不判定' : '不调 Jev 不判定'}——BP10 裁定 insufficient_ticks 硬拒（数据不够就挡住）</div>
           </div>
           `;
         } else {
@@ -3967,7 +4149,7 @@ class ExperimentSignals {
           buyPointHtml = `
           <div class="mt-2 pt-2 border-t border-blue-300">
             <div class="flex items-center justify-between mb-1">
-              <div class="text-xs font-semibold text-blue-300">🎯 BP 买入点位门（第 4 层 · Jev 3 题）</div>
+              <div class="text-xs font-semibold text-blue-300">${bpTitle}</div>
               <span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full">拒</span>
             </div>
             <div class="text-xs text-gray-700">${failLabel}</div>
@@ -4191,7 +4373,20 @@ class ExperimentSignals {
       // 此处只见放行形状）；fail-open 形状（insufficient_ticks/fail/timeout/skipped）
       // 如实展示；initiated/joined_inflight/reused=CD158 前历史行
       let cheatCheckHtml = '';
-      if (cheatCheckInfo) {
+      if (cheatCheckInfo && isFactorGen(cheatCheckInfo) && cheatCheckInfo.grade === 'healthy'
+          && !(cheatCheckInfo.reasons || []).length) {
+        // T241 因子代 CF1：本层无拒臂放行（非 Jev 检测结论）——不渲染 Jev 代的
+        // 「healthy（检测判定）/ 10 题档位明细」；拉黑票走下方 status='graded' 分支
+        cheatCheckHtml = `
+          <div class="mt-2 pt-2 border-t border-gray-600">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-amber-200">🚨 作弊门（第 3 层 · 因子代 ${this._escapeHtml(factorGenVersion(cheatCheckInfo))} · 零 Jev）</div>
+              <span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full">✅ 放行（本层无拒臂）</span>
+            </div>
+            <div class="text-xs text-gray-700">组织性作弊形状由①因子门作弊类臂承接（launch_squad_dominance / even_split_crew / oversell_residual / arb_bot_holdings / cd400 族等）；本层不做 Jev 档位判定、不拉黑</div>
+          </div>
+        `;
+      } else if (cheatCheckInfo) {
         const cs = cheatCheckInfo.status || '';
         if (cheatCheckInfo.grade) {
           const g = cheatCheckInfo.grade;
