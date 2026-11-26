@@ -1989,8 +1989,7 @@ class AbstractTradingEngine extends ITradingEngine {
    * 锚窗 tick<minTicks=数据不足不判定，宁拦不冒充拒单
    * （bp_gate_insufficient_ticks）；minTicks 预门保留在 service（不烧 Jev
    * 配额），info 带 anchorTickCount 留痕。通过/拒绝均落 signal metadata `buyPoint` 段
-   * （研究主数据）；timeout 的 late 链在 service 内部落行（引擎零消费无副作用）。
-   * 本方法不抛错（service 不抛；catch 兜底接线级异常=fail-closed 拒——与 cheat
+   * （研究主数据）；timeout 的 late 链在 service 内部落行（引擎零消费无副作用）。   * 本方法不抛错（service 不抛；catch 兜底接线级异常=fail-closed 拒——与 cheat
    * 门 catch 放行刻意不同向）。ctx.anchorMs=回测 as-of 锚（生产不传=现状）。
    */
   async _bpGateEvaluate(tokenAddress, token, faState, signalId, signalGate, ctx = {}) {
@@ -2054,8 +2053,6 @@ class AbstractTradingEngine extends ITradingEngine {
             model: res.model ?? null, usage: res.usage ?? null,
             // T193 参与者画像观察键（additive；灰度关/回测=缺省不序列化）
             ...(res.participantProfile ? { participantProfile: res.participantProfile } : {}),
-            // 因子代判据留痕（BPF2 crash 形态复核：分支 + 判据数值；Jev 代无此键=形状不变）
-            ...(res.factorTrace ? { factorTrace: res.factorTrace } : {}),
           };
           this.logger.info(this._experimentId, 'SignalGate',
             `BP 门${pass ? '放行' : '拒买'} | ${token.symbol || tokenAddress.slice(0, 10)} assessment=${bucket}（pass=[${passLevels.join('/')}]）`);

@@ -59,8 +59,8 @@
  * （T241 Phase 4，2026-11-26 用户指令「因子路径里为 Jev 留的竞速、粘滞接线请
  * 清理」）：gateBuyPoint 的 inflight join / awaitMs 竞速 / 超时 late 包只服务 Jev
  * 慢调用，因子代直接跑链。链路其余部分（settle / 拉数 / minTicks 预门 / 快照 /
- * 塞单门 / mapper 门链 / 落行）两代同一条；BPF2 在拦的是纯代码的塞单门、minTicks
- * 预门与 crash 形态复核因子臂（factor-responders judgeCrashForm）。
+ * 塞单门 / mapper 门链 / 落行）两代同一条；BPF3 在拦的只有纯代码的塞单门与 minTicks
+ * 预门（crash 形态 T243 起迁因子门 FP48 臂 crash_form，BP 门不再复核）。
  */
 
 const { buildBuyPointSnapshot } = require('./buy-point-snapshot');
@@ -471,8 +471,6 @@ class BuyPointCheckService {
         anchors: obs.anchors,
         model: res.result.model || null,
         usage: res.result.usage || null,
-        // 因子代判据留痕（BPF2：crash 形态复核的分支 + 判据数值；Jev 代无此键）
-        ...(res.result.factor ? { factorTrace: res.result.factor } : {}),
         // T193 参与者画像观察键（additive；灰度关/回测=缺省 undefined 不序列化）
         ...(participantProfile ? { participantProfile } : {}),
       };

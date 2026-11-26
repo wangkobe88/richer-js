@@ -212,7 +212,7 @@ async function main() {
   // ═══════════════ E. 版本钉+源码锁 ═══════════════
   console.log('E. 版本钉+源码锁');
   {
-    ok(FACTOR_PREBUY_VERSION === 'FP47', 'FP 版本=FP46');
+    ok(FACTOR_PREBUY_VERSION === 'FP48', 'FP 版本=FP48（T243 crash 形态迁因子门；断言随版本演进同步——历史：FP46 沉寂豁免、FP47 Jev 死板计算题因子化）');
     const fp = fs.readFileSync(path.join(__dirname, '../src/market-analysis/factor-pre-buy-check.js'), 'utf8');
     ok(fp.includes('!stallRestart.hit && armBurstWeakWave('), '源码锁：弱波臂调用点受形状守卫');
     ok(/if \(!burstCtx && !tailActive && !stageCold && !stallRestartHit\) \{/.test(fp), '源码锁：low 五臂入口含 stallRestartHit 让位条件');

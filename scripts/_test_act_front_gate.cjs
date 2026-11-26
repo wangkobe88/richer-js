@@ -320,7 +320,7 @@ async function main() {
   // ⚠ 版本锁随 FP 演进同步（存量漂移：2026-11-20 FP28、11-21/22 FP35/FP38、11-22 T210 FP44、
   //   2026-11-25 Jev 退役·因子代立项时 FP47〔T237 四题〕——断言先于 E 段其余用例失败即整件 exit，
   //   漂移须第一时间修）
-  ok(FACTOR_PREBUY_VERSION === 'FP47', `FP 版本=FP47（T237 Jev 死板计算题因子化现行；断言随版本演进同步——历史：11-20 FP28、11-21/22 FP35/FP38、11-22 T210 FP44、11-25 FP47）（实际 ${FACTOR_PREBUY_VERSION}）`);
+  ok(FACTOR_PREBUY_VERSION === 'FP48', `FP 版本=FP48（T237 Jev 死板计算题因子化现行；断言随版本演进同步——历史：11-20 FP28、11-21/22 FP35/FP38、11-22 T210 FP44、11-25 FP47）（实际 ${FACTOR_PREBUY_VERSION}）`);
   {
     // 最小 snapshot 直调：N 臂无条件拦会误伤 A_strong∧high 豁免票（萨摩耶 N=6.3
     // −0.014/我画地为牢 N=0.0 +0.0875/PAYAI N=9.5 +0.0762，净 −0.15 > FFFF
