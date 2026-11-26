@@ -289,6 +289,9 @@ console.log('\nC. 信号页渲染');
     factorCheck: { status: 'policy_pass', policy: 'factorCheckArms:skip' }, actFrontGate: POLICY_PASS('actFront:pass'), cheatCheck: POLICY_PASS('cheatCheck:skip'), buyPoint: bpStuffingOnly(true) },
     { executed: false, execution_status: 'failed', execution_reason: 'bp_gate_assessment' });
   ok('C5b 类型票塞单门命中拒：BP 卡照常显示（塞单门是真判定）', htypRej.includes('🎯 BP 塞单门（第 4 层 · 类型 policy：只评塞单门）') && htypRej.includes('stuffing_gate') && !htypRej.includes('③ 活跃度') && !htypRej.includes('④ 作弊'));
+  // 2026-11-26 Hawking 0x110c 案：塞单门拒沿用 bucket='poor' 字段名，展示不得冒充
+  // Jev 六桶判定（用户疑问「现在不是已经没 BP 了吗」）——流水线段显示「塞单门」
+  ok('C5c 塞单门拒不冒充 poor 桶名', !htypRej.includes('④ BP 买点 🚫 poor') && htypRej.includes('塞单门') && !htypRej.includes('🚫 poor（拒）'));
 
   // C6 Jev 代历史行：真判定照常显示、原文案不变
   const hjev = render({

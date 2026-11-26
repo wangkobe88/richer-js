@@ -352,6 +352,11 @@ const LAUNCH_BUNDLE_WAVE_MIN_WALLETS = 5;
 // 模块级单例（跨 FA 实例共享，pruneStaleTokens 不清）。
 // ⚠写路径显式 opt-in：仅两引擎（Wss/Backtest）构 FA 后调 setMarketFeedEnabled(true)——web 侧
 //   裸 FA 实例不 feed → 读恒 null，零污染零误计；引擎 stop 关 feed 清单例（防同进程下一实验继承）。
+// 跨 prune 全史累计（2026-11-26 用户发现 캐시덕 0xe48e 案：冷寂重启票 30min prune 整删
+// state 后复流重建，totalBuyBnb 归零重计——buyVolumeBnb 只含重启后量、全史口径系统性
+// 低估；lifetime* 三键存本 Map，prune 不清、跨 state 生命；跨进程重启丢失=已知限制
+// （同 graduationProgress）。addr 小写；写点=processTick 计数段（与 totalBuyBnb 同位）。
+const _lifetimeVolumes = new Map(); // addr -> { buy: number, sell: number }
 // 出生锚 = state.createdAtMs（live=TokenCreate 块时间 / 回测=experiment_tokens discovered_at，
 // 与 age 同基准；母版 firstTickAt 本身是墓碑/DB discovered_at 证据链≈创建时间，语义对齐）。
 // 距出生已 >40m 的老票不入册（防引擎中途启动把存量票当 newborn 灌满截面；richer-js FA 无 DB
@@ -1327,6 +1332,12 @@ class FourMemeFactorAggregator extends EventEmitter {
         state.totalBuyBnb += isBuy ? bnbAmount : 0;
         state.totalSellBnb += isBuy ? 0 : bnbAmount;
         if (isBuy) state.totalBuyTokens += tokenAmount; else state.totalSellTokens += tokenAmount;
+        // 跨 prune 全史累计（lifetime* 键原料，2026-11-26 캐시덕 案——见模块级声明注释）
+        {
+            const lv = _lifetimeVolumes.get(state.tokenAddress) || { buy: 0, sell: 0 };
+            if (isBuy) lv.buy += bnbAmount; else lv.sell += bnbAmount;
+            _lifetimeVolumes.set(state.tokenAddress, lv);
+        }
         // ── T227d 任意买键推进（全量区写点——尘门豁免）：价格段 priceReliable 尘门
         //    （minPriceUpdateBnb 0.002）会把 famous 尘埃买整段滤掉（개구리씨 0xa38b 案
         //    03:38:08~03:39:08 六笔 0.00098 全丢 → anyBuy 停在 03:38:03 → 03:41:12 评估
@@ -5431,6 +5442,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             sellCount: state.sellCount,
             uniqueTraderCount: state.uniqueTraders.size,
             buyVolumeBnb: state.totalBuyBnb,
+            // 跨 prune 全史累计三键（2026-11-26 캐시덕 0xe48e 案：冷寂重启票 prune 重建
+            // 后 buyVolumeBnb 只含重启后量，「生命周期结束」判据需要全史口径——存模块级
+            // _lifetimeVolumes，prune 不清；有证据零值语义（0=累计至今确为 0）
+            lifetimeBuyVolumeBnb: (_lifetimeVolumes.get(state.tokenAddress) || { buy: 0 }).buy,
+            lifetimeSellVolumeBnb: (_lifetimeVolumes.get(state.tokenAddress) || { sell: 0 }).sell,
+            lifetimeTradeVolumeBnb: (() => {
+                const lv = _lifetimeVolumes.get(state.tokenAddress);
+                return lv ? lv.buy + lv.sell : 0;
+            })(),
             // 独立买入钱包数（T76 2026-10-27 注意力空转观测键原料）：K 组对敲族
             // _buyerAddresses 全史 Set 的 size——曾买入即计入（清仓不回退），与
             // buyVolumeBnb 同刻同源；GMGN 层 gmgnVisitorsPerBuyer 比值的分母

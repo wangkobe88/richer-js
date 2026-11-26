@@ -3756,6 +3756,12 @@ class ExperimentSignals {
             const cfHit = !!(info.factorTrace && info.factorTrace.crashForm && info.factorTrace.crashForm.hit);
             if (b === 'good') return { cls: 'ok', icon: '✅', text: 'good', title: 'BP 买点判定 good 放行' };
             if (b === 'neutral') return { cls: 'ok', icon: '🟡', text: 'neutral', title: isFactorGen(info) ? `BP 门放行（因子代 ${factorGenVersion(info)}：塞单门未命中${info.factorTrace ? '；crash 形态复核未命中' : ''}）` : 'BP 买点判定 neutral 放行' };
+            // 塞单门拒（BPF3/类型 stuffingOnly policy 唯一拒因）沿用 Jev 代 bucket='poor'
+            // 字段名——展示不得冒充六桶判定（2026-11-26 Hawking 0x110c 案用户疑问
+            // 「现在不是已经没 BP 了吗」）
+            if (info.assessment.rule === 'stuffing_gate' || info.assessment.rule === 'policy_stuffing_only') {
+              return { cls: 'rej', icon: '🚫', text: '塞单门', title: 'BP 塞单门拒（同一区块 ∧ 金额四位小数全等 ∧ ≥8 钱包）——因子代 BP 门唯一拒因' };
+            }
             return { cls: 'rej', icon: '🚫', text: b, title: `BP 拒（${info.assessment.rule || ''}${cfHit ? '：crash 形态复核命中——无回调 + 无换手的单边下跌' : ''}）` };
           }
           if (info.status === 'insufficient_ticks') return { cls: 'rej', icon: '🚫', text: '数据不足·拒', title: 'BP10：数据不够就挡住' };
@@ -4090,11 +4096,16 @@ class ExperimentSignals {
         if (bpStatus === 'assessed' && buyPointInfo.assessment) {
           const a = buyPointInfo.assessment;
           const bpBucket = String(a.bucket || '?');
+          // 塞单门拒沿用 Jev 代 bucket='poor' 字段名——展示不得冒充六桶判定（2026-11-26
+          // Hawking 0x110c 案：用户疑问「现在不是已经没 BP 了吗」）
+          const bpIsStuffing = a.rule === 'stuffing_gate' || a.rule === 'policy_stuffing_only';
           const bpBadge = bpBucket === 'good'
             ? '<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full font-bold">✅ good（放行）</span>'
             : (bpBucket === 'neutral'
               ? '<span class="text-xs px-2 py-1 bg-yellow-200 text-yellow-900 rounded-full font-bold">🟡 neutral（放行）</span>'
-              : '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 poor（拒）</span>');
+              : (bpIsStuffing
+                ? '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold" title="同一区块 ∧ 金额四位小数全等 ∧ ≥8 钱包（BP67 塞单门，因子代 BP 门唯一拒因）">🚫 塞单门拒</span>'
+                : '<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 poor（拒）</span>'));
           const qRows = Object.entries(buyPointInfo.qualities || {})
             .map(([qk, q]) => {
               // 条目可整项 null（题退役/Jev 拒答容缺）——缺席渲染 '—' 防崩页
