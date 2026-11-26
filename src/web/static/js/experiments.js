@@ -788,6 +788,9 @@ class ExperimentMonitor {
       if (config.flapWs) copyData.flapWs = config.flapWs;
       // gangWs 同款随复制携带（2026-10-27 gang 接入：单平台实验的 ws 段）
       if (config.gangWs) copyData.gangWs = config.gangWs;
+      // 点位类型激活覆盖随复制携带（T242：实验级 config.pointTypes.active——创建页
+      // 「点位类型激活」开关以它为初值；不带则复制件静默回落注册表缺省，行为大变）
+      if (config.pointTypes) copyData.pointTypes = config.pointTypes;
 
       // 添加 strategiesConfig 中的高级配置
       if (config.strategiesConfig) {

@@ -1018,11 +1018,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const _cc = _m.cheatCheck || {};
       const _mods = this._strategyResolved?.modules || {};
       const _on = (k) => (this._strategyDefinition?.modules?.[k] != null ? `on(${_mods[k] || '?'})` : 'OFF');
+      // 因子代（Jev 退役；T241 Phase 4）：awaitMs 竞速上限 / alwaysRecheck 粘滞绕过是
+      // Jev 判定的 ops 旋钮，因子路径不消费——汇总行如实标注，防按 Jev 口径核对
+      const _cheatFactor = this._cheatCheckService.factorMode === true;
+      const _bpFactor = this._buyPointCheckService.factorMode === true;
       this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
-        `⛓ 门链配置 | cheat=${_on('cheatCheck')}(awaitMs=${Math.round(this._cheatGateAwaitMs / 1000)}s` +
-        `,recheck=${_cc.gate && _cc.gate.alwaysRecheck === true ? 'on' : 'off'})` +
+        `⛓ 门链配置 | cheat=${_on('cheatCheck')}(${_cheatFactor ? '因子代·无竞速/粘滞' : `awaitMs=${Math.round(this._cheatGateAwaitMs / 1000)}s` +
+          `,recheck=${_cc.gate && _cc.gate.alwaysRecheck === true ? 'on' : 'off'}`})` +
         ` AF1=${_on('actFrontGate')} FP=${_on('factorCheck')}` +
-        ` BP=${_on('buyPointCheck')}(awaitMs=${Math.round(this._bpGateAwaitMs / 1000)}s)` +
+        ` BP=${_on('buyPointCheck')}(${_bpFactor ? '因子代·无竞速' : `awaitMs=${Math.round(this._bpGateAwaitMs / 1000)}s`})` +
         ` maxPerToken=${_m.buySignalMaxPerToken ?? 5} perTick=${this._signalGatePerTickEval ? 'on' : 'off'}` +
         ` 卖过滤=${_m.factorSellFilter && _m.factorSellFilter.enabled === true ? 'on' : 'OFF'}`);
     }
@@ -1952,7 +1956,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // CD389（2026-11-09 用户裁定「cheat 检测每一次都重新做，不缓存」）：
       // gate.alwaysRecheck=true 时拉黑票不做引擎级终态短路——放行进门链真调
       // 重判（秒回绕过与 service 侧同语义；缺省 false 短路行为 bit 不变）
+      // 因子代（Jev 退役；T241 Phase 4）：因子路径无拉黑态（引擎 Set 与 service
+      // _gateBlocked 在因子模式下无人写入）——整段 Jev 短路（含 CD381 重启桥）
+      // 不进因子路径
       if (this._cheatCheckService.enabled
+        && this._cheatCheckService.factorMode !== true
         && (this._cheatBlockedTokens.has(tokenAddress) || this._cheatCheckService.isGateBlocked(tokenAddress))
         && !(strategy.signalGate && (factorResults.priceBackToAlmostLaunch === 1
             || this._cheatCheckService.alwaysRecheck === true))) {

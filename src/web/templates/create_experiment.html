@@ -800,6 +800,25 @@
                         <option value="">加载策略包列表…</option>
                     </select>
                     <div id="strategy-pack-info" class="text-sm text-gray-700"></div>
+                    <!-- T242 点位类型激活（2026-11-26 用户指令「将 pointType 的开关激活改为实验层面
+                         可配置项」「web 创建页加类型开关」）：实验级覆盖 config.pointTypes.active，
+                         逐类型覆盖代码注册表的 active 缺省。不勾的类型：不分类（信号回落后续
+                         类型/normal 兜底）+ 其专属触发腿不组装。全部保持缺省=不写段 -->
+                    <div id="point-types-section" class="mt-2 border border-indigo-200 rounded-md p-2 bg-indigo-50/40" hidden>
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div>
+                                <div class="text-sm font-medium text-gray-800">🧭 点位类型激活</div>
+                                <div class="text-xs text-gray-500 mt-0.5">
+                                    实验级覆盖：不勾的类型不分类（信号回落后续类型 / normal 兜底），其专属触发腿也不组装。
+                                    全部保持缺省时不写入配置。
+                                </div>
+                            </div>
+                            <button type="button" id="point-types-reset"
+                                class="shrink-0 text-xs text-indigo-600 underline hover:text-indigo-800">恢复注册表缺省</button>
+                        </div>
+                        <div id="point-types-list" class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1"></div>
+                        <div id="point-types-summary" class="text-xs text-gray-600 mt-2"></div>
+                    </div>
                 </div>
 
                 <!-- TPA 触发条件（2026-10-11 只读展示）：tokenPositionAnalyzer 是实验级配置
@@ -1099,6 +1118,8 @@
     </div>
 
 
+    <!-- T242 点位类型激活开关纯函数核（UMD：浏览器挂 window.PointTypesPicker，Node 下可单测） -->
+    <script src="/static/js/point_types_picker.js?v=1"></script>
     <script>
         // 全局变量（T202 策略库二期）：交易策略=策略库策略包，实验只存 strategyId
         let strategyPackList = [];       // GET /api/strategy-library 结果缓存
@@ -1106,6 +1127,11 @@
         // 复制链路暂存（旧形状源实验无 strategyId → 留空要求手选包）
         window._copyStrategyId = null;
         window._copyPermanentBlock = null;
+        // T242 点位类型激活开关状态
+        let pointTypeRegistry = null;    // GET /api/strategy-library/point-types → {version, types:[{id,label,active}]}
+        let pointTypesChecks = null;     // {类型 id: 布尔}——当前勾选表（null=尚未初始化）
+        let pointTypesTouched = false;   // 用户是否手动改过（换包时保留用户选择，不按缺省重置）
+        window._copyPointTypes = null;   // 复制携带的源实验 config.pointTypes.active（首渲染作初值）
 
         // DOM 元素
         const form = document.getElementById('experiment-form');
@@ -1291,6 +1317,10 @@
                 // 引擎读 strategiesConfig 顶层，复制直接携带（不再挂首买腿）
                 window._copyStrategyId = copyData.strategyId || null;
                 window._copyPermanentBlock = copyData.permanentBlockCondition || null;
+                // T242：源实验带点位类型激活覆盖 → 创建页开关以它为初值（与注册表缺省全等
+                // 时提交侧不写段）
+                window._copyPointTypes = copyData.pointTypes && copyData.pointTypes.active
+                    ? copyData.pointTypes.active : null;
                 if (!copyData.strategyId) {
                     showCopyModeNotice('⚠️ 源实验为旧内嵌腿形状（T202 前创建）——交易策略需手动选择策略包');
                 }
@@ -1971,15 +2001,23 @@
             const info = document.getElementById('strategy-pack-info');
             selectedPack = null;
             const id = sel.value;
-            if (!id) { info.innerHTML = ''; return; }
+            if (!id) {
+                info.innerHTML = '';
+                hidePointTypes();
+                return;
+            }
             try {
                 const res = await fetch(`/api/strategy-library/${id}`);
                 const result = await res.json();
                 if (!result.success) throw new Error(result.error || '接口返回失败');
+                // 快速换包竞态：包下拉已指向别的包时丢弃迟到的旧响应（防 selectedPack 与下拉错位）
+                if (sel.value !== id) return;
                 selectedPack = result.data;
                 renderPackInfo(selectedPack);
+                await renderPointTypes(selectedPack);
             } catch (e) {
                 info.innerHTML = `<span class="text-red-500">策略包详情加载失败: ${e.message}</span>`;
+                hidePointTypes();
             }
         }
 
@@ -1987,9 +2025,13 @@
             const info = document.getElementById('strategy-pack-info');
             const def = pack.definition || {};
             const mods = def.modules || {};
-            const modNames = { factorCheck: '因子过滤(FP)', cheatCheck: 'Jev作弊门', actFrontGate: 'AF1活跃度门', buyPointCheck: 'BP买点' };
+            // 模块名按代次中性命名（T241 Jev 退役：cheatCheck/actFrontGate/buyPointCheck 的
+            // v2=因子代零 Jev、v1=Jev 代）；pointType（点位类型路由）一并亮出——它是下方
+            // 「点位类型激活」开关的前提
+            const modNames = { factorCheck: '因子门(FP)', cheatCheck: '作弊门', actFrontGate: '前置活跃度门', buyPointCheck: 'BP买点门', pointType: '点位类型(PT)' };
+            const genHint = (k, v) => (['cheatCheck', 'actFrontGate', 'buyPointCheck'].includes(k) && v === 'v2') ? '·因子代' : '';
             const modBadges = Object.keys(modNames).map((k) => mods[k]
-                ? `<span class="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 mr-1 mb-1">${modNames[k]}:${mods[k]}</span>`
+                ? `<span class="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 mr-1 mb-1">${modNames[k]}:${mods[k]}${genHint(k, mods[k])}</span>`
                 : `<span class="inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-400 mr-1 mb-1">${modNames[k]}:关</span>`).join('');
             const hasStallLeg = (def.sellLegs || []).some((l) => (l.condition || '').includes('idleSecSinceLastSubstantialTick'));
             const mechBits = [];
@@ -2013,6 +2055,114 @@
         }
 
         document.getElementById('strategy-pack-select')?.addEventListener('change', onPackSelect);
+
+        // === T242 点位类型激活开关（实验级覆盖 config.pointTypes.active）===
+        // 纯函数在 /static/js/point_types_picker.js（初值 / 汇总 / 行模型 / 摘要，Node 可单测）；
+        // 这里只管取数、渲染与事件。所选包未启用 modules.pointType → 整块隐藏且提交不带该段
+        //（覆盖无消费点——服务端创建与引擎启动都会拒这种组合）。
+        const escapePt = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        let pointTypesRenderSeq = 0;    // 渲染序号（快速换包 / 重置连点时丢弃迟到渲染）
+
+        function packHasPointType(pack) {
+            const mods = pack && pack.definition && pack.definition.modules;
+            return !!(mods && typeof mods === 'object' && !Array.isArray(mods) && mods.pointType != null);
+        }
+
+        function hidePointTypes() {
+            const sec = document.getElementById('point-types-section');
+            if (sec) sec.hidden = true;
+        }
+
+        async function loadPointTypes() {
+            if (pointTypeRegistry) return pointTypeRegistry;
+            const res = await fetch('/api/strategy-library/point-types');
+            const result = await res.json();
+            if (!result.success || !result.data || !Array.isArray(result.data.types)) {
+                throw new Error(result.error || '接口返回形状非法');
+            }
+            pointTypeRegistry = result.data;
+            return pointTypeRegistry;
+        }
+
+        function renderPointTypesSummary(pack) {
+            const el = document.getElementById('point-types-summary');
+            if (!el || !pointTypeRegistry || !pointTypesChecks) return;
+            const s = PointTypesPicker.summary(pointTypeRegistry.types, PointTypesPicker.boundLegsByType(pack.definition), pointTypesChecks);
+            const writes = PointTypesPicker.collectConfig(pointTypeRegistry.types, pointTypesChecks) !== null;
+            el.innerHTML = `激活 ${s.activeN} / 未激活 ${s.inactiveN}`
+                + (s.disabledLegs.length
+                    ? ` ｜ <span class="text-amber-700 font-medium">专属腿不组装：${s.disabledLegs.join('/')}</span>`
+                    : ' ｜ 专属腿全在')
+                + (writes ? ' ｜ 提交时写 config.pointTypes' : ' ｜ 与注册表缺省一致（不写配置）');
+        }
+
+        async function renderPointTypes(pack) {
+            const sec = document.getElementById('point-types-section');
+            if (!sec) return;
+            const seq = ++pointTypesRenderSeq;
+            if (!packHasPointType(pack)) {
+                sec.hidden = true;
+                // 复制件带覆盖但所选包不支持：如实提示会被丢弃（不静默）
+                if (window._copyPointTypes) {
+                    sec.hidden = false;
+                    document.getElementById('point-types-list').innerHTML =
+                        '<div class="text-xs text-amber-700 sm:col-span-2">⚠️ 源实验带「点位类型激活」覆盖，但所选策略包未启用 modules.pointType——本次创建不会携带该段（这种组合引擎会拒启）</div>';
+                    document.getElementById('point-types-summary').textContent = '';
+                }
+                return;
+            }
+            let registry;
+            try {
+                registry = await loadPointTypes();
+            } catch (e) {
+                if (seq !== pointTypesRenderSeq) return;
+                pointTypeRegistry = null;
+                sec.hidden = false;
+                document.getElementById('point-types-list').innerHTML =
+                    `<div class="text-xs text-red-500 sm:col-span-2">点位类型注册表加载失败：${escapePt(e.message)}（本次创建不带激活覆盖，实验按注册表缺省）</div>`;
+                document.getElementById('point-types-summary').textContent = '';
+                return;
+            }
+            if (seq !== pointTypesRenderSeq) return;
+            // 初值：首渲染（或未手改时换包）取「复制携带覆盖 → 注册表缺省」；用户手改过则
+            // 换包保留其选择（类型是注册表级的，与包无关；专属腿提示随包刷新）
+            if (!pointTypesChecks || !pointTypesTouched) {
+                pointTypesChecks = PointTypesPicker.initialChecks(registry.types, pointTypesChecks ? null : window._copyPointTypes);
+                window._copyPointTypes = null;
+            }
+            const bound = PointTypesPicker.boundLegsByType(pack.definition);
+            const rows = PointTypesPicker.rows(registry.types, bound, pointTypesChecks);
+            const list = document.getElementById('point-types-list');
+            list.innerHTML = rows.map((r) => {
+                const tips = [r.id, r.legs.length ? `专属腿 ${r.legs.join('/')}` : '', (!r.isNormal && !r.registryActive) ? '注册表缺省未激活' : ''].filter(Boolean).join(' · ');
+                return `<label class="flex items-start gap-2 text-sm text-gray-700 cursor-pointer${r.isNormal ? ' opacity-70' : ''}" title="${escapePt(tips)}">
+                    <input type="checkbox" class="mt-1 point-type-cb" data-pt-id="${escapePt(r.id)}"${r.checked ? ' checked' : ''}${r.isNormal ? ' disabled' : ''}>
+                    <span>${escapePt(r.label)}<br><span class="text-xs text-gray-400">${escapePt(tips)}</span></span>
+                </label>`;
+            }).join('');
+            list.querySelectorAll('input.point-type-cb').forEach((cb) => {
+                cb.addEventListener('change', () => {
+                    pointTypesChecks[cb.dataset.ptId] = cb.checked;
+                    pointTypesTouched = true;
+                    renderPointTypesSummary(pack);
+                });
+            });
+            sec.hidden = false;
+            renderPointTypesSummary(pack);
+        }
+
+        document.getElementById('point-types-reset')?.addEventListener('click', () => {
+            if (!pointTypeRegistry || !selectedPack) return;
+            pointTypesChecks = PointTypesPicker.initialChecks(pointTypeRegistry.types, null);
+            pointTypesTouched = false;
+            renderPointTypes(selectedPack);
+        });
+
+        /** 提交用：所选包启用 pointType 且勾选与注册表缺省不同 → {active}，否则 null（不写段） */
+        function collectPointTypes() {
+            if (!pointTypeRegistry || !pointTypesChecks || !packHasPointType(selectedPack)) return null;
+            return PointTypesPicker.collectConfig(pointTypeRegistry.types, pointTypesChecks);
+        }
 
 
         // 收集表单数据
@@ -2126,7 +2276,11 @@
                 for (const k of ['fourmemeWs', 'flapWs', 'gangWs']) {
                     if (adv[k]) adv[k] = { ...(adv[k] || {}) };
                     for (const kk of ['cheatCheck', 'buyPointCheck']) {
-                        if (adv[k][kk]) {
+                        // 存量 bug 修复（T242 真实 DOM 验证时发现，T202 7074af18 起）：该段
+                        // 此前写作 `adv[k][kk]`——adv 里缺任一 ws 段（新建模式 / 复制载荷
+                        // 只带源实验有的段，gangWs 从不进 _copyAdvancedConfig）即抛
+                        // TypeError，提交处理器卡死在「创建中...」。缺段=无键可剥，跳过
+                        if (adv[k] && adv[k][kk]) {
                             adv[k][kk] = { ...(adv[k][kk]) };
                             delete adv[k][kk].enabled;
                             if (kk === 'cheatCheck') delete adv[k][kk].actFrontGate;
@@ -2192,6 +2346,9 @@
             }
             // 断流/冷盘卖出收集已随 T202 策略库二期退役（两段归策略包 definition）
 
+            // T242 点位类型激活覆盖：所选包启用 pointType 且勾选偏离注册表缺省才带段
+            const pointTypesCfg = collectPointTypes();
+
             const config = {
                 experiment_name: formData.get('experiment_name'),
                 experiment_description: formData.get('experiment_description'),
@@ -2203,6 +2360,8 @@
                 //  gang 互斥保证 length>=2 只可能是 fourmeme+flap，不会折入 gang）
                 platform: formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform'),
                 initial_balance: parseFloat(formData.get('initial_balance')),
+                // T242 点位类型激活覆盖（实验级，可选）：与注册表缺省一致时不带该段
+                ...(pointTypesCfg ? { pointTypes: pointTypesCfg } : {}),
                 // 策略配置
                 strategy: {
                     // T202 策略库二期：交易策略=策略包引用（服务端校验存在+definition 形状）
@@ -2400,9 +2559,10 @@
             submitBtn.disabled = true;
             submitBtn.textContent = '创建中...';
 
-            const data = collectFormData();
-
             try {
+                // 表单收集一并进 try（T242 真实 DOM 验证时修）：此前 collectFormData() 在
+                // try 之外，收集抛错=未处理异常，按钮永久卡在「创建中...」且无任何提示
+                const data = collectFormData();
                 const response = await fetch('/api/experiments', {
                     method: 'POST',
                     headers: {

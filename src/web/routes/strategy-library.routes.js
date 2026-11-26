@@ -1,7 +1,7 @@
 /**
  * 策略库 API 路由（策略库二期 / T202，2026-11-20）
  *
- * 七端点：GET list / GET module-versions / GET :id / POST / PUT :id（乐观并发
+ * 八端点：GET list / GET module-versions / GET point-types / GET :id / POST / PUT :id（乐观并发
  * 409）/ DELETE :id / GET :id/usage。
  *
  * 条目 = 完整交易策略包（definition jsonb：buyLegs/sellLegs + stallClose +
@@ -10,7 +10,7 @@
  *
  * ⚠️ 表 RLS service_role-only——全部走 dbManager.getClient()（service key）。
  * ⚠️ GET /module-versions 必须注册在 GET /:id 之前（express 按注册序匹配，
- *    否则 'module-versions' 会被当作 :id 吞掉）。
+ *    否则 'module-versions' 会被当作 :id 吞掉；/point-types 同理）。
  */
 
 const express = require('express');
@@ -48,6 +48,27 @@ router.get('/', async (req, res) => {
 router.get('/module-versions', async (req, res) => {
     try {
         res.json({ success: true, data: listModuleVersions() });
+    } catch (error) {
+        fail(res, error);
+    }
+});
+
+/**
+ * GET /api/strategy-library/point-types
+ * 点位类型注册表（代码注册表 point-type-router 单一真相源——创建页「点位类型激活」
+ * 开关用；页面硬编码会漂移）：{ version, types: [{id, label, active}] }
+ * active=注册表缺省；实验级覆盖=config.pointTypes.active（T242）
+ */
+router.get('/point-types', async (req, res) => {
+    try {
+        const { POINT_TYPE_VERSION, POINT_TYPES } = require('../../market-analysis/point-type-router');
+        res.json({
+            success: true,
+            data: {
+                version: POINT_TYPE_VERSION,
+                types: POINT_TYPES.map((t) => ({ id: t.id, label: t.label, active: t.active === true })),
+            },
+        });
     } catch (error) {
         fail(res, error);
     }

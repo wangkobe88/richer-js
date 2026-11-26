@@ -1793,6 +1793,44 @@ class AbstractTradingEngine extends ITradingEngine {
   }
 
   /**
+   * T117 信号源门链·作弊门——**因子代挂点**（Jev 退役 T241 Phase 4，2026-11-26 用户
+   * 指令「因子路径里为 Jev 留的竞速、粘滞接线请清理」）：纯计算每信号现评。
+   * 不做的事（= Jev 代挂点 _cheatGateEvaluateBinary 后半段的整部状态机接线）：
+   * awaitMs 竞速与迟到结果消费 / 拉黑 Set 与持仓清仓联动 / 重检翻案
+   * （signalGate.recheckCondition 不求值——该字段只服务 Jev 代）/ CD381
+   * almost_launch 重锚 / FA cheat 键投影（因子代下 56 键不投影恒 null——条件串
+   * 引用须带 IS NULL 臂）。
+   * 语义：grade=cheat/unhealthy = **本信号**拒（per-signal，与因子门同构，不落任何
+   * 进程态）；healthy 放行进 BP；无 grade（判定异常 / 检测层故障）fail-open 放行
+   * 进 BP（BP 门 fail-closed 兜底，与 Jev 代同向）。policy 直通与 service 缺席两道
+   * 前置检查与 Jev 代共用（_cheatGateEvaluateBinary 顶部）。
+   */
+  async _cheatGateFactorEvaluate(tokenAddress, token, signalId) {
+    let res;
+    try {
+      res = await this._cheatCheckService.gateBuyPoint(tokenAddress, {},
+        { experimentId: this._experimentId, signalId }, {});
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'SignalGate',
+        `作弊门异常放行 | ${token.symbol || tokenAddress.slice(0, 10)} ${e?.message || e}`);
+      return { pass: true, info: { status: 'error', reason: e?.message || String(e) } };
+    }
+    if (!res || !res.grade) {
+      return { pass: true, info: res || { status: 'unknown' } };
+    }
+    if (res.grade === 'cheat' || res.grade === 'unhealthy') {
+      const reasonCodes = (res.reasons || []).map((r) => r.code).join(',');
+      if (signalId) {
+        await this._updateSignalMetadata(signalId, { cheatCheck: this._cheatGateInfo(res) });
+        await this._updateSignalStatus(signalId, 'failed',
+          { message: `作弊门拒买: ${res.grade} [${reasonCodes}]`, reason: `cheat_gate_${res.grade}` });
+      }
+      return { pass: false, reason: `作弊门拒买（${res.grade} [${reasonCodes}]）` };
+    }
+    return { pass: true, info: this._cheatGateInfo(res) };
+  }
+
+  /**
    * T117 信号源门链·作弊门（二元版，与 _cheatGateEvaluate 条件表达式版并列）：
    * grade 直接决策不走腿表达式——unhealthy 拒（cheatRecheck=true 下个买信号
    * 自动重判；=false service 侧粘滞秒回拒省配额）；cheat=拉黑+清仓+硬拒；
@@ -1831,6 +1869,12 @@ class AbstractTradingEngine extends ITradingEngine {
       this.logger.warn(this._experimentId, 'SignalGate',
         `信号源门链腿在跑但策略包 modules.cheatCheck 缺席（作弊门跳过放行进 BP） | ${token.symbol || tokenAddress.slice(0, 10)}`);
       return { pass: true, info: { status: 'skipped', reason: 'service_disabled' } };
+    }
+    // 因子代（Jev 退役；T241 Phase 4）：走独立挂点——本方法后半段（CD381 重判条件
+    // 求值 / awaitMs / 重检翻案 / almost_launch 重锚 / FA cheat 键投影 / 拉黑+清仓 /
+    // 迟到结果消费）是 Jev 判定状态机的接线，因子路径不进入
+    if (this._cheatCheckService.factorMode === true) {
+      return this._cheatGateFactorEvaluate(tokenAddress, token, signalId);
     }
     const meta = {
       address: token.token,
@@ -1990,7 +2034,9 @@ class AbstractTradingEngine extends ITradingEngine {
           firePriceBnb: ctx.firePriceBnb ?? null,
           strategyName: ctx.strategyName ?? null,
         }, {
-          awaitMs: this._bpGateAwaitMs,
+          // 因子代（Jev 退役；T241 Phase 4）：BP 门因子路径无竞速——awaitMs 不传
+          //（service 因子入口直接跑链，不产出 timeout/late）
+          ...(this._buyPointCheckService.factorMode === true ? {} : { awaitMs: this._bpGateAwaitMs }),
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
           // BP67：cheat 门 burst 判定输入（activity_level burst 桶证据行；null=无证据不注入）
           ...(ctx.cheatBurst ? { cheatBurst: ctx.cheatBurst } : {}),
@@ -2253,7 +2299,10 @@ class AbstractTradingEngine extends ITradingEngine {
       }
       return { pass: true, skipCheat: false, info };
     }
-    const meta = {
+    // 因子代（Jev 退役；T241 Phase 4）：AF2 不判档（零 I/O）——Jev 链入参（token
+    // meta / awaitMs 竞速上限 / anchorMs 拉数锚）不传；返回形状与分流后处理共用
+    const _factorAf = this._cheatCheckService.factorMode === true;
+    const meta = _factorAf ? {} : {
       address: token.token,
       symbol: token.symbol || null,
       name: token.name || null,
@@ -2266,7 +2315,7 @@ class AbstractTradingEngine extends ITradingEngine {
     try {
       res = await this._cheatCheckService.evaluateActFront(tokenAddress, meta,
         { experimentId: this._experimentId, signalId },
-        {
+        _factorAf ? {} : {
           awaitMs: this._cheatGateAwaitMs,
           ...(Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? { anchorMs: ctx.anchorMs } : {}),
         });

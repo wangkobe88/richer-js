@@ -27,7 +27,7 @@ const { CryptoUtils } = require('./utils/CryptoUtils');
 const narrativeRoutes = require('./web/routes/narrative.routes');
 const strategyLibraryRoutes = require('./web/routes/strategy-library.routes');
 // T202 策略库二期：创建实验时校验 strategyId 对应策略包存在且 definition 合法
-const { StrategyLibraryService, validatePack } = require('./web/services/StrategyLibraryService');
+const { StrategyLibraryService, validatePack, validateExperimentPointTypes } = require('./web/services/StrategyLibraryService');
 const strategyLibraryService = new StrategyLibraryService();
 const newsRoutes = require('./web/routes/news.routes');
 const executorsRoutes = require('./web/routes/executors.routes');
@@ -669,6 +669,9 @@ class RicherJsWebServer {
           flapWs,
           // gangWs（2026-10-27 gang 接入：gang 单平台实验的 ws 段覆盖，同 flapWs 语义）
           gangWs,
+          // T242 点位类型激活（实验级覆盖，可选）：{active: {类型 id: 布尔}}——创建页
+          // 「点位类型激活」开关提交；形状与包模块校验见策略包解析段（入库即拦）
+          pointTypes,
           // stallClose（T104/T118/T170；2026-11-24 T233 腿化=包内 stall 签名卖腿）与
           // burstCooldown（T189/T189b）：引擎级保命卖出——均为策略包内容，实验层
           // 携带即 400（见下方拒收分支）；此处解构仅为拒收判断
@@ -1034,6 +1037,18 @@ class RicherJsWebServer {
             return res.status(400).json({ success: false, error: `策略包 ${packRow.name} definition 非法: ${packCheck.errors.join('; ')}` });
           }
           config.strategyId = strategyId;
+
+          // T242 点位类型激活覆盖（实验级）：入库即拦——形状与「引用包须启用 pointType」
+          // 两道走 StrategyLibraryService.validateExperimentPointTypes 单点（与引擎
+          // _resolveStrategyPack 拒启、clone-experiment.cjs 克隆阶段同口径）。深拷贝
+          // 入库防请求体复用污染
+          if (pointTypes !== undefined && pointTypes !== null) {
+            const ptCheck = validateExperimentPointTypes(pointTypes, packRow.definition);
+            if (!ptCheck.valid) {
+              return res.status(400).json({ success: false, error: `pointTypes 非法：${ptCheck.errors.join('；')}` });
+            }
+            config.pointTypes = JSON.parse(JSON.stringify(pointTypes));
+          }
 
           // 交易金额配置
           if (strategy.tradeAmount) {

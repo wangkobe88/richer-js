@@ -76,9 +76,14 @@
  * 改为因子门……Jev 的调用框架与 Prompt 等等都保留，防止以后再使用」）──
  * 策略包 modules.cheatCheck / actFrontGate 取因子代键（module-registry
  * FACTOR_GENERATION_KEY）时，引擎以 deps.factorMode 注入：cheat 门与 AF 门改由
- * factor-responders 出结论，**零 Jev**——不加载 LLM 模块、不建 state、不粘滞、
- * 不 bootstrap、无竞速（纯计算每信号现评）。拉黑登记 / 出口豁免变换 / 返回形状
- * 与 Jev 链同构，引擎侧零改动。Jev 代代码原样保留（回滚与对拍基线）。
+ * factor-responders 出结论，**零 Jev**——不加载 LLM 模块、不建 state。
+ * **因子路径是独立入口（T241 Phase 4，2026-11-26 用户指令「因子路径里为 Jev 留的
+ * 竞速、粘滞接线请清理」）**：上面整节 CD158 / CD379 / CD381 / CD389 状态机——
+ * 拉黑秒回、healthy 粘滞、bootstrap、inflight join、awaitMs 竞速与迟到包、重检
+ * 翻案、活跃度豁免变换——全部是围绕「Jev 判定是带状态的结论（终态/可翻案）」
+ * 建的，因子判定是每个信号现算的一次性结论，不进入任何一处。返回形状仍与 Jev
+ * 链 analyzed 行同构（另带 model），引擎挂点按 per-signal 语义消费。Jev 代代码
+ * 原样保留（回滚与对拍基线）。
  */
 
 const { buildSnapshotFromRows } = require('./cheat-snapshot');
@@ -242,7 +247,8 @@ class CheatCheckService {
     // 因子代开关（Jev 退役）：引擎按策略包 modules 版本键以 deps.factorMode 注入——
     // true = cheat 门与 AF 门结论均出自 factor-responders，本服务零 Jev 零拉数
     this._factorMode = deps.factorMode === true;
-    // 因子代判定函数注入口（缺省 factor-responders；单测可换桩验证拉黑/豁免三点同构）
+    // 因子代判定函数注入口（缺省 factor-responders；单测可换桩验证 per-signal 语义——
+    // 因子路径不落任何进程态）
     this._factorJudge = deps.factorJudge || judgeCheatFactor;
     this._actFrontFactorJudge = deps.actFrontFactorJudge || judgeActFrontFactor;
 
@@ -354,6 +360,12 @@ class CheatCheckService {
     const token = String(tokenAddress || '').toLowerCase();
     if (!token) return { status: 'invalid_token' };
     this.stats.gateNoted++;
+
+    // 因子代入口（Jev 退役）：纯计算每信号现评。下方整段（规则集键 / 拉黑秒回 /
+    // 重检翻案 / 粘滞秒回 / inflight join / awaitMs 竞速 + 迟到包 / 出口豁免与
+    // 翻案变换）是 Jev 判定的状态机，因子路径不进入——opts 一概不消费
+    if (this._factorMode) return this._factorGate();
+
     // T217 观测级门控规则集（pointType policy 携带；缺省 g23=现行语义）：
     // 粘滞/_inflight 以 token@ruleset 复合键隔离（同票不同类型不同结论）；
     // 拉黑 _gateBlocked 保持全局单键（用户裁定：cheat 拉黑+清仓联动不分规则集）
@@ -375,16 +387,6 @@ class CheatCheckService {
     }
     if (opts.forceRecheck === true) this.stats.forceRechecks++; // CD381 重检观测
     else if (this._alwaysRecheck === true) this.stats.alwaysRechecks++; // CD389 观测
-
-    // 因子代（Jev 退役）：无粘滞 / bootstrap / inflight join / 竞速——纯计算每信号
-    // 现评。出口变换与 Jev 链同款（豁免 / 翻案两点同构）
-    if (this._factorMode) {
-      const judged = await this._factorChain(token, ruleset);
-      if (judged && (judged.grade === 'cheat' || judged.grade === 'unhealthy' || judged.grade === 'healthy')) {
-        this.stats.gateGraded++;
-      }
-      return this._applyActivityExempt(this._maybeUnblock(token, judged));
-    }
 
     // CD158 粘滞（入口路径——进程内已有 healthy 判定）：秒回不烧 Jev。
     // 重启后内存空 → 首链 _chain 4c 复检兜住（bootstrap 恢复后秒回）。
@@ -1451,33 +1453,25 @@ class CheatCheckService {
   }
 
   /**
-   * 因子代作弊门判定（Jev 退役，2026-11-25）：结论由 factor-responders 产出（CF1
-   * 精简代不消费快照——零 I/O）。拉黑登记 / 观测计数 / 规则集重评三点与 Jev 链
-   * _chain 尾段同构：后续因子判定臂接入后，cheat → 拉黑 + 引擎清仓联动即生效。
-   * 不落 cheat_detection 行（精简代观测记录全 null，无研究价值；返回形状带 model
-   * 标记来源）。判定异常 = 检测层故障，fail-open 放行（与 Jev 链 catch 同向）。
+   * 因子代作弊门判定（Jev 退役，2026-11-25 立；2026-11-26 Phase 4 收成独立入口）：
+   * 结论由 factor-responders 产出（CF1 精简代不消费快照——零 I/O）。**无进程态**：
+   * 不登记拉黑、不计 unhealthy 判定次数、不做豁免/翻案变换——grade 只是本信号
+   * 的一次性结论，去留由引擎挂点按 per-signal 语义消费。不落 cheat_detection 行
+   * （精简代观测记录全 null，无研究价值；返回形状带 model 标来源）。判定异常 =
+   * 检测层故障，fail-open 放行（与 Jev 链 catch 同向）。
    * @returns {Promise<Object>} 与 Jev 链 analyzed 行同构（另带 model）
    */
-  async _factorChain(token, ruleset) {
+  async _factorGate() {
     try {
-      const judged = this._factorJudge(null, { ruleset });
+      const judged = this._factorJudge();
       this.stats.factorJudged++;
-      if (judged.grade === 'cheat') {
-        // CD391 同构：cheat 的豁免资格 = activity 桶 ∨ burst 臂（因子档位给得出才命中）
-        if (!this._isCheatExemptEligible(judged.buckets ? judged.buckets.activityLevel : null, judged.levels, judged.anchors)) {
-          this._gateBlocked.add(token);
-        }
-      } else if (judged.grade === 'unhealthy') {
-        this._gateUnhealthyGrades.set(token, (this._gateUnhealthyGrades.get(token) || 0) + 1);
+      if (judged.grade === 'cheat' || judged.grade === 'unhealthy' || judged.grade === 'healthy') {
+        this.stats.gateGraded++;
       }
-      return {
-        ...judged,
-        unhealthyGrades: this._gateUnhealthyGrades.get(token) || 0,
-        strongbackerLike: this._strongbackerLike.has(token) ? 1 : 0,
-      };
+      return judged;
     } catch (e) {
       this.stats.factorErrors++;
-      this._log('warn', `因子代作弊门判定异常（fail-open 放行） | ${token} ${e?.message || e}`);
+      this._log('warn', `因子代作弊门判定异常（fail-open 放行） | ${e?.message || e}`);
       return { status: 'fail', reason: 'factor_error' };
     }
   }

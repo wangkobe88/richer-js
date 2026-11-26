@@ -1195,10 +1195,12 @@ async function main() {
       '粘滞观测计数在场（stickyReused/stickyBootstrapped）');
     const hasBlockedAdd = svcSrc.includes('this._gateBlocked.add(token)');
     const blockedAdds = (svcSrc.match(/this\._gateBlocked\.add\(token\)/g) || []).length;
-    // Jev 退役·因子代（2026-11-25）：第三处 = _factorChain 因子判 cheat 的登记点（与 Jev 链
-    // 拉黑登记点同构：同一豁免资格子式 _isCheatExemptEligible 把关）——仍然没有 unhealthy 来源
-    ok(hasBlockedAdd && blockedAdds === 3,
-      `_gateBlocked.add 恰三处（Jev 链 cheat 判定+bootstrap cheat 行恢复+因子代 _factorChain cheat 判定——无 unhealthy 来源；实际 ${blockedAdds}）`);
+    // 恰两处：Jev 链 cheat 判定 + bootstrap cheat 行恢复——仍然没有 unhealthy 来源。
+    // 因子代（Jev 退役）不登记拉黑：2026-11-25 首版 _factorChain 曾是第三处，T241 Phase 4
+    // 清理（2026-11-26 用户指令「因子路径里为 Jev 留的竞速、粘滞接线请清理」）后因子路径
+    // 是无进程态的独立入口
+    ok(hasBlockedAdd && blockedAdds === 2,
+      `_gateBlocked.add 恰两处（Jev 链 cheat 判定+bootstrap cheat 行恢复——无 unhealthy 来源，因子代不登记；实际 ${blockedAdds}）`);
   }
 
   // ═══════════════ Y. anchorMs 截窗 + persist:false 回测隔离（backtest.signalGateReal） ═══════════════

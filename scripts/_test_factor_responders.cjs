@@ -11,11 +11,14 @@
  *      N 通道），精简代只是不喂
  *   D. BP 因子答案（精简代）：维度全缺席，塞单门（纯代码）照拦
  *   E. module-registry：v2 键解析到因子版本、三模块恰两代、混代包合法
- *   F. service 因子模式：cheat 门零 Jev 零拉数不粘滞、拉黑/豁免/翻案三点同构、
- *      判定异常 fail-open；AF 门零 I/O；BP 门不加载 LLM、塞单门与 minTicks
- *      预门保留、落行版本域独立
- *   G. 引擎挂点集成（AbstractTradingEngine 三挂点 × 真 service 因子模式）+
- *      引擎接线源码锁（两引擎按包键注入 factorMode）+ metadata 形状
+ *   F. service 因子模式（T241 Phase 4 清理后=独立入口，无 Jev 竞速/粘滞接线）：cheat 门
+ *      零 Jev 零拉数、无进程态（拉黑/粘滞/bootstrap/inflight/豁免/翻案全不进——
+ *      首版「三点同构」的事故现场反证）、判定异常 fail-open；AF 门零 I/O；BP 门
+ *      不加载 LLM、塞单门与 minTicks 预门保留、落行版本域独立、无 join/竞速
+ *      （慢链不被 awaitMs 截断；Jev 代竞速仍在的存量锁）
+ *   G. 引擎挂点集成（AbstractTradingEngine 三挂点 × 真 service 因子模式）+ 因子
+ *      作弊挂点 per-signal 语义（判定拒不落任何 Jev 状态）+ 接线源码锁（两引擎按包键
+ *      注入 factorMode、三挂点因子分支位置、实时引擎拉黑短路不进因子路径）+ metadata 形状
  *   H. 零依赖锁（factor-responders 无 JevClient / 网络 / DB）
  *
  * 用法：node scripts/_test_factor_responders.cjs
@@ -323,65 +326,81 @@ console.log('\nE2. 因子代对拍包派生（deploy-factor-generation-pack 纯�
   })(), ['v2', 'v1', 'v1', 'v1', 3]);
 }
 
-console.log('\nF. service 因子模式');
+console.log('\nF. service 因子模式（T241 Phase 4 清理后：独立入口，无 Jev 竞速/粘滞接线）');
 {
-  // F1 cheat 门：零 Jev、零拉数、零 bootstrap、零落表
+  // F1 cheat 门：零 Jev、零拉数、零 bootstrap、零落表；返回一次性结论（无进程态计数键）
   const db = mkDb({ ticksDesc: normalTicks });
   const svc = new CheatCheckService({ enabled: true }, SILENT, { dbClient: db.client, factorMode: true, loadLlm: neverLlm, now: () => 1700000000000 });
   ok('F1 factorMode getter', svc.factorMode === true && svc.enabled === true);
   check('F1 版本域独立（CF1，不与 Jev 代 D3.x 串粘滞 / bootstrap）', [svc._version, new CheatCheckService({ enabled: true }, null, {})._version], ['CF1', null]);
   const r1 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-  check('F1 gateBuyPoint → analyzed healthy + model', { s: r1.status, g: r1.grade, r: r1.reasons, m: r1.model, ug: r1.unhealthyGrades, sb: r1.strongbackerLike },
-    { s: 'analyzed', g: 'healthy', r: [], m: 'factor@CF1', ug: 0, sb: 0 });
+  check('F1 gateBuyPoint → analyzed healthy + model； unhealthyGrades / strongbackerLike（Jev 粘滞观测键）不随服务返回',
+    { s: r1.status, g: r1.grade, r: r1.reasons, m: r1.model, ug: r1.unhealthyGrades, sb: r1.strongbackerLike, c: r1.cached },
+    { s: 'analyzed', g: 'healthy', r: [], m: 'factor@CF1', ug: undefined, sb: undefined, c: undefined });
   check('F1 零拉数零 bootstrap 零落表', [db.st.tickQueries, db.st.otherTables.length, db.st.inserts.length], [0, 0, 0]);
   check('F1 gateGraded 计数', svc.stats.gateGraded, 1);
   const r2 = await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 3000 });
-  check('F1 每信号现评（不粘滞：二次调用无 cached、再判一次）', [r2.cached, svc.stats.factorJudged, svc.stats.stickyReused], [undefined, 2, 0]);
-  check('F1 规则集差集透传', (await svc.gateBuyPoint('0xtok', META, {}, { ruleset: 'g23NoE' })).grade, 'healthy');
-  check('F1 awaitMs 竞速不参与（awaitMs=1 仍即时返回）', (await svc.gateBuyPoint('0xtok', META, {}, { awaitMs: 1 })).status, 'analyzed');
-  // F2 拉黑三点同构：因子判定产 cheat → 登记 → 短路秒回（后续因子臂接入后即生效）
+  check('F1 每信号现评（二次调用再判一次，无 cached）', [r2.cached, svc.stats.factorJudged, svc.stats.stickyReused], [undefined, 2, 0]);
+  const r3 = await svc.gateBuyPoint('0xtok', META, {}, { ruleset: 'g23NoE', awaitMs: 1, forceRecheck: true, recheckUnhealthy: false, anchorMs: 1 });
+  check('F1 Jev 链 opts（规则集 / awaitMs 竞速上限 / forceRecheck / recheckUnhealthy / anchorMs）一概不消费',
+    [r3.status, r3.grade, r3.rawGrade, svc.stats.forceRechecks, svc.stats.gateTimeouts], ['analyzed', 'healthy', undefined, 0, 0]);
+  check('F1 alwaysRecheck（Jev 粘滞绕过旋钮）在因子路径不计数',
+    await (async () => { const s = new CheatCheckService({ enabled: true, gate: { alwaysRecheck: true } }, SILENT, { dbClient: db.client, factorMode: true }); await s.gateBuyPoint('0xtok', {}, {}); return s.stats.alwaysRechecks; })(), 0);
+
+  // F2 事故现场反证（2026-11-25 首版曾让因子分支登记拉黑→短路秒回）：因子判 cheat =
+  // 本信号的一次性结论——不登记拉黑，下一信号照常现评（引擎挂点 per-signal 拒）
   const cheatMid = () => ({ status: 'analyzed', grade: 'cheat', reasons: [{ level: 'cheat', code: 'A_strong:equal_amount_split' }],
     levels: { equalAmountSplit: 3 }, buckets: { activityLevel: 'mid' }, anchors: {} });
   const s2 = new CheatCheckService({ enabled: true }, SILENT, { dbClient: db.client, factorMode: true, factorJudge: cheatMid, now: () => 1700000000000 });
   const c1 = await s2.gateBuyPoint('0xc1', {}, {});
-  check('F2 因子判 cheat（mid 桶）→ 原判返回 + 登记拉黑', [c1.grade, c1.exempt, s2.isGateBlocked('0xc1')], ['cheat', undefined, true]);
+  check('F2 因子判 cheat → 原判返回（无 blocked 秒回形状）', [c1.grade, c1.blocked, c1.exempt], ['cheat', undefined, undefined]);
+  check('F2 不登记拉黑（service 拉黑态零写入）', [s2.isGateBlocked('0xc1'), s2._gateBlocked.size], [false, 0]);
   const c2 = await s2.gateBuyPoint('0xc1', {}, {});
-  check('F2 拉黑后短路秒回（零再判）', [c2.blocked, c2.grade, c2.reasons, s2.stats.factorJudged], [true, 'cheat', [{ level: 'cheat', code: 'gate_blocked' }], 1]);
-  // F3 豁免出口变换同构：因子判 cheat ∧ activity 桶 high → 不登记拉黑 + 出口翻 healthy
+  check('F2 下一信号照常现评（非短路：再判一次、原判 reasons 而非 gate_blocked）',
+    [c2.blocked, c2.grade, c2.reasons[0].code, s2.stats.factorJudged, s2.stats.gateBlockedHits], [undefined, 'cheat', 'A_strong:equal_amount_split', 2, 0]);
+  // F3 反证（首版曾做 Jev 式活跃度豁免出口变换）：因子判 cheat ∧ high 桶 → 不豁免
   const cheatHigh = () => ({ status: 'analyzed', grade: 'cheat', reasons: [{ level: 'cheat', code: 'A_strong:equal_amount_split' }],
     levels: {}, buckets: { activityLevel: 'high' }, anchors: {} });
   const s3 = new CheatCheckService({ enabled: true }, SILENT, { dbClient: db.client, factorMode: true, factorJudge: cheatHigh, now: () => 1700000000000 });
   const h1 = await s3.gateBuyPoint('0xh1', {}, {});
-  check('F3 因子判 cheat ∧ high 桶 → 出口豁免翻 healthy', { g: h1.grade, e: h1.exempt }, { g: 'healthy', e: { code: 'activity_high', originalGrade: 'cheat' } });
-  check('F3 豁免票不登记拉黑', s3.isGateBlocked('0xh1'), false);
-  // F4 翻案同构：已拉黑票 forceRecheck → 因子重检非 cheat → 解除拉黑
+  check('F3 因子判 cheat ∧ high 桶 → 不做豁免变换（原判 cheat、无 exempt 键）', [h1.grade, h1.exempt, s3.stats.activityExemptions, s3.isGateBlocked('0xh1')], ['cheat', undefined, 0, false]);
+  // F4 反证（首版曾做翻案解除）：forceRecheck 不消费——判定翻转就是下一信号的新结论，无 unblocked
   let flip = 'cheat';
   const s4 = new CheatCheckService({ enabled: true }, SILENT, { dbClient: db.client, factorMode: true, now: () => 1700000000000,
     factorJudge: () => (flip === 'cheat' ? cheatMid() : { status: 'analyzed', grade: 'healthy', reasons: [], levels: {}, buckets: {}, anchors: {} }) });
   await s4.gateBuyPoint('0xf1', {}, {});
   flip = 'healthy';
   const f2 = await s4.gateBuyPoint('0xf1', {}, {}, { forceRecheck: true });
-  check('F4 forceRecheck 重检翻正 → 解除拉黑', [f2.grade, f2.unblocked, s4.isGateBlocked('0xf1')], ['healthy', true, false]);
+  check('F4 判定翻转 = 下一信号现评（无 unblocked 翻案键、无拉黑可解）', [f2.grade, f2.unblocked, s4.isGateBlocked('0xf1'), s4.stats.unblocked, s4.stats.forceRechecks], ['healthy', undefined, false, 0, 0]);
   // F5 判定异常 = 检测层故障 fail-open
   const s5 = new CheatCheckService({ enabled: true }, SILENT, { dbClient: db.client, factorMode: true, now: () => 1700000000000,
     factorJudge: () => { throw new Error('boom'); } });
   const e1 = await s5.gateBuyPoint('0xe1', {}, {});
-  check('F5 判定异常 fail-open（fail/factor_error，不抛）', [e1.status, e1.reason, s5.stats.factorErrors], ['fail', 'factor_error', 1]);
-  // F6 unhealthy 观测计数同构
+  check('F5 判定异常 fail-open（fail/factor_error，不抛）', [e1.status, e1.reason, s5.stats.factorErrors, e1.grade], ['fail', 'factor_error', 1, undefined]);
+  // F6 unhealthy：原判返回；不拉黑；Jev 的 unhealthy 判定次数观测计数不写
   const s6 = new CheatCheckService({ enabled: true }, SILENT, { dbClient: db.client, factorMode: true, now: () => 1700000000000,
     factorJudge: () => ({ status: 'analyzed', grade: 'unhealthy', reasons: [{ level: 'unhealthy', code: 'E_low_activity' }], levels: {}, buckets: { activityLevel: 'low' }, anchors: {} }) });
   const u1 = await s6.gateBuyPoint('0xu1', {}, {}), u2 = await s6.gateBuyPoint('0xu1', {}, {});
-  check('F6 unhealthy 不拉黑 + 观测计数递增', [u1.grade, u1.unhealthyGrades, u2.unhealthyGrades, s6.isGateBlocked('0xu1')], ['unhealthy', 1, 2, false]);
+  check('F6 unhealthy 原判返回 ×2（无 unhealthyGrades 计数键）+ 不拉黑', [u1.grade, u1.unhealthyGrades, u2.grade, u2.unhealthyGrades, s6.isGateBlocked('0xu1'), s6._gateUnhealthyGrades.size], ['unhealthy', undefined, 'unhealthy', undefined, false, 0]);
   // F7 Jev 代不注入 factorMode 时开关为关（存量接线零变化）
   check('F7 缺省 factorMode=false', new CheatCheckService({ enabled: true }, SILENT, { dbClient: db.client }).factorMode, false);
+  // F7b 进程态零写入总锁：上面 cheat/unhealthy/翻转/异常全部打过之后，Jev 状态机的每一张表都还是空的
+  const stateOf = (s) => [s._lastGrade.size, s._bootstrapped.size, s._inflight.size, s._actFrontInflight.size, s._failUntil.size, s._gateBlocked.size, s._gateUnhealthyGrades.size, s._strongbackerLike.size];
+  check('F7b 因子路径零进程态（粘滞 / bootstrap / inflight / 冷却 / 拉黑 / 观测计数全空）——s2/s3/s4/s5/s6 逐个',
+    [s2, s3, s4, s5, s6].map(stateOf), Array.from({ length: 5 }, () => [0, 0, 0, 0, 0, 0, 0, 0]));
+  check('F7b 竞速与 join 观测计数恒 0（gateTimeouts / inflightJoined / stickyReused / stickyBootstrapped）',
+    [s2, s3, s4, s5, s6].map((s) => [s.stats.gateTimeouts, s.stats.inflightJoined, s.stats.stickyReused, s.stats.stickyBootstrapped]),
+    Array.from({ length: 5 }, () => [0, 0, 0, 0]));
+  check('F7b 全程零拉数零落表', [db.st.tickQueries, db.st.inserts.length, db.st.otherTables.length], [0, 0, 0]);
 
-  // F8 AF 门：零 I/O 直通
-  const a1 = await svc.evaluateActFront('0xtok', META, {}, { awaitMs: 3000 });
+  // F8 AF 门：零 I/O 直通（引擎因子路径不传 Jev 入参——此处同款空调用）
+  const a1 = await svc.evaluateActFront('0xtok', META, {}, {});
   check('F8 evaluateActFront → assessed/mid_full/AF2', a1,
     { status: 'assessed', act: null, sbw: null, wash: null, path: 'mid_full', version: 'AF2', model: 'factor@AF2' });
   check('F8 零拉数', [db.st.tickQueries, db.st.otherTables.length], [0, 0]);
   check('F8 路径计数走 mid_full（不计 fail_open）', [svc.stats.actFrontRouted.mid_full, svc.stats.actFrontRouted.fail_open, svc.stats.actFrontFactorJudged], [1, 0, 1]);
   check('F8 disabled 语义不变', await new CheatCheckService({}, null, { factorMode: true }).evaluateActFront('0xtok', {}, {}), { status: 'disabled' });
+  check('F8 Jev 入参（awaitMs / anchorMs）不消费、无 inflight join', [svc._actFrontInflight.size, svc.stats.actFrontJoined, svc.stats.actFrontTimeouts], [0, 0, 0]);
   // F9 AF 门：注入判定返回 low → 分流函数照常产 reject_low（后续分类器接入即生效）
   const s9 = new CheatCheckService({ enabled: true }, SILENT, { dbClient: db.client, factorMode: true,
     actFrontFactorJudge: () => ({ act: 'low', sbw: 'none', wash: 'none', model: 'factor@AF2' }) });
@@ -389,10 +408,10 @@ console.log('\nF. service 因子模式');
 
   // F10 BP 门因子模式：不加载 LLM；塞单门 / minTicks 预门保留；落行版本域独立
   //（deps.arbBotWallets 直注=ctor 不预热查库，零 DB）
-  const mkBp = (ticks, config = {}) => {
+  const mkBp = (ticks, config = {}, extraDeps = {}) => {
     const d = mkDb({});
     const svcBp = new BuyPointCheckService({ enabled: true, settleDelayMs: 0, ...config }, SILENT,
-      { dbClient: d.client, factorMode: true, loadLlm: neverLlm, now: () => 1700000000000, pullTicks: memPull(ticks), arbBotWallets: new Set() });
+      { dbClient: d.client, factorMode: true, loadLlm: neverLlm, now: () => 1700000000000, pullTicks: memPull(ticks), arbBotWallets: new Set(), ...extraDeps });
     return { d, svcBp };
   };
   const n = mkBp(normalTicks);
@@ -425,6 +444,21 @@ console.log('\nF. service 因子模式');
   await st.svcBp.gateBuyPoint('0xtok', META, {}, {});
   await st.svcBp.gateBuyPoint('0xtok', META, {}, {});
   check('F10 无粘滞：同票二连各判一次各落一行（BP 本无终态，Jev 代同语义）', [st.svcBp.stats.factorAnswered, st.d.st.inserts.length], [2, 2]);
+  // F10b T241 Phase 4：因子路径无竞速——inflight join / awaitMs 竞速 / 超时 late 包不进入。
+  // 事故现场反证：慢拉数（40ms）不被 awaitMs=1 截断——链跑完出 assessed，不产 timeout/late
+  const slow = mkBp(normalTicks, {}, { pullTicks: async () => { await new Promise((r) => setTimeout(r, 40)); return memPull(normalTicks)(); } });
+  const t0 = Date.now();
+  const slowRes = await slow.svcBp.gateBuyPoint('0xtok', META, { signalId: 'sig-slow' }, { awaitMs: 1 });
+  check('F10b 慢链照跑到底（awaitMs=1 不截断）', [slowRes.status, slowRes.late, Date.now() - t0 >= 35, slow.svcBp.stats.gateTimeouts], ['assessed', undefined, true, 0]);
+  check('F10b 无 inflight join（_inflight 恒空、inflightJoined=0）', [slow.svcBp._inflight.size, slow.svcBp.stats.inflightJoined], [0, 0]);
+  // F10c Jev 代入口不动：同一 service 不开 factorMode 时仍是 join + 竞速（存量锁，防清理误伤 Jev 路径）
+  {
+    const j = new BuyPointCheckService({ enabled: true, settleDelayMs: 0, gate: { awaitMs: 5 } }, SILENT,
+      { dbClient: mkDb({}).client, loadLlm: async () => ({ JevClient: { ask: () => new Promise(() => {}) }, buildBuyPointQuestions: () => [], BUY_POINT_QUESTIONS_VERSION: 'BP-test' }),
+        now: () => 1700000000000, pullTicks: memPull(normalTicks), arbBotWallets: new Set() });
+    const jr = await j.gateBuyPoint('0xtok', META, {}, {});
+    check('F10c Jev 代竞速仍在（慢 Jev → timeout + late）', [jr.status, !!jr.late, j._inflight.size >= 1], ['timeout', true, true]);
+  }
 
   // F11 BPF2 crash 形态复核：service 全链（真快照 → 判定 → mapper 门链）
   const cf = mkBp(crashFormTicks);
@@ -464,6 +498,8 @@ console.log('\nG. 引擎挂点集成 + 接线源码锁');
   };
   const TOKEN = { token: '0xtok', symbol: 'TST', name: 'Test', platform: 'flap', createdAt: 1700000000, creatorAddress: null, totalSupply: 1e9 };
   // G1 全链直通：AF2 → CF1 → BPF2
+  FA.clearCheatFactors('0xtok');
+  FA.clearCheatGatePriceAnchor('0xtok');
   const g = mkEng(normalTicks);
   const a = await g.eng._actFrontGateEvaluate('0xtok', TOKEN, {}, 'sig-1', { factorResults: {} });
   check('G1 AF 门挂点：pass / 不跳 cheat', a, { pass: true, skipCheat: false, info: { status: 'assessed', act: null, sbw: null, wash: null, path: 'mid_full', version: 'AF2', model: 'factor@AF2' } });
@@ -472,10 +508,11 @@ console.log('\nG. 引擎挂点集成 + 接线源码锁');
   check('G1 cheat 门挂点：pass + info 同构（档位/锚原样透传）+ model 来源', { p: c.pass, i: c.info },
     { p: true, i: { status: 'analyzed', grade: 'healthy', cached: false, reasons: [], unhealthyGrades: 0, levels: judgedRef.levels, buckets: judgedRef.buckets, anchors: judgedRef.anchors,
       strongbackerLike: 0, exempt: null, unblocked: false, model: 'factor@CF1' } });
-  check('G1 cheat 门 FA 投影照常（grade healthy / blocked false；档位全 null）',
-    [FA.getCheatFactors('0xtok'), Object.values(FA.getCheatFactors('0xtok').levels).every((v) => v === null)],
-    [{ grade: 'healthy', unhealthyGrades: 0, blocked: false, levels: judgedRef.levels, anchors: judgedRef.anchors, strongbackerLike: 0, codeLevels: null }, true]);
-  FA.clearCheatFactors('0xtok');
+  // T241 Phase 4 清理：因子路径不做 Jev 的 FA cheat 键投影 / CD381 almost_launch 重锚——
+  // 2026-11-25 首版此处曾断言「投影照常（grade healthy）」，现反证为恒不投影
+  check('G1 因子路径不投影 FA cheat 键（56 键恒 null）、不重锚 almost_launch',
+    [FA.getCheatFactors('0xtok') ?? null, FA.getCheatGatePriceAnchor('0xtok') ?? null, g.eng._cheatProjectedTokens.size], [null, null, 0]);
+  check('G1 引擎拉黑 Set 不写', g.eng._cheatBlockedTokens.size, 0);
   const b = await g.eng._bpGateEvaluate('0xtok', TOKEN, {}, 'sig-1', { maxTriggers: 1 }, {});
   check('G1 BP 门挂点：pass + model 来源', [b.pass, b.info.status, b.info.model, b.info.assessment, b.info.dimensions.market_pattern], [true, 'assessed', 'factor@BPF2', { bucket: 'neutral', prob: null, rule: 'gates_passed' }, null]);
   check('G1 BP info 带判据留痕（未命中；normalTicks 无 5s 内下跌 → recentDip5 缺席放行）', ['factorTrace' in b.info, b.info.factorTrace.crashForm.branch], [true, 'anchors_missing']);
@@ -525,18 +562,110 @@ console.log('\nG. 引擎挂点集成 + 接线源码锁');
     [1, 1, true]);
   const abs = read('src/trading-engine/core/AbstractTradingEngine.js');
   ok('G5 _cheatGateInfo model 键条件携带', stripComments(abs).includes('...(res.model ? { model: res.model } : {})'));
-  // G6 service 源码锁：因子代分支不触碰 Jev 链件（_ensureLlm / buildCheatState / _runJev 不在因子路径上）
+  // G6 service 源码锁：因子入口先于 Jev 状态机、方法体零 Jev 件
   const svcSrc = stripComments(read('src/market-analysis/CheatCheckService.js'));
-  const fcStart = svcSrc.indexOf('async _factorChain(');
-  const factorChain = svcSrc.slice(fcStart, svcSrc.indexOf('async _ensureLlm() {', fcStart));
-  ok('G6 _factorChain 方法体定位非空', factorChain.length > 200 && factorChain.length < 2500, factorChain.length);
-  ok('G6 _factorChain 零 Jev 件', !/_ensureLlm|buildCheatState|_runJev|_pullTicks|_bootstrapHistory|_writeRow/.test(factorChain), factorChain.slice(0, 200));
-  ok('G6 gateBuyPoint 因子分支先于粘滞 / inflight（粘滞与 join 不参与）',
-    svcSrc.indexOf('if (this._factorMode) {') < svcSrc.indexOf('const lg = this._lastGrade.get(skey);'), '');
+  const fcStart = svcSrc.indexOf('async _factorGate(');
+  const factorGate = svcSrc.slice(fcStart, svcSrc.indexOf('async _ensureLlm() {', fcStart));
+  ok('G6 _factorGate 方法体定位非空', factorGate.length > 200 && factorGate.length < 2500, factorGate.length);
+  ok('G6 _factorGate 零 Jev 件（LLM / state / Jev / 拉数 / bootstrap / 落表 / 粘滞 / 拉黑 / 豁免 / 翻案 / 竞速）',
+    !/_ensureLlm|buildCheatState|_runJev|_pullTicks|_bootstrapHistory|_writeRow|_gateBlocked|_lastGrade|_inflight|_applyActivityExempt|_maybeUnblock|Promise\.race|awaitMs|forceRecheck|ruleset/.test(factorGate),
+    factorGate.slice(0, 200));
+  const gateBody = svcSrc.slice(svcSrc.indexOf('async gateBuyPoint('), svcSrc.indexOf('async evaluateActFront('));
+  ok('G6 gateBuyPoint 因子入口先于整段 Jev 状态机（规则集键 / 拉黑秒回 / forceRecheck / 粘滞 / inflight / 竞速）',
+    gateBody.includes('if (this._factorMode) return this._factorGate();')
+    && gateBody.indexOf('if (this._factorMode) return this._factorGate();') < gateBody.indexOf('const ruleset = CHEAT_RULESET_IDS.includes(opts.ruleset)')
+    && gateBody.indexOf('if (this._factorMode) return this._factorGate();') < gateBody.indexOf('const lg = this._lastGrade.get(skey);')
+    && gateBody.indexOf('if (this._factorMode) return this._factorGate();') < gateBody.indexOf('Promise.race(['),
+    '');
+  ok('G6 gateBuyPoint 体内 _factorMode 判定恰一处（无散落的因子分支残留）', (gateBody.match(/this\._factorMode/g) || []).length, 1);
   const bpSrc = stripComments(read('src/market-analysis/BuyPointCheckService.js'));
-  ok('G6 BP 链因子分支：LLM 加载与 state 构建均受 factorMode 守卫',
+  const bpGate = bpSrc.slice(bpSrc.indexOf('async gateBuyPoint('), bpSrc.indexOf('async _chain('));
+  ok('G6 BP gateBuyPoint 因子入口先于 inflight join / awaitMs 竞速 / 超时 late 包',
+    bpGate.includes('if (this._factorMode) {')
+    && bpGate.indexOf('if (this._factorMode) {') < bpGate.indexOf('this._inflight.get(token)')
+    && bpGate.indexOf('if (this._factorMode) {') < bpGate.indexOf('Promise.race([')
+    && bpGate.includes('return result;'), '');
+  ok('G6 BP 链内因子分支：LLM 加载与 state 构建均受 factorMode 守卫',
     bpSrc.includes('if (!this._factorMode) {') && bpSrc.includes('this._factorMode ? null : buildBuyPointState(snapshot).state')
     && bpSrc.includes('? { ok: true, result: answerBuyPointQuestions(snapshot) }'), '');
+
+  // G7 引擎因子作弊挂点：per-signal 语义——判定拒 = 本信号拒；Jev 状态机（拉黑 / 清仓 /
+  // 重锚 / 投影 / 重检条件求值）一件不做（T241 Phase 4 清理的行为锁）
+  const mkEngCheat = (judge) => {
+    const d = mkDb({});
+    const cheat = new CheatCheckService({ enabled: true }, SILENT, { dbClient: d.client, factorMode: true, factorJudge: judge });
+    return mkEng(normalTicks, { cheatSvc: cheat });
+  };
+  {
+    const g7 = mkEngCheat(() => ({ status: 'analyzed', grade: 'cheat', reasons: [{ level: 'cheat', code: 'A_strong:equal_amount_split' }], levels: {}, buckets: {}, anchors: {}, model: 'factor@CF1' }));
+    const exits = [];
+    g7.eng._cheatExitPosition = async (...a) => { exits.push(a); };
+    // 腿带 Jev 翻案条件且 fire 因子表为真——因子路径不求值、不重锚、不拉黑、不清仓
+    const r7 = await g7.eng._cheatGateEvaluateBinary('0xtok', TOKEN, {}, 'sig-7', { maxTriggers: 1, recheckCondition: "preCheatResult == 'unhealthy'" },
+      { factorResults: { currentVsLaunchPct: 8, preCheatResult: 'unhealthy' } });
+    check('G7 因子判 cheat → 本信号拒（cheat_gate_cheat）+ metadata cheatCheck 段',
+      [r7.pass, r7.reason, g7.statuses, Object.keys(g7.metas[0].data)[0], g7.metas[0].data.cheatCheck.grade, g7.metas[0].data.cheatCheck.model],
+      [false, '作弊门拒买（cheat [A_strong:equal_amount_split]）', [{ id: 'sig-7', status: 'failed', reason: 'cheat_gate_cheat' }], 'cheatCheck', 'cheat', 'factor@CF1']);
+    check('G7 Jev 状态机零触碰：不拉黑（引擎 Set / service）/ 不清仓 / 不投影 FA cheat 键 / 不重锚 almost_launch',
+      [g7.eng._cheatBlockedTokens.size, g7.eng._cheatCheckService.isGateBlocked('0xtok'), exits.length,
+        FA.getCheatFactors('0xtok'), FA.getCheatGatePriceAnchor('0xtok'), g7.eng._cheatProjectedTokens.size], [0, false, 0, null, null, 0]);
+    // 下一信号：判定翻转（注入桩改判 healthy）→ 照常放行（无拉黑可短路、无 unblocked 翻案键）
+    const g7b = mkEngCheat(() => ({ status: 'analyzed', grade: 'healthy', reasons: [], levels: {}, buckets: {}, anchors: {}, model: 'factor@CF1' }));
+    const r7b = await g7b.eng._cheatGateEvaluateBinary('0xtok', TOKEN, {}, 'sig-7b', { maxTriggers: 1 }, { factorResults: {} });
+    check('G7b healthy → 放行（无翻案键；上一张的拒不延续）', [r7b.pass, r7b.info.unblocked, r7b.info.grade], [true, false, 'healthy']);
+    const g7c = mkEngCheat(() => ({ status: 'analyzed', grade: 'unhealthy', reasons: [{ level: 'unhealthy', code: 'E_low_activity' }], levels: {}, buckets: {}, anchors: {}, model: 'factor@CF1' }));
+    const r7c = await g7c.eng._cheatGateEvaluateBinary('0xtok', TOKEN, {}, 'sig-7c', { maxTriggers: 1 }, { factorResults: {} });
+    check('G7c 因子判 unhealthy → 本信号拒（cheat_gate_unhealthy），同样不拉黑', [r7c.pass, g7c.statuses[0].reason, g7c.eng._cheatBlockedTokens.size], [false, 'cheat_gate_unhealthy', 0]);
+    const g7d = mkEngCheat(() => { throw new Error('boom'); });
+    const r7d = await g7d.eng._cheatGateEvaluateBinary('0xtok', TOKEN, {}, 'sig-7d', { maxTriggers: 1 }, { factorResults: {} });
+    check('G7d 判定异常（无 grade）→ fail-open 放行进 BP（info=fail/factor_error，不标 failed）', [r7d.pass, r7d.info, g7d.statuses], [true, { status: 'fail', reason: 'factor_error' }, []]);
+    const g7e = mkEng(normalTicks);
+    g7e.eng._cheatCheckService.gateBuyPoint = async () => { throw new Error('wired'); };
+    const r7e = await g7e.eng._cheatGateEvaluateBinary('0xtok', TOKEN, {}, 'sig-7e', { maxTriggers: 1 }, { factorResults: {} });
+    check('G7e 接线级异常 → fail-open 放行（info=error）', [r7e.pass, r7e.info.status, r7e.info.reason], [true, 'error', 'wired']);
+    const g7f = mkEng(normalTicks);
+    const r7f = await g7f.eng._cheatGateEvaluateBinary('0xtok', TOKEN, {}, 'sig-7f', { maxTriggers: 1 }, { pointTypePolicy: { cheatCheck: 'skip' }, factorResults: {} });
+    check('G7f 类型 policy 直通（cheatCheck:skip）仍在因子挂点之前生效', [r7f.pass, r7f.info], [true, { status: 'policy_pass', policy: 'cheatCheck:skip', levels: { stallBurstWave: null } }]);
+    // BP / AF 因子路径不传 awaitMs（引擎挂点调用参数锁：以桩捕获 opts）
+    const g7g = mkEng(normalTicks);
+    const bpOpts = []; g7g.eng._buyPointCheckService.gateBuyPoint = async (t, m, c, o) => { bpOpts.push(o); return { status: 'insufficient_ticks', anchorTickCount: 0 }; };
+    const afOpts = []; g7g.eng._cheatCheckService.evaluateActFront = async (t, m, c, o) => { afOpts.push([m, o]); return { status: 'assessed', act: null, sbw: null, wash: null, path: 'mid_full', version: 'AF2', model: 'factor@AF2' }; };
+    await g7g.eng._bpGateEvaluate('0xtok', TOKEN, {}, 'sig-7g', { maxTriggers: 1 }, { anchorMs: 1700000010000 });
+    await g7g.eng._actFrontGateEvaluate('0xtok', TOKEN, {}, 'sig-7g', { anchorMs: 1700000010000 });
+    check('G7g BP 因子路径：只传锚（anchorMs），不传 Jev 竞速上限 awaitMs', [bpOpts, Object.keys(bpOpts[0] || {})], [[{ anchorMs: 1700000010000 }], ['anchorMs']]);
+    check('G7g AF 因子路径：Jev 入参（token meta / awaitMs / anchorMs）一概不传', afOpts, [[{}, {}]]);
+  }
+  // G8 引擎源码锁：三挂点的因子分支位置与独立挂点零 Jev 状态机
+  {
+    const code = stripComments(abs);
+    const bin = code.slice(code.indexOf('async _cheatGateEvaluateBinary('), code.indexOf('async _bpGateEvaluate('));
+    const dispatch = "if (this._cheatCheckService.factorMode === true) {";
+    ok('G8 _cheatGateEvaluateBinary：因子分派先于 CD381 重判条件求值 / Jev meta / gateBuyPoint 调用',
+      bin.includes(dispatch) && bin.includes('return this._cheatGateFactorEvaluate(tokenAddress, token, signalId);')
+      && bin.indexOf(dispatch) < bin.indexOf('signalGate.recheckCondition')
+      && bin.indexOf(dispatch) < bin.indexOf('this._cheatCheckService.gateBuyPoint('), '');
+    ok('G8 分派先于两道前置检查之后（类型 policy 直通 / service 缺席 warn 仍共用）',
+      bin.indexOf("ctx.pointTypePolicy.cheatCheck === 'skip'") < bin.indexOf(dispatch)
+      && bin.indexOf("reason: 'service_disabled'") < bin.indexOf(dispatch), '');
+    const hook = code.slice(code.indexOf('async _cheatGateFactorEvaluate('), code.indexOf('async _cheatGateEvaluateBinary('));
+    ok('G8 _cheatGateFactorEvaluate 零 Jev 状态机（无重锚 / 投影 / 拉黑 / 清仓 / 迟到消费 / awaitMs / forceRecheck / recheckCondition / anchorMs / ruleset）',
+      hook.length > 300 && hook.length < 4000
+      && !/markCheatGateEvaluated|_projectCheatFactors|_cheatBlockedTokens|_cheatGateHardReject|_cheatGateLateConsume|_cheatExitPosition|awaitMs|forceRecheck|recheckCondition|recheckUnhealthy|anchorMs|ruleset|\.late\b/.test(hook),
+      hook.slice(0, 200));
+    ok('G8 _cheatGateEvaluateBinary 后半段 Jev 状态机原样保留（回滚 / 对拍基线）',
+      /markCheatGateEvaluated\(tokenAddress, _vsLaunchAtFire\)/.test(bin) && /_cheatGateHardReject\(tokenAddress, token, signalId, reasonCodes/.test(bin)
+      && /_cheatGateLateConsume\(tokenAddress, late, _vsLaunchAtFire\)/.test(bin) && /res\.unblocked === true/.test(bin)
+      && /forceRecheck: true/.test(bin), '');
+    ok('G8 _bpGateEvaluate：awaitMs 只在非因子路径传',
+      code.includes("...(this._buyPointCheckService.factorMode === true ? {} : { awaitMs: this._bpGateAwaitMs })"), '');
+    ok('G8 _actFrontGateEvaluate：因子路径空 meta / 空 opts',
+      code.includes("const meta = _factorAf ? {} : {") && code.includes("_factorAf ? {} : {\n          awaitMs: this._cheatGateAwaitMs,"), '');
+    const liveCode = stripComments(live);
+    ok('G8 实时引擎信号链入口：拉黑双源短路整段不进因子路径',
+      /this\._cheatCheckService\.factorMode !== true\s*&&\s*\(this\._cheatBlockedTokens\.has\(tokenAddress\) \|\| this\._cheatCheckService\.isGateBlocked\(tokenAddress\)\)/.test(liveCode), '');
+    ok('G8 实时引擎门链汇总行：因子代不按 Jev 口径打 awaitMs / recheck',
+      /_cheatFactor \? '因子代·无竞速\/粘滞'/.test(liveCode) && /_bpFactor \? '因子代·无竞速'/.test(liveCode), '');
+  }
 }
 
 console.log('\nH. 零依赖锁');

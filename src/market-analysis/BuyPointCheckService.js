@@ -55,10 +55,12 @@
  * 改为因子门……Jev 的调用框架与 Prompt 等等都保留，防止以后再使用」）──
  * 策略包 modules.buyPointCheck 取因子代键（module-registry FACTOR_GENERATION_KEY）
  * 时，引擎以 deps.factorMode 注入：维度题答案改由 factor-responders 产出，**零
- * Jev**——不加载 LLM 模块、不建 state、无竞速。链路其余部分（settle / 拉数 /
- * minTicks 预门 / 快照 / 塞单门 / mapper 门链 / 落行）与 Jev 代同一条，BPF1
- * 精简代下实际在拦的只剩纯代码的塞单门与 minTicks 预门；BPF2 起 entry_shape 由
- * crash 形态复核因子臂回答（factor-responders judgeCrashForm）。
+ * Jev**——不加载 LLM 模块、不建 state。**因子路径不进门链入口的竞速接线**
+ * （T241 Phase 4，2026-11-26 用户指令「因子路径里为 Jev 留的竞速、粘滞接线请
+ * 清理」）：gateBuyPoint 的 inflight join / awaitMs 竞速 / 超时 late 包只服务 Jev
+ * 慢调用，因子代直接跑链。链路其余部分（settle / 拉数 / minTicks 预门 / 快照 /
+ * 塞单门 / mapper 门链 / 落行）两代同一条；BPF2 在拦的是纯代码的塞单门、minTicks
+ * 预门与 crash 形态复核因子臂（factor-responders judgeCrashForm）。
  */
 
 const { buildBuyPointSnapshot } = require('./buy-point-snapshot');
@@ -274,6 +276,16 @@ class BuyPointCheckService {
     const token = String(tokenAddress || '').toLowerCase();
     if (!token) return { status: 'invalid_token' };
     this.stats.gateNoted++;
+
+    // 因子代入口（Jev 退役，T241 Phase 4）：直接跑链（settle → 拉数 → minTicks → 快照
+    // → 因子判定 → 落行）。下方 inflight join / awaitMs 竞速 / 超时迟到包三件是给
+    // 「Jev 慢调用」兜底的——因子链是有界 I/O（settle 帽 + 一次拉数）+ 纯计算，
+    // 不进入；opts.awaitMs 不消费
+    if (this._factorMode) {
+      const result = await this._chain(token, tokenMeta, context, opts);
+      if (result && result.status === 'assessed') this.stats.gateAssessed++;
+      return result;
+    }
 
     let chain = this._inflight.get(token);
     if (!chain) {

@@ -280,6 +280,31 @@ function validatePack(definition) {
     return { valid: errors.length === 0, errors };
 }
 
+/**
+ * T242 实验级点位类型激活覆盖校验（纯函数，零 DB——web 创建路由 400 与单测共用）：
+ * 实验 config.pointTypes = {active: {类型 id: 布尔}}。形状走 point-type-router
+ * resolvePointTypeOverride 单点（未知键 / 未知类型 / 非布尔 / 空段 / 停用 normal），与
+ * 引擎 _resolveStrategyPack 拒启、clone-experiment.cjs 克隆阶段 fail-fast 同口径。
+ * 覆盖依赖类型路由：引用包未启用 modules.pointType = 无消费点 → 错误。
+ * @param {*} pointTypes - 实验 config.pointTypes 候选值
+ * @param {Object} packDefinition - 引用策略包 definition
+ * @returns {{valid: boolean, errors: string[]}}
+ */
+function validateExperimentPointTypes(pointTypes, packDefinition) {
+    const errors = [];
+    const { resolvePointTypeOverride } = require('../../market-analysis/point-type-router');
+    try {
+        resolvePointTypeOverride(pointTypes);
+    } catch (e) {
+        errors.push(e.message);
+    }
+    const mods = packDefinition && packDefinition.modules;
+    if (!mods || typeof mods !== 'object' || Array.isArray(mods) || mods.pointType == null) {
+        errors.push('引用策略包未启用 modules.pointType——点位类型激活覆盖无消费点（请换启用 pointType 的包，或不提交 pointTypes）');
+    }
+    return { valid: errors.length === 0, errors };
+}
+
 class StrategyLibraryService {
     constructor(logger = console) {
         this.logger = logger;
@@ -445,4 +470,5 @@ module.exports = {
     validateLegs,
     validatePack,
     validateBurstCooldownSection,
+    validateExperimentPointTypes,
 };
