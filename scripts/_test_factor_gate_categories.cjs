@@ -17,6 +17,12 @@
  *      C5 类型票 policy 直通：三卡全无（policy_pass 不再误显「检测层故障」）
  *      C6 Jev 代历史行：真判定原文案不变
  *      C7 未登记门行：不冒充归类，显式提示
+ *   D. ⓪点位类型通路卡：判据表达式 + 逐子句因子 chips（2026-11-27 用户指令「🧭 点位类型
+ *      通路也请跟 📋 买入条件配置一样，展示完整的表达式，以及每个因子的条件满足情况」）：
+ *      D0/D5/D6/D7 显式降级（注册表未加载 / 类型不在注册表 / 接口未返回判据 / 兜底类型）
+ *      D1~D4 命中票渲染（真实快照：表达式全文 + 逐子句 chips + OR 臂降灰 + 版本漂移注记）
+ *      D8 注册表拉取与 loadData 接线 / D9 页面结构解析与求值 ≡ 注册表与引擎
+ *      D10 OR 臂覆盖集语义 / D11 覆盖集端到端着色 / D12 共享渲染器默认路径黄金输出不变
  *
  * 用法：node scripts/_test_factor_gate_categories.cjs
  */
@@ -316,5 +322,232 @@ console.log('\nC. 信号页渲染');
   const hund = render({ signalGate: sgBase, factorCheck: fc([{ id: 'zzz_new_arm', label: '门-zzz', value: 'v', line: 'l', hit: false }]), actFrontGate: AF_F, cheatCheck: CH_F, buyPoint: bpFactor(false) }, exec);
   ok('C7 未归类门显式提示（分类表未登记）', hund.includes('⚠ 未归类的门：zzz_new_arm') && !hund.includes('门-zzz 🚫'));
 }
+
+(async () => {
+console.log('\nD. ⓪点位类型通路卡：判据表达式 + 逐子句因子 chips');
+{
+  const PTR = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
+  const { ConditionEvaluator } = require(path.join(ROOT, 'src/strategies/ConditionEvaluator.js'));
+  const V = PTR.POINT_TYPE_VERSION;
+  const entryOf = (id) => PTR.POINT_TYPES.find((t) => t.id === id);
+  const registryFrom = (types) => ({ version: V, byId: new Map(types.map((t) => [t.id, t])) });
+  const full = registryFrom(PTR.POINT_TYPES.map((t) => ({ id: t.id, label: t.label, active: t.active, condition: t.condition ?? null })));
+  const setReg = (reg, err = '') => { inst._pointTypeRegistry = reg; inst._pointTypeRegistryError = err; };
+  const ptMeta = (id, snapshot, extra = {}) => ({ type: id, label: entryOf(id).label, policy: entryOf(id).policy, version: V, snapshot, ...extra });
+  const cardPt = (pt, md = {}) => render({ signalGate: sgBase, pointType: pt, ...md });
+  // 判据区块 = 标题起到「分类因子快照」折叠块前
+  const condSeg = (h) => { const a = h.indexOf('🧭 点位类型判据:'); const b = h.indexOf('分类因子快照', a); return a < 0 ? '' : h.slice(a, b < 0 ? undefined : b); };
+  const TITLE = '🧭 点位类型判据:';
+  const GREEN = 'bg-green-100 text-green-800';
+  const RED = 'bg-red-100 text-red-800';
+  const DIM = 'bg-gray-200 text-gray-600';
+  const OR_NOTE = '（OR 另一臂已满足）';
+  const chip = (cls, text) => `<code class="px-1.5 py-0.5 rounded text-xs ${cls}">${text}</code>`;
+  // 真实快照：bt 实验 3cc285ba 的 0x8861…7777（market_maker_rhythm_pit，PT72 命中票）
+  const SNAP_MM = { chg5Pct: 36.46, chg10Pct: 24.13, chg30Pct: 2.36, chg60Pct: 91.77, chg300Pct: 91.77, actTotalBnb: 2.8995699611759993,
+    tokenAgeSec: 36.2, actTotalBnb30s: 20.41815856024987, athVsLaunchPct: 384.25, mcapFromPeakPct: 60.4, blockGapLe1Pct64: 89.06,
+    currentVsLaunchPct: 150.58, gmgnProfiledBuyerPct: 37.14, tradesPerSecSinceLaunch: 4.3094 };
+
+  // ── D0 / D5 / D6 / D7：显式降级，不静默缺表达式 ──
+  setReg(null);
+  const hNo = cardPt(ptMeta('steady_trend_climb', { priceMa60SlopePct: 20 }));
+  ok('D0 注册表未加载（默认态）：卡片显式提示「判据表达式不可展示：点位类型注册表未加载」，不渲染判据 chips',
+    hNo.includes(TITLE) && hNo.includes('⚠ 判据表达式不可展示：点位类型注册表未加载</span>')
+    && !hNo.includes('priceMa60SlopePct = 20.00 >= 5') && hNo.includes('⓪ 类型通路 🧭'));
+  setReg(null, 'HTTP 500');
+  ok('D0b 加载失败态：提示带失败原因', cardPt(ptMeta('steady_trend_climb', {})).includes('点位类型注册表未加载（HTTP 500）'));
+  setReg(full);
+  const hUnknown = cardPt({ type: 'retail_golden_pit', label: '旧名', policy: {}, version: 'PT13', snapshot: {} });
+  ok('D5 类型不在当前注册表（id 已改名的旧信号）：显式提示', hUnknown.includes(`⚠ 判据表达式不可展示：类型 <code>retail_golden_pit</code> 不在当前注册表（${V}）`));
+  setReg(registryFrom([{ id: 'steady_trend_climb', label: '趋势成形币', active: true }])); // pull 后 web-server 未重启=旧路由不带 condition
+  ok('D6 接口未返回判据（旧 web-server 进程）：显式提示并指明重启后恢复',
+    cardPt(ptMeta('steady_trend_climb', {})).includes('注册表接口未返回判据（web-server 进程仍是旧版本，重启后恢复）'));
+  setReg(registryFrom([{ id: 'x_fallback', label: '兜底', active: true, condition: null }]));
+  ok('D7 非 normal id 但判据为 null：按兜底说明展示', cardPt({ type: 'x_fallback', label: '兜底', policy: {}, version: V, snapshot: {} }).includes('兜底类型无判据表达式'));
+
+  // ── D1~D4：命中票渲染 ──
+  setReg(full);
+  const mm = entryOf('market_maker_rhythm_pit');
+  const h1 = cardPt(ptMeta('market_maker_rhythm_pit', SNAP_MM));
+  const seg1 = condSeg(h1);
+  ok('D1 渲染无异常', !h1.includes('__RENDER_ERROR__'), h1.slice(0, 300));
+  ok('D1 判据表达式=注册表 condition 原文全文（与 📋 买入条件配置同款 code 块）',
+    h1.includes(`<span class="font-semibold text-indigo-300">${TITLE}</span>`) && seg1.includes(mm.condition)
+    && seg1.includes('ml-2 px-2 py-0.5 bg-gray-900 rounded text-xs text-indigo-200 break-all'));
+  ok('D1 逐子句 chips：正则子句数=chip 数（无一漏渲染）',
+    (seg1.match(/<code class="px-1\.5 py-0\.5 rounded text-xs /g) || []).length, inst._parseConditionClauses(mm.condition).length);
+  ok('D1 chips 取值=pointType.snapshot（fire 时刻分类快照）',
+    seg1.includes(chip(GREEN, 'tokenAgeSec = 36.20 >= 3 ✓')) && seg1.includes(chip(GREEN, 'tokenAgeSec = 36.20 <= 60 ✓'))
+    && seg1.includes(chip(GREEN, 'tradesPerSecSinceLaunch = 4.31 >= 1.5 ✓')) && seg1.includes(chip(GREEN, 'actTotalBnb30s = 20.42 <= 40 ✓'))
+    && seg1.includes(chip(GREEN, 'blockGapLe1Pct64 = 89.06 >= 85 ✓')) && seg1.includes(chip(GREEN, 'blockGapLe1Pct64 = 89.06 >= 75 ✓'))
+    && seg1.includes(chip(GREEN, 'athVsLaunchPct = 384.25 < 400 ✓')));
+  ok('D1 OR 臂降灰：chg30Pct > 20 ✗（athVs<400 臂已满足）与 gmgnProfiledBuyerPct IS NULL ✗（<=80 臂已满足）',
+    seg1.includes(chip(DIM, `chg30Pct = 2.36 > 20 ✗${OR_NOTE}`)) && seg1.includes(chip(DIM, `gmgnProfiledBuyerPct IS NULL ✗${OR_NOTE}（实际 37.14）`))
+    && seg1.includes(chip(GREEN, 'gmgnProfiledBuyerPct = 37.14 <= 80 ✓')));
+  ok('D1 命中票判据区无红 ✗（全部子句满足或属 OR 另一臂——做市类型每张命中票带两臂，照标红=永久红鲱鱼）',
+    !seg1.includes(RED) && !seg1.includes('bg-red-50 text-red-700') && !seg1.includes('无快照'));
+  ok('D1 版本一致（信号 PT=注册表 PT）：无漂移注记', !h1.includes('≠ 信号分类版'));
+  ok('D1 卡片其余部分不变：类型徽章行 + policy chips + 分类因子快照折叠块照常',
+    h1.includes('🧭 点位类型通路') && h1.includes('FP：直通') && h1.includes('做市节奏盘-每块有交易-机械阶梯拉盘-中途深砸次低价坑-闪电毕业暴拉币')
+    && h1.includes('分类因子快照（14 键）') && h1.includes('⓪ 类型通路 🧭'));
+
+  setReg(full);
+  const h2 = cardPt(ptMeta('activity_high', { actTotalBnb30s: 1.23, actTraders: 18 }, { policy: {} }));
+  const seg2 = condSeg(h2);
+  ok('D2 活跃度类型（纯 AND 两子句）：表达式 + 两枚绿 chip',
+    seg2.includes('actTotalBnb30s >= 0.99 AND actTraders >= 4') && seg2.includes(chip(GREEN, 'actTotalBnb30s = 1.23 >= 0.99 ✓'))
+    && seg2.includes(chip(GREEN, 'actTraders = 18.00 >= 4 ✓')) && (seg2.match(/<code class="px-1\.5/g) || []).length === 2);
+
+  setReg(full);
+  const h3 = cardPt(ptMeta('normal', {}));
+  ok('D3 normal 兜底类型（注册表 condition=null）：明示无判据表达式，不渲染 chips',
+    h3.includes('🧭 点位类型判据:</span><span class="ml-2">兜底类型无判据表达式——阶梯内排在前面的激活类型均未命中，即落本类型</span>')
+    && !condSeg(h3).includes('📊 因子值:'));
+  setReg(null);
+  ok('D3b normal 不依赖注册表（未加载时同样给出兜底说明，而非「不可展示」）',
+    cardPt(ptMeta('normal', {})).includes('兜底类型无判据表达式') && !cardPt(ptMeta('normal', {})).includes('不可展示'));
+
+  setReg(full);
+  const h4 = cardPt(ptMeta('market_maker_rhythm_pit', SNAP_MM, { version: 'PT64' }));
+  ok('D4 版本漂移（信号分类版 ≠ 当前注册表版）：表达式为当前注册表版并带注记（T202 包腿同口径）',
+    h4.includes(`（注册表 ${V} ≠ 信号分类版 PT64，表达式为当前注册表版判据）`) && condSeg(h4).includes(mm.condition));
+  // 漂移第二种形状：新版判据新增的子句，旧快照无该键 → 灰「无快照」（不冒充满足，也不标红冒充不满足）
+  setReg(registryFrom([{ id: 't_drift', label: '漂移样本', active: true, condition: 'a >= 1 AND b >= 5' }]));
+  const h4b = cardPt({ type: 't_drift', label: '漂移样本', policy: {}, version: 'PT1', snapshot: { a: 2 } });
+  ok('D4b 旧快照缺新版子句的键：灰「无快照(历史信号)」+ 漂移注记',
+    condSeg(h4b).includes(chip(GREEN, 'a = 2.00 >= 1 ✓')) && condSeg(h4b).includes(chip('bg-gray-100 text-gray-500', 'b = 无快照(历史信号)'))
+    && h4b.includes('（注册表 ' + V + ' ≠ 信号分类版 PT1，表达式为当前注册表版判据）'));
+
+  // ── D8：注册表拉取 + loadData 接线 ──
+  {
+    const _fetch = global.fetch; const _warn = console.warn; let lastUrl = null;
+    console.warn = () => {};
+    global.fetch = async (url) => { lastUrl = String(url); return { ok: true, status: 200, json: async () => ({ success: true, data: { version: 'PT99', types: [{ id: 'a_t', label: 'A', active: true, condition: 'a >= 1' }] } }) }; };
+    setReg(null, 'stale');
+    await inst._loadPointTypeRegistry();
+    check('D8 拉取 URL 带 include=condition（缺省形状不带判据，见 _test_point_types_picker C2 形状锁）', lastUrl, '/api/strategy-library/point-types?include=condition');
+    check('D8 注册表落位（version + byId 索引），旧失败原因清空', [inst._pointTypeRegistry.version, [...inst._pointTypeRegistry.byId.keys()], inst._pointTypeRegistryError], ['PT99', ['a_t'], '']);
+    global.fetch = async () => ({ ok: false, status: 503, json: async () => ({}) });
+    await inst._loadPointTypeRegistry();
+    check('D8b HTTP 失败：不抛，registry=null + 原因落位（卡片显式提示）', [inst._pointTypeRegistry, inst._pointTypeRegistryError], [null, 'HTTP 503']);
+    global.fetch = async () => ({ ok: true, status: 200, json: async () => ({ success: true, data: { version: 7 } }) });
+    await inst._loadPointTypeRegistry();
+    check('D8c 响应形状非法：不抛，registry=null + 原因落位', [inst._pointTypeRegistry, inst._pointTypeRegistryError], [null, '注册表形状非法（version/types 缺失）']);
+    global.fetch = _fetch; console.warn = _warn;
+    const srcLoad = JS_SRC.slice(JS_SRC.indexOf('async loadData()'), JS_SRC.indexOf('showKlinePlaceholder('));
+    const iKick = srcLoad.indexOf('const pointTypeRegistryLoaded = this._loadPointTypeRegistry();');
+    const iExp = srcLoad.indexOf('await this.fetchExperiment()');
+    const iPack = srcLoad.indexOf('await this._loadStrategyPackLegs();');
+    const iAwait = srcLoad.indexOf('await pointTypeRegistryLoaded;');
+    const iSig = srcLoad.indexOf('await this.fetchSignals()');
+    ok('D8d loadData 接线源码锁：注册表拉取与实验信息并行发起（先于 fetchExperiment）、包腿物化之后、fetchSignals 之前 await',
+      [iKick, iExp, iPack, iAwait, iSig].every((v) => v >= 0) && iKick < iExp && iPack < iAwait && iAwait < iSig);
+  }
+
+  // ── D9：页面结构解析与求值 ≡ 注册表与引擎 ──
+  {
+    const leavesOf = (node) => node.type === 'leaf' ? [node.clause] : node.nodes.flatMap(leavesOf);
+    const typed = PTR.POINT_TYPES.filter((t) => t.condition != null);
+    const bad = [];
+    for (const t of typed) {
+      const tree = inst._parseConditionTree(t.condition);
+      if (!tree) { bad.push(`${t.id}: 解析失败`); continue; }
+      const treeKeys = [...new Set(leavesOf(tree).map(inst._clauseKey.bind(inst)))].sort();
+      const reKeys = [...new Set(inst._parseConditionClauses(t.condition).map(inst._clauseKey.bind(inst)))].sort();
+      if (JSON.stringify(treeKeys) !== JSON.stringify(reKeys)) bad.push(`${t.id}: 叶子键集 ≠ 正则子句键集`);
+      // 叶子因子名集 = 判据文本里的因子引用（引擎 _refsOf 同款提取：标识符剔关键字）
+      const leafNames = [...new Set(leavesOf(tree).map((c) => c.name))].sort();
+      const refNames = [...new Set((t.condition.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).filter((k) => !['AND', 'OR', 'IS', 'NOT', 'NULL'].includes(k)))].sort();
+      if (JSON.stringify(leafNames) !== JSON.stringify(refNames)) bad.push(`${t.id}: 叶子因子名集 ≠ 判据引用因子集`);
+    }
+    check('D9a 注册表全部判据页面可解析（OR 臂降灰不落「解析失败」分支），叶子键集 = 正则子句键集，叶子因子 = 判据引用因子', bad, []);
+    // 三值求值 vs 引擎 ConditionEvaluator：engine === (page === true)。数值因子表域（含缺键 / null）
+    const ev = new ConditionEvaluator();
+    let seed = 20261127; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    let n = 0; const mism = [];
+    for (const t of typed) {
+      const names = [...new Set((t.condition.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).filter((k) => !['AND', 'OR', 'IS', 'NOT', 'NULL'].includes(k)))];
+      for (let k = 0; k < 400; k++) {
+        const f = {};
+        for (const nm of names) { const r = rnd(); if (r < 0.12) continue; if (r < 0.2) f[nm] = null; else if (r < 0.26) f[nm] = 0; else f[nm] = +(rnd() * 420 - 10).toFixed(3); }
+        n++;
+        const e = ev.evaluate(t.condition, f); const p = inst._evalConditionTriState(t.condition, [f]);
+        if (e !== (p === true)) mism.push(`${t.id} ${JSON.stringify(f)} engine=${e} page=${p}`);
+      }
+    }
+    ok(`D9b 页面结构求值 ≡ 引擎求值（${n} 组随机因子表：缺键/null/边界值；IS NULL 缺键按引擎口径=空值——首版按「无快照」处理 111 例翻车）`, mism.length === 0, mism.slice(0, 3));
+  }
+
+  // ── D10：OR 臂覆盖集语义 ──
+  {
+    const cov = (c, f) => [...inst._orCoveredClauseKeys(c, [f])].sort();
+    check('D10a OR 组成立（第三臂 d）→ 组内其余为假子句进覆盖集（比较臂 + IS NULL 臂）', cov('a >= 5 AND (b >= 3 OR d >= 1 OR c IS NULL)', { a: 6, b: 1, d: 5, c: 5 }), ['b|>=|3', 'c|ISNULL']);
+    check('D10b c 缺键：引擎口径 IS NULL 为真 → 同样覆盖', cov('a >= 5 AND (b >= 3 OR c IS NULL)', { a: 6, b: 1 }), ['b|>=|3']);
+    check('D10c c=null：IS NULL 臂满足，覆盖 b', cov('a >= 5 AND (b >= 3 OR c IS NULL)', { a: 6, b: 1, c: null }), ['b|>=|3']);
+    check('D10d OR 组不成立（两臂皆假：b=1、c 非空）→ 无覆盖（两枚都该标红）', cov('a >= 5 AND (b >= 3 OR c IS NULL)', { a: 6, b: 1, c: 5 }), []);
+    check('D10e 嵌套：内层 AND 拖垮外层 OR 时 a 不被覆盖（a 才是决定整体的那支）', cov('(a >= 1 OR (b >= 1 AND c >= 1)) AND d >= 1', { a: 0, b: 1, c: 0, d: 1 }), []);
+    check('D10f 嵌套：外层 OR 由 a 满足 → 内层假叶子 c 被覆盖', cov('(a >= 1 OR (b >= 1 AND c >= 1)) AND d >= 1', { a: 1, b: 1, c: 0, d: 1 }), ['c|>=|1']);
+    check('D10g 嵌套：外层 OR 由内层 AND 满足 → a 被覆盖', cov('(a >= 1 OR (b >= 1 AND c >= 1)) AND d >= 1', { a: 0, b: 1, c: 1, d: 1 }), ['a|>=|1']);
+    check('D10h 无快照叶子不进覆盖集（a/b 缺键=null；OR 不成立→c 不被覆盖）', cov('(a >= 1 OR b >= 1) AND c >= 1', { c: 0 }), []);
+    check('D10i 同一子句多次出现：任一次未被覆盖即不算覆盖', [cov('a >= 5 AND (a >= 5 OR b >= 1)', { a: 0, b: 1 }), cov('(a >= 5 OR b >= 1) AND (a >= 5 OR c >= 1)', { a: 0, b: 1, c: 1 })], [[], ['a|>=|5']]);
+    check('D10j null 值叶子为假可被覆盖；tokenAgeSec 由 age 推导的叶子同口径', [cov('(a IS NULL OR a >= 0) AND b >= 1', { a: null, b: 1 }), cov('(tokenAgeSec >= 60 OR x >= 1) AND y >= 1', { age: 0.5, x: 2, y: 1 })], [['a|>=|0'], ['tokenAgeSec|>=|60']]);
+    check('D10k 关键字大小写不敏感（与引擎同）', cov('a >= 1 or b >= 1', { a: 0, b: 2 }), ['a|>=|1']);
+    const fail = ['platform != \'flap\'', 'a >= b', '(a >= 1', 'a >= 1)', 'a >= 1 AND', 'AND a >= 1', '5 >= a', 'a >= 1 b', 'a > = 1', 'a IS 5', 'a IS NOT', 'a.b >= 1', 'a >= ', ''];
+    check('D10l 覆盖域外语法一律 null（不抛）：字符串字面量 / 因子对因子 / 括号与记号残缺', fail.map((c) => inst._orCoveredClauseKeys(c, [{ a: 1, b: 1 }]) === null), fail.map(() => true));
+    check('D10m 单叶子表达式（无 OR）为假 → 空集', cov('a >= 5', { a: 1 }), []);
+  }
+
+  // ── D11：覆盖集端到端着色（走真实卡片渲染） ──
+  {
+    setReg(registryFrom([{ id: 't_cov', label: '覆盖样本', active: true, condition: 'a >= 1 AND (b >= 3 OR d >= 1 OR c IS NULL)' }]));
+    const h = cardPt({ type: 't_cov', label: '覆盖样本', policy: {}, version: V, snapshot: { a: 1, b: 1, d: 5, c: 5 } });
+    const seg = condSeg(h);
+    ok('D11 IS NULL 臂为假被覆盖：降灰 + 注明（实际值照写）',
+      seg.includes(chip(GREEN, 'a = 1.00 >= 1 ✓')) && seg.includes(chip(GREEN, 'd = 5.00 >= 1 ✓'))
+      && seg.includes(chip(DIM, `b = 1.00 >= 3 ✗${OR_NOTE}`)) && seg.includes(chip(DIM, `c IS NULL ✗${OR_NOTE}（实际 5.00）`)));
+    setReg(registryFrom([{ id: 't_null', label: '空值样本', active: true, condition: '(a IS NULL OR a >= 0) AND b >= 1' }]));
+    const hn = condSeg(cardPt({ type: 't_null', label: '空值样本', policy: {}, version: V, snapshot: { a: null, b: 1 } }));
+    ok('D11b null 值比较臂被覆盖：灰「null(未触发/未就绪)✗ 注明」（不再红底）',
+      hn.includes(chip(GREEN, 'a IS NULL ✓（实际 null）')) && hn.includes(chip(DIM, `a = null(未触发/未就绪)${OR_NOTE}`)) && !hn.includes('bg-red-50 text-red-700'));
+    // 真不满足=红（正常只出现在版本漂移：旧版判据命中、新版改写的子句对其快照不成立）
+    setReg(registryFrom([{ id: 't_red', label: '红样本', active: true, condition: 'a >= 1 AND b >= 5 AND (b >= 5 OR c IS NULL)' }]));
+    const hr = condSeg(cardPt({ type: 't_red', label: '红样本', policy: {}, version: 'PT0', snapshot: { a: 1, b: 1, c: 0 } }));
+    ok('D11c OR 组两臂皆假=真不满足：标红 ✗（无覆盖注明）+ 漂移注记在场',
+      hr.includes(chip(GREEN, 'a = 1.00 >= 1 ✓')) && hr.includes(chip(RED, 'b = 1.00 >= 5 ✗')) && hr.includes(chip(RED, 'c IS NULL ✗（实际 0.000e+0）'))
+      && !hr.includes(OR_NOTE) && !hr.includes(DIM) && hr.includes(`≠ 信号分类版 PT0`));
+    // 解析失败分支：表达式照常展示，chips 退回逐子句平铺着色（=买入条件配置同款），console.warn 一声
+    setReg(registryFrom([{ id: 't_pf', label: '解析失败样本', active: true, condition: 'a >= 1 AND (b >= 3 OR c IS NULL) AND platform != \'flap\'' }]));
+    const _warn = console.warn; const warns = []; console.warn = (m) => warns.push(String(m));
+    const hp = cardPt({ type: 't_pf', label: '解析失败样本', policy: {}, version: V, snapshot: { a: 1, b: 1, c: 5, platform: 'bsc' } });
+    console.warn = _warn;
+    ok('D11d 表达式解析失败：不崩、表达式照常、chips 平铺着色（b >= 3 ✗ 标红=买入条件配置同款）、warn 一声',
+      !hp.includes('__RENDER_ERROR__') && condSeg(hp).includes('a >= 1 AND (b >= 3 OR c IS NULL) AND platform') && condSeg(hp).includes(chip(RED, 'b = 1.00 >= 3 ✗'))
+      && condSeg(hp).includes(chip(RED, 'c IS NULL ✗（实际 5.00）')) && warns.length === 1 && warns[0].includes('解析失败'));
+  }
+
+  // ── D12：共享渲染器默认路径（不传 opts）黄金输出不变——重构前后逐字节一致 ──
+  {
+    const G = 'bg-green-100 text-green-800', R = 'bg-red-100 text-red-800', GRAY = 'bg-gray-100 text-gray-500';
+    const head = '<div class="mt-1 flex flex-wrap gap-1 items-center"><span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">📊 因子值:</span>';
+    const H = (...chips) => head + chips.join('') + '</div>';
+    check('D12a OR 另一臂为假照标红（买入/预检查条件原行为）',
+      inst._renderConditionFactorChips('(currentVsLaunchPct <= 28.5 OR earlyReturn < 15) AND currentVsLaunchPct <= 33.5', { trendFactors: { currentVsLaunchPct: 30, earlyReturn: 20 } }),
+      H(chip(R, 'currentVsLaunchPct = 30.00 <= 28.5 ✗'), chip(R, 'earlyReturn = 20.00 < 15 ✗'), chip(G, 'currentVsLaunchPct = 30.00 <= 33.5 ✓')));
+    check('D12b IS NULL 臂为假照标红；布尔 true 值按 Number 口径比较',
+      inst._renderConditionFactorChips('(gmgnProfiledBuyerPct <= 80 OR gmgnProfiledBuyerPct IS NULL) AND chg5Pct >= -10 AND anchorTickIsBuy == 1', { trendFactors: { gmgnProfiledBuyerPct: 37.14, chg5Pct: 36.46, anchorTickIsBuy: true } }),
+      H(chip(G, 'gmgnProfiledBuyerPct = 37.14 <= 80 ✓'), chip(G, 'chg5Pct = 36.46 >= -10 ✓'), chip(G, 'anchorTickIsBuy = 1.00 == 1 ✓'), chip(R, 'gmgnProfiledBuyerPct IS NULL ✗（实际 37.14）')));
+    check('D12c tokenAgeSec age×60 推导 / 缺键灰「无快照」/ 0 值科学计数',
+      inst._renderConditionFactorChips('tokenAgeSec >= 160 AND buyVolumeBnb >= 4 AND cheatCrewBuyBnb == 0 AND famousCopyWalletCircPct > 0', { trendFactors: { age: 6.2, cheatCrewBuyBnb: 0 } }),
+      H(chip(G, 'tokenAgeSec ≈ 372.00 >= 160 ✓（age×60 推导）'), chip(GRAY, 'buyVolumeBnb = 无快照(历史信号)'), chip(G, 'cheatCrewBuyBnb = 0.000e+0 == 0 ✓'), chip(GRAY, 'famousCopyWalletCircPct = 无快照(历史信号)')));
+    check('D12d null 值=红底「null(未触发/未就绪)」',
+      inst._renderConditionFactorChips('a >= 1 AND b IS NOT NULL', { trendFactors: { a: null } }),
+      H(chip('bg-red-50 text-red-700 border border-red-200', 'a = null(未触发/未就绪)'), chip(GRAY, 'b = 无快照(历史信号)')));
+    check('D12e extraSources 优先于默认源链（同键 trendFactors 有值，extraSources 的 null 胜出）',
+      inst._renderConditionFactorChips('holderTrendSlope IS NULL OR holderTrendSlope >= 4', { trendFactors: { holderTrendSlope: 9 } }, [{ holderTrendSlope: null }]),
+      H(chip('bg-red-50 text-red-700 border border-red-200', 'holderTrendSlope = null(未触发/未就绪)'), chip(G, 'holderTrendSlope IS NULL ✓（实际 null）')));
+    check('D12f 空条件/无可解析子句=空串', [inst._renderConditionFactorChips('', {}), inst._renderConditionFactorChips(null, null), inst._renderConditionFactorChips('no clauses', {})], ['', '', '']);
+  }
+}
 console.log(`\n因子门分类单测：${pass} 通过，${fail} 失败`);
 process.exit(fail > 0 ? 1 : 0);
+})().catch((e) => { console.error('❌ 单测执行异常', e); process.exit(1); });

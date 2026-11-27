@@ -58,15 +58,21 @@ router.get('/module-versions', async (req, res) => {
  * 点位类型注册表（代码注册表 point-type-router 单一真相源——创建页「点位类型激活」
  * 开关用；页面硬编码会漂移）：{ version, types: [{id, label, active}] }
  * active=注册表缺省；实验级覆盖=config.pointTypes.active（T242）
+ * ?include=condition（2026-11-27，信号页 ⓪类型通路卡「判据表达式+逐子句因子 chips」用）：
+ * 逐类型附 condition 判据原文（null=兜底）。缺省不带——创建页开关只需要 {id,label,active}
+ * （形状锁：_test_point_types_picker C2）
  */
 router.get('/point-types', async (req, res) => {
     try {
         const { POINT_TYPE_VERSION, POINT_TYPES } = require('../../market-analysis/point-type-router');
+        const withCondition = String((req.query && req.query.include) || '').split(',').includes('condition');
         res.json({
             success: true,
             data: {
                 version: POINT_TYPE_VERSION,
-                types: POINT_TYPES.map((t) => ({ id: t.id, label: t.label, active: t.active === true })),
+                types: POINT_TYPES.map((t) => (withCondition
+                    ? { id: t.id, label: t.label, active: t.active === true, condition: t.condition ?? null }
+                    : { id: t.id, label: t.label, active: t.active === true })),
             },
         });
     } catch (error) {

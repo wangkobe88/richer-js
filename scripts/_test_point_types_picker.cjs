@@ -10,7 +10,8 @@
  *   B. 页面只能产出引擎认的配置：collectConfig 产物恒过 resolvePointTypeOverride，且
  *      effectivePointTypeActive(产物) === 勾选表；与克隆 CLI --point-types 产物逐键一致
  *   C. 注册表接口：GET /api/strategy-library/point-types 形状（真 router.handle）+ 注册
- *      序在 /:id 之前
+ *      序在 /:id 之前；?include=condition 逐类型附判据原文（2026-11-27 信号页 ⓪类型通路
+ *      卡用；缺省形状不变）
  *   D. 接线源码锁：创建页引脚本 + 提交带段 / 列表页复制携带 / 服务端创建路由解构 +
  *      同口径校验 + 包未启用 pointType 时 400
  *
@@ -99,20 +100,28 @@ function testB() {
 async function testC() {
   console.log('C. 注册表接口');
   const libRouter = require(path.join(ROOT, 'src/web/routes/strategy-library.routes'));
-  const call = (method, url) => new Promise((resolve, reject) => {
+  const call = (method, url, query = {}) => new Promise((resolve, reject) => {
     const res = {
       statusCode: 200, body: null,
       status(c) { this.statusCode = c; return this; },
       json(b) { this.body = b; resolve(this); return this; },
     };
     try {
-      libRouter.handle({ method, url, headers: {}, params: {}, query: {} }, res, (err) => (err ? reject(err) : resolve(res)));
+      libRouter.handle({ method, url, headers: {}, params: {}, query }, res, (err) => (err ? reject(err) : resolve(res)));
     } catch (e) { reject(e); }
   });
   const r = await call('GET', '/point-types');
   check('C1 GET /api/strategy-library/point-types → {success, data:{version, types}}', [r.statusCode, r.body.success, r.body.data.version, r.body.data.types],
     [200, true, routerMod.POINT_TYPE_VERSION, TYPES]);
   ok('C2 types 每项恰 {id,label,active}（不泄露 condition/policy）', r.body.data.types.every((t) => JSON.stringify(Object.keys(t).sort()) === '["active","id","label"]'));
+  // 2026-11-27 信号页 ⓪类型通路卡「判据表达式 + 逐子句因子 chips」：显式 include=condition 才附判据原文
+  const rc = await call('GET', '/point-types?include=condition', { include: 'condition' });
+  check('C2b include=condition：版本与类型序/激活不变，逐类型多出 condition 判据原文（normal 兜底=null）',
+    [rc.statusCode, rc.body.data.version, rc.body.data.types.map((t) => [t.id, t.label, t.active, t.condition])],
+    [200, routerMod.POINT_TYPE_VERSION, routerMod.POINT_TYPES.map((t) => [t.id, t.label, t.active === true, t.condition ?? null])]);
+  ok('C2c include=condition 仍不泄露 policy（每项恰四键）', rc.body.data.types.every((t) => JSON.stringify(Object.keys(t).sort()) === '["active","condition","id","label"]'));
+  const rx = await call('GET', '/point-types?include=other', { include: 'other' });
+  ok('C2d include 取其它值=缺省形状（不带判据）', rx.body.data.types.every((t) => JSON.stringify(Object.keys(t).sort()) === '["active","id","label"]'));
   const src = read('src/web/routes/strategy-library.routes.js');
   ok('C3 注册序锁：/point-types 在 /:id 之前（否则字面路径被 :id 吞掉）',
     src.indexOf("router.get('/point-types'") > 0 && src.indexOf("router.get('/point-types'") < src.indexOf("router.get('/:id'"));

@@ -241,6 +241,11 @@ class ExperimentSignals {
     this.experimentConfig = null;
     // T202 策略库形状：包在启动后被改版时的版本漂移注记（空串=无漂移）
     this._packVersionNote = '';
+    // ⓪类型通路卡判据表达式的数据源：点位类型注册表（_loadPointTypeRegistry 填充；
+    // {version, byId:Map}）。null=未加载/加载失败——失败原因落 _pointTypeRegistryError，
+    // 卡片显式提示「注册表未加载」，不静默缺表达式
+    this._pointTypeRegistry = null;
+    this._pointTypeRegistryError = '';
 
     this.init();
   }
@@ -461,6 +466,10 @@ class ExperimentSignals {
     try {
       // console.log('📊 loadData方法被调用 - 开始加载交易信号和K线数据...');
 
+      // ⓪类型通路卡判据表达式数据源：点位类型注册表——与实验信息并行拉取，渲染信号前
+      // await（_loadPointTypeRegistry 内部吞错落 _pointTypeRegistryError，不阻塞页面）
+      const pointTypeRegistryLoaded = this._loadPointTypeRegistry();
+
       // 先加载实验信息
       const experimentResponse = await this.fetchExperiment();
       // console.log('📋 实验信息加载完成');
@@ -477,6 +486,9 @@ class ExperimentSignals {
           await this.fetchSourceExperimentInfo();
         }
       }
+
+      // 注册表到位（或已失败落原因）后才渲染信号卡片
+      await pointTypeRegistryLoaded;
 
       // 🔥 先解析URL hash参数，自动选择代币（必须在fetchSignals之前）
       await this.parseHashToken();
@@ -3818,6 +3830,9 @@ class ExperimentSignals {
         return { cls: 'off', icon: '—', text: '—', title: '' };
       };
       // T216/T217 ⓪类型通路明细卡：类型徽章 + policy 门控 chips + 分类因子快照
+      // 2026-11-27 用户指令「🧭 点位类型通路也请跟 📋 买入条件配置一样，展示完整的表达式，
+      // 以及每个因子的条件满足情况」：徽章行下加判据表达式 + 逐子句因子 chips
+      // （_renderPointTypeCondition——表达式取当前注册表，值取 metadata.pointType.snapshot）
       let pointTypeHtml = '';
       if (pointTypeInfo) {
         const pt = pointTypeInfo;
@@ -3850,6 +3865,7 @@ class ExperimentSignals {
             <span class="text-gray-500">${this._escapeHtml(pt.version || '')}</span>
             ${chips.join(' ')}
           </div>
+          ${this._renderPointTypeCondition(pt, metadata)}
           ${snapHtml}
         </div>`;
       }
@@ -5113,6 +5129,12 @@ class ExperimentSignals {
    * （页面其余功能不受影响，条件区不渲染——与无腿配置的展示行为一致）。
    * 版本漂移：包在实验启动后被改版 → strategyResolved.version（启动解析版）≠ 库
    * 当前 version，条件展示为当前库版并注记（库不存历史版，无法回放启动版腿）。
+   * T242 专属腿停用对齐（2026-11-27 修存量显示缺口）：引擎 _buildStrategyConfig 不组装
+   * 「绑定类型未激活」的买腿，腿 id（buy_${idx}_${priority}）按**过滤后**的数组编号——
+   * 这里若物化全量腿，停用专属腿之后的腿整体错位一位（信号 strategyId 未命中回退首腿，
+   * 「📋 买入条件配置」把票显示成 P1 腿的条件与因子 chips）。物化时按引擎启动审计
+   * strategyResolved.pointTypes.disabledLegs（停用专属腿的 priority 列表）同款剔除；
+   * 无审计段（T242 前实验 / 包未启用 pointType=引擎不过滤）=全量物化零变化。
    * @private
    */
   async _loadStrategyPackLegs() {
@@ -5130,9 +5152,12 @@ class ExperimentSignals {
       if (!def || !Array.isArray(def.buyLegs) || !Array.isArray(def.sellLegs)) {
         throw new Error('definition 形状非法（buyLegs/sellLegs 缺失）');
       }
+      const audit = cfg.strategyResolved && cfg.strategyResolved.pointTypes;
+      const disabledLegPriorities = new Set(audit && Array.isArray(audit.disabledLegs) ? audit.disabledLegs : []);
+      const buyLegs = def.buyLegs.filter((leg) => !(leg && leg.pointType && disabledLegPriorities.has(leg.priority)));
       this.experimentConfig.strategiesConfig = {
         ...sc,
-        buyStrategies: def.buyLegs,
+        buyStrategies: buyLegs,
         sellStrategies: def.sellLegs,
       };
       // 叙事面板触发条件串读 _experimentData.config.strategiesConfig——同一物化双写
@@ -5145,9 +5170,37 @@ class ExperimentSignals {
       this._packVersionNote = (Number.isInteger(resolvedV) && libV !== resolvedV)
         ? `（库 v${libV} ≠ 启动解析 v${resolvedV}，展示为当前库版）`
         : '';
-      console.log(`[ExperimentSignals] 策略包腿已物化: ${json.data.name} v${libV} | 买${def.buyLegs.length}/卖${def.sellLegs.length} 腿${this._packVersionNote}`);
+      const dropped = def.buyLegs.length - buyLegs.length;
+      console.log(`[ExperimentSignals] 策略包腿已物化: ${json.data.name} v${libV} | 买${buyLegs.length}${dropped ? `（包 ${def.buyLegs.length} 腿，专属腿停用 ${[...disabledLegPriorities].map((p) => 'P' + p).join('/')} 不物化=引擎同款）` : ''}/卖${def.sellLegs.length} 腿${this._packVersionNote}`);
     } catch (e) {
       console.warn('[ExperimentSignals] 策略包腿拉取失败（条件表达式/因子 chips 将不展示）:', e);
+    }
+  }
+
+  /**
+   * 拉取点位类型注册表（判据表达式版：GET /api/strategy-library/point-types?include=condition）
+   * ——⓪类型通路卡「判据表达式 + 逐子句因子 chips」的数据源（2026-11-27 用户指令「🧭 点位
+   * 类型通路也请跟 📋 买入条件配置一样，展示完整的表达式，以及每个因子的条件满足情况」）。
+   * 表达式取自当前代码注册表，与 T202 包腿同口径（注册表不存历史版，无法回放信号分类时
+   * 的判据）——信号分类版（metadata.pointType.version）≠ 当前注册表版时卡片带漂移注记。
+   * 失败不抛：落 _pointTypeRegistryError，卡片显式提示「注册表未加载」（不静默缺表达式）。
+   * @private
+   */
+  async _loadPointTypeRegistry() {
+    try {
+      const resp = await fetch('/api/strategy-library/point-types?include=condition');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const json = await resp.json();
+      const data = json && json.data;
+      if (!data || typeof data.version !== 'string' || !Array.isArray(data.types)) {
+        throw new Error('注册表形状非法（version/types 缺失）');
+      }
+      this._pointTypeRegistry = { version: data.version, byId: new Map(data.types.map((t) => [t.id, t])) };
+      this._pointTypeRegistryError = '';
+    } catch (e) {
+      this._pointTypeRegistry = null;
+      this._pointTypeRegistryError = e && e.message ? e.message : String(e);
+      console.warn('[ExperimentSignals] 点位类型注册表拉取失败（类型通路卡判据表达式将显式提示不可展示）:', e);
     }
   }
 
@@ -5207,81 +5260,126 @@ class ExperimentSignals {
    * 着色：满足阈值=绿 / 不满足=红 / null（TPA 未触发等 fail-closed）=红底「null」/
    * 快照段缺失（历史信号）=灰「无快照」——tokenAgeSec 例外：2026-09-29~09-30 的
    * 旧信号白名单无此键，由 age×60 前端推导兜底（与引擎同源换算）。
+   * opts.orCoveredKeys（2026-11-27，⓪类型通路卡传入；不传=买入/预检查条件原行为不变）：
+   * 子句为假、但所在 OR 组已由另一臂满足的子句键集（_orCoveredClauseKeys 产物）——这类
+   * 子句不影响表达式整体成立，降灰并注明「OR 另一臂已满足」，不与真正不满足的子句同标红。
    * @private
    * @param {string} condition - 条件表达式
    * @param {Object} metadata - 信号 metadata
    * @param {Array} [extraSources] - 额外因子源（优先于默认链查找）
+   * @param {Object} [opts] - {orCoveredKeys: Set<string>}
    * @returns {string} HTML
    */
-  _renderConditionFactorChips(condition, metadata, extraSources = []) {
+  _renderConditionFactorChips(condition, metadata, extraSources = [], opts = {}) {
     const clauses = this._parseConditionClauses(condition);
     if (clauses.length === 0) return '';
-    const sources = [
+    const sources = this._factorChipSources(metadata, extraSources);
+    const orCovered = opts && opts.orCoveredKeys instanceof Set ? opts.orCoveredKeys : null;
+    const OR_ARM_CLS = 'bg-gray-200 text-gray-600';
+    const OR_ARM_NOTE = '（OR 另一臂已满足）';
+    // 子句为假 ∧ 在覆盖集内 → 该子句不决定整体成立（降灰）
+    const orArm = (cl, ok) => ok === false && orCovered !== null && orCovered.has(this._clauseKey(cl));
+
+    const chips = [];
+    for (const cl of clauses) {
+      // 在各快照段中找值；区分 undefined（段/键缺失）与 null（因子存在但未就绪）
+      const { found, raw, derived } = this._lookupFactorClause(cl, sources);
+      let cls, text;
+      if (!found) {
+        cls = 'bg-gray-100 text-gray-500';
+        text = `${cl.name} = 无快照(历史信号)`;
+      } else if (cl.isNull) {
+        const isNull = raw === null || raw === undefined;
+        const ok = cl.notNull ? !isNull : isNull;
+        const dim = orArm(cl, ok);
+        cls = ok ? 'bg-green-100 text-green-800' : (dim ? OR_ARM_CLS : 'bg-red-100 text-red-800');
+        text = `${cl.name} IS ${cl.notNull ? 'NOT ' : ''}NULL ${ok ? '✓' : '✗'}${dim ? OR_ARM_NOTE : ''}（实际 ${isNull ? 'null' : this._fmtFactorVal(raw)}）`;
+      } else if (raw === null || raw === undefined) {
+        const dim = orArm(cl, false);
+        cls = dim ? OR_ARM_CLS : 'bg-red-50 text-red-700 border border-red-200';
+        text = `${cl.name} = null(未触发/未就绪)${dim ? OR_ARM_NOTE : ''}`;
+      } else {
+        const ok = this._cmpFactorOp(cl.op, raw, cl.value);
+        const dim = orArm(cl, ok);
+        if (derived) {
+          // tokenAgeSec 旧信号推导兜底：快照白名单 2026-10-01 才加此键，此前信号由 age×60 同源推导
+          cls = ok ? 'bg-green-100 text-green-800' : (dim ? OR_ARM_CLS : 'bg-red-100 text-red-800');
+          text = `${cl.name} ≈ ${this._fmtFactorVal(raw)} ${cl.op} ${cl.value} ${ok ? '✓' : '✗'}${dim ? OR_ARM_NOTE : ''}（age×60 推导）`;
+        } else {
+          cls = ok === null ? 'bg-gray-100 text-gray-700' : (ok ? 'bg-green-100 text-green-800' : (dim ? OR_ARM_CLS : 'bg-red-100 text-red-800'));
+          text = `${cl.name} = ${this._fmtFactorVal(raw)} ${cl.op} ${cl.value} ${ok === null ? '?' : (ok ? '✓' : '✗')}${dim ? OR_ARM_NOTE : ''}`;
+        }
+      }
+      chips.push(`<code class="px-1.5 py-0.5 rounded text-xs ${cls}">${this._escapeHtml(text)}</code>`);
+    }
+    return `<div class="mt-1 flex flex-wrap gap-1 items-center"><span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">📊 因子值:</span>${chips.join('')}</div>`;
+  }
+
+  /**
+   * 因子 chip 值查找源链：extraSources → metadata.trendFactors → metadata.tpaFactors →
+   * metadata.preBuyCheckFactors → metadata 顶层（_renderConditionFactorChips /
+   * _orCoveredClauseKeys 共用——两处的取值口径必须一致）
+   * @private
+   */
+  _factorChipSources(metadata, extraSources = []) {
+    return [
       ...extraSources,
       metadata && metadata.trendFactors,
       metadata && metadata.tpaFactors,
       metadata && metadata.preBuyCheckFactors,
       metadata
     ].filter(Boolean);
+  }
 
-    const fmt = (v) => {
-      const n = Number(v);
-      if (!Number.isFinite(n)) return String(v);
-      return (Math.abs(n) >= 0.001 && Math.abs(n) < 100000) ? n.toFixed(2) : n.toExponential(3);
-    };
-    const cmp = (op, v, threshold) => {
-      const n = Number(v);
-      if (!Number.isFinite(n)) return false;
-      switch (op) {
-        case '>=': return n >= threshold;
-        case '<=': return n <= threshold;
-        case '>': return n > threshold;
-        case '<': return n < threshold;
-        case '=': case '==': return n === threshold;
-        case '!=': return n !== threshold;
-        default: return null;
-      }
-    };
-
-    const chips = [];
-    for (const cl of clauses) {
-      // 在各快照段中找值；区分 undefined（段/键缺失）与 null（因子存在但未就绪）
-      let raw;
-      let srcIdx = 0;
-      while (srcIdx < sources.length) {
-        if (cl.name in sources[srcIdx]) { raw = sources[srcIdx][cl.name]; break; }
-        srcIdx++;
-      }
-      const found = srcIdx < sources.length;
-      let cls, text;
-      if (!found) {
-        // tokenAgeSec 旧信号推导兜底：快照白名单 2026-10-01 才加此键，此前信号由 age×60 同源推导
-        const ageSrc = sources.find(s => 'age' in s && Number.isFinite(Number(s.age)));
-        if (cl.name === 'tokenAgeSec' && cl.op && ageSrc) {
-          const v = Number(ageSrc.age) * 60;
-          const ok = cmp(cl.op, v, cl.value);
-          cls = ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-          text = `${cl.name} ≈ ${fmt(v)} ${cl.op} ${cl.value} ${ok ? '✓' : '✗'}（age×60 推导）`;
-        } else {
-          cls = 'bg-gray-100 text-gray-500';
-          text = `${cl.name} = 无快照(历史信号)`;
-        }
-      } else if (cl.isNull) {
-        const isNull = raw === null || raw === undefined;
-        const ok = cl.notNull ? !isNull : isNull;
-        cls = ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-        text = `${cl.name} IS ${cl.notNull ? 'NOT ' : ''}NULL ${ok ? '✓' : '✗'}（实际 ${raw === null || raw === undefined ? 'null' : fmt(raw)}）`;
-      } else if (raw === null || raw === undefined) {
-        cls = 'bg-red-50 text-red-700 border border-red-200';
-        text = `${cl.name} = null(未触发/未就绪)`;
-      } else {
-        const ok = cmp(cl.op, raw, cl.value);
-        cls = ok === null ? 'bg-gray-100 text-gray-700' : (ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
-        text = `${cl.name} = ${fmt(raw)} ${cl.op} ${cl.value} ${ok === null ? '?' : (ok ? '✓' : '✗')}`;
-      }
-      chips.push(`<code class="px-1.5 py-0.5 rounded text-xs ${cls}">${this._escapeHtml(text)}</code>`);
+  /**
+   * 因子子句取值：首个含该键的源胜出（found=true，raw=原值）；全源缺键时 tokenAgeSec
+   * 旧信号由 age×60 推导兜底（derived=true，raw=推导值）；否则 found=false
+   * @private
+   * @returns {{found:boolean, raw:*, derived:boolean}}
+   */
+  _lookupFactorClause(cl, sources) {
+    let raw;
+    let srcIdx = 0;
+    while (srcIdx < sources.length) {
+      if (cl.name in sources[srcIdx]) { raw = sources[srcIdx][cl.name]; break; }
+      srcIdx++;
     }
-    return `<div class="mt-1 flex flex-wrap gap-1 items-center"><span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900">📊 因子值:</span>${chips.join('')}</div>`;
+    if (srcIdx < sources.length) return { found: true, raw, derived: false };
+    const ageSrc = sources.find(s => 'age' in s && Number.isFinite(Number(s.age)));
+    if (cl.name === 'tokenAgeSec' && cl.op && ageSrc) {
+      return { found: true, raw: Number(ageSrc.age) * 60, derived: true };
+    }
+    return { found: false, raw: undefined, derived: false };
+  }
+
+  /** 因子 chip 数值格式：常规域两位小数，极小/极大值科学计数（_renderConditionFactorChips 用） */
+  _fmtFactorVal(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return String(v);
+    return (Math.abs(n) >= 0.001 && Math.abs(n) < 100000) ? n.toFixed(2) : n.toExponential(3);
+  }
+
+  /**
+   * 因子子句比较（chip 着色口径）：非数值 → false（不满足）；未知运算符 → null（chip 显 ?）
+   * ⚠调用方须先处理 null/undefined 原值（Number(null)=0 会误判为满足 0 值比较）
+   */
+  _cmpFactorOp(op, v, threshold) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return false;
+    switch (op) {
+      case '>=': return n >= threshold;
+      case '<=': return n <= threshold;
+      case '>': return n > threshold;
+      case '<': return n < threshold;
+      case '=': case '==': return n === threshold;
+      case '!=': return n !== threshold;
+      default: return null;
+    }
+  }
+
+  /** 因子子句标识键（_parseConditionClauses 去重 / OR 臂覆盖集共用） */
+  _clauseKey(c) {
+    return c.isNull ? `${c.name}|IS${c.notNull ? 'NOT' : ''}NULL` : `${c.name}|${c.op}|${c.value}`;
   }
 
   /**
@@ -5297,7 +5395,7 @@ class ExperimentSignals {
     const clauses = [];
     const seen = new Set();
     const push = (c) => {
-      const key = c.isNull ? `${c.name}|IS${c.notNull ? 'NOT' : ''}NULL` : `${c.name}|${c.op}|${c.value}`;
+      const key = this._clauseKey(c);
       if (seen.has(key)) return;
       seen.add(key);
       clauses.push(c);
@@ -5312,6 +5410,222 @@ class ExperimentSignals {
       push({ name: m[1], op: null, value: null, isNull: true, notNull: Boolean(m[2]) });
     }
     return clauses;
+  }
+
+  /**
+   * ⓪类型通路卡判据区块：完整判据表达式 + 逐子句因子 chips（2026-11-27 用户指令「🧭 点位
+   * 类型通路也请跟 📋 买入条件配置一样，展示完整的表达式，以及每个因子的条件满足情况」）。
+   * - 表达式=当前注册表里该类型的 condition 原文；值=metadata.pointType.snapshot（引擎
+   *   分类时 fire 时刻因子快照，仅含判据引用键）优先，其次 trendFactors 等默认源链——
+   *   与 📋 买入条件配置同一渲染器（_renderConditionFactorChips），只多传 OR 臂覆盖集
+   * - 着色三态：绿 ✓=子句满足；灰「✗（OR 另一臂已满足）」=子句不满足但其所在 OR 组
+   *   已由另一臂满足（本类型已命中，这类子句不决定整体成立——做市类型每张命中票都带
+   *   `gmgnProfiledBuyerPct IS NULL ✗` / `chg30Pct > 20 ✗` 两臂，照标红=永久红鲱鱼）；
+   *   红 ✗=不满足且不被覆盖——正常只出现在版本漂移（信号按旧版判据命中，新版改写的
+   *   子句对其快照不成立），连同漂移注记一起读
+   * - 显式降级（不静默）：normal 兜底类型无判据（注册表 condition=null）；注册表未加载 /
+   *   类型不在当前注册表 / 接口未返回 condition 各给一句原因
+   * @private
+   * @param {Object} pt - metadata.pointType {type,label,version,snapshot,…}
+   * @param {Object} metadata - 信号 metadata
+   * @returns {string} HTML
+   */
+  _renderPointTypeCondition(pt, metadata) {
+    const esc = (s) => this._escapeHtml(String(s));
+    const line = (inner, cls = 'text-gray-400') => `<div class="text-xs mt-1 ${cls}"><span class="font-semibold text-indigo-300">🧭 点位类型判据:</span>${inner}</div>`;
+    const FALLBACK = '兜底类型无判据表达式——阶梯内排在前面的激活类型均未命中，即落本类型';
+    // normal 恒为阶梯末位兜底（注册表 condition=null）——不依赖注册表即可断言
+    if (pt.type === 'normal') {
+      return line(`<span class="ml-2">${FALLBACK}</span>`);
+    }
+    if (!this._pointTypeRegistry) {
+      return line(`<span class="ml-2 text-yellow-600">⚠ 判据表达式不可展示：点位类型注册表未加载${this._pointTypeRegistryError ? `（${esc(this._pointTypeRegistryError)}）` : ''}</span>`);
+    }
+    const registry = this._pointTypeRegistry;
+    const entry = registry.byId.get(pt.type);
+    if (!entry) {
+      return line(`<span class="ml-2 text-yellow-600">⚠ 判据表达式不可展示：类型 <code>${esc(pt.type)}</code> 不在当前注册表（${esc(registry.version)}）——类型 id 可能已改名</span>`);
+    }
+    if (!('condition' in entry) || entry.condition === undefined) {
+      // 静态 JS 从磁盘即时生效、路由处理函数须进程重启才换新——pull 后未重启即此形状
+      return line(`<span class="ml-2 text-yellow-600">⚠ 判据表达式不可展示：注册表接口未返回判据（web-server 进程仍是旧版本，重启后恢复）</span>`);
+    }
+    if (entry.condition === null) {
+      return line(`<span class="ml-2">${FALLBACK}</span>`);
+    }
+    const orCoveredKeys = this._orCoveredClauseKeys(entry.condition, this._factorChipSources(metadata, [pt.snapshot]));
+    if (orCoveredKeys === null) {
+      // 退回逐子句平铺着色（=📋 买入条件配置同款）；注册表全部判据由单测锁定可解析
+      console.warn('[ExperimentSignals] 点位类型判据解析失败（OR 臂降灰不可用，按逐子句平铺着色）:', pt.type, entry.condition);
+    }
+    const drift = pt.version && pt.version !== registry.version;
+    return `
+          <div class="text-xs mt-1">
+            <span class="font-semibold text-indigo-300">🧭 点位类型判据:</span>
+            <code class="ml-2 px-2 py-0.5 bg-gray-900 rounded text-xs text-indigo-200 break-all">${esc(entry.condition)}</code>
+            ${drift ? `<span class="ml-2 text-yellow-600">（注册表 ${esc(registry.version)} ≠ 信号分类版 ${esc(pt.version)}，表达式为当前注册表版判据）</span>` : ''}
+          </div>
+          ${this._renderConditionFactorChips(entry.condition, metadata, [pt.snapshot], { orCoveredKeys: orCoveredKeys || undefined })}`;
+  }
+
+  /**
+   * 条件表达式的 OR 臂覆盖集：返回「子句为假，但所在 OR 组已由另一臂满足」的子句键集
+   * （_clauseKey 口径）。三值求值（true/false/null；null=无快照无法判定）：
+   *   AND：任一 false → false；否则任一 null → null；否则 true
+   *   OR： 任一 true → true；否则任一 null → null；否则 false
+   * 自顶向下：叶子为假 ∧ 存在「求值为 true 的 OR 祖先」→ 进覆盖集。同一子句在表达式里
+   * 多次出现时任一次未被覆盖即不算覆盖（那一次才是决定整体的那支）。
+   * 叶子取值/比较与因子 chip 同口径（_lookupFactorClause/_cmpFactorOp）；缺键：IS [NOT] NULL
+   * 叶子按引擎 ConditionEvaluator 口径「缺键=空值」定真假（_getOperandValue 缺键返回
+   * undefined → `val == null` 为真），比较叶子=null（无快照无法判定）。
+   * @private
+   * @param {string} condition - 条件表达式
+   * @param {Array<Object>} sources - 因子源链（_factorChipSources 产物）
+   * @returns {Set<string>|null} null=表达式解析失败（调用方退回逐子句平铺着色）
+   */
+  _orCoveredClauseKeys(condition, sources) {
+    const root = this._parseConditionTree(condition);
+    if (!root) return null;
+    this._evalConditionTree(root, sources);
+    const covered = new Set();
+    const uncovered = new Set();
+    const walk = (node, underTrueOr) => {
+      if (node.type === 'leaf') {
+        if (node.state === false) (underTrueOr ? covered : uncovered).add(this._clauseKey(node.clause));
+        return;
+      }
+      const flag = underTrueOr || (node.type === 'OR' && node.state === true);
+      for (const c of node.nodes) walk(c, flag);
+    };
+    walk(root, false);
+    for (const k of uncovered) covered.delete(k);
+    return covered;
+  }
+
+  /**
+   * 条件表达式三值求值：true / false / null（null=无快照无法判定，或表达式解析失败）
+   * @private
+   * @param {string} condition
+   * @param {Array<Object>} sources - 因子源链
+   * @returns {boolean|null}
+   */
+  _evalConditionTriState(condition, sources) {
+    const root = this._parseConditionTree(condition);
+    return root ? this._evalConditionTree(root, sources) : null;
+  }
+
+  /**
+   * 结构树三值求值（自底向上；各节点结果写进 node.state，供 OR 臂覆盖集自顶向下判定用）
+   * @private
+   * @returns {boolean|null}
+   */
+  _evalConditionTree(node, sources) {
+    if (node.type === 'leaf') return (node.state = this._clauseTriState(node.clause, sources));
+    const ss = node.nodes.map((c) => this._evalConditionTree(c, sources));
+    node.state = node.type === 'OR'
+      ? (ss.includes(true) ? true : (ss.includes(null) ? null : false))
+      : (ss.includes(false) ? false : (ss.includes(null) ? null : true));
+    return node.state;
+  }
+
+  /**
+   * 因子子句三值：true/false=可判定；null=无快照无法判定（比较叶子缺键）。
+   * 可判定叶子的真假与因子 chip 的 ✓/✗ 同口径（_lookupFactorClause/_cmpFactorOp）；
+   * IS [NOT] NULL 叶子缺键按引擎 ConditionEvaluator 口径「缺键=空值」定真假
+   * （_getOperandValue 缺键返回 undefined → `val == null` 为真）。
+   * @private
+   * @returns {boolean|null}
+   */
+  _clauseTriState(cl, sources) {
+    const { found, raw } = this._lookupFactorClause(cl, sources);
+    if (cl.isNull) {
+      if (!found) return !cl.notNull;
+      return (raw === null || raw === undefined) !== cl.notNull;
+    }
+    if (!found) return null;
+    if (raw === null || raw === undefined) return false;
+    return this._cmpFactorOp(cl.op, raw, cl.value);
+  }
+
+  /**
+   * 条件表达式 → 布尔结构树（OR 臂覆盖集用）。文法与引擎 ConditionEvaluator._parseCondition
+   * 同构：OR 优先级最低、AND 次之、括号分组；叶子=因子比较（右操作数=数字字面量）|
+   * 因子 IS [NOT] NULL（关键字大小写不敏感）。叶子 clause 形状与 _parseConditionClauses
+   * 产物一致（_clauseKey 可直接标识）。覆盖域外语法（字符串字面量 / 因子对因子比较 /
+   * 多余记号）→ null，不抛。
+   * @private
+   * @param {string} condition
+   * @returns {{type:'AND'|'OR',nodes:Array}|{type:'leaf',clause:Object}|null} null=解析失败
+   */
+  _parseConditionTree(condition) {
+    if (!condition || typeof condition !== 'string') return null;
+    // 词法：括号 / 比较运算符（双字符优先）/ 标识符 / 数字字面量；遇到其它字符=解析失败
+    const tokens = [];
+    const TOKEN_RE = /\(|\)|>=|<=|!=|==|=|>|<|[A-Za-z_][A-Za-z0-9_]*|-?\d+\.?\d*/y;
+    let i = 0;
+    while (i < condition.length) {
+      if (/\s/.test(condition[i])) { i++; continue; }
+      TOKEN_RE.lastIndex = i;
+      const m = TOKEN_RE.exec(condition);
+      if (!m) return null;
+      const t = m[0];
+      tokens.push(t === '(' ? { type: 'lparen' }
+        : t === ')' ? { type: 'rparen' }
+          : /^[A-Za-z_]/.test(t) ? { type: 'ident', value: t }
+            : /^[-\d]/.test(t) ? { type: 'num', value: parseFloat(t) } : { type: 'op', value: t });
+      i += t.length;
+    }
+    const KEYWORDS = ['AND', 'OR', 'IS', 'NOT', 'NULL'];
+    const isKw = (t, kw) => !!t && t.type === 'ident' && t.value.toUpperCase() === kw;
+    const isAnyKw = (t) => !!t && t.type === 'ident' && KEYWORDS.includes(t.value.toUpperCase());
+    let pos = 0;
+    const peek = () => tokens[pos];
+    const parseOr = () => {
+      const nodes = [parseAnd()];
+      while (isKw(peek(), 'OR')) { pos++; nodes.push(parseAnd()); }
+      return nodes.length === 1 ? nodes[0] : { type: 'OR', nodes };
+    };
+    const parseAnd = () => {
+      const nodes = [parsePrimary()];
+      while (isKw(peek(), 'AND')) { pos++; nodes.push(parsePrimary()); }
+      return nodes.length === 1 ? nodes[0] : { type: 'AND', nodes };
+    };
+    const parsePrimary = () => {
+      if (peek() && peek().type === 'lparen') {
+        pos++;
+        const node = parseOr();
+        if (!peek() || peek().type !== 'rparen') throw new Error('括号不匹配');
+        pos++;
+        return node;
+      }
+      return parseLeaf();
+    };
+    const parseLeaf = () => {
+      const t = peek();
+      if (!t || t.type !== 'ident' || isAnyKw(t)) throw new Error('期望因子名');
+      pos++;
+      if (isKw(peek(), 'IS')) {
+        pos++;
+        let notNull = false;
+        if (isKw(peek(), 'NOT')) { notNull = true; pos++; }
+        if (!isKw(peek(), 'NULL')) throw new Error('IS [NOT] 后期望 NULL');
+        pos++;
+        return { type: 'leaf', clause: { name: t.value, op: null, value: null, isNull: true, notNull } };
+      }
+      const opTok = peek();
+      if (!opTok || opTok.type !== 'op') throw new Error('期望比较运算符');
+      pos++;
+      const numTok = peek();
+      if (!numTok || numTok.type !== 'num') throw new Error('期望数字字面量右操作数');
+      pos++;
+      return { type: 'leaf', clause: { name: t.value, op: opTok.value, value: numTok.value, isNull: false, notNull: false } };
+    };
+    try {
+      const root = parseOr();
+      return pos === tokens.length ? root : null;
+    } catch (_e) {
+      return null;
+    }
   }
 
   /**

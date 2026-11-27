@@ -206,6 +206,44 @@ function render(md, extra) {
   ok(!Array.isArray(inst.experimentConfig.strategiesConfig.buyStrategies), 'G3: 失败不物化');
   const g3h = render({ trendFactors: { tradeCount: 7 } });
   ok(!g3h.includes('买入条件配置'), 'G3: 条件配置行不渲染');
+
+  // G4 T242 专属腿停用对齐（2026-11-27 修存量显示缺口，bt-v337 实证）：引擎 _buildStrategyConfig
+  // 不组装「绑定类型未激活」的买腿，且腿 id 按过滤后数组编号——页面物化须按
+  // strategyResolved.pointTypes.disabledLegs 同款剔除。事故现场：PT72 起 P18 缺省停用，P20 腿
+  // 信号 strategyId=buy_17_20 在页面成了 buy_18_20 → 未命中回退首腿，「📋 买入条件配置」
+  // 把做市类型票显示成 P1 腿（tradeCount >= 6 …）的条件与因子 chips
+  const packT242 = () => ({ ok: true, status: 200, json: async () => ({ success: true, data: {
+    id: 'pk3', name: 'trading-standard-v1', version: 58,
+    definition: {
+      buyLegs: [
+        { priority: 1, condition: 'tradeCount >= 6', gmgnCheckCondition: 'gmgnRiskCovered == 0' },
+        { priority: 18, condition: 'tokenAgeSec >= 20', pointType: 'famous_participation_pit' }, // 停用专属腿
+        { priority: 19, condition: 'tokenAgeSec >= 60', pointType: 'steady_trend_climb' },
+        { priority: 20, condition: 'tokenAgeSec >= 3', pointType: 'market_maker_rhythm_pit' },
+      ],
+      sellLegs: [{ priority: 2, condition: 'profitPercent >= 100' }],
+    },
+  } }) });
+  global.fetch = async () => packT242();
+  inst._experimentData = null;
+  const auditP18 = { source: 'registry', active: ['steady_trend_climb', 'market_maker_rhythm_pit'], inactive: ['famous_participation_pit'], disabledLegs: [18] };
+  inst.experimentConfig = { strategyId: 'pk3', strategiesConfig: {}, strategyResolved: { version: 58, pointTypes: auditP18 } };
+  await inst._loadStrategyPackLegs();
+  const legsA = inst.experimentConfig.strategiesConfig.buyStrategies;
+  ok(legsA.length === 3 && legsA.every((l) => l.priority !== 18), 'G4a 审计停用 P18：该专属腿不物化（引擎同款不组装），其余 3 腿在');
+  ok(inst._getBuyCondition('buy', 'buy_2_20') === 'tokenAgeSec >= 3', 'G4a 事故现场反证：P20 腿信号 strategyId=buy_2_20 命中本腿条件（修前未命中回退首腿）');
+  ok(inst._getBuyCondition('buy', 'buy_1_19') === 'tokenAgeSec >= 60' && inst._getBuyCondition('buy', 'buy_0_1') === 'tradeCount >= 6', 'G4a P19 / P1 腿 id 同构');
+  ok(inst._getGmgnCheckCondition('buy_2_20') === null, 'G4a GMGN 条件查找同受益（本腿无 gmgnCheckCondition=null，不再回落首腿）');
+  const g4h = render({ strategyId: 'buy_2_20', trendFactors: { tradeCount: 7, tokenAgeSec: 36.2 } });
+  ok(g4h.includes('tokenAgeSec = 36.20 >= 3 ✓') && !g4h.includes('tradeCount = 7.00 >= 6'), 'G4a 卡片级：P20 票「买入条件配置」显示本腿条件与 chips（修前显示 P1 腿）');
+  inst.experimentConfig = { strategyId: 'pk3', strategiesConfig: {}, strategyResolved: { version: 58 } };
+  await inst._loadStrategyPackLegs();
+  ok(inst.experimentConfig.strategiesConfig.buyStrategies.length === 4
+    && inst._getBuyCondition('buy', 'buy_3_20') === 'tokenAgeSec >= 3' && inst._getBuyCondition('buy', 'buy_1_18') === 'tokenAgeSec >= 20',
+    'G4b 无审计段（T242 前实验=引擎不过滤）：全量物化零变化，P20=buy_3_20');
+  inst.experimentConfig = { strategyId: 'pk3', strategiesConfig: {}, strategyResolved: { version: 58, pointTypes: { source: 'registry', active: [], inactive: [], disabledLegs: [] } } };
+  await inst._loadStrategyPackLegs();
+  ok(inst.experimentConfig.strategiesConfig.buyStrategies.length === 4, 'G4c 审计段在但无停用腿：全量物化');
   global.fetch = _fetch;
 
   console.log(`\n${failed === 0 ? '✅' : '❌'} 四层展示冒烟：${passed} 通过 / ${failed} 失败`);
