@@ -67,10 +67,10 @@ function testA() {
   const rows = P.rows(TYPES, BOUND, { ...defaults, steady_trend_climb: false });
   check('A8 行模型：注册表顺序 / normal 标记 / 专属腿挂到对应类型 / 未勾如实 / 未激活缺省如实',
     [rows.map((r) => r.id), rows.filter((r) => r.isNormal).map((r) => r.id), rows.filter((r) => r.legs.length).map((r) => [r.id, r.legs]), rows.find((r) => r.id === 'steady_trend_climb').checked, rows.filter((r) => !r.registryActive).map((r) => r.id)],
-    [IDS, ['normal'], [['famous_holder_cold_pit', ['P16']], ['strongbacker_solo_dance', ['P17']], ['famous_participation_pit', ['P18']], ['steady_trend_climb', ['P19']], ['market_maker_rhythm_pit', ['P20']]], false, ['slow_develop_early']]);
-  check('A9 摘要：缺省态（slow_develop_early 未激活；专属腿全在）', P.summary(TYPES, BOUND, defaults), { activeN: IDS.length - 1, inactiveN: 1, disabledLegs: [] });
+    [IDS, ['normal'], [['famous_holder_cold_pit', ['P16']], ['strongbacker_solo_dance', ['P17']], ['famous_participation_pit', ['P18']], ['steady_trend_climb', ['P19']], ['market_maker_rhythm_pit', ['P20']]], false, ['famous_participation_pit', 'slow_develop_early']]);
+  check('A9 摘要：缺省态（slow_develop_early 未激活；专属腿全在）', P.summary(TYPES, BOUND, defaults), { activeN: IDS.length - 2, inactiveN: 2, disabledLegs: ['P18'] });
   check('A10 摘要：只激活 normal → 专属腿 P16~P20 全停', P.summary(TYPES, BOUND, onlyOn()), { activeN: 1, inactiveN: IDS.length - 1, disabledLegs: ['P16', 'P17', 'P18', 'P19', 'P20'] });
-  check('A11 摘要：无专属腿的类型停用不进停用腿清单（famous_conviction_pit）', P.summary(TYPES, BOUND, { ...defaults, famous_conviction_pit: false }).disabledLegs, []);
+  check('A11 摘要：无专属腿的类型停用不进停用腿清单（famous_conviction_pit；缺省态 P18 已因 participation 未激活停用）', P.summary(TYPES, BOUND, { ...defaults, famous_conviction_pit: false }).disabledLegs, ['P18']);
 }
 
 function testB() {

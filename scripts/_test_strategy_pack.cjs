@@ -394,9 +394,9 @@ async function testE() {
         check('E1c 买腿全组装（3 条）且包缓存数组不被改写',
             out.buyStrategies.length === 3 && self._strategyDefinition.buyLegs.length === 3
             && out.sellStrategies === self._strategyDefinition.sellLegs);
-        check('E1d 审计 strategyResolved.pointTypes：source=registry / 未激活=slow_develop_early / 无停用腿',
+        check('E1d 审计 strategyResolved.pointTypes：source=registry / 未激活=famous_participation_pit,slow_develop_early（PT72）/ 无停用腿',
             self._strategyResolved.pointTypes.source === 'registry'
-            && self._strategyResolved.pointTypes.inactive.join(',') === 'slow_develop_early'
+            && self._strategyResolved.pointTypes.inactive.join(',') === 'famous_participation_pit,slow_develop_early'
             && self._strategyResolved.pointTypes.disabledLegs.length === 0
             && self._strategyResolved.pointTypes.active[0] !== 'normal'
             && self._strategyResolved.pointTypes.active[self._strategyResolved.pointTypes.active.length - 1] === 'normal');
@@ -492,8 +492,10 @@ function testF() {
         && legs.every((l) => (l.priority in BIND) === (l.pointType !== undefined) && (l.pointType === undefined || l.pointType === BIND[l.priority]))
         && legs.filter((l) => l.pointType === undefined).map((l) => l.priority).join(',') === '1,2,3,4,5,6,7,8,9,10,11,12,13,14',
         JSON.stringify(bound.map((l) => [l.priority, l.pointType])));
-    check('F2 绑定类型全部在注册表且注册表缺省激活（缺省未激活=主包静默丢专属腿）',
-        bound.every((l) => POINT_TYPES.some((t) => t.id === l.pointType && t.active === true)));
+    check('F2 绑定类型全在注册表；缺省激活除 P18（famous_participation_pit 未激活=PT72 裁定，主包静默丢 P18 腿=去激活语义）',
+        bound.every((l) => POINT_TYPES.some((t) => t.id === l.pointType))
+        && bound.filter((l) => POINT_TYPES.some((t) => t.id === l.pointType && t.active === true)).map((l) => l.pointType).join(',') === 'famous_holder_cold_pit,strongbacker_solo_dance,steady_trend_climb,market_maker_rhythm_pit'
+        && bound.filter((l) => POINT_TYPES.some((t) => t.id === l.pointType && t.active === false)).map((l) => l.pointType).join(',') === 'famous_participation_pit');
     const mods = PACK_DEFINITION.modules;
     check('F3 主包启用 pointType 模块且 validatePack 通过', mods.pointType === 'v1' && validatePack(PACK_DEFINITION).valid === true);
     check('F4 主包门链 = 因子代（T241 用户裁定「主包切因子代」）：三门 v2，factorCheck/pointType v1',

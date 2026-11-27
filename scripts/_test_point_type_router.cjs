@@ -283,14 +283,15 @@ console.log('E. T236 slow_develop_early（缓慢发育潜力币早期点位，ac
   check('E5 空票（0 笔 0 额）→ normal（0 <0.13 有证据零值不命中）', () => {
     assert.strictEqual(classifyPointType({ athVsLaunchPct: 10, sinceLaunchTrades: 0, bundledAvgTradeBnb300: 0 }).type, 'normal');
   });
-  check('E6 激活参数机制：全类型带 active 布尔字段；slow_develop_early 唯一未激活，其余全 true', () => {
+  check('E6 激活参数机制：全类型带 active 布尔字段；slow_develop_early 与 famous_participation_pit 未激活（PT72 用户裁定），其余全 true', () => {
     const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
     const ids = new Set();
+    const inactive = ['slow_develop_early', 'famous_participation_pit'];
     for (const t of POINT_TYPES) {
       assert.ok(!ids.has(t.id), `类型 id 重复 ${t.id}`);
       ids.add(t.id);
       assert.strictEqual(typeof t.active, 'boolean', `类型 ${t.id} 缺 active 字段`);
-      if (t.id === 'slow_develop_early') assert.strictEqual(t.active, false, 'slow_develop_early 应为未激活');
+      if (inactive.includes(t.id)) assert.strictEqual(t.active, false, `类型 ${t.id} 应为未激活（PT72 裁定）`);
       else assert.strictEqual(t.active, true, `类型 ${t.id} 应为激活`);
     }
   });
@@ -333,38 +334,35 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
   check('F7 priceMa60SlopePct null → normal（前窗空 fail-closed：裸比较恒 false）', () => {
     assert.strictEqual(classifyPointType({ ...TREND, priceMa60SlopePct: null }).type, 'normal');
   });
-  check('F8 排位：famous_participation_pit 优先命中（30~33.5 域重叠带 earlyReturn 双尺臂）', () => {
+  check('F8 排位（PT72 去激活后）：famous_participation_pit 缺省未激活 → 重叠带回落 steady_trend_climb', () => {
     const overlap = {
       ...TREND, currentVsLaunchPct: 32, earlyReturn: 10,
       athVsFloorPct: 100, mcapFromPeakPct: 30,
       famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5, buyVolumeBnb: 5, max5sRisePct: 45, famousEarlyBuySharePct: 60, chg3Pct: 5,
     };
-    assert.strictEqual(classifyPointType(overlap).type, 'famous_participation_pit');
+    assert.strictEqual(classifyPointType(overlap).type, 'steady_trend_climb');
   });
-  check('F10 PT70/PT71 十修十一修臂：拉升下界 39 + ma60 斜率非负 + chg3 短趋势正 + 价格域上限 50', () => {
+  check('F10 PT72 去激活（2026-11-27 用户裁定「整个这个 pointType 设置为不激活」）：缺省跳过回落；实验级覆盖启用后十修臂照判、十一修 chg3 门已撤销', () => {
+    const { effectivePointTypeActive } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
     const base = {
       ...TREND, currentVsLaunchPct: 32, earlyReturn: 10,
       athVsFloorPct: 100, mcapFromPeakPct: 30,
       famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5, buyVolumeBnb: 5, famousEarlyBuySharePct: 60,
     };
-    // 正向：拉升 39 恰过线（类整数线 40 偏移）+ ma60 斜率 0 恰过线 + chg3 0 恰过线
-    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 39, priceMa60SlopePct: 0, chg3Pct: 0 }).type, 'famous_participation_pit');
-    // ma60 null=龄<60s 放行（小狗山 24s 案源锁）
-    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: null, chg3Pct: 5 }).type, 'famous_participation_pit');
-    // 拉升不足 38.9 → 回落 steady（「没被拉起来」的死票拦）
-    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 38.9, priceMa60SlopePct: 10, chg3Pct: 5 }).type, 'steady_trend_climb');
-    // ma60 斜率为负 → 回落（临近买点趋势向下=接刀拦；steady 的 [5,60] 斜率带同样不命中 → normal）
-    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: -1, chg3Pct: 5 }).type, 'normal');
-    // max5sRisePct 缺失 → fail-closed 不命中（键缺失恒 false）
-    assert.strictEqual(classifyPointType({ ...base, priceMa60SlopePct: 10, chg3Pct: 5 }).type, 'steady_trend_climb');
-    // 十一修：chg3 为负（明显下跌票 KI 案）→ 不命中（趋势向上硬门）
-    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: 10, chg3Pct: -5 }).type, 'steady_trend_climb');
-    // 十一修：价格域放宽——curVs 恰 50 过线（原 33.5 域外的反弹后移点位）
-    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: 10, chg3Pct: 5, currentVsLaunchPct: 50 }).type, 'famous_participation_pit');
-    // 价格域上界 50.1 → 回落
-    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: 10, chg3Pct: 5, currentVsLaunchPct: 50.1 }).type, 'steady_trend_climb');
-    // chg3Pct 缺失 → fail-closed（键缺失恒 false，与 max5sRisePct 同款）
+    const effOn = effectivePointTypeActive({ famous_participation_pit: true });
+    // 缺省未激活：形状命中也不落 participation（回落 steady，无豁免面）
     assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: 10 }).type, 'steady_trend_climb');
+    // 实验级覆盖启用（T242 G7 同款通道）：十修臂照判——正向（拉升 39 恰过线 + ma60 斜率 0 恰过线）
+    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 39, priceMa60SlopePct: 0 }, effOn).type, 'famous_participation_pit');
+    // ma60 null=龄<60s 放行（小狗山 24s 案源锁）
+    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: null }, effOn).type, 'famous_participation_pit');
+    // 拉升不足 38.9 → 回落 steady（「没被拉起来」的死票拦）
+    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 38.9, priceMa60SlopePct: 10 }, effOn).type, 'steady_trend_climb');
+    // ma60 斜率为负 → 回落（临近买点趋势向下=接刀拦；steady 的 [5,60] 斜率带同样不命中 → normal）
+    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: -1 }, effOn).type, 'normal');
+    // 十一修已撤销（PT72 回退）：chg3 负不再拦、curVs 50 放宽不再有（40 超域回落）
+    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: 10, chg3Pct: -5 }, effOn).type, 'famous_participation_pit');
+    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: 10, currentVsLaunchPct: 40 }, effOn).type, 'steady_trend_climb');
   });
   check('F8b PT48 ath 门：恰 149.9 过线 / 150 → normal（用户裁定「先卡 athVsFloor 小于 150」严格小于）', () => {
     assert.strictEqual(classifyPointType({ ...TREND, athVsFloorPct: 149.9 }).type, 'steady_trend_climb');
@@ -451,15 +449,22 @@ console.log('G. T242 实验级点位类型激活（2026-11-26 用户指令「将
     assert.strictEqual(classifyPointType(SLOW).type, 'normal', '注册表缺省未激活');
     assert.strictEqual(classifyPointType(SLOW, effectivePointTypeActive({ slow_develop_early: true })).type, 'slow_develop_early');
   });
-  check('G8 停用阶梯中间类型 → 信号回落后续类型（F8 重叠带：famous_participation_pit 停用后改判 steady_trend_climb）', () => {
+  check('G8 阶梯启用/停用（PT72 famous_participation_pit 注册表未激活）：缺省回落 steady；实验级覆盖启用后命中+policy；停用回落', () => {
     const overlap = {
       ...TREND, currentVsLaunchPct: 32, earlyReturn: 10,
       athVsFloorPct: 100, mcapFromPeakPct: 30,
       famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5, buyVolumeBnb: 5, max5sRisePct: 45, famousEarlyBuySharePct: 60, chg3Pct: 5,
     };
-    assert.strictEqual(classifyPointType(overlap).type, 'famous_participation_pit');
-    const eff = effectivePointTypeActive({ famous_participation_pit: false });
-    const r = classifyPointType(overlap, eff);
+    // 缺省（注册表未激活）→ 回落 steady
+    assert.strictEqual(classifyPointType(overlap).type, 'steady_trend_climb');
+    // 实验级覆盖启用 → 命中 + 全豁 policy（T242 显式启用通道）
+    const effOn = effectivePointTypeActive({ famous_participation_pit: true });
+    const rOn = classifyPointType(overlap, effOn);
+    assert.strictEqual(rOn.type, 'famous_participation_pit');
+    assert.deepStrictEqual(rOn.policy, { factorCheckArms: 'skip', actFront: 'pass', cheatCheck: 'skip', buyPoint: 'stuffingOnly' });
+    // 实验级覆盖停用 → 回落 steady
+    const effOff = effectivePointTypeActive({ famous_participation_pit: false });
+    const r = classifyPointType(overlap, effOff);
     assert.strictEqual(r.type, 'steady_trend_climb');
     assert.deepStrictEqual(r.policy, { factorCheckArms: 'skip', actFront: 'pass', cheatCheck: 'skip', buyPoint: 'stuffingOnly' });
   });
@@ -487,8 +492,8 @@ console.log('G. T242 实验级点位类型激活（2026-11-26 用户指令「将
     throwsWith(() => assertLegPointTypeBindings([{ priority: 16, pointType: 'nope' }], true), '绑定非法 "nope"');
     throwsWith(() => assertLegPointTypeBindings([{ priority: 19, pointType: 'steady_trend_climb' }], false), '未启用 modules.pointType');
   });
-  check('G12 注册表自洽：注册表缺省下全部类型激活除 slow_develop_early；normal 末位', () => {
-    assert.deepStrictEqual(IDS.filter((id) => !registryDefault[id]), ['slow_develop_early']);
+  check('G12 注册表自洽：注册表缺省下全部类型激活除 slow_develop_early 与 famous_participation_pit（PT72）；normal 末位', () => {
+    assert.deepStrictEqual(IDS.filter((id) => !registryDefault[id]), ['famous_participation_pit', 'slow_develop_early']);
     assert.strictEqual(IDS[IDS.length - 1], 'normal');
   });
   check('G13 源码锁：引擎三处消费（_resolveStrategyPack 解析+绑定防线 / _buildStrategyConfig 过滤 / _classifyPointType 传表）', () => {
@@ -514,8 +519,8 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
   const HIGH = { actTotalBnb30s: 1.2, actTraders: 5 };
   const MID = { actTotalBnb30s: 0.6, actTraders: 2 };
   const BURST = { actTotalBnb30s: 0.3, actTraders: 3, burstStallMs: 45000, burstWaveSec: 4, burstWaveBuyBnb: 0.35, burstWaveBuyN: 3, burstWaveSellBnb: 0 };
-  check('H1 版本 PT71；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
-    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT71');
+  check('H1 版本 PT72；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
+    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT72');
     assert.deepStrictEqual(IDS.slice(-4), [...ACT, 'normal']);
     for (const id of ACT) assert.strictEqual(R.POINT_TYPES.find((t) => t.id === id).active, true, `${id} 须激活`);
     assert.ok(IDS.indexOf('activity_high') > IDS.indexOf('market_maker_rhythm_pit'), '须排在做市节奏之后');
