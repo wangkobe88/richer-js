@@ -89,7 +89,7 @@ check('G. 源码锁：两引擎分类后盖章 signal.metadata.pointType（bt-v3
   const path = require('path');
   for (const f of ['FourMemeWssTradingEngine.js', 'BacktestEngine.js']) {
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'trading-engine', 'implementations', f), 'utf8');
-    assert.ok(src.includes('signal.metadata.pointType = _ptInfo;'), `${f} 缺盖章行`);
+    assert.ok(src.includes('signal.metadata = { ...(signal.metadata || {}), pointType: _ptInfo };'), `${f} 缺盖章行`);
   }
 });
 

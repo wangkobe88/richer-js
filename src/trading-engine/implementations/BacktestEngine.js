@@ -2601,9 +2601,10 @@ class BacktestEngine extends AbstractTradingEngine {
         const _ptInfo = this._classifyPointType(factorResults);
         // T240 做市专属卖腿：分类结果同步盖到内存 signal 对象（_updateSignalMetadata
         // 只写 DB/buffer，成交挂钩读的是内存对象——不盖章 markBoughtByPointType
-        // 恒 null，卖腿惰性失效；bt-v323 Δ=0 事故根因）
-        if (_ptInfo && signal && signal.metadata) {
-          signal.metadata.pointType = _ptInfo;
+        // 恒 null，卖腿惰性失效；bt-v323/324 Δ=0 事故根因。回测 signal 是扁平对象
+        // 无 metadata 字段——缺则建（bt-v324 守卫跳过第二坑））
+        if (_ptInfo && signal) {
+          signal.metadata = { ...(signal.metadata || {}), pointType: _ptInfo };
         }
         if (_ptInfo && signalId) {
           try {
