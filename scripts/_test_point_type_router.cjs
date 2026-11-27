@@ -489,8 +489,8 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
   const HIGH = { actTotalBnb30s: 1.2, actTraders: 5 };
   const MID = { actTotalBnb30s: 0.6, actTraders: 2 };
   const BURST = { actTotalBnb30s: 0.3, actTraders: 3, burstStallMs: 45000, burstWaveSec: 4, burstWaveBuyBnb: 0.35, burstWaveBuyN: 3, burstWaveSellBnb: 0 };
-  check('H1 版本 PT66；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
-    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT66');
+  check('H1 版本 PT67；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
+    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT67');
     assert.deepStrictEqual(IDS.slice(-4), [...ACT, 'normal']);
     for (const id of ACT) assert.strictEqual(R.POINT_TYPES.find((t) => t.id === id).active, true, `${id} 须激活`);
     assert.ok(IDS.indexOf('activity_high') > IDS.indexOf('market_maker_rhythm_pit'), '须排在做市节奏之后');
@@ -562,9 +562,17 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
     const MM8 = { ...MM, currentVsLaunchPct: null };
     assert.notStrictEqual(classifyPointType(MM8).type, 'market_maker_rhythm_pit');
     // PT66 v11 回滚反证锁（bt-v320 A/B 否决：DYOR +0.962 fire 点 actNewTraders=14
-    // 被 15 线切掉永不回，净 −0.145）：actNewTraders/shortWin 极端值不得影响 MM 分类
-    const MM9 = { ...MM, actNewTraders: 14, tradesNetBuyRatioShortWin: 100 };
+    // 被 15 线切掉永不回，净 −0.145）：actNewTraders 极端值不得影响 MM 分类
+    const MM9 = { ...MM, actNewTraders: 14 };
     assert.strictEqual(classifyPointType(MM9).type, 'market_maker_rhythm_pit');
+    // PT67 v12 shortWin≤40 追高盘不接（赢家 fire 在砸盘尾段中位 −51.8 vs 输家 +29.9；
+    // 两窗零误伤）：40 恰在线上通过、41 出线回落、null 环空 fail-closed 拒
+    const MM10 = { ...MM, tradesNetBuyRatioShortWin: 40 };
+    assert.strictEqual(classifyPointType(MM10).type, 'market_maker_rhythm_pit');
+    const MM11 = { ...MM, tradesNetBuyRatioShortWin: 41 };
+    assert.notStrictEqual(classifyPointType(MM11).type, 'market_maker_rhythm_pit');
+    const MM12 = { ...MM, tradesNetBuyRatioShortWin: null };
+    assert.notStrictEqual(classifyPointType(MM12).type, 'market_maker_rhythm_pit');
     const TR = { tokenAgeSec: 120, currentVsLaunchPct: 55, priceMa60SlopePct: 20, actTotalBnb30s: 1.0, actTotalBnb: 0.2, athVsFloorPct: 100, actTraders: 6 };
     assert.strictEqual(classifyPointType(TR).type, 'steady_trend_climb');
   });
