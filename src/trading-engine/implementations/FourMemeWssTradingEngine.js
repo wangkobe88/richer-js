@@ -668,6 +668,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `机器钱包名单加载失败(fail-open, machineHold 卖出过滤臂恒放行): ${e.message}`);
     }
+    // GMGN 画像钱包集合（T240 v13 2026-11-27 做市臂「散户包场保护」原料）：
+    // config/rosters/gmgn-profiled-wallets.json（gmgn_wallet_profiles 全量地址快照）。
+    // fail-open 同 smart：文件缺失 → 空 Set → gmgnProfiledBuyerPct 恒 0 → 保护门
+    // 全开零影响。静态快照更新须重启实验进程
+    try {
+      await FourMemeFactorAggregator.loadGmgnProfiledWallets();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `GMGN 画像钱包名单加载失败(fail-open, 散户包场保护门恒放行): ${e.message}`);
+    }
     // sybil 大簇钱包并集（2026-10-20 乌龟案用户裁定）：sybilClusterHolderCircPct 原料。
     // fail-open 同 famous（新门未启用=零影响）：文件缺失 → 空集合；加载抛错 → 保持
     // 空——两者因子恒 0=裸比较 <35 放行（2026-10-22 去 NULL 同批）

@@ -396,6 +396,15 @@ let _sniperLoadPromise = null;
 // 空 Set=有证据零值 0（名单在但无命中钱包=放行）。
 let _copyWallets = null;
 let _copyLoadPromise = null;
+// ── GMGN 画像钱包集合（2026-11-27 T240 做市臂「散户包场保护」原料）──
+// 来源=config/rosters/gmgn-profiled-wallets.json（gmgn_wallet_profiles 表全量地址快照，
+// 182 上 scripts/tmp-build-gmgn-roster.cjs 生成后 commit；静态快照更新须重启进程）。
+// fail-open 同 famous：文件缺失 → 空 Set → 因子恒 0（保护门全开=未启用零影响）；
+// schema 不符（wallets 非数组）才抛错。⚠回测前视声明：快照是「现在」的 30d 画像库，
+// 历史窗口回测引用有前视面——与 copy/famous/smart 名单「启动加载当前态」同款已接受
+// 近似；实盘无此问题。
+let _gmgnProfiledWallets = null;
+let _gmgnProfiledLoadPromise = null;
 // ── 极著名钱包子集（2026-10-18 币安人生案用户点名）──
 // 来源=config/rosters/famous-copy-wallets.json（用户裁定集合，独立文件——scan
 // --commit 重写主名单不影响它）。famousCopyWalletCircPct 因子原料：被跟单特别
@@ -1077,6 +1086,55 @@ class FourMemeFactorAggregator extends EventEmitter {
     /** T228k 机器名单 test setter（smart 同款——单测复位防污染）。 */
     static setMachineWalletsForTest(setOrNullOrUndefined) {
         _machineWallets = setOrNullOrUndefined === null
+            ? null
+            : new Set([...setOrNullOrUndefined].map(a => String(a).toLowerCase()));
+    }
+
+    /**
+     * GMGN 画像钱包集合加载（gmgnProfiledBuyerPct 因子原料；2026-11-27 T240
+     * 做市臂「散户包场保护」）：读 config/rosters/gmgn-profiled-wallets.json
+     * （gmgn_wallet_profiles 表全量地址快照，182 生成后 commit）。
+     * fail-open 同 machine：文件缺失 → 空 Set（保护门全开=零影响）；schema 不符
+     * 才抛错（调用方 warn）。快照刷新=重跑生成脚本 commit → 重启实验进程生效。
+     */
+    static async loadGmgnProfiledWallets() {
+        if (_gmgnProfiledWallets) return _gmgnProfiledWallets;
+        if (_gmgnProfiledLoadPromise) return _gmgnProfiledLoadPromise;
+        _gmgnProfiledLoadPromise = (async () => {
+            const fs = require('fs');
+            const path = require('path');
+            const dataPath = path.resolve(__dirname, '..', '..', 'config', 'rosters', 'gmgn-profiled-wallets.json');
+            let parsed = null;
+            try {
+                parsed = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+            } catch (e) {
+                if (e.code === 'ENOENT') {
+                    this._logInfo(`GMGN 画像钱包名单未配置（${dataPath} 缺失），散户包场保护门恒放行`);
+                    _gmgnProfiledWallets = new Set();
+                    return _gmgnProfiledWallets;
+                }
+                throw e;
+            }
+            if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.wallets)) {
+                throw new Error(`[FourMemeFA] loadGmgnProfiledWallets: 名单 schema 不符（${dataPath} 无 wallets 数组）`);
+            }
+            _gmgnProfiledWallets = new Set(parsed.wallets
+                .filter(w => w && typeof w.address === 'string' && w.address)
+                .map(w => w.address.toLowerCase()));
+            this._logInfo(`加载 GMGN 画像钱包名单: ${_gmgnProfiledWallets.size} 个（${dataPath}，generatedAt=${parsed.generatedAt || '?'}）`);
+            return _gmgnProfiledWallets;
+        })();
+        try {
+            return await _gmgnProfiledLoadPromise;
+        } finally {
+            _gmgnProfiledLoadPromise = null;
+        }
+    }
+
+    /** 测试专用：注入 GMGN 画像钱包集合（loader 同口径小写归一）。传 null 还原
+     * 「未加载」态；空 Set=「已加载但名单为空」（保护门全开）。 */
+    static setGmgnProfiledWalletsForTest(setOrNullOrUndefined) {
+        _gmgnProfiledWallets = setOrNullOrUndefined === null
             ? null
             : new Set([...setOrNullOrUndefined].map(a => String(a).toLowerCase()));
     }
@@ -1964,6 +2022,14 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (isBuy) {
                 state._buyerAddresses.add(addr);
                 state._buyerVolume.set(addr, (state._buyerVolume.get(addr) || 0) + bnbAmount);
+                // GMGN 画像率增量维护（gmgnProfiledBuyerPct 原料；名单空 Set=保护门
+                // 全开分子恒 0；名单 null（未加载）=分子照计但因子 emit 时判 null 语义）
+                if (!state._gmgnBuyerSeen.has(addr)) {
+                    state._gmgnBuyerSeen.add(addr);
+                    if (_gmgnProfiledWallets && _gmgnProfiledWallets.has(addr)) {
+                        state._gmgnBuyerProfiled++;
+                    }
+                }
                 // T213 黄金坑大买家队列入队（write-once，累计买单调不减=只进不出）：
                 // 累计买入首次 ≥ bigBuyerCohortMinBnb（默认 0.19 BNB）→ bigBuyersCount+1，
                 // 并以入队时刻净持仓一次性初评 held（> 尘门 → bigBuyersHeldDust+1）；
@@ -2833,6 +2899,8 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             _buyerAddresses: new Set(),   // K 组：全史买方地址
             _sellerAddresses: new Set(),  // K 组：全史卖方地址
+            _gmgnBuyerSeen: new Set(),    // GMGN 画像率分母：全史买家钱包（首次见即入）
+            _gmgnBuyerProfiled: 0,        // GMGN 画像率分子：买家中有库内画像的钱包数
             _buyerVolume: new Map(),      // addr → 累计买入 BNB（bigHolder W 门槛）
             _sellerVolume: new Map(),     // addr → 累计卖出 BNB
 
@@ -5515,6 +5583,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             // _buyerAddresses 全史 Set 的 size——曾买入即计入（清仓不回退），与
             // buyVolumeBnb 同刻同源；GMGN 层 gmgnVisitorsPerBuyer 比值的分母
             buyWallets: state._buyerAddresses.size,
+            // GMGN 画像买家占比（2026-11-27 T240 做市臂「散户包场保护」原料）：
+            // 全史买家中库内画像钱包数占比 %（wallet=sender||trader 同 K 组口径；
+            // 名单空 Set=保护门全开恒 0；无买家=null——条件须带 IS NULL 臂 fail-open）。
+            // ⚠回测前视声明：名单=「现在」的 30d 画像库快照，历史窗口引用有前视面
+            gmgnProfiledBuyerPct: state._gmgnBuyerSeen.size > 0
+                ? parseFloat((100 * state._gmgnBuyerProfiled / state._gmgnBuyerSeen.size).toFixed(2)) : null,
             // 去簇人气量：totalBuyBnb − 簇钱包全史买入合计（_buyerVolume 钱包段 K 组
             // 原料，sender 真值口径）。买入是历史量只增不减——簇钱包拉过盘再砸盘的量
             // 照扣（对倒垫出的人气假象正是本键要剔除的）；null wallet 买入行无法归集

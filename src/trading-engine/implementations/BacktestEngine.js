@@ -531,6 +531,15 @@ class BacktestEngine extends AbstractTradingEngine {
     } catch (e) {
       this.logger.warn(this._experimentId, 'BacktestEngine', `做市/作弊团队名单加载失败(fail-open, cheatCrewBuyBnb 恒 0=裸比较放行): ${e.message}`);
     }
+    // GMGN 画像钱包集合（T240 v13 做市臂「散户包场保护」原料）：fail-open 同 smart
+    // （文件缺失 → 空 Set → gmgnProfiledBuyerPct 恒 0=保护门全开）。⚠回测前视声明：
+    // 名单=「现在」的 30d 画像库快照，历史窗口回测引用有前视面——与 copy/smart/
+    // famous 名单「启动加载当前态」同款已接受近似；实盘无此问题
+    try {
+      await FourMemeFactorAggregator.loadGmgnProfiledWallets();
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'BacktestEngine', `GMGN 画像钱包名单加载失败(fail-open, 散户包场保护门恒放行): ${e.message}`);
+    }
 
     // 4. 策略引擎（buy/sell 扁平化，与实时引擎同构；分腿评估语义）
     const { StrategyEngine } = require('../../strategies/StrategyEngine');
