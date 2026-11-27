@@ -556,7 +556,8 @@ class BacktestEngine extends AbstractTradingEngine {
         strategyArray.push({
           id: `${kind}_${idx}_${s.priority || 0}`,
           // T100：带 buyPhase 的腿名加后缀（与实时引擎同步，signals/回测日志区分首买/再买臂）
-          name: `${kind === 'buy' ? '买入' : '卖出'}策略 P${s.priority || 0}${kind === 'buy' && s.buyPhase === 'first' ? '·首买' : kind === 'buy' && s.buyPhase === 'repeat' ? '·再买' : ''}`,
+          // T240 拆分腿归属：显式 name 优先（与 live 引擎同款）
+          name: s.name || `${kind === 'buy' ? '买入' : '卖出'}策略 P${s.priority || 0}${kind === 'buy' && s.buyPhase === 'first' ? '·首买' : kind === 'buy' && s.buyPhase === 'repeat' ? '·再买' : ''}`,
           description: s.description || '',
           action: kind,
           condition: s.condition,

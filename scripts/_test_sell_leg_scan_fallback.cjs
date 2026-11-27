@@ -170,15 +170,18 @@ console.log('C. fire 锚 + 扫描启用源码口径');
   check('C2 setBuyState buyPriceBnb = firePriceBnb || 执行时刻价',
     buyEval.includes('buyPriceBnb: firePriceBnb || faState?.currentPriceBnb || 0'), true);
 
-  // C3 扫描启用条件：引擎级止损（配 scanIntervalSec 才扫）或 卖腿存在
-  const loopSrc = src.slice(src.indexOf('async _runMainLoop'), src.indexOf('async _captureMarketRegimeSnapshot'));
-  check('C3 扫描启用 = (stopLoss && scanMs) || sellLegScan',
-    loopSrc.includes('(this._stopLossEnabled && this._stopLossScanMs != null) || this._sellLegScanEnabled'), true);
+  // C3 扫描启用条件：存在卖腿（T233 stall 腿化后 stopLoss 段已退役——原锁
+  // 「(stopLoss && scanMs) || sellLegScan」随 stallClose 删除失效，2026-11-27 修正）
+  const scanInitSrc = src.slice(src.indexOf('6.5b 持仓卖腿兜底扫描'), src.indexOf('账号信息复检（C166）'));
+  check('C3 扫描启用 = 卖腿存在（_sellLegScanEnabled = _sellLegs.length > 0）',
+    scanInitSrc.includes('this._sellLegScanEnabled = _sellLegs.length > 0'), true);
+  check('C3b stall 1s 驱动 = stall 签名腿存在（T233 腿化现行形状）',
+    scanInitSrc.includes('this._stalledSellLegScanEnabled = _stallLegs.length > 0')
+    && scanInitSrc.includes('stalledSellLegs', 0) && scanInitSrc.includes(', 1000);'), true);
 
   // C4 周期解析：stopLoss.scanIntervalSec ?? sellScanIntervalSec ?? 30s 缺省
-  // （切片终点原锚 '6.6 行为周期分桶' 已随 cycle 机制删除，2026-10-15 改锚 '7. live 执行层'）
   const cfgStart = src.indexOf('6.5b 持仓卖腿兜底扫描');
-  const cfgEnd = src.indexOf('7. live 执行层');
+  const cfgEnd = src.indexOf('账号信息复检（C166）');
   check('C4 切片锚点健康（起止均在位）', cfgStart > 0 && cfgEnd > cfgStart, true);
   const cfgSrc = src.slice(cfgStart, cfgEnd);
   check('C4 周期三级回落（stopLoss 段优先 → sellScanIntervalSec → 30s）',
