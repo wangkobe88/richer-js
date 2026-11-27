@@ -418,15 +418,10 @@ const PACK_DEFINITION = {
       "priority": 1,
       "condition": "boughtByPointType == 'market_maker_rhythm_pit' AND blockGapLe1Pct64 < 60 AND profitPercent <= -20",
       "cards": "all",
-      "bypassDebounce": false,
+      "bypassDebounce": true,
       "cooldownSec": null,
       "maxExecutions": null,
-      "sellDebounce": {
-        "minTicks": 2,
-        "debounceMs": 2000,
-        "maxWaitMs": 20000
-      },
-      "description": "T240 做市专属卖腿（2026-11-27 用户裁定「走这一臂的，一旦明显失去了做市商形态，就得卖出，不能等流动性彻底枯竭」）：boughtByPointType=本仓买入臂 pointType（FA 写一次键，买成交点引擎标记、重启从 trade metadata 回填；null=非做市臂 → == 比较恒 false 惰性零影响其它臂）∧ blockGapLe1Pct64<60（64-tick 环破位=「每块都有交易」节奏死亡——环要 60+ tick 才衰减到位=天然持续确认）∧ profitPercent≤-20（破位时刻浮亏才卖——赢家洗盘停顿全部发生在浮盈段〔DYOR +65/Faceless +44/币安神学 +122〕，−20 线零误杀：负票 6/7〔Ghost Good −58/mib −54/指哪打哪 −44/企鹅微单 −36/FROGE −33/푸데푸데 −32，Namechanger −12 漏〕价差 +8.6~+40.6%；−10 线会误杀超级智能 −12〔破位持续 345s 后恢复最终 +0.219〕否决）；确认窗 2000ms/2tick/20s 上限（T168 v3 同款——比默认 5tick 更快，断流票 5tick 永不凑齐但本腿恰恰要赶在枯竭前）；priority 1=stall 保命腿(0)之后、止损-40(2)之前；null 语义：boughtByPointType/gapLe1/profitPercent 任一 null → 恒 false 不触发（fail-closed）。走 factorSellFilter 统一过滤（pp≤−20<50 管辖不成立恒放行）"
+      "description": "T240 做市专属卖腿（2026-11-27 用户裁定「走这一臂的，一旦明显失去了做市商形态，就得卖出，不能等流动性彻底枯竭」）：boughtByPointType=本仓买入臂 pointType（FA 写一次键，买成交点引擎标记、重启从 trade metadata 回填；null=非做市臂 → == 比较恒 false 惰性零影响其它臂）∧ blockGapLe1Pct64<60（64-tick 环破位=「每块都有交易」节奏死亡——环要 60+ tick 才衰减到位=天然持续确认）∧ profitPercent≤-20（破位时刻浮亏才卖——赢家洗盘停顿全部发生在浮盈段〔DYOR +65/Faceless +44/币安神学 +122〕，−20 线零误杀：负票 6/7〔Ghost Good −58/mib −54/指哪打哪 −44/企鹅微单 −36/FROGE −33/푸데푸데 −32，Namechanger −12 漏〕价差 +8.6~+40.6%；−10 线会误杀超级智能 −12〔破位持续 345s 后恢复最终 +0.219〕否决）；bypassDebounce=true 立即卖（bt-v325 审计：确认窗 2tick 在破位死票上=10~60s 时延——mib 破位 +100s 实际 155s 才卖、Ghost Good 确认失败重来差 96s 反而更晚；gapLe1<60 本身是环级持续形状单 tick 抖动几乎不可能，pp≤−20 挡赢家浮盈停顿，两门即安全）；priority 1=stall 保命腿(0)之后、止损-40(2)之前；null 语义：boughtByPointType/gapLe1/profitPercent 任一 null → 恒 false 不触发（fail-closed）。走 factorSellFilter 统一过滤（pp≤−20<50 管辖不成立恒放行）"
     },
     {
       "cards": "all",
