@@ -337,9 +337,26 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     const overlap = {
       ...TREND, currentVsLaunchPct: 32, earlyReturn: 10,
       athVsFloorPct: 100, mcapFromPeakPct: 30,
-      famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5, buyVolumeBnb: 5, max5sRisePct: 30, famousEarlyBuySharePct: 60,
+      famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5, buyVolumeBnb: 5, max5sRisePct: 45, famousEarlyBuySharePct: 60,
     };
     assert.strictEqual(classifyPointType(overlap).type, 'famous_participation_pit');
+  });
+  check('F10 PT70 十修两臂（2026-11-27 用户指令「临近购买点位的趋势应该是上涨的，而不是下跌的」）：拉升下界 39 + ma60 斜率非负', () => {
+    const base = {
+      ...TREND, currentVsLaunchPct: 32, earlyReturn: 10,
+      athVsFloorPct: 100, mcapFromPeakPct: 30,
+      famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5, buyVolumeBnb: 5, famousEarlyBuySharePct: 60,
+    };
+    // 正向：拉升 39 恰过线（类整数线 40 偏移）+ ma60 斜率 0 恰过线
+    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 39, priceMa60SlopePct: 0 }).type, 'famous_participation_pit');
+    // ma60 null=龄<60s 放行（小狗山 24s 案源锁）
+    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: null }).type, 'famous_participation_pit');
+    // 拉升不足 38.9 → 回落 steady（「没被拉起来」的死票拦）
+    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 38.9, priceMa60SlopePct: 10 }).type, 'steady_trend_climb');
+    // ma60 斜率为负 → 回落（临近买点趋势向下=接刀拦；steady 的 [5,60] 斜率带同样不命中 → normal）
+    assert.strictEqual(classifyPointType({ ...base, max5sRisePct: 45, priceMa60SlopePct: -1 }).type, 'normal');
+    // max5sRisePct 缺失 → fail-closed 不命中（键缺失恒 false）
+    assert.strictEqual(classifyPointType({ ...base, priceMa60SlopePct: 10 }).type, 'steady_trend_climb');
   });
   check('F8b PT48 ath 门：恰 149.9 过线 / 150 → normal（用户裁定「先卡 athVsFloor 小于 150」严格小于）', () => {
     assert.strictEqual(classifyPointType({ ...TREND, athVsFloorPct: 149.9 }).type, 'steady_trend_climb');
@@ -430,7 +447,7 @@ console.log('G. T242 实验级点位类型激活（2026-11-26 用户指令「将
     const overlap = {
       ...TREND, currentVsLaunchPct: 32, earlyReturn: 10,
       athVsFloorPct: 100, mcapFromPeakPct: 30,
-      famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5, buyVolumeBnb: 5, max5sRisePct: 30, famousEarlyBuySharePct: 60,
+      famousLifetimeBuyBnb: 0.8, famousFollowBlockMaxWallets: 3, famousLifetimeBuyN: 5, buyVolumeBnb: 5, max5sRisePct: 45, famousEarlyBuySharePct: 60,
     };
     assert.strictEqual(classifyPointType(overlap).type, 'famous_participation_pit');
     const eff = effectivePointTypeActive({ famous_participation_pit: false });
@@ -489,8 +506,8 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
   const HIGH = { actTotalBnb30s: 1.2, actTraders: 5 };
   const MID = { actTotalBnb30s: 0.6, actTraders: 2 };
   const BURST = { actTotalBnb30s: 0.3, actTraders: 3, burstStallMs: 45000, burstWaveSec: 4, burstWaveBuyBnb: 0.35, burstWaveBuyN: 3, burstWaveSellBnb: 0 };
-  check('H1 版本 PT69；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
-    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT69');
+  check('H1 版本 PT70；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
+    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT70');
     assert.deepStrictEqual(IDS.slice(-4), [...ACT, 'normal']);
     for (const id of ACT) assert.strictEqual(R.POINT_TYPES.find((t) => t.id === id).active, true, `${id} 须激活`);
     assert.ok(IDS.indexOf('activity_high') > IDS.indexOf('market_maker_rhythm_pit'), '须排在做市节奏之后');
