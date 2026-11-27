@@ -199,18 +199,34 @@ const sig = (id, metadata = {}) => ({ id, experiment_id: 'exp', metadata });
     assert('swap 段在 _doFlush 之前（flush 体内）', wbSrc.indexOf('同步 swap') < wbSrc.indexOf('async _doFlush'));
   }
 
-  // ═══ H update 跨批独立（锁定与旧版 bit 一致的不可达形状行为） ═══
+  // ═══ H 跨批 update 保留初始键（bt-v274 27/900 + bt-v328 29/570 事故反证） ═══
   {
-    console.log('\n[H] 跨批 update：insert 已被摘走 → 独立 update 分支（与旧版「已 flush」路径一致）');
+    console.log('\n[H] 跨批 update：insert 已落库后 update 仍携带完整 metadata（初始键不丢）');
     const db = makeMockDb();
     const wb = new BacktestWriteBuffer(db, logger);
-    wb.addSignalInsert(sig('h1', { price: 7 }));
+    wb.addSignalInsert(sig('h1', { price: 7, strategyName: '买入策略 P1·首买', signalGate: { maxTriggers: 1 } }));
     await wb.flush('exp');        // insert 已写库
     wb.addSignalUpdate('h1', { metadata: { late: 1 } });
+    wb.addSignalUpdate('h1', { metadata: { late: 2 } });   // 同信号二次更新：后写覆盖
     await wb.flush('exp');
-    const upd = db.writes.find(w => w.op === 'update');
-    assert('update metadata 原样发（不与已落库 insert 合并——与旧版行为 bit 一致）',
-      upd?.payload?.metadata?.late === 1 && upd?.payload?.metadata?.price === undefined);
+    const upd = db.writes.filter(w => w.op === 'update');
+    assert('跨批 update 合并发出（单条、初始键+更新键全在、后写键胜）',
+      upd.length === 1
+      && upd[0].payload.metadata.price === 7
+      && upd[0].payload.metadata.strategyName === '买入策略 P1·首买'
+      && upd[0].payload.metadata.signalGate.maxTriggers === 1
+      && upd[0].payload.metadata.late === 2,
+      JSON.stringify(upd.map(u => u.payload)));
+    // 同批 pending insert 合并路径保持（insert 未 flush 时 update 直接并入 insert 行）
+    const db2 = makeMockDb();
+    const wb2 = new BacktestWriteBuffer(db2, logger);
+    wb2.addSignalInsert(sig('h2', { price: 9 }));
+    wb2.addSignalUpdate('h2', { metadata: { late: 3 } });
+    await wb2.flush('exp');
+    const ins = db2.writes.find(w => w.op === 'insert' && w.table === 'strategy_signals');
+    assert('同批 update 并入 pending insert 行（既有路径不变）',
+      ins && ins.rows[0].metadata.price === 9 && ins.rows[0].metadata.late === 3,
+      JSON.stringify(ins && ins.rows[0].metadata));
   }
 
   // ═══ I 单条也失败：坏行被丢 + 日志点名超 50 字符列（T242 对比时发现 trades 行静默丢失） ═══

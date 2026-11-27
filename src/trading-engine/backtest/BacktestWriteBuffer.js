@@ -14,6 +14,12 @@ class BacktestWriteBuffer {
     this._pendingTradeInserts = [];
     this._pendingSnapshotInserts = [];
     this._pendingSignalUpdates = []; // { signalId, updateData }
+    // T240 修复（2026-11-27 bt-v328 29/570 信号初始键丢失案，前身 bt-v274 27/900）：
+    // 每信号累计全量 metadata——insert 与所有 update 的键在此持续合并，跨批 flush 后
+    // 的 update 仍携带初始键（supabase update 整列覆盖，部分键会把 insert 已落库的
+    // price/strategyId/strategyName/signalGate 抹掉）。Map 随 buffer 实例生命周期
+    // （单次回测 ~千级信号 × 数 KB = MB 级，可接受）
+    this._signalMetaAcc = new Map(); // signalId → 累计全量 metadata
     this._pendingAnalysisInserts = []; // TPA token_position_analyses 行（回迁批 4；upsert 通道）
     this._pendingTokenInserts = [];           // experiment_tokens INSERT 行（P1-3）
     this._pendingTokenStatusUpdates = [];     // { experimentId, tokenAddress, status }（P1-3，按入队序重放）
@@ -26,6 +32,11 @@ class BacktestWriteBuffer {
    */
   addSignalInsert(dbData) {
     this._pendingSignalInserts.push(dbData);
+    // 播种累计器（insert 键为基底；理论不可达的 update-先到场景键序保留 update 优先）
+    if (dbData && dbData.id && dbData.metadata) {
+      const prev = this._signalMetaAcc.get(dbData.id) || {};
+      this._signalMetaAcc.set(dbData.id, { ...dbData.metadata, ...prev });
+    }
   }
 
   /**
@@ -90,6 +101,12 @@ class BacktestWriteBuffer {
         insertRow.metadata = merged;
         updateData = { ...updateData, metadata: { ...merged } };
       }
+      // 累计器合并（跨批关键：insert 已 flush 后 insertRow 找不到，累计器仍持有
+      // insert 时播种的初始键 → 本 update 发出全量 metadata，整列覆盖无丢失）
+      const acc = this._signalMetaAcc.get(signalId) || {};
+      const mergedAcc = { ...acc, ...updateData.metadata };
+      this._signalMetaAcc.set(signalId, mergedAcc);
+      updateData = { ...updateData, metadata: { ...mergedAcc } };
     }
 
     const existing = this._pendingSignalUpdates.find(u => u.signalId === signalId);
