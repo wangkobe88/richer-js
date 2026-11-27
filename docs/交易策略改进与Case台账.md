@@ -2779,6 +2779,12 @@ AND actTotalBnb30s <= 40
 
 **用户提案**：「GMGN 的钱包比例因子也可以试试，作为一个保护」。**载体**：FA 新键 `gmgnProfiledBuyerPct`=全史买家中 GMGN 画像库命中占比 %（wallet=sender||trader；画像地址=`gmgn_wallet_profiles` 表全量快照 → `config/rosters/gmgn-profiled-wallets.json` 5271 址，182 生成 commit，fail-open 空 Set=保护门全开；单测 `_test_gmgn_profiled_pct.cjs` 8 断言：精确值/无买家 null/空名单 0/未加载 0/trader 兜底/乱序收敛/探针/loader）；条件臂 `(gmgnProfiledBuyerPct <= 80 OR gmgnProfiledBuyerPct IS NULL)`。扫描口径（v315/v319 fire 点重放）：≥86% 的 4 张全负（人生决策 86/抖音 90/WechatSI 95/JACKET 100）、赢家天花板 SXSI 74、**DYOR 全史 64.3 距线 15.7pt（近 10s 口径 78.6 贴线故用全史）**；v10 之上边际≈+0.07（抖音/JACKET 已被 curVs 切）；买额口径否决（SXSI 买额 90 会切头冠）。
 
+### T240 十九修：做市形态破位专属卖腿 mmShapeBreak（PT69 不变/pack v53，2026-11-27；commit dcf03b89；A/B=bt-v323 检验中）
+
+**用户裁定**：「走这一臂的，一旦明显失去了做市商形态，就得卖出，不能等流动性彻底枯竭」。**形态破位研究**（p20 34 票入场后轨迹重放）：「破位即卖」会误杀赢家——赢家 10/15 也出现 gapLe1<60 破位（DYOR +50s/Faceless +75s）但那是**洗盘停顿**，破位时刻赢家**全部浮盈 +18%~+157%**；输家 7 张破位**全部浮亏 −12%~−58%**且持续 360~755s 永不恢复。**分野=破位时刻浮亏**。
+
+**卖腿**（priority 1，stall 保命腿 0 之后/止损-40(2) 之前）：`boughtByPointType == 'market_maker_rhythm_pit' AND blockGapLe1Pct64 < 60 AND profitPercent <= -20`，cards all、sellDebounce 2000ms/2tick/20s 上限（T168 v3 同款——赶在枯竭前，断流票由 stall 腿接管）。**FA 新键 `boughtByPointType`**=本仓买入臂 pointType 写一次（买成交点引擎标记——live 主路径/手工买/回测/重启恢复四挂点；trade metadata 携带 pointType 供重启回填；null=非做市臂 → == 比较恒 false 惰性零影响其它臂）。线 −20：负票 6/7（Namechanger −12 漏）价差 +8.6~+40.6%、**正票零误杀**；−10 线误杀超级智能（−12 破位但 345s 后恢复最终 +0.219）否决。单测 `_test_bought_by_point_type.cjs` 6 断言（写一次/脏值 no-op/真值表 8 格/null 全 fail-closed/重启回填）。
+
 **bt-v322 引擎 A/B 兑现**：**65 票/胜率 30.8%/+3.6630/ROI 28.18%** vs v10 66 票/30.3%/+3.6310 = **Δ +0.0319**——切 1 票 WechatSI −0.032（正是 ≥80% 带幸存票，95% 画像命中）、换点 0、误伤 0。保护臂零成本微增；人生决策（重放 86%）引擎 fire 时刻落线内未切=慢变量键（买家人数累计）扫描对齐度高。**现行最优=v13（PT69，pack v51）**。⚠回测前视=画像库「现在」快照（与各名单同款近似）。
 
 
