@@ -107,3 +107,36 @@ console.log('F. 探针收键（getFactorKeys 自动认得）');
 }
 
 console.log("\n全部通过（6 组断言）");
+
+// ── T240 v6 长窗趋势两键（2026-11-27 用户裁定「1 分钟/5 分钟趋势全正」）──
+console.log('G. chg60Pct/chg300Pct（前窗回落首可靠价口径）');
+{
+  const fa = newFA();
+  // 0s~70s 每 10s 一笔：逐笔 +25%（buildFactorMap 在每 tick 后调用=FA 契约）
+  let base = 4e-9;
+  for (let i = 0; i < 4; i++) { // 先喂 4 笔（0~30s）
+    fa.processTick(mkTick({ timestamp: T0 + i * 10000, block_number: 100 + i * 3, price_bnb: base }));
+    base *= 1.25;
+  }
+  // 年轻票回落：t=30s 时 chg300 无前窗 → vs 首可靠价 4e-9（第 4 笔 1.25^3 → +95.31%）
+  const f30 = fa.buildFactorMap('0xtoken', T0 + 30000);
+  const exp300young = (Math.pow(1.25, 3) - 1) * 100;
+  assert.ok(Math.abs(f30.chg300Pct - exp300young) < 0.01, `chg300 年轻回落 ${f30.chg300Pct} vs ${exp300young}`);
+  // 继续喂到 70s
+  for (let i = 4; i < 8; i++) {
+    fa.processTick(mkTick({ timestamp: T0 + i * 10000, block_number: 100 + i * 3, price_bnb: base }));
+    base *= 1.25;
+  }
+  // t=70s：chg60 = 末笔(1.25^7) vs t=10s 价(1.25) → +281.47%
+  const f70 = fa.buildFactorMap('0xtoken', T0 + 70000);
+  const exp60 = (Math.pow(1.25, 7) / 1.25 - 1) * 100;
+  assert.ok(Math.abs(f70.chg60Pct - exp60) < 0.01, `chg60 精确值 ${f70.chg60Pct} vs ${exp60}`);
+  // 无可靠价 null
+  const fa2 = new FourMemeFactorAggregator({}, { info(){}, warn(){}, error(){} });
+  fa2.registerToken('0xz', { totalSupply: 1e9, symbol: 'Z', creatorAddress: null });
+  const fz = fa2.buildFactorMap('0xz', T0 + 1000);
+  assert.strictEqual(fz.chg60Pct, null, '无可靠价 null fail-closed');
+  // 探针收键
+  assert.ok(fa.getFactorKeys().has('chg60Pct') && fa.getFactorKeys().has('chg300Pct'), '探针收键');
+  console.log('  ✓ G 组通过');
+}

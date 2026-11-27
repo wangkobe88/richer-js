@@ -105,6 +105,10 @@ const HOLDER_TREND_SKIP_SLOTS = 4;
 // 最近可靠价，窗内无更早价自序列首价起算）。T239 priceMa60SlopePct 同原料
 // （2026-11-25 持续趋势类型）：需要 (t-120,t-60] 窗故 2×65s 保留恰够——勿缩短
 const CHG_TREND_WINDOW_MS = 65 * 1000;
+// T240 v6 长窗趋势（2026-11-27 用户裁定「1 分钟/5 分钟趋势全正」）：chg60Pct/chg300Pct
+// 需要 300s 前窗（_relPriceTrend 保留窗 2× 本常量）；年轻票无前窗 → _chgOfWindow
+// 回落首可靠价=「出生以来趋势」（拒绝破发/首价以下的接刀盘）
+const CHG_LONG_TREND_WINDOW_MS = 300 * 1000;
 
 /**
  * T185 短窗价格动量（纯函数）：arr=[{ts,price}] 链序可靠价时序，返回末价相对
@@ -3292,7 +3296,10 @@ class FourMemeFactorAggregator extends EventEmitter {
     _pruneRelPriceTrend(state, now) {
         const arr = state._relPriceTrend;
         if (arr.length <= 64) return;
-        const cutoff = now - 2 * CHG_TREND_WINDOW_MS;
+        // T240 v6（2026-11-27 用户裁定「1 分钟/5 分钟趋势全正」）：保留窗
+        // 2×65s→2×300s——chg300Pct 需要 300s 前窗；chg5/10/30 与 MA60 斜率
+        // 需求不变（65s/120s ⊂ 600s 窗语义位不变）；内存先例=act* 6min 保留
+        const cutoff = now - 2 * CHG_LONG_TREND_WINDOW_MS;
         let i = 0;
         while (i < arr.length && arr[i].ts < cutoff) i++;
         if (i > 0) arr.splice(0, i);
@@ -5396,6 +5403,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             chg5Pct: _chgOfWindow(state._relPriceTrend, 5),
             chg10Pct: _chgOfWindow(state._relPriceTrend, 10),
             chg30Pct: _chgOfWindow(state._relPriceTrend, 30),
+            // T240 v6 长窗趋势两键（2026-11-27 用户裁定「1 分钟/5 分钟趋势全正，
+            // 拒绝接刀」——亏损最大票=短期反弹但长窗仍跌势）：60s/300s 窗动量，
+            // 年轻票（无前窗）回落首可靠价=出生以来涨幅口径；null=无可靠价
+            // fail-closed（裸比较恒 false 不触发）
+            chg60Pct: _chgOfWindow(state._relPriceTrend, 60),
+            chg300Pct: _chgOfWindow(state._relPriceTrend, 300),
             // T239 持续趋势斜率（2026-11-25 金狗「上涨趋势形成后一直拉盘/散户慢速
             // 拉升盘」两分类——用户方法「价格均值回归线往上，拒绝太陡也拒绝太平」）：
             // MA60 均线在 60s 地平线上的涨跌 %，校准带 [5,60]（bt 校准：域内点斜率
