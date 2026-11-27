@@ -204,12 +204,12 @@ class TokenTicksPage {
     return this._arbBotRosterPromise;
   }
 
-  /** ⭐ famous 钱包显示名：@twitter_username 优先 → twitter_name → GMGN name → null */
+  /** ⭐ famous 钱包显示名：twitter_name（推特显示名）优先 → @twitter_username 回落 → GMGN name → null */
   _famousLabel(wallet) {
     const p = this._famousProfiles && this._famousProfiles[wallet];
     if (!p) return null;
-    if (p.twitterUsername) return `@${p.twitterUsername}`;
     if (p.twitterName) return p.twitterName;
+    if (p.twitterUsername) return `@${p.twitterUsername}`;
     if (p.name) return p.name;
     return null;
   }
@@ -767,8 +767,9 @@ class TokenTicksPage {
               const raw = item.raw._raw;
               const bnb = (parseFloat(raw.bnb_amount) || 0).toFixed(4);
               const price = parseFloat(raw.price_usd || 0);
-              const trader = (raw.trader_address || '').slice(0, 8) + '...';
-              return [`${raw.trade_type === 'buy' ? 'BUY' : 'SELL'} | ${bnb} BNB`, `Price: $${price.toExponential(3)}`, `Trader: ${trader}`];
+              // 钱包显示=发送者优先：sender_address（tx.from 真实 EOA）→ trader_address 回落
+              const wallet = (raw.sender_address || raw.trader_address || '').slice(0, 8) + '...';
+              return [`${raw.trade_type === 'buy' ? 'BUY' : 'SELL'} | ${bnb} BNB`, `Price: $${price.toExponential(3)}`, `钱包: ${wallet}`];
             },
           } },
         },
@@ -1122,12 +1123,15 @@ class TokenTicksPage {
       const priceStr = price > 0 ? price.toExponential(3) : '-';
       const bnbStr = this._fmtBnb(parseFloat(tick.bnb_amount || 0));
       const tokenAmount = tick.token_amount != null ? this._formatNum(parseFloat(tick.token_amount)) : '-';
-      const isCreator = this.tokenInfo?.creator_address && tick.trader_address === this.tokenInfo.creator_address;
+      // 钱包列=发送者优先：sender_address（tx.from 真实 EOA）→ trader_address 回落
+      // （trader 恒=flap 事件 msg.sender，经聚合路由的行是路由地址非钱包本人）
+      const wallet = (tick.sender_address || tick.trader_address || '').toLowerCase();
+      const isCreator = this.tokenInfo?.creator_address && wallet === String(this.tokenInfo.creator_address).toLowerCase();
       const creatorBadge = isCreator ? '<span class="ml-1 px-1.5 py-0.5 text-[10px] rounded bg-violet-900 text-violet-300 font-sans">creator</span>' : '';
       // 钱包链接指向站内 /trader/:address 行为/画像页（同 pumpfun 母版 /token/:address 模式），
       // bscscan 降为辅助外链小图标
-      const trader = tick.trader_address
-        ? `<span class="inline-flex items-center"><a href="/trader/${tick.trader_address}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 font-mono" title="钱包统计/行为页：${this._esc(tick.trader_address)}">${tick.trader_address.slice(0, 8)}...</a>${creatorBadge}<a href="https://bscscan.com/address/${tick.trader_address}" target="_blank" rel="noopener noreferrer" class="ml-0.5 text-gray-500 hover:text-blue-400 text-[10px]" title="BscScan">B</a></span>`
+      const trader = wallet
+        ? `<span class="inline-flex items-center"><a href="/trader/${wallet}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 font-mono" title="钱包统计/行为页：${this._esc(wallet)}">${wallet.slice(0, 8)}...</a>${creatorBadge}<a href="https://bscscan.com/address/${wallet}" target="_blank" rel="noopener noreferrer" class="ml-0.5 text-gray-500 hover:text-blue-400 text-[10px]" title="BscScan">B</a></span>`
         : '-';
       const tx = tick.tx_hash
         ? `<a href="https://bscscan.com/tx/${tick.tx_hash}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 font-mono" title="${this._esc(tick.tx_hash)}">${tick.tx_hash.slice(0, 10)}...</a>`

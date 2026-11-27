@@ -15,6 +15,11 @@ const { deriveSuperIpLabels } = require('../../core/narrative/superip-labels.js'
 // （2026-10-09 token-returns 慢页实测：~110 个串行往返 ≈ 474s）
 const DB_BATCH_CONCURRENCY = 8;
 
+// 信号 ID 形状（strategy_signals.id=uuid 主键，trades.signal_id 为其外键）——
+// POST /signals/point-types 入参门用。⚠RFC 4122 五段 8-4-4-4-12（事故：首版误写成
+// 六段，合法 ID 全被 400——入参门必须被单测直调覆盖，见 _test_token_returns_point_type A5）
+const SIGNAL_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * 实验数据服务类
  * @class
@@ -263,6 +268,54 @@ class ExperimentDataService {
         filters: options
       }
     };
+  }
+
+  /**
+   * 信号 ID 形状校验（POST /signals/point-types 入参门）：非法=调用方错误 → 400，
+   * 不放行到 DB 让 PostgREST 报 uuid 语法错冒充服务端 500
+   * @param {*} v - 待验值
+   * @returns {boolean}
+   */
+  static isSignalId(v) {
+    return typeof v === 'string' && SIGNAL_ID_RE.test(v);
+  }
+
+  /**
+   * 按信号 ID 批量取点位类型（token-returns 页「点位类型」列数据源，T216）
+   *
+   * 关联链：trades.signal_id → strategy_signals.metadata.pointType（信号 fire 时刻
+   * 分类结果 {type,label,policy,version,snapshot}）。只取该 JSON 子键——PostgREST
+   * `metadata->pointType` 把子键摊平到行顶层（键=pointType，缺段时键不出现）；
+   * 整行 select(*) 会拉 metadata 全量因子表与 gmgn raw data 大列。
+   * @param {string} experimentId - 实验 ID（trades 与其 signal 行同实验）
+   * @param {string[]} signalIds - 信号 ID（可重复）
+   * @returns {Promise<Array<{signal_id:string,token_address:string,point_type:Object|null}>>}
+   *          point_type=null：信号无 pointType 段（卖信号/包未启用模块/非 signalGate 腿/
+   *          初始元数据未留存——回测写缓冲跨批 UPDATE 整列覆盖形状，bt-v274 实证 27/900）
+   * @throws {Error} DB 查询失败原样抛出（调用方转 500——「查询失败」不冒充「无类型」）
+   */
+  async getSignalPointTypesBySignalIds(experimentId, signalIds) {
+    if (!Array.isArray(signalIds) || signalIds.length === 0) return [];
+    const ids = [...new Set(signalIds.filter((s) => typeof s === 'string' && s))];
+    if (ids.length === 0) return [];
+
+    // 100/批：.in 列表进 URL（UUID 36 字符），远低于 undici 头部上限与 max-rows 1000
+    const batches = [];
+    for (let i = 0; i < ids.length; i += 100) batches.push(ids.slice(i, i + 100));
+    const pages = await this._mapLimit(batches, DB_BATCH_CONCURRENCY, async (batch) => {
+      const { data, error } = await this.supabase
+        .from('strategy_signals')
+        .select('id, token_address, metadata->pointType')
+        .eq('experiment_id', experimentId)
+        .in('id', batch);
+      if (error) throw error;
+      return data || [];
+    });
+    return pages.flat().map((r) => ({
+      signal_id: r.id,
+      token_address: r.token_address,
+      point_type: r.pointType ?? null,
+    }));
   }
 
   /**

@@ -1,4 +1,4 @@
-// 临时冒烟（不进 git）：五层门链展示渲染验证——stub 最小 DOM 加载真实
+// 临时冒烟（不进 git）：四层门链展示渲染验证（2026-11-26 活跃度并入②因子检查层）——stub 最小 DOM 加载真实
 // experiment_signals.js，构造五种分流形状的样例 signal 调 createSignalCard，
 // 断言 pipeline/卡片关键串在场。零 DB 零网络。
 const fs = require('fs');
@@ -30,6 +30,7 @@ function makeEl() {
   };
   return el;
 }
+global.location = { pathname: '/experiment/test-exp/signals' };
 global.window = global;
 global.document = {
   createElement: () => makeEl(),
@@ -59,7 +60,7 @@ function ok(cond, label) {
   else { failed++; console.error('  ❌ FAIL: ' + label); }
 }
 
-// ── 样例工厂：五层 metadata 形状 ──
+// ── 样例工厂：门链 metadata 形状 ──
 const mkSig = (md, extra = {}) => ({
   id: 'sig-1', action: 'buy', signal_type: 'BUY',
   signal_timestamp: '2026-11-18T08:00:00Z',
@@ -76,7 +77,7 @@ function render(md, extra) {
   return card.innerHTML || '';
 }
 
-// ── 形状 A：AF reject_low（五层 pipeline：③红拒、④⑤未到达）──
+// ── 形状 A：AF reject_low（四层 pipeline：②因子放行、③④未到达；活跃度卡照常渲染真判定）──
 {
   const h = render({
     signalGate: sgBase, factorCheck: fcPass,
@@ -85,15 +86,16 @@ function render(md, extra) {
   ok(h.includes('前置活跃度门（第 2 层'), 'A: 活跃度门卡片标题在场');
   ok(h.includes('拒买（low ∧ 非 burst）'), 'A: reject_low path 徽章');
   ok(h.includes('活跃度 low'), 'A: 档位徽章 low');
-  ok(h.includes('信号源门链（五层）'), 'A: pipeline 容器（五层）标题');
+  ok(h.includes('信号源门链（四层）'), 'A: pipeline 容器（四层）标题');
+  ok(!h.includes('信号源门链（五层）'), 'A: 五层标题不渲染');
   ok(h.includes('① 信号触发 ✅'), 'A: 层1 触发');
   ok(h.includes('② 因子检查 ✅'), 'A: 层2 因子放行');
-  ok(h.includes('③ 活跃度 🚫 拒（low）'), 'A: 层3 活跃度拒');
-  ok(h.includes('④ 作弊 — 未到达'), 'A: 层4 未到达');
-  ok(h.includes('⑤ BP 买点 — 未到达'), 'A: 层5 未到达');
+  ok(!h.includes('③ 活跃度'), 'A: 活跃度流水线段已移除（并入②）');
+  ok(h.includes('③ 作弊 — 未到达'), 'A: 层3 作弊未到达');
+  ok(h.includes('④ BP 买点 — 未到达'), 'A: 层4 BP 未到达');
 }
 
-// ── 形状 B：high_skip（③跳过 ④被跳过 ⑤ BP neutral 放行成交）──
+// ── 形状 B：high_skip（③作弊被活跃度门跳过 ④ BP neutral 放行成交）──
 {
   const h = render({
     signalGate: sgBase, factorCheck: fcPass,
@@ -101,16 +103,15 @@ function render(md, extra) {
     cheatCheck: { status: 'skipped_by_act_front', path: 'high_skip', act: 'high', sbw: 'none', wash: 'none', version: 'AF1', levels: { stallBurstWave: null } },
     buyPoint: { status: 'assessed', passed: true, assessment: { bucket: 'neutral', prob: 0.72, rule: 'gates_passed' }, dimensions: { market_pattern: { bucket: 'none', prob: 0.9 } }, anchors: { totalVolumeBnb: 3.2 }, model: 'fake', usage: { input_tokens: 100, output_tokens: 50 } },
   }, { executed: true, execution_status: 'executed', failure_message: null });
-  ok(h.includes('③ 活跃度 ⏭ high·跳过作弊'), 'B: 层3 high 跳过');
-  ok(h.includes('④ 作弊 ⏭ 被③跳过'), 'B: 层4 被跳过');
-  ok(h.includes('⑤ BP 买点 🟡 neutral'), 'B: 层5 neutral 过');
-  ok(h.includes('被③活跃度门跳过'), 'B: 作弊卡跳过徽章');
+  ok(h.includes('③ 作弊 ⏭ 被活跃度门跳过'), 'B: 层3 作弊被跳过');
+  ok(h.includes('④ BP 买点 🟡 neutral'), 'B: 层4 neutral 过');
+  ok(h.includes('被活跃度门跳过'), 'B: 作弊卡跳过徽章');
   ok(h.includes('分流 path=high_skip'), 'B: 跳过卡 path 留痕');
-  ok(h.includes('跳过④作弊门 → 直进⑤'), 'B: path 徽章文案');
+  ok(h.includes('跳过③作弊门 → 直进④'), 'B: path 徽章文案');
   ok(h.includes('活跃度 high'), 'B: 档位徽章 high');
 }
 
-// ── 形状 C：mid_full 全链过（③走全链 ④healthy ⑤neutral）──
+// ── 形状 C：mid_full 全链过（③healthy ④neutral）──
 {
   const h = render({
     signalGate: sgBase, factorCheck: fcPass,
@@ -118,16 +119,15 @@ function render(md, extra) {
     cheatCheck: { status: 'graded', grade: 'healthy', cached: false, reasons: [], levels: {}, buckets: { activityLevel: 'mid', stallBurstWave: 'none' } },
     buyPoint: { status: 'assessed', passed: true, assessment: { bucket: 'neutral', prob: 0.66, rule: 'gates_passed' }, dimensions: {}, anchors: {}, model: 'fake', usage: {} },
   }, { executed: true, execution_status: 'executed', failure_message: null });
-  ok(h.includes('③ 活跃度 ✅ mid·走全链'), 'C: 层3 mid 走全链');
-  ok(h.includes('④ 作弊 ✅ healthy'), 'C: 层4 healthy');
-  ok(h.includes('⑤ BP 买点 🟡 neutral'), 'C: 层5 neutral');
-  ok(h.includes('mid → 照走④全链'), 'C: path 徽章');
+  ok(h.includes('③ 作弊 ✅ healthy'), 'C: 层3 healthy');
+  ok(h.includes('④ BP 买点 🟡 neutral'), 'C: 层4 neutral');
+  ok(h.includes('mid → 照走③全链'), 'C: path 徽章');
   ok(h.includes('作弊盘检测门（第 3 层'), 'C: 作弊卡标题第 3 层');
   ok(h.includes('BP 买入点位门（第 4 层'), 'C: BP 卡标题第 4 层');
   ok(h.includes('因子购买前检查门（第 1 层'), 'C: 因子卡标题第 1 层');
 }
 
-// ── 形状 D：burst_exempt（low∧burst 豁免跳过）──
+// ── 形状 D：burst_exempt（low∧burst 豁免跳过作弊直进 BP）──
 {
   const h = render({
     signalGate: sgBase, factorCheck: fcPass,
@@ -135,8 +135,8 @@ function render(md, extra) {
     cheatCheck: { status: 'skipped_by_act_front', path: 'burst_exempt', act: 'low', sbw: 'burst', version: 'AF1', levels: { stallBurstWave: 1 } },
     buyPoint: { status: 'assessed', passed: true, assessment: { bucket: 'neutral', prob: 0.7, rule: 'gates_passed' }, dimensions: {}, anchors: {}, model: 'fake', usage: {} },
   }, { executed: true, execution_status: 'executed', failure_message: null });
-  ok(h.includes('③ 活跃度 ⏭ low·burst 豁免'), 'D: 层3 burst 豁免');
-  ok(h.includes('burst 豁免 → 跳过④直进⑤'), 'D: path 徽章');
+  ok(h.includes('③ 作弊 ⏭ 被活跃度门跳过'), 'D: 层3 作弊被跳过');
+  ok(h.includes('burst 豁免 → 跳过③直进④'), 'D: path 徽章');
   ok(h.includes('停滞突发波 burst'), 'D: sbw 徽章');
 }
 
@@ -148,22 +148,21 @@ function render(md, extra) {
     buyPoint: { status: 'assessed', passed: true, assessment: { bucket: 'neutral', prob: 0.8, rule: 'gates_passed' }, dimensions: {}, anchors: {}, model: 'fake', usage: {} },
   }, { executed: true, execution_status: 'executed', failure_message: null });
   ok(h.includes('② 因子检查 — 未启用·直通'), 'E: 层2 灰度关直通');
-  ok(h.includes('③ 活跃度 — 未启用·直通'), 'E: 层3 灰度关直通');
+  ok(h.includes('③ 作弊 ✅ healthy'), 'E: 层3 healthy');
   ok(!h.includes('前置活跃度门（第 2 层'), 'E: AF 段缺席卡片不渲染（零痕迹）');
   ok(!h.includes('因子购买前检查门（第 1 层'), 'E: 因子 disabled 卡片不渲染');
 }
 
-// ── 形状 F：AF 检测层故障（timeout fail-open 进 cheat，cheat unhealthy 拒）──
+// ── 形状 F：AF 检测层故障（timeout fail-open 进作弊，cheat unhealthy 拒）──
 {
   const h = render({
     signalGate: sgBase, factorCheck: fcPass,
     actFrontGate: { status: 'timeout_fail_open' },
     cheatCheck: { status: 'graded', grade: 'unhealthy', cached: false, reasons: [{ code: 'E_low_activity' }], levels: {}, buckets: { activityLevel: 'low' }, unhealthyGrades: 2 },
   });
-  ok(h.includes('③ 活跃度 ⏱ 超时·放行') || h.includes('③ 活跃度 ⚠ 故障·放行'), 'F: 层3 故障放行');
   ok(h.includes('前置活跃度门（第 2 层'), 'F: AF 故障卡片渲染');
-  ok(h.includes('④ 作弊 🚫 unhealthy'), 'F: 层4 unhealthy 拒');
-  ok(h.includes('fail-open 放行进④作弊门全链'), 'F: 故障说明文案');
+  ok(h.includes('③ 作弊 🚫 unhealthy'), 'F: 层3 unhealthy 拒');
+  ok(h.includes('fail-open 放行进③作弊门全链'), 'F: 故障说明文案');
 }
 
 // ── 形状 G：T202 策略库形状——包腿物化后条件表达式+因子 chips 恢复展示（异步）──
@@ -209,6 +208,6 @@ function render(md, extra) {
   ok(!g3h.includes('买入条件配置'), 'G3: 条件配置行不渲染');
   global.fetch = _fetch;
 
-  console.log(`\n${failed === 0 ? '✅' : '❌'} 五层展示冒烟：${passed} 通过 / ${failed} 失败`);
+  console.log(`\n${failed === 0 ? '✅' : '❌'} 四层展示冒烟：${passed} 通过 / ${failed} 失败`);
   process.exit(failed === 0 ? 0 : 1);
 })();
