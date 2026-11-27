@@ -489,8 +489,8 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
   const HIGH = { actTotalBnb30s: 1.2, actTraders: 5 };
   const MID = { actTotalBnb30s: 0.6, actTraders: 2 };
   const BURST = { actTotalBnb30s: 0.3, actTraders: 3, burstStallMs: 45000, burstWaveSec: 4, burstWaveBuyBnb: 0.35, burstWaveBuyN: 3, burstWaveSellBnb: 0 };
-  check('H1 版本 PT62；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
-    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT62');
+  check('H1 版本 PT63；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
+    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT63');
     assert.deepStrictEqual(IDS.slice(-4), [...ACT, 'normal']);
     for (const id of ACT) assert.strictEqual(R.POINT_TYPES.find((t) => t.id === id).active, true, `${id} 须激活`);
     assert.ok(IDS.indexOf('activity_high') > IDS.indexOf('market_maker_rhythm_pit'), '须排在做市节奏之后');
@@ -546,6 +546,13 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
     // 浅坑票 78 不豁免（mcapFP 55 改 45）
     const MM3 = { ...MM, blockGapLe1Pct64: 78, mcapFromPeakPct: 45 };
     assert.notStrictEqual(classifyPointType(MM3).type, 'market_maker_rhythm_pit');
+    // PT63 v9 回滚反证锁：chg3Pct 秒级暴跌地板已撤（bt-v318 A/B 否决——切 22 票含
+    // 7 正 −2.36 vs 15 负只省 +0.90，深坑票 chg3 回正时龄窗/节奏键已衰减永久错过），
+    // chg3 极端负值不得影响 MM 分类；「买入前 block 涨跌」rbd 地板同轮扫描否决不入条件
+    const MM4 = { ...MM, chg3Pct: -20 };
+    assert.strictEqual(classifyPointType(MM4).type, 'market_maker_rhythm_pit');
+    const MM5 = { ...MM, recentBlockDropPct: 63.4 };
+    assert.strictEqual(classifyPointType(MM5).type, 'market_maker_rhythm_pit');
     const TR = { tokenAgeSec: 120, currentVsLaunchPct: 55, priceMa60SlopePct: 20, actTotalBnb30s: 1.0, actTotalBnb: 0.2, athVsFloorPct: 100, actTraders: 6 };
     assert.strictEqual(classifyPointType(TR).type, 'steady_trend_climb');
   });
