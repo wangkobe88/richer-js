@@ -2125,6 +2125,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         // policy 线穿四门 ctx（挂 resume 块外：续跑路径同样分类——T203b 同款作用域
         // 事故防线，块内 const 块外不可见）；metadata pointType 段（类型+版本+因子快照）
         const _ptInfo = this._classifyPointType(factorResults);
+        // T240 做市专属卖腿：分类结果同步盖到内存 signal 对象（_updateSignalMetadata
+        // 只写 DB/buffer，成交挂钩读的是内存对象——不盖章 markBoughtByPointType
+        // 恒 null，卖腿惰性失效；bt-v323 Δ=0 事故根因）
+        if (_ptInfo && signal && signal.metadata) {
+          signal.metadata.pointType = _ptInfo;
+        }
         if (_ptInfo && signalId) {
           try {
             await this._updateSignalMetadata(signalId, { pointType: _ptInfo });

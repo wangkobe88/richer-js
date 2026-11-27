@@ -82,4 +82,15 @@ check('F. 重启回填：setBuyState 不覆盖标记、补标后生效', () => {
   assert.strictEqual(f.boughtByPointType, 'market_maker_rhythm_pit', 'F2 回填生效');
 });
 
-console.log(`全部通过 ${passed}/6`);
+// G. 事故反证源码锁（bt-v323 Δ=0 根因：分类只写 DB/buffer，内存 signal 未盖章 →
+//    成交挂钩 markBoughtByPointType 恒 null）——两引擎必须有分类后盖章行
+check('G. 源码锁：两引擎分类后盖章 signal.metadata.pointType（bt-v323 Δ=0 反证）', () => {
+  const fs = require('fs');
+  const path = require('path');
+  for (const f of ['FourMemeWssTradingEngine.js', 'BacktestEngine.js']) {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'trading-engine', 'implementations', f), 'utf8');
+    assert.ok(src.includes('signal.metadata.pointType = _ptInfo;'), `${f} 缺盖章行`);
+  }
+});
+
+console.log(`全部通过 ${passed}/7`);
