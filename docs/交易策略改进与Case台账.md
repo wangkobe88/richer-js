@@ -2775,4 +2775,10 @@ AND actTotalBnb30s <= 40
 
 **用户裁定「好，落吧」**（shortWin≤40 单轴）。**bt-v321 引擎 A/B 否决**：60 票/胜率 31.7%/+3.1714 vs v10 66 票/30.3%/+3.6310 = **净 −0.4597**——**DYOR 又被切**：v321 零 DYOR 信号行，signal metadata trendFactors 实证引擎 fire 时刻 **shortWin=51.07** vs 我的重放 23.98（其余键全对齐：actNewTraders 14/age 23.2/tps 3.36/curVs 57.97）。**根因=净买环是「到达序尾 20 笔」的快变量**——同毫秒多笔 tick 时尾窗差 2 笔比率翻倍，fire 点重放无法对齐引擎真实 fire tick。**结构性教训：慢变量键（curVs/买家人数累计）fire 点扫描可信（v10 兑现 94%）、快变量键（净买环）不可信**（v11 贴线教训之外的第二个扫描失效模式）。已回滚 PT68=v10 形状。
 
+### T240 十八修：GMGN 画像保护臂引擎兑现（PT69，2026-11-27；commit d97e3a71；pack v51）
+
+**用户提案**：「GMGN 的钱包比例因子也可以试试，作为一个保护」。**载体**：FA 新键 `gmgnProfiledBuyerPct`=全史买家中 GMGN 画像库命中占比 %（wallet=sender||trader；画像地址=`gmgn_wallet_profiles` 表全量快照 → `config/rosters/gmgn-profiled-wallets.json` 5271 址，182 生成 commit，fail-open 空 Set=保护门全开；单测 `_test_gmgn_profiled_pct.cjs` 8 断言：精确值/无买家 null/空名单 0/未加载 0/trader 兜底/乱序收敛/探针/loader）；条件臂 `(gmgnProfiledBuyerPct <= 80 OR gmgnProfiledBuyerPct IS NULL)`。扫描口径（v315/v319 fire 点重放）：≥86% 的 4 张全负（人生决策 86/抖音 90/WechatSI 95/JACKET 100）、赢家天花板 SXSI 74、**DYOR 全史 64.3 距线 15.7pt（近 10s 口径 78.6 贴线故用全史）**；v10 之上边际≈+0.07（抖音/JACKET 已被 curVs 切）；买额口径否决（SXSI 买额 90 会切头冠）。
+
+**bt-v322 引擎 A/B 兑现**：**65 票/胜率 30.8%/+3.6630/ROI 28.18%** vs v10 66 票/30.3%/+3.6310 = **Δ +0.0319**——切 1 票 WechatSI −0.032（正是 ≥80% 带幸存票，95% 画像命中）、换点 0、误伤 0。保护臂零成本微增；人生决策（重放 86%）引擎 fire 时刻落线内未切=慢变量键（买家人数累计）扫描对齐度高。**现行最优=v13（PT69，pack v51）**。⚠回测前视=画像库「现在」快照（与各名单同款近似）。
+
 
