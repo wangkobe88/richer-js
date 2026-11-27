@@ -2673,3 +2673,27 @@ AND (anchorTickIsBuy == 1 OR anchor15sMaxBuyBnb >= 0.03)  -- 反弹确认（PT9�
 - 单测：`_test_act_judge` 32（题面真实样本转写断言+判序真值表+sbw 量级/跨度/尘埃边界）、`_test_factor_responders` 136（F8/G1 判档期望+挂点参数锁）、`_test_strategy_pack` 82 版本钉。
 
 **余留**：①wash 维度暂 null（Jev reject_wash 面极小，标定后单独立项）；②金狗 6 误伤是否单独处置待裁定；③「节奏稀疏笔均尘埃」腿对 24h 窗口的边际待攒批观察。
+
+### T240 三修（PT54，2026-11-27 用户 review 全局 fire 集后「先修一波」；commit 3550d7ae）
+
+**背景**：w1003 全局 48h 窗（bt-v310，v35）p20 实证 **PnL −8.83 BNB/胜率 12.3%**（金狗 +3.90=幸存者样本）；用户建 p20 全局 fire 集合（433 票，42c55a58…）+ 集合回测 bt-v311 复现 −8.8268 → 分批 review 信号页。用户观察三连：①「价格应该可以再压一下」②「到过很高的点位、从高点砸下来不接」（整体跌势）③「损失票前期/点位活跃度太高，估计 ultra；好票都有小冷却期，特别热不买」。
+
+**数据裁定（fire 点扫描，最终引擎 A/B 为准）**：
+- ①压价=**坑加深 mcapFP 30→40**（正率 11.1→13.8%、fwd600 中位 −34.7→−29.9%、右尾保住 14/26）；**降 curVs 帽否决**（赢家 curVs 中位 117.7 > 输家 65.4——低价段=死亡螺旋主场，帽 150 切 10/26 右尾）
+- ②**前期过热否决臂** (athVsLaunchPct<400 ∨ chg30Pct>20)：用户标签 10/10「前期过热/涨太高」坐实；athVs 单键不分离（赢家中位 234>输家 132），与 chg30 联立=「到过高点且无反弹」形状——切 5 负 2 正零右尾（BTI/超智/Realcoin/JACKET/BDARK）
+- ③**点位活动度帽（窗级）数据否决**：赢家 fire 更热（actBuyBnb 4.8 vs 输家 2.84、actBuyers 22 vs 14、act30s≤6 零赢家）——「过热」在前期（athVs 承载）不在点位；quietSpan 冷却对秒级做市票恒 0，「小冷却」=深坑本身
+- ④**极端热帽 actTotalBnb30s≤40**（用户追问 ultra 档+「卖出也算进去」）：T244 因子化部件只有高/中/burst 三档，ultra 档在 cheat 快照 D3.2 密度线（≥140 笔/分=2.33/s）——p20 全族 100% ultra 无判别力；**买卖合计资金强度极端尾部**（actTotalBnb30s≥40：12 张零正零右尾——躺赢×3 最高 4128/大结果 2208/CROCS 1540；每秒口径 psTotal≤5 切同族 8 张零正，2.56~23.5 空档线稳）
+- ⑤earlyReturn≤30 辅助臂移除（扫描零边际）；**双轨** (mcapFP≥50 ∨ chg30≥40) 防误切深坑企稳型（金狗 DYOR chg30=6/memeless 13.7）
+
+**v3 条件全文**（腿+类型同改，PT53→PT54）：
+```
+tokenAgeSec >= 3 AND tokenAgeSec <= 60
+AND actTotalBnb >= 0.1
+AND tradesPerSecSinceLaunch >= 1.5 AND blockGapLe1Pct64 >= 85
+AND mcapFromPeakPct >= 40
+AND currentVsLaunchPct <= 200
+AND (athVsLaunchPct < 400 OR chg30Pct > 20)
+AND (mcapFromPeakPct >= 50 OR chg30Pct >= 40)
+AND actTotalBnb30s <= 40
+```
+金狗兼容性逐票核对：MINI CAO/BABYSTAR/puter/memeless/DYOR/SXSI 全保住；标注过热票 11 张切 5（BTI 否决臂/思艾/UNI/超智/STAND mcapFP<40）；fire 点粗估 PnL −8.83→+3.09（保留 85 票 19 正 66 负）。**余留**：引擎 A/B=bt-v312（集合通道，3c72fdd3…）对拍 bt-v311；标注「深跌冷却再启动」赢家形状（DYOR/Faceless/oddspad）与「前期过热」输家形状已入 case_token_tags 全局标签。
