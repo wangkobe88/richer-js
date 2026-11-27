@@ -489,8 +489,8 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
   const HIGH = { actTotalBnb30s: 1.2, actTraders: 5 };
   const MID = { actTotalBnb30s: 0.6, actTraders: 2 };
   const BURST = { actTotalBnb30s: 0.3, actTraders: 3, burstStallMs: 45000, burstWaveSec: 4, burstWaveBuyBnb: 0.35, burstWaveBuyN: 3, burstWaveSellBnb: 0 };
-  check('H1 版本 PT64；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
-    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT64');
+  check('H1 版本 PT65；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
+    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT65');
     assert.deepStrictEqual(IDS.slice(-4), [...ACT, 'normal']);
     for (const id of ACT) assert.strictEqual(R.POINT_TYPES.find((t) => t.id === id).active, true, `${id} 须激活`);
     assert.ok(IDS.indexOf('activity_high') > IDS.indexOf('market_maker_rhythm_pit'), '须排在做市节奏之后');
@@ -538,7 +538,7 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
   });
   check('H9 形状类型优先：同一因子表同时满足做市节奏 / 持续趋势形状 → 归形状类型，不被活跃度桶抢走', () => {
     // v3 条件：mcapFP≥40 ∧ curVs≤200 ∧ (athVs<400 ∨ chg30>20) ∧ (mcapFP≥50 ∨ chg30≥40) ∧ act30s≤40
-    const MM = { tokenAgeSec: 30, actTotalBnb: 0.2, tradesPerSecSinceLaunch: 2, blockGapLe1Pct64: 90, mcapFromPeakPct: 55, currentVsLaunchPct: 150, athVsLaunchPct: 200, chg30Pct: 50, chg10Pct: 10, chg5Pct: -5, chg3Pct: 0, chg60Pct: 20, chg300Pct: 30, actTotalBnb30s: 2, actTraders: 8, ...BURST };
+    const MM = { tokenAgeSec: 30, actTotalBnb: 0.2, tradesPerSecSinceLaunch: 2, blockGapLe1Pct64: 90, mcapFromPeakPct: 55, currentVsLaunchPct: 150, athVsLaunchPct: 200, chg30Pct: 50, chg10Pct: 10, chg5Pct: -5, chg3Pct: 0, chg60Pct: 20, chg300Pct: 30, actTotalBnb30s: 2, actTraders: 8, actNewTraders: 20, tradesNetBuyRatioShortWin: -50, ...BURST };
     assert.strictEqual(classifyPointType(MM).type, 'market_maker_rhythm_pit');
     // v5 深坑冷却豁免臂：mcapFP≥50 时 gapLe1 75-84 也命中
     const MM2 = { ...MM, blockGapLe1Pct64: 78 };
@@ -561,6 +561,18 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
     assert.notStrictEqual(classifyPointType(MM7).type, 'market_maker_rhythm_pit');
     const MM8 = { ...MM, currentVsLaunchPct: null };
     assert.notStrictEqual(classifyPointType(MM8).type, 'market_maker_rhythm_pit');
+    // PT65 v11 死票/追高双键：actNewTraders≥15 ∧ shortWin≤40（fire 点面板 AUC 0.88/
+    // 倒置——赢家=砸盘尾段+新钱包涌入）；15/40 恰在线上过、14/41 出线回落、null fail-closed 拒
+    const MM9 = { ...MM, actNewTraders: 15, tradesNetBuyRatioShortWin: 40 };
+    assert.strictEqual(classifyPointType(MM9).type, 'market_maker_rhythm_pit');
+    const MM10 = { ...MM, actNewTraders: 14 };
+    assert.notStrictEqual(classifyPointType(MM10).type, 'market_maker_rhythm_pit');
+    const MM11 = { ...MM, tradesNetBuyRatioShortWin: 41 };
+    assert.notStrictEqual(classifyPointType(MM11).type, 'market_maker_rhythm_pit');
+    const MM12 = { ...MM, actNewTraders: null };
+    assert.notStrictEqual(classifyPointType(MM12).type, 'market_maker_rhythm_pit');
+    const MM13 = { ...MM, tradesNetBuyRatioShortWin: null };
+    assert.notStrictEqual(classifyPointType(MM13).type, 'market_maker_rhythm_pit');
     const TR = { tokenAgeSec: 120, currentVsLaunchPct: 55, priceMa60SlopePct: 20, actTotalBnb30s: 1.0, actTotalBnb: 0.2, athVsFloorPct: 100, actTraders: 6 };
     assert.strictEqual(classifyPointType(TR).type, 'steady_trend_climb');
   });
