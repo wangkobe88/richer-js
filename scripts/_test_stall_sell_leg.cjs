@@ -13,7 +13,8 @@ const { BacktestEngine } = require('../src/trading-engine/implementations/Backte
 const fs = require('fs');
 
 const { STALL_SIGNATURE_FACTOR, STALL_BASE_SEC, STALL_ALMOST_SEC, STALL_ALMOST_LAUNCH_PCT,
-    DEFAULT_STALLED_SCAN_AFTER_SEC, buildStallLegCondition, isStallSellLeg, stallTriggerContext } = stallLeg;
+    DEFAULT_STALLED_SCAN_AFTER_SEC, buildStallLegCondition, buildStallLegConditionTier90,
+    buildStallLegConditionTier55, isStallSellLeg, stallTriggerContext } = stallLeg;
 
 let pass = 0, fail = 0;
 function check(name, fn, expected) {
@@ -84,6 +85,32 @@ const evalCond = (cond, f) => new StrategyEngine({}).evaluateCondition(cond, f);
         ok(evalCond(C, F(55, -5)) === false, 'A9 55s ∧ curVs −5（破发）→ almost 域内不触发（breakdown 档已撤回不回迁）');
         ok(evalCond(C, F(89.9, 5)) === false, 'A10 89.9s ∧ almost 域 → 不触发（延长未耗尽）');
         ok(evalCond(C, F(90, 10.1)) === true, 'A11 90s ∧ curVs 10.1（域外）→ 基础档触发（第二臂）');
+    }
+
+    // ═══════════════ A2. 拆臂版（2026-11-27 用户指令「拆分两臂，不要用 OR 连接」）═══════════════
+    console.log('A2. 拆臂版双臂互斥等价（tier90/tier55 与 OR 版逐位等价）');
+    {
+        const C = buildStallLegCondition();
+        const C90 = buildStallLegConditionTier90();
+        const C55 = buildStallLegConditionTier55();
+        const F = (idle, curVs) => ({ idleSecSinceLastSubstantialTick: idle, currentVsLaunchPct: curVs });
+        const grid = [
+            [null, 5], [54.9, 5], [55, 50], [55, null], [70, 5], [90, 5], [90, 10],
+            [55, 10], [55, -5], [89.9, 5], [90, 10.1], [300, null], [300, 3], [300, 30],
+        ];
+        for (const [idle, curVs] of grid) {
+            const orV = evalCond(C, F(idle, curVs));
+            const v90 = evalCond(C90, F(idle, curVs));
+            const v55 = evalCond(C55, F(idle, curVs));
+            ok((v90 || v55) === orV, `A2-grid idle=${idle} curVs=${curVs}：90臂=${v90} 55臂=${v55} 并集=${v90 || v55} OR版=${orV} 逐位等价`);
+            if (v90 && v55) throw new Error(`A2 互斥破坏：idle=${idle} curVs=${curVs} 双臂同真`);
+        }
+        ok(evalCond(C90, F(90, 10)) === true && evalCond(C55, F(90, 10)) === false, 'A2-1 90s∧curVs10：almost 臂独占（≤ 语义）');
+        ok(evalCond(C55, F(90, null)) === true && evalCond(C90, F(90, null)) === false, 'A2-2 90s∧curVs null：基础臂独占（IS NULL 臂）');
+        ok(evalCond(C55, F(55, 10.1)) === true && evalCond(C90, F(55, 10.1)) === false, 'A2-3 55s∧域外：基础臂独占');
+        ok(evalCond(C90, F(70, 5)) === false && evalCond(C55, F(70, 5)) === false, 'A2-4 70s∧almost 域：双臂均不触发（延长中）');
+        ok(isStallSellLeg({ condition: C90 }) && isStallSellLeg({ condition: C55 }), 'A2-5 两臂均带 stall 签名（filter 管辖/recoveryHold 豁免同款成立）');
+        ok(stallTriggerContext(F(90, 5)).tier === 'almost' && stallTriggerContext(F(90, null)).tier === null, 'A2-6 tier 派生两臂同款（metadata 形状零改动）');
     }
 
     // ═══════════════ B. FA 水位键 idleSecSinceLastSubstantialTick ═══════════════

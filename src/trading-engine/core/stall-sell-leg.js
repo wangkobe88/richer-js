@@ -51,6 +51,23 @@ function buildStallLegCondition() {
         + ` AND (currentVsLaunchPct > ${STALL_ALMOST_LAUNCH_PCT} OR currentVsLaunchPct IS NULL))`;
 }
 
+/**
+ * 拆分双臂（2026-11-27 用户指令「可以拆分两臂，不要用 OR 连接」）：
+ * 单腿 OR 版拆成两条独立卖腿（各自落信号行=分档统计/分别 review），
+ * 真值表与 buildStallLegCondition 逐位等价、两臂互斥（curVs≤10∧idle≥90 归 almost 臂；
+ * curVs>10∨null∧idle≥55 归基础臂）——互斥性由 almost 臂的 curVs 上界 + 基础臂的
+ * curVs 下界/IS NULL 双臂结构保证。isStallSellLeg 签名（含
+ * idleSecSinceLastSubstantialTick）与 stallTriggerContext tier 派生对两臂同款成立。
+ */
+function buildStallLegConditionTier90() {
+    return `idleSecSinceLastSubstantialTick >= ${STALL_ALMOST_SEC} AND currentVsLaunchPct <= ${STALL_ALMOST_LAUNCH_PCT}`;
+}
+
+function buildStallLegConditionTier55() {
+    return `idleSecSinceLastSubstantialTick >= ${STALL_BASE_SEC}`
+        + ` AND (currentVsLaunchPct > ${STALL_ALMOST_LAUNCH_PCT} OR currentVsLaunchPct IS NULL)`;
+}
+
 /** 腿原文读取（factor-sell-filter legConditionText 同款双形状兼容：AST 腿读
  *  conditionText、字符串腿读 condition） */
 function legConditionTextOf(leg) {
@@ -91,6 +108,8 @@ module.exports = {
     STALL_ALMOST_LAUNCH_PCT,
     DEFAULT_STALLED_SCAN_AFTER_SEC,
     buildStallLegCondition,
+    buildStallLegConditionTier90,
+    buildStallLegConditionTier55,
     isStallSellLeg,
     stallTriggerContext,
 };
