@@ -2779,6 +2779,10 @@ AND actTotalBnb30s <= 40
 
 **用户提案**：「GMGN 的钱包比例因子也可以试试，作为一个保护」。**载体**：FA 新键 `gmgnProfiledBuyerPct`=全史买家中 GMGN 画像库命中占比 %（wallet=sender||trader；画像地址=`gmgn_wallet_profiles` 表全量快照 → `config/rosters/gmgn-profiled-wallets.json` 5271 址，182 生成 commit，fail-open 空 Set=保护门全开；单测 `_test_gmgn_profiled_pct.cjs` 8 断言：精确值/无买家 null/空名单 0/未加载 0/trader 兜底/乱序收敛/探针/loader）；条件臂 `(gmgnProfiledBuyerPct <= 80 OR gmgnProfiledBuyerPct IS NULL)`。扫描口径（v315/v319 fire 点重放）：≥86% 的 4 张全负（人生决策 86/抖音 90/WechatSI 95/JACKET 100）、赢家天花板 SXSI 74、**DYOR 全史 64.3 距线 15.7pt（近 10s 口径 78.6 贴线故用全史）**；v10 之上边际≈+0.07（抖音/JACKET 已被 curVs 切）；买额口径否决（SXSI 买额 90 会切头冠）。
 
+### 回测写缓冲跨批丢 metadata 修复（2026-11-27 用户裁定「修」；commit ebc6d1e3）
+
+**案源**：bt-v328 全窗 run 570 买信号中 29 个初始键全丢（strategyId/strategyName/signalGate/pointType 段缺失；25 个连 pointType 更新键也被吞）——signals 页误显示「模块未启用/无触发行」。**根因**（前身 bt-v274 27/900 同源，P4c「跨批分离理论不可达」被 T203 fpRetry 跨 tick 写入证伪）：写缓冲跨批 flush 后，`.update(updateData)` 整列覆盖 metadata，只带部分键的更新把 insert 已落库的初始键抹掉。**修复**：`BacktestWriteBuffer` 加 per-signal 全量 metadata 累计器 `_signalMetaAcc`（insert 播种+update 持续合并后写键胜+update 恒发全量）。**验证**：bt-v329 全窗复跑逐位一致（570 票/38.6%/+13.8967 与 v328 同值=修复不改行为）+ 买信号 570/570 署名、0 匿名、0 无 pointType；单测 H 段锁改新行为 31/31。存量旧行缺段不可恢复。
+
 ### T240 十九修：做市形态破位专属卖腿 mmShapeBreak（PT69 不变/pack v53，2026-11-27；commit dcf03b89；A/B=bt-v323 检验中）
 
 **用户裁定**：「走这一臂的，一旦明显失去了做市商形态，就得卖出，不能等流动性彻底枯竭」。**形态破位研究**（p20 34 票入场后轨迹重放）：「破位即卖」会误杀赢家——赢家 10/15 也出现 gapLe1<60 破位（DYOR +50s/Faceless +75s）但那是**洗盘停顿**，破位时刻赢家**全部浮盈 +18%~+157%**；输家 7 张破位**全部浮亏 −12%~−58%**且持续 360~755s 永不恢复。**分野=破位时刻浮亏**。
