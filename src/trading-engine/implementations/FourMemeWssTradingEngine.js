@@ -1488,6 +1488,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           buyPriceUsd: anchor.buyPriceUsd,
           buyTime: anchor.buyTime,
         });
+        // T240 做市专属卖腿：重启恢复持仓回填买入臂（trade metadata 携带；缺=null no-op）
+        this._factorAggregator.markBoughtByPointType(tokenAddress, anchor.pointType || null);
         this._restoreAnchors.delete(tokenAddress);
         this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
           `重启持仓锚点已落位 | ${token.symbol || tokenAddress} buyPriceUsd=${anchor.buyPriceUsd} ` +
@@ -2606,6 +2608,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           buySignalAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : Date.now(),
           buyExecutedPriceBnb: result.priceBnb ?? null,
         });
+        // T240 做市专属卖腿：买入臂 pointType 写一次（买成交点；写失败/无类型 no-op）
+        this._factorAggregator.markBoughtByPointType(token.token,
+          signal?.metadata?.pointType?.type || null);
 
         // 毕业竞态补卖（盘古案 2026-09-28，virtual）：graduation 事件先于买入到达时
         // _handleGraduation 因 status!=='bought' no-op，买入即断流冻结。买入成功点查
@@ -3519,7 +3524,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         amount: tokenAmount,
         price: price,
         signalId: signalId,
-        metadata: { ...metadata, ...(cardTrade ? { cardTrade } : {}) },
+        metadata: {
+          ...metadata,
+          ...(signal?.metadata?.pointType?.type ? { pointType: signal.metadata.pointType.type } : {}),
+          ...(cardTrade ? { cardTrade } : {}),
+        },
       });
       if (result && result.success) {
         if (cardTrade) {
@@ -4269,6 +4278,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           buySignalAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : Date.now(),
           buyExecutedPriceBnb: result.priceBnb ?? null,
         });
+        // 手工买无 pointType → no-op（T240 卖腿判臂键保持 null=惰性）
+        this._factorAggregator.markBoughtByPointType(tokenAddress,
+          signal?.metadata?.pointType?.type || null);
         // C166 账号复检重置：再买入=重新开始（防 sold→rebuy 陈旧账号态首 tick 误卖）
         this._resetAccountRecheckFor(tokenAddress);
         // T116 GMGN 进场验证重置（同款双保险）
@@ -5117,7 +5129,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const buyPriceUsd = avgPriceUsd || lastBuy?.priceUsd || 0;
       this._tokenPool.markAsBought(tokenAddress, 'bsc', { buyPrice: buyPriceUsd, buyTime });
       // FA 锚点：USD 价用账面记录，BNB 锚点等重启后首个可靠 tick 落位（_onFactorsUpdated 内处理）
-      this._restoreAnchors.set(tokenAddress, { buyPriceUsd, buyTime });
+      this._restoreAnchors.set(tokenAddress, { buyPriceUsd, buyTime, pointType: lastBuy?.metadata?.pointType ?? null });
     }
   }
 

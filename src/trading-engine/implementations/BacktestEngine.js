@@ -3064,6 +3064,10 @@ class BacktestEngine extends AbstractTradingEngine {
           // 公式 bit 一致）；回测执行=信号价无独立执行价 → buyExecutedPriceBnb 缺省 null
           buySignalAt: nowTs,
         });
+        // T240 做市专属卖腿：买入臂 pointType 写一次（买成交点；signal.metadata.pointType
+        // =信号页 pointType 段同源；null=非 pointType 路径 → no-op）
+        this._factorAggregator.markBoughtByPointType(token.token,
+          signal?.metadata?.pointType?.type || null);
         // T189 burst 承接冷盘 arm（t0=虚拟成交时刻；回测无自己链上 tick → own 空）
         // T189b：sbw 未确认 burst 不 arm（资格判定见门链段注释）
         if (this._burstCooldown && t189SbwBurst) {

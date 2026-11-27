@@ -2561,6 +2561,21 @@ class FourMemeFactorAggregator extends EventEmitter {
      *     价无独立真相 → null）
      * @param {string} [positionKey] - 多仓键（默认 'default'）；最新仓决定顶层 buyPrice 族因子
      */
+    /**
+     * T240 做市专属卖腿（2026-11-27 用户裁定「走这一臂的，一旦明显失去了做市商
+     * 形态，就得卖出」）：标记本仓买入臂的 pointType（买成交点引擎调用）。
+     * 写一次：首买臂定终身（buyPhase first 每票只买一次；补买/换臂不覆盖）；
+     * pointType 非字符串/空串 → no-op（不写脏值）。boughtByPointType 因子键由
+     * buildFactorMap 发射（null=未买/非 pointType 路径——卖腿 == 比较恒 false 惰性）。
+     */
+    markBoughtByPointType(tokenAddress, pointType) {
+        const state = this._states.get(tokenAddress);
+        if (!state) return;
+        if (state._boughtByPointType != null) return; // 写一次
+        if (typeof pointType !== 'string' || !pointType) return;
+        state._boughtByPointType = pointType;
+    }
+
     setBuyState(tokenAddress, buyState, positionKey = 'default') {
         const state = this._states.get(tokenAddress);
         if (!state) return;
@@ -2891,7 +2906,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             _lastPositionKey: null,
             // pending fire 峰（2026-10-15 双口径裁定，0xc7fe 案）：fire→成交窗内的冲高
             // 追踪，setBuyState 消费回填 highest/peakProfitPct 后即清；null=无进行中 fire
-            _pendingBuyFire: null,
+            _pendingBuyFire: null,        // T240 做市专属卖腿原料：本仓买入臂的 pointType（写一次，首买臂定终身——
+        // 补买不覆盖；null=未买/非 pointType 路径）。卖腿条件 == 'market_maker_rhythm_pit' 判臂
+        _boughtByPointType: null,
+
 
             // ── 回迁批 1 状态 ──
             _firstBuyAt: null,        // 首笔买 anchor（首块脉冲窗起算）
@@ -5583,6 +5601,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             // _buyerAddresses 全史 Set 的 size——曾买入即计入（清仓不回退），与
             // buyVolumeBnb 同刻同源；GMGN 层 gmgnVisitorsPerBuyer 比值的分母
             buyWallets: state._buyerAddresses.size,
+            // 本仓买入臂 pointType（T240 做市专属卖腿判臂键）：null=未买/非 pointType
+            // 路径；写一次（markBoughtByPointType）。卖腿条件 `boughtByPointType ==
+            // 'market_maker_rhythm_pit'` 判臂——重启恢复由引擎从 trade metadata 回填
+            boughtByPointType: state._boughtByPointType != null ? state._boughtByPointType : null,
             // GMGN 画像买家占比（2026-11-27 T240 做市臂「散户包场保护」原料）：
             // 全史买家中库内画像钱包数占比 %（wallet=sender||trader 同 K 组口径；
             // 名单空 Set=保护门全开恒 0；无买家=null——条件须带 IS NULL 臂 fail-open）。
