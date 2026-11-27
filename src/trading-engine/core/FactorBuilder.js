@@ -280,6 +280,8 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T240 v6 长窗趋势两键（2026-11-27；状态机不可离线重算不落库即丢）
     chg60Pct: factorResults.chg60Pct ?? null,
     chg300Pct: factorResults.chg300Pct ?? null,
+    // T240 v9 微观动量（2026-11-27；状态机不可离线重算不落库即丢）
+    chg3Pct: factorResults.chg3Pct ?? null,
     // T117 信号源 t7 静默段三键（2026-11-05 买入策略整体调整）：FA 状态机不可离线
     // 重算（act* 先例），不落库即丢；quietSurgeSec=波持续秒数（fire 时刻值），
     // 旧 FA 无键 → null 不掩盖

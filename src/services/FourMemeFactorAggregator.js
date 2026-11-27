@@ -5401,6 +5401,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             // chg5Pct=recoveryHold 主判据；chg10Pct/chg30Pct 纯观察（阈值待分布
             // 裁定）；序列空=未见可靠价 null fail-closed（裸比较恒 false 不拦）
             chg5Pct: _chgOfWindow(state._relPriceTrend, 5),
+            // T240 v9 微观动量（2026-11-27 用户裁定「临近买入的数秒在暴跌，或者
+            // 买入时在暴跌」）：3s 窗动量——fire 时刻秒级暴跌形状的唯一分离键
+            // （正票中位 +11.4 vs 负票 −3.0；地板 −5 切 18 票零正票）。
+            // 年轻票无前窗回落首可靠价（与 chg60/300 同口径）
+            chg3Pct: _chgOfWindow(state._relPriceTrend, 3),
             chg10Pct: _chgOfWindow(state._relPriceTrend, 10),
             chg30Pct: _chgOfWindow(state._relPriceTrend, 30),
             // T240 v6 长窗趋势两键（2026-11-27 用户裁定「1 分钟/5 分钟趋势全正，

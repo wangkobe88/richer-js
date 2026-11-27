@@ -131,12 +131,14 @@ console.log('G. chg60Pct/chg300Pct（前窗回落首可靠价口径）');
   const f70 = fa.buildFactorMap('0xtoken', T0 + 70000);
   const exp60 = (Math.pow(1.25, 7) / 1.25 - 1) * 100;
   assert.ok(Math.abs(f70.chg60Pct - exp60) < 0.01, `chg60 精确值 ${f70.chg60Pct} vs ${exp60}`);
+  // chg3（t=70s 末笔 1.25^7 vs 60s 点 1.25^6）→ +25%
+  assert.ok(Math.abs(f70.chg3Pct - 25) < 0.01, `chg3 精确值 ${f70.chg3Pct}`);
   // 无可靠价 null
   const fa2 = new FourMemeFactorAggregator({}, { info(){}, warn(){}, error(){} });
   fa2.registerToken('0xz', { totalSupply: 1e9, symbol: 'Z', creatorAddress: null });
   const fz = fa2.buildFactorMap('0xz', T0 + 1000);
   assert.strictEqual(fz.chg60Pct, null, '无可靠价 null fail-closed');
-  // 探针收键
-  assert.ok(fa.getFactorKeys().has('chg60Pct') && fa.getFactorKeys().has('chg300Pct'), '探针收键');
+  // 探针收键（v9 加 chg3Pct）
+  assert.ok(fa.getFactorKeys().has('chg60Pct') && fa.getFactorKeys().has('chg300Pct') && fa.getFactorKeys().has('chg3Pct'), '探针收键');
   console.log('  ✓ G 组通过');
 }
