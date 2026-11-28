@@ -519,7 +519,11 @@ console.log('\nG. 引擎挂点集成 + 接线源码锁');
     [cnt(bt, /factorMode:\s*_packFactor\('cheatCheck'\)/g), cnt(bt, /factorMode:\s*_packFactor\('buyPointCheck'\)/g), /===\s*FACTOR_GENERATION_KEY/.test(stripComments(bt))],
     [1, 1, true]);
   const abs = read('src/trading-engine/core/AbstractTradingEngine.js');
-  ok('G5 _cheatGateInfo model 键条件携带', stripComments(abs).includes('...(res.model ? { model: res.model } : {})'));
+  // T253 起形状单一出口在 core/gate-layer.js cheatGateInfo（统一门层决策核同款）；引擎方法薄委托
+  const glSrc = read('src/trading-engine/core/gate-layer.js');
+  ok('G5 _cheatGateInfo model 键条件携带（单一出口=gate-layer.js cheatGateInfo；引擎 _cheatGateInfo 薄委托）',
+    stripComments(glSrc).includes('...(res.model ? { model: res.model } : {})')
+    && /_cheatGateInfo\(res\) \{\s*return GL\.cheatGateInfo\(res\);\s*\}/.test(stripComments(abs)));
   // G6 service 源码锁：因子入口先于 Jev 状态机、方法体零 Jev 件
   const svcSrc = stripComments(read('src/market-analysis/CheatCheckService.js'));
   const fcStart = svcSrc.indexOf('async _factorGate(');

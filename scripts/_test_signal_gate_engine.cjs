@@ -682,7 +682,12 @@ console.log('E. 引擎侧源码口径锁（事故形状反证）');
   // 消耗用户裁定）；BacktestEngine signalGateReal 挂点为第二调用域（接线时此处
   // 同步放宽）
   check('_sgRecordTrigger 定义在基类恰 1 处', ABS.split('_sgRecordTrigger').length - 1, 1);
-  check('_sgRecordTrigger FourMeme 调用恰 1 处（门链块）', ENG.split('_sgRecordTrigger').length - 1, 1);
+  // T253 起买路径按 _gateLayerUnified 分派：统一门层分支与原门链各一处记账调用，均在
+  // !opts.resume 之内（fpRetry 续跑不重复记账）；此外无第三处调用
+  check('_sgRecordTrigger FourMeme 调用恰 2 处（统一门层分支 + 原门链，T253）', ENG.split('_sgRecordTrigger').length - 1, 2);
+  ok('两处记账调用都受 !opts.resume 守卫（续跑不重复记账）',
+    ENG.includes('if (!opts.resume) this._sgRecordTrigger(tokenAddress, strategy.id);') &&
+    ENG.includes('if (!opts.resume) {\n        this._sgRecordTrigger(tokenAddress, strategy.id);'));
   ok('无计数回滚形状（源码不含减法回退）',
     !/_sgRecordTrigger[\s\S]{0,40}-\s*1/.test(ENG) && !/_sgRecordTrigger[\s\S]{0,40}-\s*1/.test(ABS));
 

@@ -251,8 +251,13 @@ console.log('\n[D] 引擎胶水源码锁');
   // D5b T203b 作用域锁（bt-v166 首跑事故：块内 const _fp4T0 在块外慢分解段
   // 引用=正常路径全链放行也 ReferenceError→成交前静默炸——「块内 const 块外
   // 恒不可见」与块是否执行无关）：_fp4T0/_fp4Dt 必须 let 声明在 resume 块外
-  ok(/let _fp4T0 = 0, _fp4Dt = 0;[\s\S]{0,900}?if \(!opts\.resume\) \{/.test(bt),
-    '回测：_fp4T0/_fp4Dt 声明在 resume 块外（T203b 作用域修复锁；T216 起中间夹 pointType 分类块同在块外）');
+  // 位置锁（原 900 字符窗口锁自 T216/T240/T253 起多次过期——改为序关系：函数体缩进的 let 声明
+  // 在 _sgRecordTrigger 调用之前，即在任何 resume 块之外）
+  {
+    const declIdx = bt.search(/^ {8}let _fp4T0 = 0, _fp4Dt = 0;/m);
+    const useIdx = bt.indexOf('this._sgRecordTrigger(tokenAddress, strategy.id)');
+    ok(declIdx > 0 && declIdx < useIdx, '回测：_fp4T0/_fp4Dt 声明在 resume 块外（T203b 作用域修复锁：函数体缩进声明先于 resume 块内的 _sgRecordTrigger）');
+  }
   ok(!/if \(!opts\.resume\) \{[\s\S]{0,600}?const _fp4T0/.test(bt),
     '回测：resume 块内无 const _fp4T0（防撕裂回潮）');
   // D6 回测：挂点决策时钟=虚拟 tickTs（tickCheck/重评/续跑全链；perf 仪表的
@@ -268,7 +273,9 @@ console.log('\n[D] 引擎胶水源码锁');
   // D7 共享 glue：登记/重评锚语义
   ok(abs.includes('async _fpRetryOnReject(') && abs.includes('async _fpRetryTick('), '共享 glue 两方法在场');
   ok(abs.includes('__fpRetryInflight') && abs.includes('async __fpRetryTickInner('), '共享 glue 防重入护栏在场（重评 await 期双 tick 不双派发）');
-  ok(/signalCreatedAt: nowMs,\s*\n\s*\.\.\.fpCtx,/.test(abs), '共享 glue：重评 ctx 可注入 anchorMs（回测截窗防前视）');
+  // T245 起重评 ctx 在 signalCreatedAt 与 ...fpCtx 之间夹 fireFactors（T253 统一门层分支再夹
+  // pointTypePolicy）——窗口放宽为「两段重评 ctx 都以 ...fpCtx 收尾」（anchorMs 可注入=回测截窗防前视）
+  ok((abs.match(/signalCreatedAt: nowMs,[\s\S]{0,260}?\.\.\.fpCtx,/g) || []).length >= 2, '共享 glue：重评 ctx 可注入 anchorMs（回测截窗防前视；旧链与统一门层两分支都收 ...fpCtx）');
   ok(abs.includes('fpRetry'), '共享 glue 消费 fpRetry 键');
   // D8 归一化产物含缺省键（loadStrategies/validateLegs 同源）
   const se = fs.readFileSync(path.join(__dirname, '../src/strategies/StrategyEngine.js'), 'utf8');

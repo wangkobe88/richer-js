@@ -432,6 +432,17 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       });
     this._bpGateAwaitMs = Number.isFinite(_bpCfg.gate && _bpCfg.gate.awaitMs)
       && _bpCfg.gate.awaitMs > 0 ? _bpCfg.gate.awaitMs : 15000;
+    // T253 因子过滤门层统一编排（2026-11-28 用户裁定三层模型归位）：仅**全因子代包**启用
+    // ——cheatCheck/actFrontGate/buyPointCheck 三模块皆因子代 ∧ 两门启用 ∧ FP 启用。启用后买信号
+    // 门链走 _gateLayerEvaluate（一次内存取数 → 四门恒算 → 激活集决策）；Jev 代/混代包仍走
+    // 四个旧挂点（回滚基线）。service 构造不动：memSource.enabled 只留给 Jev 代路径，
+    // 统一门层的内存源由 _gateLayerPullTicks 显式决定。
+    this._gateLayerUnified = !!(
+      _packFactor('cheatCheck') && _packFactor('actFrontGate') && _packFactor('buyPointCheck')
+      && this._cheatCheckService.factorMode === true && this._cheatCheckService.enabled
+      && this._buyPointCheckService.factorMode === true && this._buyPointCheckService.enabled
+      && this._buyPointCheckService.factorEnabled
+    );
     // per (token, legId) 触发计数（进程态重启归零——叙事触发状态机同款先例）；
     // 耗尽腿组装排除集传 evaluate（阶梯接棒：t1 耗尽 → t2 顶上）
     this._signalSourceTriggerCounts = new Map();
@@ -1253,6 +1264,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   /** ② cheat 门行环拉数分派（memSource）：单 collector 直取；both 按 token 平台
    *  归属分派对应 collector 环（_liveTraderFor 同款 _platformForToken；平台未知/
    *  环 miss → null，service 回落 DB 路径——绝不跨平台拿错环） */
+  /**
+   * T253 统一门层内存拉数（四门共用一次取数的唯一数据源）：直取 collector per-token 行环
+   * （_cheatRingPull 同款分派；环无该票=行环缺失 → 门层按历史不完整处理，**绝不回落 DB**）。
+   */
+  _gateLayerPullTicks(token) {
+    return this._cheatRingPull(token);
+  }
+
   _cheatRingPull(token) {
     const byPlat = this._collectorsByPlatform;
     if (!byPlat || byPlat.size === 0) return null;
@@ -2146,6 +2165,33 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           }
         }
         const pointTypePolicy = _ptInfo ? _ptInfo.policy : null;
+        // ── T253 因子过滤门层统一编排（全因子代包）：一次内存取数 → 四门恒算 → 激活集决策 ──
+        // 每个信号都算全部门（policy 直通的门照算不拦、前门已拒的后门照算留痕）；metadata 五段
+        // （factorCheck/actFrontGate/cheatCheck/buyPoint/gateLayer）恒在场。续跑（fpRetry 重评过）
+        // 直传重评结果=零二次取数。
+        if (this._gateLayerUnified === true) {
+          if (!opts.resume) this._sgRecordTrigger(tokenAddress, strategy.id);
+          const gl = (opts.resume && opts.resume.gateLayer) ? opts.resume.gateLayer
+            : await this._gateLayerEvaluate(tokenAddress, token, faState, signalId, strategy, factorResults, {
+              firePriceBnb,
+              strategyName: strategy.name,
+              signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
+              pointTypePolicy,
+              fireFactors: factorResults,
+            });
+          t189SbwBurst = gl.t189SbwBurst === true;
+          if (!gl.pass) {
+            // T203 FP 有效拒 → fpRetry>0 时登记 pending（与旧门链同位；续跑路径不重复登记）
+            if (!opts.resume && gl.primary && gl.primary.gate === 'fp') {
+              await this._fpRetryOnReject(tokenAddress, strategy, signalId, {
+                nowMs: Date.now(), strategyName: strategy.name,
+                firePriceBnb, signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
+              });
+            }
+            return { success: false, reason: gl.reason };
+          }
+        } else {
+        // ↓↓↓ Jev 代 / 混代包：原门链（逐字保留——缩进刻意不动，源码锁；T253 起仅非统一包走）↓↓↓
         if (!opts.resume) {
         this._sgRecordTrigger(tokenAddress, strategy.id);
 
@@ -2230,6 +2276,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             pointTypePolicy,
           });
         if (!bpGate.pass) return { success: false, reason: bpGate.reason };
+        }
+        // ↑↑↑ 原门链结束 ↑↑↑
       }
 
       // ── 购买前检查 ──

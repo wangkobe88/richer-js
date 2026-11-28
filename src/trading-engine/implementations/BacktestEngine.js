@@ -681,6 +681,15 @@ class BacktestEngine extends AbstractTradingEngine {
       this._actFrontGateEnabled = _packMod('actFrontGate');
       // 因子代三键清单（启动日志核对锚：哪几门已不走 Jev）
       const _modsRaw = this._strategyDefinition?.modules || {};
+      // T253 因子过滤门层统一编排（与实时引擎同款旗标）：仅全因子代包启用——买信号门链走
+      // _gateLayerEvaluate（一次内存取数〔tick 索引，anchorMs 虚拟时刻截窗〕→ 四门恒算 →
+      // 激活集决策）；Jev 代/混代包仍走四个旧挂点（回滚基线）。回测门层零 DB 读。
+      this._gateLayerUnified = !!(
+        _packFactor('cheatCheck') && _packFactor('actFrontGate') && _packFactor('buyPointCheck')
+        && this._cheatCheckService.factorMode === true && this._cheatCheckService.enabled
+        && this._buyPointCheckService.factorMode === true && this._buyPointCheckService.enabled
+        && this._buyPointCheckService.factorEnabled
+      );
       const _factorMods = ['cheatCheck', 'actFrontGate', 'buyPointCheck']
         .filter((m) => isFactorGeneration(_modsRaw[m]));
       this.logger.info(this._experimentId, 'BacktestEngine',
@@ -2435,6 +2444,14 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   /**
+   * T253 统一门层内存拉数（回测）：per-token tick 索引按 anchorMs as-of 截窗（与 T148b
+   * memPullTicksFromIndex 同一函数——回测索引恒全量，永不 partial）。
+   */
+  _gateLayerPullTicks(token, anchorMs) {
+    return memPullTicksFromIndex(this._tokenTickIndex, token, anchorMs);
+  }
+
+  /**
    * T203 FP 拒后门内重试·回测 glue（主循环买分支挂点调用）：gateToken 形状适配
    * （_evaluateBuyPath 同款 _tokenMeta 兜底）→ 共享 _fpRetryTick（anchorMs=tickTs
    * as-of 截窗防前视；时钟全程虚拟 tickTs 非墙钟）。重评通过 → 续跑原信号门链
@@ -2652,6 +2669,38 @@ class BacktestEngine extends AbstractTradingEngine {
           }
         }
         const pointTypePolicy = _ptInfo ? _ptInfo.policy : null;
+        // ── T253 因子过滤门层统一编排（全因子代包；与实时引擎同款）：一次内存取数 → 四门
+        // 恒算 → 激活集决策；metadata 五段恒在场；续跑直传重评结果=零二次取数 ──
+        if (this._gateLayerUnified === true) {
+          if (!opts.resume) this._sgRecordTrigger(tokenAddress, strategy.id);
+          const _preGl = _fp4T0 - _segT0; // fire 日志→门层调用前的同步段
+          const _glT0 = Date.now();
+          const gl = (opts.resume && opts.resume.gateLayer) ? opts.resume.gateLayer
+            : await this._gateLayerEvaluate(tokenAddress, gateToken, faState, signalId, strategy, factorResults, {
+              anchorMs: nowTs,
+              firePriceBnb,
+              strategyName: strategy.name,
+              signalCreatedAt: nowTs,
+              pointTypePolicy,
+              fireFactors: factorResults,
+            });
+          _fp4Dt = Date.now() - _glT0;
+          if (_preGl + _fp4Dt > 400) {
+            this.logger.info(this._experimentId, 'SignalGate',
+              `链路慢分解 preFP4=${_preGl}ms 门层=${_fp4Dt}ms | ${token.symbol || tokenAddress.slice(0, 10)}`);
+          }
+          t189SbwBurst = gl.t189SbwBurst === true;
+          if (!gl.pass) {
+            // T203 FP 有效拒 → fpRetry>0 时登记 pending（与旧门链同位；续跑路径不重复登记）
+            if (!opts.resume && gl.primary && gl.primary.gate === 'fp') {
+              await this._fpRetryOnReject(tokenAddress, strategy, signalId, {
+                nowMs: nowTs, strategyName: strategy.name, firePriceBnb, signalCreatedAt: nowTs,
+              });
+            }
+            return { success: false, reason: gl.reason };
+          }
+        } else {
+        // ↓↓↓ Jev 代 / 混代包：原门链（逐字保留——缩进刻意不动；T253 起仅非统一包走）↓↓↓
         if (!opts.resume) {
         this._sgRecordTrigger(tokenAddress, strategy.id);
 
@@ -2741,6 +2790,8 @@ class BacktestEngine extends AbstractTradingEngine {
             `链路慢分解 preFP4=${_preFp4}ms fp4=${_fp4Dt}ms cheat=${_chDt}ms bp=${_bpDt}ms | ${token.symbol || tokenAddress.slice(0, 10)}`);
         }
         if (!bpGate.pass) return { success: false, reason: bpGate.reason };
+        }
+        // ↑↑↑ 原门链结束 ↑↑↑
       }
 
       // ── 购买前检查（与实时引擎同构；checkTime 用回放时点）──

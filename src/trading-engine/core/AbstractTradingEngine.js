@@ -18,6 +18,8 @@ const baseConfig = require('../../../config/default.json');
 const { judgeFactorSellFilter } = require('./factor-sell-filter');
 // T245 上涨趋势十键观察门（policy skip 分支附加；market-analysis 纯函数——无环）
 const { buildTrendValueGates } = require('../../market-analysis/factor-pre-buy-check');
+// T253 因子过滤门层决策核（纯函数）：全因子代包的买信号门链由 _gateLayerEvaluate 统一编排
+const GL = require('./gate-layer');
 
 // 延迟导入以避免循环依赖
 let TokenPool = null;
@@ -1656,14 +1658,40 @@ class AbstractTradingEngine extends ITradingEngine {
     }
     // 重评（锚=当前时刻：实时无 anchorMs=拉到最新 tick；回测 anchorMs=虚拟时刻截窗）
     const faState = this._factorAggregator.getTokenState(tokenAddress);
-    const gate = await this._factorGateEvaluate(tokenAddress, token, faState, p.signalId, {
-      firePriceBnb: factors.currentPriceBnb || 0,
-      strategyName: p.strategyName,
-      signalCreatedAt: nowMs,
-      fireFactors: factors,
-      ...fpCtx,
-    });
-    const rec = tr.recordResult(tokenAddress, gate.pass === true, gate.pass ? null : gate.reason, nowMs);
+    let fpPass;
+    let fpReason;
+    let gateLayerEval = null;
+    if (this._gateLayerUnified === true) {
+      // T253 统一门层：重评走同一编排器——以重评 tick 因子重分类（T203d「以当刻为准」）并
+      // **带类型 policy**（修存量不一致 F6：此前重评调 _factorGateEvaluate 不带 pointTypePolicy，
+      // 豁免类型〔黄金坑 cheatOnly+差集 / 独舞差集〕的重评按全臂评、比首评更严）；同一份
+      // 快照四门恒算、五段一次落痕；FP 有效拒才耗预算，过则把本次评估带给续跑（零二次取数）。
+      const _ptInfo = this._classifyPointType(factors);
+      gateLayerEval = await this._gateLayerEvaluate(tokenAddress, token, faState, p.signalId, strategy, factors, {
+        firePriceBnb: factors.currentPriceBnb || 0,
+        strategyName: p.strategyName,
+        signalCreatedAt: nowMs,
+        pointTypePolicy: _ptInfo ? _ptInfo.policy : null,
+        fireFactors: factors,
+        ...fpCtx,
+      });
+      if (_ptInfo && p.signalId) {
+        try { await this._updateSignalMetadata(p.signalId, { pointType: _ptInfo }); } catch (e) { /* 留痕失败不阻断 */ }
+      }
+      fpPass = !(gateLayerEval.primary && gateLayerEval.primary.gate === 'fp');
+      fpReason = fpPass ? null : `因子门拒买（${gateLayerEval.sections.factorCheck.reason}）`;
+    } else {
+      const gate = await this._factorGateEvaluate(tokenAddress, token, faState, p.signalId, {
+        firePriceBnb: factors.currentPriceBnb || 0,
+        strategyName: p.strategyName,
+        signalCreatedAt: nowMs,
+        fireFactors: factors,
+        ...fpCtx,
+      });
+      fpPass = gate.pass === true;
+      fpReason = fpPass ? null : gate.reason;
+    }
+    const rec = tr.recordResult(tokenAddress, fpPass, fpReason, nowMs);
     if (!rec) return false;
     try {
       await this._updateSignalMetadata(p.signalId, {
@@ -1673,7 +1701,7 @@ class AbstractTradingEngine extends ITradingEngine {
     if (rec.pass) {
       this.logger.info(this._experimentId, 'FpRetry',
         `${(p.strategyName || tokenAddress.slice(0, 10))} FP 重评通过（第 ${rec.attempts.length} 次）→ 续跑门链`);
-      dispatchResume({ strategy, signalId: p.signalId });
+      dispatchResume({ strategy, signalId: p.signalId, ...(gateLayerEval ? { gateLayer: gateLayerEval } : {}) });
       return true;
     }
     this.logger.info(this._experimentId, 'FpRetry',
@@ -1747,20 +1775,12 @@ class AbstractTradingEngine extends ITradingEngine {
     return { pass: false, reason: `作弊盘门拒买（cheat 拉黑+持仓清仓联动 [${reasonCodes}]）` };
   }
 
-  /** service 判定原文 → signal metadata.cheatCheck 段（放行 info 与拒路径共用形状） */
+  /**
+   * service 判定原文 → signal metadata.cheatCheck 段（放行 info 与拒路径共用形状）。
+   * T253 起单一出口在 core/gate-layer.js cheatGateInfo（统一门层决策核同款）——此处薄委托。
+   */
   _cheatGateInfo(res) {
-    return {
-      status: res.status, grade: res.grade, cached: res.cached === true,
-      reasons: res.reasons || [], unhealthyGrades: res.unhealthyGrades ?? 0,
-      levels: res.levels ?? null, buckets: res.buckets ?? null,
-      anchors: res.anchors ?? null, // BP67：波三键/exitVs 数值锚随 info 透出（burst 输入 BP 与审计）
-      strongbackerLike: res.strongbackerLike ?? 0,
-      exempt: res.exempt ?? null, // CD379 活跃度豁免留痕 { code:'activity_<桶>', originalGrade }
-      unblocked: res.unblocked === true, // CD381 翻案留痕（重检解除拉黑）
-      // 因子代来源标记（Jev 退役：service 返回 model='factor@<版本>' 才带键——
-      // Jev 代返回无此键，metadata 形状不变）
-      ...(res.model ? { model: res.model } : {}),
-    };
+    return GL.cheatGateInfo(res);
   }
 
   /**
@@ -1792,6 +1812,135 @@ class AbstractTradingEngine extends ITradingEngine {
       waveSellBackPct: an.burstWaveSellBackPct ?? null,
       waveWalletAvgBnb: an.burstWaveWalletAvgBnb ?? null,
       waveWalletMedianBnb: an.burstWaveWalletMedianBnb ?? null,
+    };
+  }
+
+  /**
+   * 因子过滤门层·统一编排（T253，2026-11-28 用户裁定三层模型归位）——仅**全因子代包**
+   * （`_gateLayerUnified`：cheatCheck/actFrontGate/buyPointCheck 三模块皆因子代 ∧ 启用）走本
+   * 入口；Jev 代 / 混代包仍走下方四个旧挂点（回滚基线，逐字不动）。
+   *
+   * 用户裁定「每一个信号都要计算所有的因子过滤门……只是不同的 pointType 激活的门并不一致」
+   * +「共用一次取数，并且不要有任何数据库取数，都应该是使用内存中的 ticks」：
+   *   ① 取数**一次**（BuyPointCheckService.prepareGateLayer：settle → 内存行环/tick 索引 → 快照；
+   *      零 DB 读）；
+   *   ② 四门**恒算**（同一份快照）：因子门 FP（全臂）+ 活跃度门 AF3 + 作弊门 CF1 + BP 塞单门
+   *      ——不论 pointType 是否激活该门、不论前门是否已拒；
+   *   ③ 结论 = pointType 激活集下的链序首个有效拒（core/gate-layer.js decideGateLayer：
+   *      四个旧挂点的有效结论逐条转录，决策逐位一致——_test_gate_layer C 段穷举对拍）；
+   *   ④ 一次写五段（factorCheck/actFrontGate/cheatCheck/buyPoint 恒在场 + gateLayer 层汇总）
+   *      + 终态；副作用（FA 投影 / BP 落行 / burst 资格）与旧挂点同规则。
+   * 续跑（ctx 无、opts.resume.gateLayer 在场）由调用方直传重评结果，零二次取数。
+   * @param {Object} strategy 触发腿（bpPassLevels 取 signalGate.bpPassLevels）
+   * @param {Object} ctx { anchorMs?, firePriceBnb, strategyName, signalCreatedAt, pointTypePolicy, fireFactors }
+   * @returns {Promise<{pass:boolean, reason:string|null, primary:{gate,code}|null,
+   *   t189SbwBurst:boolean, activation:Object, gateLayer:Object, sections:Object}>}
+   */
+  async _gateLayerEvaluate(tokenAddress, token, faState, signalId, strategy, factorResults, ctx = {}) {
+    const bpSvc = this._buyPointCheckService;
+    const cheatSvc = this._cheatCheckService;
+    const activation = GL.resolveGateActivation(ctx.pointTypePolicy);
+    const anchorMs = Number.isFinite(ctx.anchorMs) && ctx.anchorMs > 0 ? ctx.anchorMs : null;
+    const sym = token.symbol || tokenAddress.slice(0, 10);
+    const meta = {
+      address: token.token,
+      symbol: token.symbol || null,
+      name: token.name || null,
+      platform: token.platform || faState?.platform || null,
+      createdAtMs: token.createdAt ? token.createdAt * 1000 : null,
+      // creator 取内存（TokenPool 记录 / FA state）——门层零 DB 读，不查 wss_events 兜底
+      creatorAddress: token.creatorAddress || (faState && faState.creatorAddress) || null,
+      totalSupply: faState?.totalSupply ?? null,
+    };
+    const context = {
+      experimentId: this._experimentId, signalId,
+      signalCreatedAt: ctx.signalCreatedAt ?? null,
+      firePriceBnb: ctx.firePriceBnb ?? null,
+      strategyName: ctx.strategyName ?? null,
+    };
+
+    // ① 取数一次（实时=collector 行环 _cheatRingPull / 回测=tick 索引 memPullTicksFromIndex）
+    const prep = await bpSvc.prepareGateLayer(tokenAddress, meta, context, {
+      pullTicks: (t, a) => this._gateLayerPullTicks(t, a),
+      ...(anchorMs ? { anchorMs } : {}),
+    });
+    const prepOk = prep.ok === true;
+
+    // ② 四门恒算（同一份快照）。FP：类型直通=全臂原样算（门行整体去激活）；作弊类/臂差集
+    //    =旧挂点同款过滤入参（决策用有效结论，门行三元组由纯函数收口）
+    let fp = null;
+    let af = null;
+    let cheat = null;
+    let bp = null;
+    if (prepOk) {
+      fp = await bpSvc.evaluateFactorPreBuy(tokenAddress, meta, context, {
+        prebuilt: prep,
+        ...(activation.fp === 'cheatOnly' ? { armClass: 'cheat' } : {}),
+        ...(activation.fp !== 'skip' && activation.fpExempt.length ? { armExempt: activation.fpExempt } : {}),
+        trendFactors: ctx.fireFactors,
+      });
+      if (this._actFrontGateEnabled === true) {
+        af = await cheatSvc.evaluateActFront(tokenAddress, meta, context, { prebuilt: prep });
+      }
+    }
+    try {
+      cheat = await cheatSvc.gateBuyPoint(tokenAddress, {}, { experimentId: this._experimentId, signalId }, {});
+    } catch (e) {
+      cheat = { status: 'fail', reason: 'factor_error' };
+    }
+    // BP 计划：到达（前三门无有效拒）∧ 全门才落行；未到达/直通/塞单门-only 仍恒算（零落行）
+    const plan = GL.gateLayerBpPlan({ activation, prep, fp, af, cheat });
+    if (prepOk) {
+      bp = await bpSvc.evaluateFactorBp(prep, context, { stuffingOnly: plan.stuffingOnly, writeRow: plan.writeBpRow });
+    }
+
+    // ③ 激活集决策
+    const sg = (strategy && strategy.signalGate) || null;
+    const passLevels = Array.isArray(sg && sg.bpPassLevels) && sg.bpPassLevels.length > 0
+      ? sg.bpPassLevels : ['good', 'neutral'];
+    const dec = GL.decideGateLayer({ activation, prep, fp, af, cheat, bp, passLevels, trendFactors: ctx.fireFactors });
+
+    // ④ 落痕：一次写五段 + 终态 + FA 投影
+    const gateLayer = GL.buildGateLayerSection({
+      activation, prep, rows: dec.sections.factorCheck.gates, primary: dec.primary, pass: dec.pass,
+    });
+    if (signalId) {
+      try {
+        await this._updateSignalMetadata(signalId, { ...dec.sections, gateLayer });
+      } catch (updateError) {
+        this.logger.warn(this._experimentId, 'SignalGate', `更新信号元数据失败 | ${sym} ${updateError.message}`);
+      }
+    }
+    if (dec.statusUpdate) {
+      await this._updateSignalStatus(signalId, 'failed', dec.statusUpdate);
+    }
+    if (dec.faProjection) {
+      try {
+        require('../../services/FourMemeFactorAggregator').setFactorPreBuyFactors(tokenAddress, dec.faProjection);
+      } catch (projectionError) {
+        this.logger.warn(this._experimentId, 'SignalGate',
+          `因子门 FA 投影失败（已吞） | ${tokenAddress.slice(0, 10)} ${projectionError.message}`);
+      }
+    }
+    const sm = gateLayer.summary;
+    this.logger.info(this._experimentId, 'SignalGate',
+      `🧮 因子过滤门层 ${gateLayer.v} | ${sym} ${dec.pass ? '放行' : `拒 ${dec.primary ? dec.primary.code : '?'}`}`
+      + ` · ${sm.total} 门/激活 ${sm.activated}/命中 ${sm.hit}/拦 ${sm.blocked}`
+      + (prepOk ? ` · 锚窗 ${prep.pull.anchorTickCount} ticks` : ` · 取数 ${prep.status}${prep.reason ? `(${prep.reason})` : ''}`));
+    if (dec.primary && dec.primary.gate === 'fp') {
+      this.logger.info(this._experimentId, 'SignalGate', `因子门拒买 | ${sym} ${dec.sections.factorCheck.reason}`);
+    } else if (dec.primary && dec.primary.gate === 'af') {
+      const a = dec.sections.actFrontGate;
+      this.logger.info(this._experimentId, 'SignalGate',
+        `前置活跃度门拒买 | ${sym} act=${a.act} sbw=${a.sbw ?? '-'} wash=${a.wash ?? '-'} path=${a.path}`);
+    } else if (dec.primary && dec.primary.gate === 'cheat') {
+      this.logger.warn(this._experimentId, 'CheatGate', `作弊门拒买 | ${sym} grade=${dec.sections.cheatCheck.grade}`);
+    } else if (dec.primary && dec.primary.gate === 'bp' && dec.statusUpdate) {
+      this.logger.info(this._experimentId, 'SignalGate', dec.statusUpdate.message);
+    }
+    return {
+      pass: dec.pass, reason: dec.reason, primary: dec.primary, t189SbwBurst: dec.t189SbwBurst,
+      activation, gateLayer, sections: dec.sections,
     };
   }
 

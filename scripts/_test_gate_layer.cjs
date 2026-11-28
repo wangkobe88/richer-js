@@ -17,6 +17,9 @@
  *      状态 × 取数状态 × 19 种 policy（11 类型注册表真实 policy + 自定义）的笛卡尔积穷举
  *      对拍——pass / 拒因 / FA 投影 / 落行旗标 / burst 资格 / 四段有效 status 逐位相等
  *      （未到达=旧链段缺席 ↔ 新链 not_reached）；门行全集形状与汇总
+ *   D. 引擎编排器 AbstractTradingEngine._gateLayerEvaluate + fpRetry 重评（原型借调 + 真 service
+ *      + 内存拉数桩，零 DB）：五段恒在场、各拒因、让位形状、残缺环拒、全豁类型全行未激活、
+ *      FA 投影、F6 重评带 policy 反证、续跑零二次取数、落行规则、零 DB 读、两引擎分派源码锁
  *
  * 用法：node scripts/_test_gate_layer.cjs
  */
@@ -699,6 +702,174 @@ console.log('\nC. 决策核 gate-layer.js：与旧门链有效结论穷举对拍
   const sample = { status: 'analyzed', grade: 'healthy', cached: true, reasons: [{ code: 'x' }], unhealthyGrades: 2, levels: { a: 1 }, buckets: { b: 2 }, anchors: { c: 3 }, strongbackerLike: 1, exempt: { code: 'activity_high' }, unblocked: true, model: 'factor@CF1' };
   check('C8 cheatGateInfo ≡ 引擎 _cheatGateInfo 输出（同输入同形）', GL.cheatGateInfo(sample), engProto._cheatGateInfo.call({}, sample));
   ok('C9 决策核源码零 Date.now / 零 DB / 零网络', !/Date\.now\(/.test(require('fs').readFileSync(path.join(ROOT, 'src/trading-engine/core/gate-layer.js'), 'utf8').replace(/\/\/.*$/gm, '')));
+}
+
+console.log('\nD. 引擎编排器：_gateLayerEvaluate + fpRetry 重评');
+{
+  const { AbstractTradingEngine } = require(path.join(ROOT, 'src/trading-engine/core/AbstractTradingEngine.js'));
+  const { FourMemeWssTradingEngine } = require(path.join(ROOT, 'src/trading-engine/implementations/FourMemeWssTradingEngine.js'));
+  const { BacktestEngine } = require(path.join(ROOT, 'src/trading-engine/implementations/BacktestEngine.js'));
+  const { FpRetryTracker } = require(path.join(ROOT, 'src/trading-engine/core/FpRetryTracker.js'));
+  const FAMod = require(path.join(ROOT, 'src/services/FourMemeFactorAggregator.js'));
+  const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
+  const GOLDEN = POINT_TYPES.find((t) => t.id === 'famous_holder_cold_pit').policy;
+  const STEADY = POINT_TYPES.find((t) => t.id === 'steady_trend_climb').policy;
+  const TOK = { token: '0xtok', symbol: 'TST', name: 'Test', platform: 'flap', createdAt: T0 / 1000, creatorAddress: '0xcreator', totalSupply: 1e9 };
+  const midJudge = () => ({ act: 'mid', sbw: 'none', wash: null, arm: 'near_alive', trace: { idlePct: 12 }, model: 'factor@AF3' });
+  const burstLowJudge = () => ({ act: 'low', sbw: 'burst', wash: null, arm: 'near_dead', trace: {}, model: 'factor@AF3' });
+
+  /** 编排器测试台：真 service（因子代）+ dbClient 桩 + 内存拉数桩 + 留痕桩 */
+  function mkEng({ ticks, partial = false, afJudge = midJudge, inject = {} } = {}) {
+    const db = mkDb();
+    let pulls = 0;
+    const bp = new BuyPointCheckService({ enabled: true, settleDelayMs: 0, persist: true, factorCheck: { enabled: true } }, SILENT,
+      Object.assign({ dbClient: db.client, factorMode: true, loadLlm: neverLlm, now: () => T0, arbBotWallets: new Set() }, inject.bp || {}));
+    const cs = new CheatCheckService({ enabled: true, settleDelayMs: 0 }, SILENT,
+      Object.assign({ dbClient: db.client, factorMode: true, loadLlm: neverLlm, now: () => T0, actFrontFactorJudgeFull: afJudge }, inject.cs || {}));
+    const metas = [], statuses = [];
+    const eng = Object.create(AbstractTradingEngine.prototype);
+    Object.assign(eng, {
+      _experimentId: 't253', logger: SILENT, _actFrontGateEnabled: true,
+      _cheatCheckService: cs, _buyPointCheckService: bp,
+      _gateLayerPullTicks: async () => { pulls++; return { rows: ticks, anchorTickCount: ticks.length, capped: false, ...(partial ? { partial: true } : {}) }; },
+      _updateSignalMetadata: async (id, data) => { metas.push(data); },
+      _updateSignalStatus: async (id, status, meta) => { statuses.push({ status, reason: meta.reason, message: meta.message }); },
+    });
+    return { eng, db, metas, statuses, pulls: () => pulls };
+  }
+  const run = (h, policy, fire = { riseLegSec: 4.2 }) => h.eng._gateLayerEvaluate('0xtok', TOK, {}, 'sig-1', { signalGate: { maxTriggers: 1 } }, fire,
+    { firePriceBnb: 1e-8, strategyName: 'leg0', signalCreatedAt: T0, pointTypePolicy: policy, fireFactors: fire });
+  const secOf = (h) => h.metas[0];
+  const rowOf = (h, id) => secOf(h).factorCheck.gates.find((r) => r.id === id);
+
+  // ── D1 全过（活跃度 mid）：五段恒在场、一次 metadata、无终态、无落行、零 DB 读 ──
+  const h1 = mkEng({ ticks: normalTicks });
+  const g1 = await run(h1, null);
+  check('D1a 全过：pass / primary null / burst 资格 false', [g1.pass, g1.primary, g1.t189SbwBurst], [true, null, false]);
+  check('D1b 五段一次写全：factorCheck assessed / actFrontGate assessed / cheatCheck analyzed(CF1) / buyPoint assessed neutral / gateLayer GL1',
+    [h1.metas.length, Object.keys(secOf(h1)).sort(), secOf(h1).factorCheck.status, secOf(h1).actFrontGate.status, secOf(h1).actFrontGate.arm,
+      secOf(h1).cheatCheck.status, secOf(h1).cheatCheck.model, secOf(h1).buyPoint.status, secOf(h1).buyPoint.assessment.bucket, secOf(h1).gateLayer.v, secOf(h1).gateLayer.snapshot],
+    [1, ['actFrontGate', 'buyPoint', 'cheatCheck', 'factorCheck', 'gateLayer'], 'assessed', 'assessed', 'near_alive', 'analyzed', 'factor@CF1', 'assessed', 'neutral', 'GL1', { anchorTickCount: normalTicks.length, capped: false, complete: true }]);
+  check('D1c 全过：无终态更新；到达 BP ∧ 全门 → 落一行 buy_point_analyses；门层零 DB 读（无 wss_events / wss_price_ticks）',
+    [h1.statuses.length, h1.db.tables.filter((t) => t !== 'buy_point_analyses'), h1.db.inserts.length], [0, [], 1]);
+  check('D1d 门行：54 行（趋势 11+因子臂 40+三行），全三元组在场；取数恰一次', [secOf(h1).factorCheck.gates.length, h1.pulls()], [54, 1]);
+
+  // ── D2 因子门拒：后三门恒算留痕（not_reached + computed），终态 factor_gate_* ──
+  const h2 = mkEng({ ticks: normalTicks.concat([0, 1, 2, 3].map((i) => prow(60 + i, 'sell', 0.3, 1.0e-8, { wallet: 700 + i, block: 1002, li: i }))) });
+  const dumpTicks = normalTicks.concat([
+    prow(50, 'buy', 0.05, 1.02e-8, { wallet: 650 }), prow(51, 'sell', 0.6, 1.0e-8, { wallet: 651 }), prow(52, 'sell', 0.6, 0.98e-8, { wallet: 652 }),
+    prow(53, 'sell', 0.6, 0.96e-8, { wallet: 653 }), prow(54, 'sell', 0.6, 0.94e-8, { wallet: 654 }), prow(55, 'sell', 0.6, 0.92e-8, { wallet: 655 }),
+    prow(56, 'sell', 0.6, 0.90e-8, { wallet: 656 }), prow(57, 'sell', 0.6, 0.88e-8, { wallet: 657 }), prow(58, 'sell', 0.6, 0.86e-8, { wallet: 658 }),
+    prow(59, 'sell', 0.2, 0.85e-8, { wallet: 659 }),
+  ]);
+  const h2b = mkEng({ ticks: dumpTicks });
+  const g2 = await run(h2b, null);
+  ok('D2 前置：砸盘形状被因子门有效拒（primary=fp）', g2.pass === false && g2.primary && g2.primary.gate === 'fp', { primary: g2.primary, reason: g2.reason });
+  check('D2a 因子门拒：终态 reason=factor_gate_<code>（与旧挂点同款文案）',
+    [h2b.statuses.length, h2b.statuses[0].status, h2b.statuses[0].reason, h2b.statuses[0].message.startsWith('因子门拒买: ')],
+    [1, 'failed', g2.primary.code, true]);
+  check('D2b 因子门拒后三门恒算留痕：not_reached + computed 带原始判定（活跃度门/作弊门/BP 都有值）',
+    [secOf(h2b).actFrontGate.status, secOf(h2b).actFrontGate.computed.status, secOf(h2b).cheatCheck.status, secOf(h2b).cheatCheck.computed.grade, secOf(h2b).buyPoint.status, secOf(h2b).buyPoint.computed.status],
+    ['not_reached', 'assessed', 'not_reached', 'healthy', 'not_reached', 'assessed']);
+  check('D2c 因子门拒：不落 BP 行（落行集合不变）；FA 投影 blocked=1', [h2b.db.inserts.length, g2.activation.fp], [0, 'all']);
+  const projSpy = [];
+  const origProj = FAMod.setFactorPreBuyFactors;
+  FAMod.setFactorPreBuyFactors = (addr, v) => { projSpy.push([addr, v]); };
+  try { await run(mkEng({ ticks: dumpTicks }), null); } finally { FAMod.setFactorPreBuyFactors = origProj; }
+  check('D2d FA 投影（因子门有效评估）：blocked=1 + reason', projSpy, [['0xtok', { blocked: 1, reason: g2.primary.code.replace('factor_gate_', '') }]]);
+
+  // ── D3 活跃度门拒 / D3b burst 让位 ──
+  const h3 = mkEng({ ticks: normalTicks, afJudge: () => ({ act: 'low', sbw: 'none', wash: null, arm: 'near_dead', trace: {}, model: 'factor@AF3' }) });
+  const g3 = await run(h3, null);
+  check('D3a 活跃度门拒：act_front_low；作弊门/BP 留痕 not_reached；活跃度门行 hit/activated/blocked', [g3.primary, h3.statuses[0].reason, secOf(h3).cheatCheck.status, secOf(h3).buyPoint.status, [rowOf(h3, 'af_act_level').hit, rowOf(h3, 'af_act_level').activated, rowOf(h3, 'af_act_level').blocked]],
+    [{ gate: 'af', code: 'act_front_low' }, 'act_front_low', 'not_reached', 'not_reached', [true, true, true]]);
+  const h3b = mkEng({ ticks: normalTicks, afJudge: burstLowJudge });
+  const g3b = await run(h3b, null);
+  check('D3b 活跃度门 burst 路由 → 作弊门让位 skipped_by_act_front（sbw=burst → burst 资格 true）；放行', [g3b.pass, g3b.t189SbwBurst, secOf(h3b).cheatCheck.status, secOf(h3b).cheatCheck.levels, secOf(h3b).cheatCheck.computed.grade, rowOf(h3b, 'cheat_factor').activated, rowOf(h3b, 'af_act_level').blocked],
+    [true, true, 'skipped_by_act_front', { stallBurstWave: 1 }, 'healthy', false, false]);
+
+  // ── D4 塞单门拒：bp_gate_assessment；落行（到达且全门）──
+  // 同块等额 8 钱包簇同时是 CD405 捆绑收割形状（因子门作弊类臂先认领）——本例用「因子门直通
+  // + BP 全门」的 policy 单独验证 BP 塞单门拒（全豁类型实为 stuffingOnly，见 D6）
+  const h4 = mkEng({ ticks: stuffingTicks });
+  const g4 = await run(h4, { factorCheckArms: 'skip' });
+  check('D4a 塞单门拒：primary=bp_gate_assessment；塞单门行命中且拦', [g4.pass, g4.primary, h4.statuses[0].reason, rowOf(h4, 'stuffing_gate').hit, rowOf(h4, 'stuffing_gate').blocked, rowOf(h4, 'stuffing_gate').value],
+    [false, { gate: 'bp', code: 'bp_gate_assessment' }, 'bp_gate_assessment', true, true, '同块等额买入最大簇 8 钱包']);
+  check('D4b 塞单门拒仍落行（旧门链同：BP 评估即落）；前三门段=正常形状', [h4.db.inserts.length, secOf(h4).factorCheck.status, secOf(h4).factorCheck.computed.pass, secOf(h4).actFrontGate.status, secOf(h4).cheatCheck.status],
+    [1, 'policy_pass', false, 'assessed', 'analyzed']);
+  check('D4c 塞单门拒后信号页可读：buyPoint 带 stuffingEqWallets（全门路径锚值）与 passLevels', [secOf(h4).buyPoint.anchors.exactEqualBlockMaxWallets, secOf(h4).buyPoint.passLevels, secOf(h4).buyPoint.passed], [8, ['good', 'neutral'], false]);
+
+  // ── D5 残缺环（D4 行环裁定）：BP 拒 insufficient_history；FP/AF 放行留痕 ──
+  const h5 = mkEng({ ticks: normalTicks, partial: true });
+  const g5 = await run(h5, null);
+  check('D5 残缺环：BP 拒 bp_gate_insufficient_history（不拿残缺历史冒充完整）；FP/AF 段 insufficient_history 放行；趋势值门照常 11 行；不落行',
+    [g5.pass, g5.primary.code, secOf(h5).factorCheck.status, secOf(h5).actFrontGate.status, secOf(h5).buyPoint.status, secOf(h5).factorCheck.gates.filter((r) => r.group === 'trend').length, h5.db.inserts.length],
+    [false, 'bp_gate_insufficient_history', 'insufficient_history', 'insufficient_history', 'insufficient_history', 11, 0]);
+
+  // ── D6 全豁类型（steady）：各门原始命中但全不激活 → 放行，policy_pass ×3 留痕 ──
+  const h6 = mkEng({ ticks: dumpTicks, afJudge: () => ({ act: 'low', sbw: 'none', wash: null, arm: 'near_dead', trace: {}, model: 'factor@AF3' }) });
+  const g6 = await run(h6, STEADY);
+  check('D6a 全豁类型：原始命中（因子门/活跃度门）但类型未激活 → 放行；四段有效 status = policy_pass ×3 + assessed',
+    [g6.pass, secOf(h6).factorCheck.status, secOf(h6).factorCheck.computed.pass, secOf(h6).actFrontGate.status, secOf(h6).actFrontGate.computed.path, secOf(h6).cheatCheck.status, secOf(h6).buyPoint.status, secOf(h6).buyPoint.policy],
+    [true, 'policy_pass', false, 'policy_pass', 'reject_low', 'policy_pass', 'assessed', 'stuffingOnly']);
+  check('D6b 全豁类型门行：因子臂 40 行全未激活（原始命中行 hit 真-blocked 假）；活跃度门行未激活；塞单门行已激活；汇总拦 0',
+    [secOf(h6).factorCheck.gates.filter((r) => r.group === 'fp' && r.activated).length, secOf(h6).factorCheck.gates.filter((r) => r.blocked).length,
+      secOf(h6).factorCheck.gates.filter((r) => r.group === 'fp' && r.hit === true).length > 0, rowOf(h6, 'af_act_level').activated, rowOf(h6, 'stuffing_gate').activated, secOf(h6).gateLayer.summary.blocked],
+    [0, 0, true, false, true, 0]);
+
+  // ── D7 F6 事故现场反证：fpRetry 重评带类型 policy ──
+  // service 桩模拟「臂差集生效」：opts.armExempt 含 slow_pump_unload → 放行；否则按全臂拒
+  const policyAwareFp = async (token, meta, ctx, opts) => ({
+    status: 'assessed', pass: Array.isArray(opts.armExempt) && opts.armExempt.includes('slow_pump_unload'),
+    reason: Array.isArray(opts.armExempt) && opts.armExempt.includes('slow_pump_unload') ? null : 'slow_pump_unload',
+    arms: [], rawHits: ['slow_pump_unload'], gates: FP.evaluateFactorPreBuy(base(), { trendFactors: opts.trendFactors }).gates.map((r) => (r.id === 'slow_pump' ? { ...r, hit: true } : r)),
+    trace: {}, pvp: {}, version: 'FP48',
+  });
+  async function retryRun(unified) {
+    const h = mkEng({ ticks: normalTicks });
+    h.eng._buyPointCheckService.evaluateFactorPreBuy = policyAwareFp;
+    const tr = new FpRetryTracker();
+    tr.register('0xtok', { legId: 'p16', signalId: 'sig-f6', budget: 2, nowMs: T0, strategyName: 'p16' });
+    const leg = { id: 'p16', action: 'buy', signalGate: { maxTriggers: 1, fpRetry: 2 } };
+    const dispatched = [];
+    Object.assign(h.eng, {
+      _gateLayerUnified: unified,
+      _fpRetryEnsure: () => tr,
+      _strategyEngine: { getAllStrategies: () => [leg] },
+      _factorAggregator: { getTokenState: () => ({}) },
+      _classifyPointType: () => ({ type: 'famous_holder_cold_pit', label: 'x', policy: GOLDEN, version: 'PT81', snapshot: {} }),
+    });
+    const resumed = await h.eng.__fpRetryTickInner('0xtok', TOK, { currentPriceBnb: 1e-8 }, T0 + 500,
+      (r) => dispatched.push(r), {}, tr, tr.tickCheck('0xtok', T0 + 500), tr.pendingOf('0xtok'));
+    return { h, tr, dispatched, resumed };
+  }
+  const legacyRun = await retryRun(false);
+  const legacyAtt = (legacyRun.h.metas.find((m) => m.fpRetry) || {}).fpRetry;
+  check('D7a 反证（旧链重评不带 policy）：豁免类型的重评按全臂评 → 仍拒、烧掉一次预算、不续跑',
+    [legacyRun.resumed, legacyRun.dispatched.length, legacyAtt && legacyAtt.attempts.length, legacyAtt && legacyAtt.attempts[0].verdict, legacyRun.tr.pendingOf('0xtok') !== null],
+    [false, 0, 1, 'reject', true]);
+  const unifiedRun = await retryRun(true);
+  check('D7b 统一门层重评带类型 policy（修 F6）：豁免臂不拦 → 重评通过 → 续跑并携带本次评估（零二次取数）',
+    [unifiedRun.resumed, unifiedRun.dispatched.length, !!unifiedRun.dispatched[0].gateLayer, unifiedRun.dispatched[0].gateLayer.pass, unifiedRun.tr.pendingOf('0xtok') === null, unifiedRun.h.metas.some((m) => m.pointType && m.pointType.type === 'famous_holder_cold_pit')],
+    [true, 1, true, true, true, true]);
+  check('D7c 重评只取数一次（续跑复用重评结果=零二次取数）', unifiedRun.h.pulls(), 1);
+
+  // ── D8 源码锁：两引擎分派 + 原门链保留 + 续跑复用 ──
+  const fs = require('fs');
+  const liveSrc = fs.readFileSync(path.join(ROOT, 'src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
+  const btSrc = fs.readFileSync(path.join(ROOT, 'src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
+  const absSrc = fs.readFileSync(path.join(ROOT, 'src/trading-engine/core/AbstractTradingEngine.js'), 'utf8');
+  for (const [nm, src] of [['实时', liveSrc], ['回测', btSrc]]) {
+    ok(`D8a ${nm}引擎：统一门层旗标（三模块皆因子代 ∧ 启用）`, /this\._gateLayerUnified = !!\([\s\S]{0,420}_packFactor\('cheatCheck'\)[\s\S]{0,80}_packFactor\('actFrontGate'\)[\s\S]{0,80}_packFactor\('buyPointCheck'\)/.test(src));
+    ok(`D8b ${nm}引擎：买路径按旗标分派，续跑优先复用 opts.resume.gateLayer（零二次取数）`, /if \(this\._gateLayerUnified === true\) \{[\s\S]{0,260}opts\.resume && opts\.resume\.gateLayer\) \? opts\.resume\.gateLayer\s*\n\s*: await this\._gateLayerEvaluate\(/.test(src));
+    ok(`D8c ${nm}引擎：原门链（Jev 代/混代包回滚基线）仍在旗标 else 分支（_sgRecordTrigger→_factorGateEvaluate→_bpGateEvaluate 全在）`,
+      /\} else \{\s*\n\s*\/\/ ↓↓↓ Jev 代 \/ 混代包：原门链（逐字保留[^\n]*\n\s*if \(!opts\.resume\) \{[\s\S]{0,400}?this\._sgRecordTrigger\([\s\S]{0,6000}?this\._factorGateEvaluate\([\s\S]{0,9000}?this\._bpGateEvaluate\([\s\S]{0,1400}?\/\/ ↑↑↑ 原门链结束 ↑↑↑/.test(src));
+    ok(`D8d ${nm}引擎：统一门层不传 legacy 四挂点专用入参（awaitMs/cheatBurst），原挂点方法原样在场`, ['_factorGateEvaluate(', '_actFrontGateEvaluate(', '_cheatGateEvaluateBinary(', '_bpGateEvaluate('].every((m) => src.includes(m)));
+  }
+  ok('D8e 编排器零 Date.now（决策时钟全由入参/回测虚拟时刻承载；日志计时除外）', !/Date\.now\(/.test(absSrc.slice(absSrc.indexOf('async _gateLayerEvaluate('), absSrc.indexOf('T117 信号源门链·作弊门——**因子代挂点**'))));
+  ok('D8f fpRetry 重评：统一分支带 pointTypePolicy、旧分支原样', /_gateLayerUnified === true\) \{[\s\S]{0,700}pointTypePolicy: _ptInfo \? _ptInfo\.policy : null,[\s\S]{0,400}\} else \{[\s\S]{0,300}await this\._factorGateEvaluate\(tokenAddress/.test(absSrc));
+  ok('D8g 两引擎 service 构造未改（factorMode 注入各两处=cheatCheck/buyPointCheck 各一，未新增——G5 锁同源）', [(liveSrc.match(/factorMode:\s*_packFactor\(/g) || []).length, (btSrc.match(/factorMode:\s*_packFactor\(/g) || []).length], [2, 2]);
+  void FourMemeWssTradingEngine; void BacktestEngine;
 }
 })().catch((e) => { fail++; console.error(e && e.stack || e); }).finally(() => {
   console.log(`\n${'='.repeat(60)}\n因子过滤门层单测：${pass} 通过，${fail} 失败`);
