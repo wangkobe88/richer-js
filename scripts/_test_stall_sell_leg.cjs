@@ -331,6 +331,26 @@ const evalCond = (cond, f) => new StrategyEngine({}).evaluateCondition(cond, f);
         ok(hasStallLeg(both) && both.stallClose, 'G3 双段并存包（过渡态）→ 两路径共存（selling/status 门防双卖，P2 清理后 stallClose 段 fail-fast）');
     }
 
+    // ═══════════════ H. 事故现场反证（2026-11-28 发现）：实时引擎缺 import ═══════════════
+    // 8a1fb3d2（T233 腿化）在 FourMemeWssTradingEngine 使用 isStallSellLeg / stallTriggerContext /
+    // DEFAULT_STALLED_SCAN_AFTER_SEC 却从未引入——实时/虚拟引擎一初始化（_initializeDataSources
+    // 的 _sellLegs.filter）即 ReferenceError；本单测只 Object.create(prototype) 借调方法=模块
+    // 作用域标识符从未被求值，漏网四天（回测引擎有 import 故回测一直正常）。
+    // 锁：模块顶层 import 三名字都在场；行为级兜底=_test_embedded_collector_architecture（真构造引擎）。
+    console.log('H. 事故现场反证：实时引擎模块作用域须引入 stall 腿三标识符');
+    {
+        const fs = require('fs');
+        const path = require('path');
+        const live = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/FourMemeWssTradingEngine.js'), 'utf8');
+        const bt = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
+        const need = /const \{([^}]*)\} = require\('\.\.\/core\/stall-sell-leg'\)/;
+        const namesOf = (src) => { const m = src.match(need); return m ? m[1] : ''; };
+        const allThree = (names) => ['isStallSellLeg', 'stallTriggerContext', 'DEFAULT_STALLED_SCAN_AFTER_SEC'].every((n) => new RegExp(`\\b${n}\\b`).test(names));
+        ok(/isStallSellLeg\(/.test(live) && /stallTriggerContext\(/.test(live) && /DEFAULT_STALLED_SCAN_AFTER_SEC/.test(live), 'H1 前置：实时引擎确实使用三标识符');
+        ok(allThree(namesOf(live)), 'H2 实时引擎模块顶层 import 含 isStallSellLeg / stallTriggerContext / DEFAULT_STALLED_SCAN_AFTER_SEC');
+        ok(allThree(namesOf(bt)), 'H3 回测引擎同款（对照）');
+    }
+
     console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
     process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

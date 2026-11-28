@@ -39,6 +39,11 @@ const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { TxSeenSignal } = require('../core/TxSeenSignal.js');
 const { createIpfsCacheWriter } = require('../core/IpfsCacheWriter.js');
 const { BURST_COOLDOWN_DEFAULTS, evaluateBurstCooldown } = require('../core/burst-cooldown-exit');
+// T233 stall 断流卖腿（stall 签名判定 + 卖信号 metadata 构造 + 预扫门缺省）——2026-11-28
+// 补存量缺失的 import：8a1fb3d2 起本文件 _initializeDataSources/_executeSell 使用这三个
+// 标识符却从未引入，实时/虚拟引擎一初始化即 ReferenceError（回测引擎有 import 故回测
+// 一直正常、问题被掩盖四天；_test_stall_sell_leg H 段源码锁）
+const { isStallSellLeg, stallTriggerContext, DEFAULT_STALLED_SCAN_AFTER_SEC } = require('../core/stall-sell-leg');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const Logger = require('../../services/logger');
 const Decimal = require('decimal.js');
