@@ -4040,35 +4040,26 @@ class ExperimentSignals {
             ${armChips ? `<div class="flex flex-wrap gap-1 mb-1">${armChips} ${observeChip}</div>` : (observeChip ? `<div class="flex flex-wrap gap-1 mb-1">${observeChip}</div>` : '')}
             ${catBlocks.filter((b) => b.rows.some((ge) => ge.hit)).length ? `<div class="flex flex-wrap items-center gap-1 mb-1 text-xs"><span class="text-red-800">命中类别：</span>${catBlocks.filter((b) => b.rows.some((ge) => ge.hit)).map((b) => `<span class="px-1.5 py-0.5 rounded border border-red-300 bg-red-100 text-red-900">${this._escapeHtml(b.label)}（${b.rows.filter((ge) => ge.hit).length}）</span>`).join(' ')}</div>` : ''}
             ${gatesTable}
+            ${this._allObserveFactorsHtml(metadata)}
             ${traceRows ? `<details class="mt-1"><summary class="text-xs text-emerald-800 cursor-pointer select-none">📐 PVP 判定树计数（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-5">${traceRows}</div></details>` : ''}
           </div>
           `;
         } else if (fStatus === 'policy_pass') {
-          // T245 上涨趋势观察子块（policy 直通例外渲染——只有 trend 观察行）
+          // T245 上涨趋势观察子块（policy 直通例外渲染——只有 trend 观察行，紧凑 chips）
           const trendRows = (Array.isArray(factorCheckInfo.gates) ? factorCheckInfo.gates : [])
             .filter((g) => g && g.category === 'trend');
-          const trendGateRowHtml = (ge) => `
-              <tr class="${ge.observe ? 'bg-amber-100' : ''}">
-                <td class="px-2 py-0.5 border-t border-gray-300 whitespace-nowrap text-gray-900 font-semibold">${this._escapeHtml(ge.label || ge.id)}${ge.observe ? ' 👁' : ''}</td>
-                <td class="px-2 py-0.5 border-t border-gray-300 font-mono text-gray-900">${this._escapeHtml(ge.value || '—')}</td>
-              </tr>`;
-          const trendBlock = FACTOR_GATE_CATEGORIES
-            .filter((c) => c.id === 'trend')
-            .map((c) => ({ ...c, rows: trendRows.filter((row) => factorGateCategoryOf(row) === c.id) }))
-            .filter((b) => b.rows.length);
-          const trendTable = trendBlock.length ? trendBlock.map((b) => `
-            <details class="mt-1" open>
-              <summary class="text-xs text-emerald-800 cursor-pointer select-none">🧩 ${this._escapeHtml(b.label)} · ${this._escapeHtml(b.question)}（${b.rows.length} 门 · 标记 ${b.rows.length}）</summary>
-              <div class="mt-1 overflow-x-auto"><table class="w-full text-xs border border-gray-400"><thead><tr class="bg-gray-200"><th class="text-left px-2 py-0.5 text-gray-900">门</th><th class="text-left px-2 py-0.5 text-gray-900">值</th></tr></thead><tbody>${b.rows.map(trendGateRowHtml).join('')}</tbody></table></div>
-            </details>`).join('') : '';
+          const trendChips = trendRows.length
+            ? `<details class="mt-1" open><summary class="text-xs text-emerald-800 cursor-pointer select-none">🧩 上涨趋势 · ${this._escapeHtml((FACTOR_GATE_CATEGORIES.find((c) => c.id === 'trend') || {}).question || '')}（${trendRows.length} 键）</summary><div class="mt-1 flex flex-wrap gap-1">${trendRows.map((g) => this._observeChipHtml(g.label, g.value)).join('')}</div></details>`
+            : '';
           factorGateHtml = `
           <div class="mt-2 pt-2 border-t border-emerald-300">
             <div class="flex items-center justify-between mb-1">
               <div class="text-xs font-semibold text-emerald-800">🧮 因子购买前检查门（第 1 层 · 纯代码零 Jev）</div>
               <span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full font-bold">✅ 类型直通</span>
             </div>
-            <div class="text-xs text-gray-700 mb-1">点位类型 policy：因子门整门跳过（${this._escapeHtml(factorCheckInfo.policy || '')}）——上涨趋势因子为观察门（不拦截）</div>
-            ${trendTable}
+            <div class="text-xs text-gray-700 mb-1">点位类型 policy：因子门整门跳过（${this._escapeHtml(factorCheckInfo.policy || '')}）</div>
+            ${trendChips}
+            ${this._allObserveFactorsHtml(metadata)}
           </div>
           `;
         } else if (fStatus === 'insufficient_ticks') {
@@ -5151,6 +5142,59 @@ class ExperimentSignals {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * T245 观察因子紧凑 chip（2026-11-28 用户指令「观察因子的展示完全可以紧凑一些」）：
+   * 键值对小方块，深色文字；null → '—'
+   */
+  _observeChipHtml(label, value) {
+    const v = (value === null || value === undefined) ? '—' : String(value);
+    return `<span class="inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded border border-gray-400 bg-white text-gray-900 leading-tight"><span class="text-gray-700">${this._escapeHtml(label)}</span><span class="font-mono font-semibold">${this._escapeHtml(v)}</span></span>`;
+  }
+
+  /** T245 观察因子前缀域分组（全键紧凑网格的分块） */
+  _observeDomainOf(k) {
+    if (k.startsWith('act') || k.startsWith('anchor')) return '活跃度';
+    if (k.startsWith('chg') || k.startsWith('rise') || k.startsWith('swing') || k === 'priceMa60SlopePct' || k === 'max5sRisePct' || k.startsWith('rsi') || k.startsWith('trend') || k.startsWith('earlyReturn') || k.startsWith('recentRise') || k.startsWith('secSincePeak') || k === 'priceBackToAlmostLaunch') return '趋势动量';
+    if (k.startsWith('launch')) return '开盘';
+    if (k.startsWith('bundle') || k.startsWith('evenCluster')) return '捆绑簇';
+    if (k.startsWith('cheat')) return '作弊域';
+    if (k.startsWith('famous') || k.startsWith('smart') || k.startsWith('notorious') || k.startsWith('sybil') || k.startsWith('sniper') || k.startsWith('maxCopy')) return 'famous/名单';
+    if (k.startsWith('holder')) return '持仓';
+    if (k.startsWith('top1') || k.startsWith('top2') || k.startsWith('top3') || k.startsWith('top5')) return '持仓';
+    if (k.startsWith('narrative') || k.startsWith('tweet')) return '叙事';
+    if (k.startsWith('TPA')) return 'TPA';
+    if (k.startsWith('gmgn')) return 'GMGN';
+    if (k.startsWith('quiet') || k.startsWith('burst')) return '静默/波段';
+    if (k.startsWith('fresh') || k.startsWith('boughtBy') || k.startsWith('machine') || k.startsWith('arb') || k.startsWith('counterparty')) return '钱包质量';
+    return '其它';
+  }
+
+  /**
+   * T245 全量观察因子区（2026-11-28 用户指令「其它因子也全部作为观察键，每个买入
+   * 信号所有的因子都要跑，只是一部分激活罢了」）：数据源=signal metadata.trendFactors
+   * （fire 因子表全量落库，FactorBuilder 白名单外全量透传）——按前缀域分组紧凑网格。
+   * 因子门臂（拦截）只激活部分，观察值全量展示。
+   */
+  _allObserveFactorsHtml(metadata) {
+    const tf = metadata && typeof metadata.trendFactors === 'object' ? metadata.trendFactors : null;
+    if (!tf) return '';
+    const domains = new Map();
+    for (const k of Object.keys(tf)) {
+      const d = this._observeDomainOf(k);
+      if (!domains.has(d)) domains.set(d, []);
+      domains.get(d).push(k);
+    }
+    const blocks = [...domains.entries()].map(([d, keys]) => {
+      const chips = keys.map((k) => this._observeChipHtml(k, tf[k])).join('');
+      return `<div class="mt-1"><span class="text-xs font-semibold text-gray-900">${this._escapeHtml(d)}</span><div class="mt-0.5 flex flex-wrap gap-1">${chips}</div></div>`;
+    }).join('');
+    return `
+            <details class="mt-1">
+              <summary class="text-xs text-emerald-800 cursor-pointer select-none">👁 观察因子（全量已跑 · 仅部分臂激活拦截）· ${Object.keys(tf).length} 键</summary>
+              ${blocks}
+            </details>`;
   }
 
   /**
