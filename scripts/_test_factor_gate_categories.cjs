@@ -83,8 +83,8 @@ console.log('\nB. 后端分类完备');
   ok('B2 门行数（37 存量 + FP47a/b 两条 + FP48 crash 形态一条）', r.gates.length === 40, r.gates.length);
   const gateIds = new Set(r.gates.map((g) => g.id));
   const mapKeys = Object.keys(FP.FACTOR_GATE_CATEGORY_BY_ID);
-  check('B3 映射键 = 因子门门行 ∪ BP 塞单门（无多余键；crash_form 自 FP48 起是因子门门行）',
-    mapKeys.filter((k) => !gateIds.has(k) && !['stuffing_gate'].includes(k)), []);
+  check('B3 映射键 = 因子门门行 ∪ BP 塞单门 ∪ 门层追加行（活跃度门/作弊门，T253；crash_form 自 FP48 起是因子门门行）',
+    mapKeys.filter((k) => !gateIds.has(k) && !['stuffing_gate', 'af_act_level', 'cheat_factor'].includes(k)), []);
   check('B3b crash_form 已是因子门门行（不再靠 BP 合成）', gateIds.has('crash_form'), true);
   check('B4 每条门行都在映射里', r.gates.filter((g) => !mapKeys.includes(g.id)).map((g) => g.id), []);
   const catIds = new Set(FP.FACTOR_GATE_CATEGORIES.map((c) => c.id));

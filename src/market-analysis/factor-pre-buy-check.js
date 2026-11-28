@@ -1115,13 +1115,15 @@ const FACTOR_GATE_CATEGORIES = Object.freeze([
   Object.freeze({ id: 'trend', label: '上涨趋势', question: '这个上涨趋势是健康持续还是出货集中' }),
 ]);
 
-/** 门 id → 类别 id（键集 = 门链全部因子门：①因子门门行 + ⑤BP 门 stuffing_gate / crash_form） */
+/** 门 id → 类别 id（键集 = 门链全部因子门：因子门门行 + BP 塞单门 + 活跃度门行/作弊门行〔T253 门层编排器追加〕） */
 const FACTOR_GATE_CATEGORY_BY_ID = Object.freeze({
   // 参与结构：像样买方 / 大户进场节奏 / 有没有主力
   pvp: 'participation', big_buy_defer: 'participation', holder_scatter: 'participation',
   // 组织性协同：捆绑大部队 / 均等分仓 / curve 外筹码分仓 / 机器持筹 / 机器式缓推 / burst 捆绑 / 同块等额塞单
   launch_squad: 'organized', even_split_crew: 'organized', oversell_residual: 'organized',
   arb_bot_holdings: 'organized', slow_pump: 'organized', cd405: 'organized', stuffing_gate: 'organized',
+  // 作弊门行（T253 门层编排器追加：因子代 CF1 无专属判据恒放行）
+  cheat_factor: 'organized',
   // 砸盘出货：各类砸盘与承接 / 大户出货 / 卖压残局
   cd400: 'dumping', cd403: 'dumping', dump_pair: 'dumping', cd412: 'dumping', cd414: 'dumping',
   cd401: 'dumping', holder_quiet_unload: 'dumping', tail_no_buyer: 'dumping', lifecycle_sell: 'dumping',
@@ -1129,6 +1131,8 @@ const FACTOR_GATE_CATEGORY_BY_ID = Object.freeze({
   act_idle: 'liquidity', act_sparse: 'liquidity', act_dust: 'liquidity', act_near_dead: 'liquidity',
   act_ultra_sell: 'liquidity', act_ultra_density: 'liquidity', tail_activity: 'liquidity',
   launch_fail_dead: 'liquidity', burst_weak: 'liquidity', lifecycle_burst: 'liquidity',
+  // 活跃度门行（T253 门层编排器追加进 factorCheck.gates：AF3 判档）
+  af_act_level: 'liquidity',
   // 点位形态：接刀族（尾部接刀 / 恶意砸盘 / crash 数值判序 / crash 形态〔FP48 起，原 BP 门复核〕）
   tail_dip_knife: 'entry', malicious_dump: 'entry', crash_numeric: 'entry', crash_form: 'entry',
   // famous / 聪明钱行为

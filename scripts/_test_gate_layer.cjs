@@ -13,6 +13,10 @@
  *   B. service 层：门层统一取数 prepareGateLayer（纯内存一次取数、零 DB 读、三种短路形状、
  *      共享快照 cheatDerived ≡ cheat 快照 derived 逐位对锁）+ 因子门/BP/活跃度门判定段
  *      （prebuilt ≡ 旧入口；落行开关；arm/trace 透出；旧入口形状不变）
+ *   C. 决策核 core/gate-layer.js：四个旧挂点的有效结论逐条转录为基线 legacyDecide，对各门
+ *      状态 × 取数状态 × 19 种 policy（11 类型注册表真实 policy + 自定义）的笛卡尔积穷举
+ *      对拍——pass / 拒因 / FA 投影 / 落行旗标 / burst 资格 / 四段有效 status 逐位相等
+ *      （未到达=旧链段缺席 ↔ 新链 not_reached）；门行全集形状与汇总
  *
  * 用法：node scripts/_test_gate_layer.cjs
  */
@@ -400,6 +404,302 @@ console.log('\nB. service 层：门层统一取数（纯内存零 DB）+ 判定�
   const full = FR.judgeActFrontFactorFull({ derived: prep.snapshot.cheatDerived });
   const four = FR.judgeActFrontFactor({ derived: prep.snapshot.cheatDerived });
   check('B6c 同一判定：四键版 ≡ 全文版取四键', [four.act === full.act && four.sbw === full.sbw && four.model === full.model, typeof full.arm, typeof full.trace], [true, 'string', 'object']);
+
+console.log('\nC. 决策核 gate-layer.js：与旧门链有效结论穷举对拍');
+{
+  const GL = require(path.join(ROOT, 'src/trading-engine/core/gate-layer.js'));
+  const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
+
+  // ── 旧门链决策转录（基线）：逐字对照 AbstractTradingEngine 四挂点的有效结论 ──
+  // 口径：各门自取数在单快照前提下用同一份取数结果代表；取数失败的新形状
+  // （insufficient_history / error）旧链无对应——FP/AF 按 fail-open、BP 按 fail-closed 映射
+  const AF_REJECT = new Set(['reject_low', 'reject_ultra', 'reject_wash']);
+  const AF_SKIP = new Set(['burst_exempt', 'restart_exempt', 'high_skip']);
+  function legacyDecide(st) {
+    const pol = st.policy || {};
+    const prep = st.prep || { status: 'insufficient_history', reason: 'pullTicks_absent', anchorTickCount: 0 };
+    const prepOk = prep.ok === true;
+    const fp = prepOk ? st.fp : null;
+    const af = prepOk ? st.af : null;
+    const cheat = st.cheat;
+    const bp = prepOk ? st.bp : null;
+    const out = { pass: true, code: null, proj: null, writeBp: false, t189: false, st: {} };
+    let fpPass = true;
+    // _factorGateEvaluate
+    if (pol.factorCheckArms === 'skip') out.st.fp = 'policy_pass';
+    else {
+      const res = prepOk ? fp : { status: prep.status };
+      out.st.fp = res.status;
+      if (res.status === 'assessed') {
+        fpPass = res.pass === true;
+        out.proj = { blocked: fpPass ? 0 : 1, reason: res.reason };
+        if (!fpPass) out.code = `factor_gate_${res.reason}`;
+      }
+    }
+    // _actFrontGateEvaluate（模块在场；段缺席=未到达）
+    let afPass = true;
+    let skipCheat = false;
+    if (!fpPass) out.st.af = 'ABSENT';
+    else if (pol.actFront === 'pass') out.st.af = 'policy_pass';
+    else {
+      const res = prepOk ? af : { status: prep.status };
+      out.st.af = res.status;
+      if (res.status === 'assessed') {
+        if (AF_REJECT.has(res.path)) { afPass = false; out.code = `act_front_${res.path.replace('reject_', '')}`; }
+        skipCheat = AF_SKIP.has(res.path);
+      }
+    }
+    // _cheatGateEvaluateBinary → _cheatGateFactorEvaluate（因子代 per-signal）
+    let cheatPass = true;
+    if (!(fpPass && afPass)) out.st.cheat = 'ABSENT';
+    else if (pol.cheatCheck === 'skip') out.st.cheat = 'policy_pass';
+    else if (skipCheat) out.st.cheat = 'skipped_by_act_front';
+    else {
+      out.st.cheat = cheat ? cheat.status : 'unknown';
+      if (cheat && (cheat.grade === 'cheat' || cheat.grade === 'unhealthy')) { cheatPass = false; out.code = `cheat_gate_${cheat.grade}`; }
+    }
+    // T189b：sbw 取作弊门 info.levels——旧链前门拒即 return，作弊门未到达时 t189SbwBurst 保持初值 false
+    const cheatLevels = out.st.cheat === 'ABSENT' ? null
+      : (out.st.cheat === 'policy_pass' ? { stallBurstWave: null } // 旧挂点 policy_pass 合成 levels
+        : (out.st.cheat === 'skipped_by_act_front' ? { stallBurstWave: af.sbw === 'burst' ? 1 : null }
+          : (cheat ? cheat.levels : null)));
+    out.t189 = !!(cheatLevels && cheatLevels.stallBurstWave === 1);
+    // _bpGateEvaluate（fail-closed）
+    let bpPass = true;
+    if (!(fpPass && afPass && cheatPass)) out.st.bp = 'ABSENT';
+    else if (pol.buyPoint === 'skip') out.st.bp = 'policy_pass';
+    else {
+      out.writeBp = prepOk && pol.buyPoint !== 'stuffingOnly'; // 全门路径才有落行资格
+      const res = prepOk ? bp : (prep.status === 'insufficient_ticks' ? { status: 'insufficient_ticks' } : { status: 'fail' });
+      out.st.bp = res.status;
+      if (res.status === 'assessed') {
+        const bucket = res.assessment && res.assessment.bucket;
+        bpPass = bucket != null && ['good', 'neutral'].includes(bucket);
+        if (!bpPass) out.code = 'bp_gate_assessment';
+      } else if (res.status === 'insufficient_ticks') { bpPass = false; out.code = 'bp_gate_insufficient_ticks'; }
+      else { bpPass = false; out.code = `bp_gate_${res.status}`; }
+    }
+    out.pass = fpPass && afPass && cheatPass && bpPass;
+    return out;
+  }
+
+  // ── 状态集 ──
+  const TREND = { riseLegSec: 4.2 };
+  const cd400Fix = base({}, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 });
+  const famThinFix = base({ famousTraces: { wallets: ['0xf1'], groupBuyBnb: 1, groupSellBnb: 0.5 } }, { totalBuyBnb: 1 });
+  /** policy → 因子门判定入参（旧挂点 _factorGateEvaluate 同款：cheatOnly→armClass，臂差集→armExempt） */
+  const fpOptsOf = (policy, extra = {}) => {
+    const o = { ...extra };
+    if (policy && policy.factorCheckArms === 'cheatOnly') o.armClass = 'cheat';
+    if (policy && Array.isArray(policy.factorCheckArmExempt) && policy.factorCheckArmExempt.length) o.armExempt = policy.factorCheckArmExempt;
+    return o;
+  };
+  // service 返回形状（status:'assessed' + 纯函数产物）——编排器拿到的就是它
+  const svc = (r) => ({ status: 'assessed', ...r });
+  /** 某 policy 下的因子门四态：过 / 作弊类臂拒 / 非作弊类臂拒（cheatOnly 下转放行）/ 异常 */
+  const fpStatesOf = (policy) => ([
+    ['pass', svc(FP.evaluateFactorPreBuy(base(), fpOptsOf(policy, { trendFactors: TREND })))],
+    ['rejectCd', svc(FP.evaluateFactorPreBuy(cd400Fix, fpOptsOf(policy, { trendFactors: TREND })))],
+    ['rejectThin', svc(FP.evaluateFactorPreBuy(famThinFix, fpOptsOf(policy, { trendFactors: TREND })))],
+    ['error', { status: 'error', reason: 'x' }],
+  ]);
+  const FP_RAW = Object.fromEntries(fpStatesOf(null));
+  const afRaw = (path, o = {}) => ({ status: 'assessed', act: 'mid', sbw: 'none', wash: null, path, version: 'AF3', model: 'factor@AF3', arm: 'near_alive', trace: { idlePct: 12 }, ...o });
+  const AF_RAW = {
+    reject_low: afRaw('reject_low', { act: 'low', arm: 'near_dead' }),
+    reject_ultra: afRaw('reject_ultra', { act: 'ultra', arm: 'whole_window_ultra' }),
+    reject_wash: afRaw('reject_wash', { act: 'high', wash: 'strong' }),
+    burst_exempt: afRaw('burst_exempt', { act: 'low', sbw: 'burst' }),
+    restart_exempt: afRaw('restart_exempt', { act: 'low' }),
+    high_skip: afRaw('high_skip', { act: 'high' }),
+    high_skip_burst: afRaw('high_skip', { act: 'high', sbw: 'burst' }),
+    mid_full: afRaw('mid_full'),
+    fail_open: afRaw('fail_open', { act: null, sbw: null }),
+    insufficient: { status: 'insufficient_ticks', anchorTickCount: 3 },
+    fail: { status: 'fail', reason: 'cooldown' },
+    error: { status: 'error', reason: 'x' },
+  };
+  const CHEAT_RAW = {
+    healthy: { status: 'analyzed', grade: 'healthy', reasons: [], levels: { stallBurstWave: null }, model: 'factor@CF1' },
+    healthyBurst: { status: 'analyzed', grade: 'healthy', reasons: [], levels: { stallBurstWave: 1 }, model: 'factor@CF1' },
+    unhealthy: { status: 'analyzed', grade: 'unhealthy', reasons: [{ code: 'E_act_low' }], levels: { stallBurstWave: null }, model: 'factor@CF1' },
+    cheat: { status: 'analyzed', grade: 'cheat', reasons: [{ code: 'A_coordinated' }], levels: { stallBurstWave: null }, model: 'factor@CF1' },
+    fail: { status: 'fail', reason: 'factor_error' },
+  };
+  const BP_RAW = {
+    good: { status: 'assessed', assessment: { bucket: 'good', prob: null, rule: 'gates_passed' }, anchors: { exactEqualBlockMaxWallets: 2 } },
+    neutral: { status: 'assessed', assessment: { bucket: 'neutral', prob: null, rule: 'gates_passed' }, anchors: { exactEqualBlockMaxWallets: 2 } },
+    poorStuffing: { status: 'assessed', assessment: { bucket: 'poor', prob: null, rule: 'stuffing_gate' }, anchors: { exactEqualBlockMaxWallets: 9 } },
+    poorOther: { status: 'assessed', assessment: { bucket: 'poor', prob: null, rule: 'entry_gate' }, anchors: {} },
+    insufficient: { status: 'insufficient_ticks', anchorTickCount: 3 },
+    fail: { status: 'fail', reason: 'chain_error' },
+    error: { status: 'error', reason: 'x' },
+  };
+  const BP_STUFFING_ONLY = {
+    soClear: { status: 'assessed', assessment: { bucket: 'neutral', prob: null, rule: 'policy_stuffing_only' }, policy: 'stuffingOnly', stuffingEqWallets: 2 },
+    soHit: { status: 'assessed', assessment: { bucket: 'poor', prob: null, rule: 'stuffing_gate' }, policy: 'stuffingOnly', stuffingEqWallets: 9 },
+  };
+  const PREPS = {
+    ok: { ok: true, token: '0xtok', snapshot: {}, pull: { anchorTickCount: 12, capped: false }, meta: {} },
+    few: { ok: false, status: 'insufficient_ticks', anchorTickCount: 3 },
+    partial: { ok: false, status: 'insufficient_history', reason: 'ring_partial', anchorTickCount: 12 },
+    err: { ok: false, status: 'error', reason: 'boom' },
+    absent: null,
+  };
+  const POLICIES = [
+    ...POINT_TYPES.map((t) => ({ name: `注册表:${t.id}`, policy: t.policy })),
+    { name: '空', policy: {} },
+    { name: 'FP直通', policy: { factorCheckArms: 'skip' } },
+    { name: 'FP作弊类', policy: { factorCheckArms: 'cheatOnly' } },
+    { name: 'AF直通', policy: { actFront: 'pass' } },
+    { name: '作弊门跳过', policy: { cheatCheck: 'skip' } },
+    { name: 'BP直通', policy: { buyPoint: 'skip' } },
+    { name: '全直通', policy: { factorCheckArms: 'skip', actFront: 'pass', cheatCheck: 'skip', buyPoint: 'skip' } },
+    { name: 'FP直通+BP全门', policy: { factorCheckArms: 'skip', actFront: 'pass', buyPoint: 'stuffingOnly' } },
+  ];
+
+  // 状态归一：新链对取数失败新形状的映射（旧链无对应，按方向等价比较）
+  const normNew = (status, legacyStatus) => {
+    if (legacyStatus === 'ABSENT') return status === 'not_reached' ? 'ABSENT' : status;
+    if (legacyStatus === 'fail' && ['insufficient_history', 'error'].includes(status)) return 'fail';
+    return status;
+  };
+  const normCode = (code, legacyCode, prepName) => {
+    // 取数失败新形状的拒因码：旧链按 fail 映射
+    if (prepName !== 'ok' && legacyCode === 'bp_gate_fail' && ['bp_gate_insufficient_history', 'bp_gate_error'].includes(code)) return 'bp_gate_fail';
+    return code;
+  };
+
+  let combos = 0;
+  const fails = [];
+  let skipCheatSeen = 0, notReachedSeen = 0;
+  for (const [prepName, prep] of Object.entries(PREPS)) {
+    const prepOk = prepName === 'ok';
+    for (const pol of POLICIES) {
+      const activation = GL.resolveGateActivation(pol.policy);
+      const fpStates = prepOk ? fpStatesOf(pol.policy) : [['none', null]];
+      const afStates = prepOk ? Object.entries(AF_RAW) : [['none', null]];
+      const bpStates = prepOk
+        ? [...Object.entries(BP_RAW), ...Object.entries(BP_STUFFING_ONLY)]
+        : [['none', null]];
+      for (const [fpName, fpRaw] of fpStates) {
+        for (const [afName, afRawRes] of afStates) {
+          for (const [cheatName, cheatRaw] of Object.entries(CHEAT_RAW)) {
+            for (const [bpName, bpRaw] of bpStates) {
+              // 入参形状防线：fp/af/bp 的非 assessed 形状（error/fail/insufficient）没有 gates/path 等键——decide 须容缺不抛
+              const st = { policy: pol.policy, prep, fp: fpRaw, af: afRawRes, cheat: cheatRaw, bp: bpRaw };
+              const legacy = legacyDecide(st);
+              const dec = GL.decideGateLayer({ activation, prep, fp: fpRaw, af: afRawRes, cheat: cheatRaw, bp: bpRaw, trendFactors: { riseLegSec: 4.2 } });
+              combos++;
+              const tag = `${prepName}|${pol.name}|fp=${fpName}|af=${afName}|cheat=${cheatName}|bp=${bpName}`;
+              const bad = [];
+              if (dec.pass !== legacy.pass) bad.push(`pass ${dec.pass} ≠ ${legacy.pass}`);
+              const code = dec.primary ? dec.primary.code : null;
+              if (normCode(code, legacy.code, prepName) !== legacy.code) bad.push(`code ${code} ≠ ${legacy.code}`);
+              if (JSON.stringify(dec.faProjection) !== JSON.stringify(legacy.proj)) bad.push(`proj ${JSON.stringify(dec.faProjection)} ≠ ${JSON.stringify(legacy.proj)}`);
+              if (dec.writeBpRow !== legacy.writeBp) bad.push(`writeBp ${dec.writeBpRow} ≠ ${legacy.writeBp}`);
+              if (dec.t189SbwBurst !== legacy.t189) bad.push(`t189 ${dec.t189SbwBurst} ≠ ${legacy.t189}`);
+              const S = dec.sections;
+              const stNew = {
+                fp: normNew(S.factorCheck.status, legacy.st.fp),
+                af: normNew(S.actFrontGate.status, legacy.st.af),
+                cheat: normNew(S.cheatCheck.status, legacy.st.cheat),
+                bp: normNew(S.buyPoint.status, legacy.st.bp),
+              };
+              if (JSON.stringify(stNew) !== JSON.stringify(legacy.st)) bad.push(`段 status ${JSON.stringify(stNew)} ≠ ${JSON.stringify(legacy.st)}`);
+              // 不变式：拒 ⇒ 存在有效拦截门行，或主拒门是 BP 的数据类拒（无门可命中）
+              const rows = S.factorCheck.gates;
+              if (!dec.pass && !rows.some((r) => r.blocked) && !(dec.primary && dec.primary.gate === 'bp')) bad.push('拒但无 blocked 门行且主拒门非 BP');
+              if (dec.pass && rows.some((r) => r.blocked) && dec.primary === null) {
+                // 放行却有 blocked 行：只许是「前序门直通/让位后该门未被激活」之外的情形——
+                // blocked 行在放行信号上只可能来自首个有效拒之前被 policy 去活的臂，而那些臂 blocked 恒 false
+                bad.push('放行却存在 blocked 门行');
+              }
+              if (!rows.every((r) => !r.blocked || (r.hit === true && r.activated === true))) bad.push('blocked 但非 (hit ∧ activated)');
+              if (dec.skipCheat) skipCheatSeen++;
+              if (S.buyPoint.status === 'not_reached') notReachedSeen++;
+              if (bad.length) fails.push(`${tag} → ${bad.join('; ')}`);
+            }
+          }
+        }
+      }
+    }
+  }
+  ok(`C1 穷举对拍 ${combos} 组（取数 5 态 × policy ${POLICIES.length} 种 × FP/AF/作弊/BP 各态）：pass/拒因/FA 投影/落行旗标/burst 资格/四段有效 status 与旧门链转录逐位相等（${fails.length} 不符）`, fails.length === 0, fails.slice(0, 6));
+  ok(`C1b 样本量 > 30000 组`, combos > 30000, combos);
+  ok(`C2 覆盖：作弊门让位（skipCheat）与未到达（not_reached）形状均有样本`, skipCheatSeen > 0 && notReachedSeen > 0, { skipCheatSeen, notReachedSeen });
+
+  // ── 门行全集与汇总 ──
+  const activation0 = GL.resolveGateActivation(null);
+  const dec0 = GL.decideGateLayer({ activation: activation0, prep: PREPS.ok, fp: FP_RAW.pass, af: AF_RAW.mid_full, cheat: CHEAT_RAW.healthy, bp: BP_RAW.neutral, trendFactors: { riseLegSec: 4.2 } });
+  const rows0 = dec0.sections.factorCheck.gates;
+  const byGroup = (rows) => rows.reduce((m, r) => { m[r.group] = (m[r.group] || 0) + 1; return m; }, {});
+  check('C3a 全过信号的门行全集：趋势值门 11 + 因子臂 40 + 活跃度门 1 + 作弊门 1 + 塞单门 1 = 54 行', [rows0.length, byGroup(rows0)], [54, { trend: 11, fp: 40, af: 1, cheat: 1, bp: 1 }]);
+  const afRow = rows0.find((r) => r.id === 'af_act_level');
+  check('C3b 活跃度门行：mid_full → 未命中、已激活、值带 act/arm/sbw/path、类别 liquidity', [afRow.hit, afRow.activated, afRow.blocked, afRow.value, afRow.category, afRow.source, afRow.trace], [false, true, false, 'act=mid arm=near_alive sbw=none path=mid_full', 'liquidity', 'gate', { idlePct: 12 }]);
+  const cheatRow = rows0.find((r) => r.id === 'cheat_factor');
+  check('C3c 作弊门行：CF1 恒放行（hit 假）、已激活、如实标「无专属判据」', [cheatRow.hit, cheatRow.activated, cheatRow.blocked, cheatRow.value, cheatRow.category], [false, true, false, '恒放行（无专属判据）', 'organized']);
+  const stuffRow = rows0.find((r) => r.id === 'stuffing_gate');
+  check('C3d 塞单门行：全门路径锚值取 anchors.exactEqualBlockMaxWallets', [stuffRow.value, stuffRow.hit, stuffRow.activated], ['同块等额买入最大簇 2 钱包', false, true]);
+  const gl0 = GL.buildGateLayerSection({ activation: activation0, prep: PREPS.ok, rows: rows0, primary: dec0.primary, pass: dec0.pass });
+  check('C3e gateLayer 段：v=GL1 · source=memory · 取数快照 · 汇总（54 门 / 激活 41=因子臂 38+活跃度门+作弊门+塞单门，趋势值门 11 与零臂码门 2 不激活 / 命中 0 / 拦 0）',
+    [gl0.v, gl0.source, gl0.snapshot, gl0.summary, gl0.primary], ['GL1', 'memory', { anchorTickCount: 12, capped: false, complete: true }, { total: 54, activated: 41, hit: 0, blocked: 0, valueGates: 11 }, null]);
+  check('C3f 零臂码门恒不激活：通路行 stall_restart 与 FP6 值门 fam_dom_fall', rows0.filter((r) => r.group === 'fp' && !r.activated).map((r) => r.id).sort(), ['fam_dom_fall', 'stall_restart']);
+
+  // ── 全豁类型（steady：FP 直通 / AF 直通 / 作弊门跳过 / BP 塞单门）+ 各门原始命中 ──
+  const steady = POINT_TYPES.find((t) => t.id === 'steady_trend_climb').policy;
+  const actSteady = GL.resolveGateActivation(steady);
+  const decS = GL.decideGateLayer({ activation: actSteady, prep: PREPS.ok, fp: FP_RAW.rejectCd, af: AF_RAW.reject_low, cheat: CHEAT_RAW.healthy, bp: BP_RAW.neutral, trendFactors: {} });
+  const rowsS = decS.sections.factorCheck.gates;
+  const cdRow = rowsS.find((r) => r.id === 'cd400');
+  const afRowS = rowsS.find((r) => r.id === 'af_act_level');
+  const cheatRowS = rowsS.find((r) => r.id === 'cheat_factor');
+  check('C4a 全豁类型：FP 原始命中 cd400 但整门未激活 → hit 真 / activated 假 / blocked 假（算了不拦），放行',
+    [decS.pass, decS.primary, cdRow.hit, cdRow.activated, cdRow.blocked, rowsS.filter((r) => r.group === 'fp' && r.activated).length], [true, null, true, false, false, 0]);
+  check('C4b 全豁类型：AF 直通——reject_low 原始命中、未激活；作弊门跳过——未激活；塞单门已激活', [afRowS.hit, afRowS.activated, afRowS.blocked, cheatRowS.activated, cheatRowS.value, rowsS.find((r) => r.id === 'stuffing_gate').activated], [true, false, false, false, '恒放行（无专属判据）', true]);
+  check('C4c 全豁类型的决策留痕：四段有效 status = policy_pass ×3 + assessed；computed 留原始判定',
+    [decS.sections.factorCheck.status, decS.sections.factorCheck.computed.reason, decS.sections.actFrontGate.status, decS.sections.actFrontGate.computed.path, decS.sections.cheatCheck.status, decS.sections.buyPoint.status, decS.sections.buyPoint.computed === undefined],
+    ['policy_pass', 'cd400_dump_no_absorption', 'policy_pass', 'reject_low', 'policy_pass', 'assessed', true]);
+  const glS = GL.buildGateLayerSection({ activation: actSteady, prep: PREPS.ok, rows: rowsS, primary: decS.primary, pass: decS.pass });
+  check('C4d 汇总：命中 2（cd400+活跃度门原始命中）/ 拦 0 / 激活 1（仅塞单门）', glS.summary, { total: 54, activated: 1, hit: 2, blocked: 0, valueGates: 11 });
+
+  // ── 让位与未到达 ──
+  const decB = GL.decideGateLayer({ activation: activation0, prep: PREPS.ok, fp: FP_RAW.pass, af: AF_RAW.burst_exempt, cheat: CHEAT_RAW.healthy, bp: BP_RAW.neutral, trendFactors: {} });
+  check('C5a 活跃度门 burst 路由 → 作弊门让位：skipped_by_act_front（与旧挂点合成 info 同构）+ sbw=burst → burst 资格',
+    [decB.pass, decB.skipCheat, decB.sections.cheatCheck, decB.t189SbwBurst], [true, true, { status: 'skipped_by_act_front', path: 'burst_exempt', act: 'low', sbw: 'burst', wash: null, version: 'AF3', levels: { stallBurstWave: 1 }, computed: GL.cheatGateInfo(CHEAT_RAW.healthy) }, true]);
+  const decR = GL.decideGateLayer({ activation: activation0, prep: PREPS.ok, fp: FP_RAW.rejectCd, af: AF_RAW.reject_low, cheat: CHEAT_RAW.cheat, bp: BP_RAW.poorStuffing, trendFactors: {} });
+  check('C5b 因子门先拒：后续三门恒算留痕 not_reached（computed 带原始判定），不参与决策',
+    [decR.pass, decR.primary, decR.sections.actFrontGate.status, decR.sections.actFrontGate.computed.path, decR.sections.cheatCheck.status, decR.sections.cheatCheck.computed.grade, decR.sections.buyPoint.status, decR.sections.buyPoint.computed.assessment.bucket, decR.writeBpRow, decR.faProjection],
+    [false, { gate: 'fp', code: 'factor_gate_cd400_dump_no_absorption' }, 'not_reached', 'reject_low', 'not_reached', 'cheat', 'not_reached', 'poor', false, { blocked: 1, reason: 'cd400_dump_no_absorption' }]);
+  check('C5c 因子门先拒的终态与拒因文案（与旧挂点同款）', [decR.statusUpdate, decR.reason], [{ message: '因子门拒买: cd400_dump_no_absorption', reason: 'factor_gate_cd400_dump_no_absorption' }, '因子门拒买（cd400_dump_no_absorption）']);
+
+  // ── 取数失败：FP/AF fail-open、BP fail-closed（含 D4 历史不完整）──
+  const decP = GL.decideGateLayer({ activation: activation0, prep: PREPS.partial, fp: null, af: null, cheat: CHEAT_RAW.healthy, bp: null, trendFactors: { riseLegSec: 4.2 } });
+  check('C6a 行环残缺（D4）：FP/AF 放行留痕、BP 拒 bp_gate_insufficient_history、门行=趋势值门 11 + 三行（值标数据不足）',
+    [decP.pass, decP.primary, decP.sections.factorCheck.status, decP.sections.actFrontGate.status, decP.sections.buyPoint.status, decP.sections.factorCheck.gates.length,
+      decP.sections.factorCheck.gates.find((r) => r.id === 'af_act_level').value, decP.sections.factorCheck.gates.find((r) => r.id === 'stuffing_gate').value, decP.statusUpdate.message],
+    [false, { gate: 'bp', code: 'bp_gate_insufficient_history' }, 'insufficient_history', 'insufficient_history', 'insufficient_history', 14, '历史不完整（ring_partial）', '历史不完整（ring_partial）', 'BP 门拒买: 内存行环历史不完整（ring_partial），数据不足=挡住']);
+  const decF = GL.decideGateLayer({ activation: activation0, prep: PREPS.few, fp: null, af: null, cheat: CHEAT_RAW.healthy, bp: null, trendFactors: {} });
+  check('C6b tick 不足：BP 拒 bp_gate_insufficient_ticks（BP10 数据不够就挡住）', [decF.pass, decF.primary.code, decF.sections.buyPoint.passed, decF.sections.buyPoint.passLevels], [false, 'bp_gate_insufficient_ticks', false, ['good', 'neutral']]);
+
+  // ── 落行旗标：仅到达 BP ∧ 全门 ──
+  const planCases = [
+    ['全门+到达', { activation: activation0, prep: PREPS.ok, fp: FP_RAW.pass, af: AF_RAW.mid_full, cheat: CHEAT_RAW.healthy }, { reached: true, writeBpRow: true, stuffingOnly: false }],
+    ['全门+前门拒', { activation: activation0, prep: PREPS.ok, fp: FP_RAW.rejectCd, af: AF_RAW.mid_full, cheat: CHEAT_RAW.healthy }, { reached: false, writeBpRow: false, stuffingOnly: false }],
+    ['stuffingOnly 类型', { activation: GL.resolveGateActivation({ buyPoint: 'stuffingOnly' }), prep: PREPS.ok, fp: FP_RAW.pass, af: AF_RAW.mid_full, cheat: CHEAT_RAW.healthy }, { reached: true, writeBpRow: false, stuffingOnly: true }],
+    ['BP 直通类型', { activation: GL.resolveGateActivation({ buyPoint: 'skip' }), prep: PREPS.ok, fp: FP_RAW.pass, af: AF_RAW.mid_full, cheat: CHEAT_RAW.healthy }, { reached: true, writeBpRow: false, stuffingOnly: false }],
+  ];
+  for (const [nm, inp, exp] of planCases) {
+    const plan = GL.gateLayerBpPlan(inp);
+    check(`C7 BP 计划 ${nm}`, [plan.reached, plan.writeBpRow, plan.stuffingOnly], [exp.reached, exp.writeBpRow, exp.stuffingOnly]);
+  }
+  // cheatGateInfo 与引擎 _cheatGateInfo 同形（引擎方法委托到此——D 段另锁源码）
+  const { AbstractTradingEngine } = require(path.join(ROOT, 'src/trading-engine/core/AbstractTradingEngine.js'));
+  const engProto = AbstractTradingEngine.prototype;
+  const sample = { status: 'analyzed', grade: 'healthy', cached: true, reasons: [{ code: 'x' }], unhealthyGrades: 2, levels: { a: 1 }, buckets: { b: 2 }, anchors: { c: 3 }, strongbackerLike: 1, exempt: { code: 'activity_high' }, unblocked: true, model: 'factor@CF1' };
+  check('C8 cheatGateInfo ≡ 引擎 _cheatGateInfo 输出（同输入同形）', GL.cheatGateInfo(sample), engProto._cheatGateInfo.call({}, sample));
+  ok('C9 决策核源码零 Date.now / 零 DB / 零网络', !/Date\.now\(/.test(require('fs').readFileSync(path.join(ROOT, 'src/trading-engine/core/gate-layer.js'), 'utf8').replace(/\/\/.*$/gm, '')));
+}
 })().catch((e) => { fail++; console.error(e && e.stack || e); }).finally(() => {
   console.log(`\n${'='.repeat(60)}\n因子过滤门层单测：${pass} 通过，${fail} 失败`);
   process.exit(fail > 0 ? 1 : 0);
