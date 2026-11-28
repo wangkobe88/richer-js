@@ -275,12 +275,18 @@
                             <h2 class="text-lg font-semibold text-white">Tick 交易散点图与交易信号</h2>
                             <span class="text-xs text-gray-400">每点=一笔链上交易 · 气泡大小=BNB交易额 · 绿买红卖 · 实线=已执行信号 · 虚线=未执行 · 细点线=成交时刻 · ▲▼=成交价（悬停看延迟/价差）· 紫虚线=叙事析起 / 琥珀虚线=析毕（C84）· 青虚线=观察信号 · 点虚线=反作弊判定（玫红不健康/深红拉黑/青绿健康）· 🎯点击气泡=聚焦该钱包交易（其它变浅，再点/点空白取消）</span>
                         </div>
-                        <div class="flex items-center gap-2 text-sm">
+                        <div class="flex flex-wrap items-center gap-2 text-sm">
                             <span class="text-gray-400 whitespace-nowrap">只显示代币发出后</span>
                             <input type="number" id="tick-time-window" min="0" step="1" placeholder="不限" class="w-24 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <span class="text-gray-400 whitespace-nowrap">秒内的 ticks</span>
-                            <button id="apply-tick-window" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors">应用</button>
-                            <button id="reset-tick-window" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-white transition-colors">重置</button>
+                            <button id="apply-tick-window" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors whitespace-nowrap">应用</button>
+                            <button id="reset-tick-window" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-white transition-colors whitespace-nowrap">重置</button>
+                            <!-- 🎯 成交聚焦：窗口只框成交锚（已执行信号 ∪ 成交记录）前后各 N 秒——未成交信号与成交相距数小时时，
+                                 默认「首末信号±5min」窗口被撑开、成交段压扁看不见；开启后未成交信号不再撑窗（窗内的照常画虚线）。
+                                 基数 ticks 未覆盖窗口时按时间范围自动补拉；「应用/重置/加载全量」任一操作即退出本模式 -->
+                            <button id="trade-focus-toggle" aria-pressed="false" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-white transition-colors whitespace-nowrap" title="只展示成交信号附近数据：窗口=首末成交时刻前后各 60 秒（开启后可调），未成交信号不再撑开窗口；三图同窗">🎯 只展示成交信号附近数据</button>
+                            <label id="trade-focus-pad-wrap" class="hidden items-center gap-1 text-gray-400 whitespace-nowrap" title="成交时刻前后各展示多少秒的 ticks（改完回车或点别处生效）">前后 <input type="number" id="trade-focus-pad" min="1" step="1" value="60" class="w-16 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"> 秒</label>
+                            <span id="trade-focus-status" class="hidden text-xs text-gray-400 whitespace-nowrap"></span>
                             <button id="load-full-ticks" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-white transition-colors whitespace-nowrap" title="分页拉取该代币全量 ticks（突破单页上限），展示窗口只框住交易区间=首末信号±5分钟，窗口外长尾 ticks 不画">加载全量（含所有信号）</button>
                             <a id="token-ticks-link" href="#" target="_blank" class="px-3 py-1 bg-green-700 hover:bg-green-600 rounded text-white transition-colors whitespace-nowrap" title="打开该代币的 Ticks 浏览页（全历史气泡图/区块K线/交易明细，与实验无关）">Ticks 浏览 ↗</a>
                         </div>
@@ -447,6 +453,6 @@
     </div>
 
     <script src="/static/js/simple-init.js?v=4.22"></script>
-    <script src="/static/js/experiment_signals.js?v=424"></script>
+    <script src="/static/js/experiment_signals.js?v=427"></script>
 </body>
 </html>

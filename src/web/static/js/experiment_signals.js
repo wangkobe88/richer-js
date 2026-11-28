@@ -188,6 +188,19 @@ class ExperimentSignals {
     this._fullTickRange = false; // 全量模式（分页拉完全部 ticks，窗口=首末信号±5min）
     this._lastTickData = null;   // 缓存已拉取的 ticks（窗口切换不重新 fetch）
     this._lastToken = null;
+    // 🎯 成交聚焦（只展示成交信号附近数据，2026-11-28 用户需求「未成交信号跟成交信号的时间距离
+    // 太远，整个图展示整体数据，导致成交信号前后数据看不到」）：被拒/未执行信号可能与成交相距
+    // 数小时（b285…7777 案：14 信号跨 10h，成交只有 69s），默认窗口「首末信号±5min」被它们
+    // 撑开后成交段压成一条线。开启后窗口只框成交锚 = 首末成交时刻 ± _tradeFocusPadSec
+    // （成交锚=已执行信号时刻 ∪ 成交记录时刻；窗内的未成交信号照常画虚线）。窗口模式的叠加位
+    // （优先级最高）：关闭即回到原窗口模式（N 秒窗口/全量/默认），散点/K线/Holder 三图同窗
+    this._tradeFocus = false;
+    this._tradeFocusPadSec = 60;      // 成交时刻前后各展示多少秒
+    this._tradeFocusError = '';       // 区间补拉失败原因（空串=正常；状态条显式提示不静默）
+    this._tradeFocusTicks = null;     // { key, ticks } 成交区间补拉的 ticks（基数 ticks 未覆盖窗口时才拉）
+    this._tradeFocusFetch = null;     // { key, promise } 进行中的区间补拉（同 key 请求去重）
+    this._tradeFocusSeq = 0;          // _prepareTradeFocus 调用序号（只有最后一次调用可写状态条/报错）
+    this._tickDataComplete = false;   // 当前 ticks 基数是否完整（全量分页拉完 / 单页即全量）
     this.candleChart = null;
     this.candleVolumeChart = null;
 
@@ -353,6 +366,14 @@ class ExperimentSignals {
     safeBind('load-full-ticks', 'click', () => {
       this.loadFullTickRange();
     });
+
+    // 🎯 成交聚焦：只展示成交信号附近数据（开关；前后秒数——回车/失焦/步进按钮都触发 change）
+    safeBind('trade-focus-toggle', 'click', () => {
+      this.toggleTradeFocus();
+    });
+    safeBind('trade-focus-pad', 'change', () => {
+      this.applyTradeFocusPad();
+    });
   }
 
   /**
@@ -367,6 +388,7 @@ class ExperimentSignals {
     // 空值或非正数 → 不限
     this.tickWindowSec = (raw !== '' && Number.isFinite(val) && val > 0) ? val : null;
     this._fullTickRange = false; // 显式窗口模式与全量模式互斥
+    this._setTradeFocus(false); // 显式窗口模式与成交聚焦互斥（聚焦优先级最高，不退出=应用后窗口不变）
     if (this._lastTickData && this._lastToken) {
       this.initBubbleChart(this._lastTickData, this._lastToken);
       this.initCandleChart(this._lastTickData, this._lastToken);
@@ -382,6 +404,7 @@ class ExperimentSignals {
     if (input) input.value = '';
     this.tickWindowSec = null;
     this._fullTickRange = false; // 重置回默认（首信号±5min）窗口
+    this._setTradeFocus(false); // 重置=恢复默认全貌视图，成交聚焦一并退出
     if (this._lastTickData && this._lastToken) {
       this.initBubbleChart(this._lastTickData, this._lastToken);
       this.initCandleChart(this._lastTickData, this._lastToken);
@@ -446,6 +469,9 @@ class ExperimentSignals {
       this._fullTickRange = true;
       this._lastTickData = all;
       this._lastToken = token;
+      this._tickDataComplete = true; // 分页拉完=基数完整（成交聚焦窗口恒被覆盖，无需区间补拉）
+      this._tradeFocusTicks = null;  // 区间补拉缓存随基数更换作废
+      this._setTradeFocus(false); // 「含所有信号」=全貌视图，成交聚焦一并退出（否则窗口仍只框成交段）
 
       this.initBubbleChart(all, token);
       this.initCandleChart(all, token);
@@ -461,6 +487,260 @@ class ExperimentSignals {
       btn.disabled = false;
       setTimeout(() => { if (btn.textContent.startsWith('已加载全量')) btn.textContent = btn.dataset.origText; }, 5000);
     }
+  }
+
+  /**
+   * 🎯 成交聚焦：开关「只展示成交信号附近数据」。开启=窗口只框成交锚前后各 _tradeFocusPadSec
+   * 秒（成交锚见 _tradeAnchorTimes）；关闭=回到原窗口模式（N 秒窗口/全量/默认）
+   */
+  async toggleTradeFocus() {
+    this._setTradeFocus(!this._tradeFocus);
+    await this._applyTradeFocus();
+  }
+
+  _setTradeFocus(on) {
+    this._tradeFocus = !!on;
+    this._tradeFocusError = '';
+    this._updateTradeFocusUi();
+  }
+
+  /**
+   * 🎯 前后秒数改动：开启中即时重算窗口（窗口变了→基数未覆盖即补拉）；关闭中只记值。
+   * 空值/非正数回 60 并回写输入框（pad 恒为正数）
+   */
+  async applyTradeFocusPad() {
+    const input = document.getElementById('trade-focus-pad');
+    const val = input ? Number(input.value) : NaN;
+    this._tradeFocusPadSec = (Number.isFinite(val) && val > 0) ? val : 60;
+    if (input && Number(input.value) !== this._tradeFocusPadSec) input.value = String(this._tradeFocusPadSec);
+    if (this._tradeFocus) await this._applyTradeFocus();
+  }
+
+  /** 🎯 按当前开关状态重绘三图（开关/秒数改动的统一入口） */
+  async _applyTradeFocus() {
+    const token = this._lastToken;
+    if (this._tradeFocus && token) {
+      if (!(await this._prepareTradeFocus(token, this._lastTickData))) return; // 等待期间已换票：新票加载链自行重绘
+    }
+    this._updateTradeFocusUi();
+    this._rerenderTickCharts();
+  }
+
+  /**
+   * 🎯 聚焦开启时渲染前调用：保证 token 的成交窗口有 ticks 可画（基数未覆盖→按时间范围补拉，
+   * 见 _ensureTradeFocusTicks）；进行中/成功/失败/无成交信号都落状态条
+   * @param {Object} token
+   * @param {Array} [tickData] 本次要画的 ticks 基数（换票加载链里 _lastTickData 仍是旧票的，须显式传）
+   * @returns {Promise<boolean>} false=等待期间已换票（调用方放弃本次渲染）
+   */
+  async _prepareTradeFocus(token, tickData) {
+    if (!this._tradeFocus) return true;
+    // 并发调用（快速连点开关/改秒数/刷新）只有最后一次可写状态条与报错——先发起后完成的旧调用
+    // 不得覆盖新调用的结果（旧失败盖新成功=数据已好、状态条仍报错）
+    const seq = ++this._tradeFocusSeq;
+    const isCurrent = () => seq === this._tradeFocusSeq && this.selectedToken === token.address;
+    this._tradeFocusError = '';
+    // 状态条按入参 token 算（换票加载链里 this._lastToken 此刻仍是旧票）
+    this._updateTradeFocusUi({ loading: true }, token);
+    const focus = this._tradeFocusWindow(token);
+    if (focus) {
+      try {
+        await this._ensureTradeFocusTicks(token, focus, tickData);
+      } catch (error) {
+        // 显式提示不静默：窗口照画（基数 ticks 里已有的部分照常显示），状态条给出失败原因；
+        // 关掉再开=重试
+        console.error('❌ 成交区间 ticks 补拉失败:', error);
+        if (isCurrent()) this._tradeFocusError = error.message || String(error);
+      }
+    }
+    if (isCurrent()) this._updateTradeFocusUi({}, token);
+    return this.selectedToken === token.address;
+  }
+
+  /**
+   * 🎯 保证成交聚焦窗口有 ticks：基数未覆盖（单页上限截断、成交段在后续页）时按窗口时间范围
+   * 精准补拉（/api/ticks from/to——不拉全量）；已覆盖/已缓存=零请求，同 key 并发请求合一。
+   * 等待期间换票/改窗口（秒数变了、信号刷新）的过期响应不落缓存
+   */
+  async _ensureTradeFocusTicks(token, focus, tickData) {
+    if (this._tradeFocusCovered(focus, tickData)) return;
+    const key = this._tradeFocusKey(token, focus);
+    if (this._tradeFocusTicks && this._tradeFocusTicks.key === key) return;
+    if (!this._tradeFocusFetch || this._tradeFocusFetch.key !== key) {
+      this._tradeFocusFetch = { key, promise: this._fetchTradeFocusTicks(token, focus) };
+    }
+    const pending = this._tradeFocusFetch;
+    let ticks;
+    try {
+      ticks = await pending.promise;
+    } finally {
+      if (this._tradeFocusFetch === pending) this._tradeFocusFetch = null;
+    }
+    if (this.selectedToken !== token.address) return;
+    const current = this._tradeFocusWindow(token);
+    if (!current || this._tradeFocusKey(token, current) !== key) return;
+    this._tradeFocusTicks = { key, ticks };
+  }
+
+  /**
+   * 🎯 按成交聚焦窗口时间范围拉 ticks（分页口径同 loadFullTickRange：offset 按实际返回条数推进）
+   * @returns {Promise<Array>} 窗口内全部 ticks（block_time 升序）
+   */
+  async _fetchTradeFocusTicks(token, focus) {
+    const PAGE = 5000;
+    const all = [];
+    let offset = 0;
+    while (true) {
+      const params = new URLSearchParams({
+        tokenAddress: token.address,
+        from: new Date(focus.trimStart).toISOString(),
+        to: new Date(focus.trimEnd).toISOString(),
+        limit: String(PAGE), offset: String(offset)
+      });
+      const response = await fetch(`/api/ticks?${params}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      if (!result?.success) throw new Error(result?.error || 'ticks 接口返回失败');
+      const page = result?.data || [];
+      all.push(...page);
+      offset += page.length;
+      const total = result?.pagination?.total;
+      if (!page.length || (Number.isFinite(total) && all.length >= total)) break;
+    }
+    // 接口形状防线：from/to 未生效（web 进程仍是旧代码）会回最早一页——与成交窗口无关的 ticks
+    // 静默画进成交窗口=假数据，宁可报错不冒充
+    for (const t of all) {
+      const ms = new Date(t.block_time).getTime();
+      if (!Number.isFinite(ms) || ms < focus.trimStart || ms > focus.trimEnd) {
+        throw new Error('ticks 接口未按时间范围过滤（web-server 进程可能过旧，需重启后重试）');
+      }
+    }
+    return all;
+  }
+
+  /** 🎯 成交锚时刻（ms 升序）：该 token 已执行的买卖信号时刻 ∪ 成交记录时刻 */
+  _tradeAnchorTimes(token) {
+    const times = [];
+    for (const s of (this.signals || [])) {
+      if ((s.token_address || s.tokenAddress) !== token.address) continue;
+      // 观察行（OBSERVE 恒不执行）与未执行信号（被拒/失败/拦截）不算——它们与成交相距可能
+      // 数小时，正是撑开窗口的来源
+      if (s.signal_type === 'OBSERVE') continue;
+      if (!(s.executed === true || s.executed === 'true')) continue;
+      const ms = new Date(s.timestamp || s.created_at).getTime();
+      if (Number.isFinite(ms)) times.push(ms);
+    }
+    // 成交记录并入：没有已执行信号行的成交（如手工买）、以及信号列表被「信号类型」筛选
+    // 剔掉的已执行信号（成交记录不受该筛选影响）也框进窗口
+    for (const t of (this._lastTokenTrades || [])) {
+      const ms = this._tradeTimeMs(t);
+      if (Number.isFinite(ms)) times.push(ms);
+    }
+    return times.sort((a, b) => a - b);
+  }
+
+  /** 🎯 成交聚焦窗口 { trimStart, trimEnd }=首末成交锚 ± pad；无成交锚=null（本模式不生效） */
+  _tradeFocusWindow(token) {
+    const anchors = this._tradeAnchorTimes(token);
+    if (!anchors.length) return null;
+    const padMs = this._tradeFocusPadSec * 1000;
+    return { trimStart: anchors[0] - padMs, trimEnd: anchors[anchors.length - 1] + padMs };
+  }
+
+  _tradeFocusKey(token, focus) {
+    return `${token.address}|${focus.trimStart}|${focus.trimEnd}`;
+  }
+
+  /**
+   * 🎯 ticks 基数是否覆盖成交聚焦窗口：完整基数恒覆盖；单页基数=最早一页连续前缀
+   * （block_time 升序取前 N 条）——窗尾不晚于末条 tick 即窗内 ticks 全在手上
+   */
+  _tradeFocusCovered(focus, tickData) {
+    if (this._tickDataComplete) return true;
+    if (!Array.isArray(tickData) || !tickData.length) return false;
+    let lastMs = -Infinity;
+    for (const t of tickData) {
+      const ms = new Date(t.block_time).getTime();
+      if (Number.isFinite(ms) && ms > lastMs) lastMs = ms;
+    }
+    return lastMs >= focus.trimEnd;
+  }
+
+  /**
+   * 🎯 成交聚焦开关的界面状态：按钮高亮/前后秒数/状态条（进行中·失败·无成交信号）
+   * @param {{loading?:boolean}} [state]
+   * @param {Object} [token] 状态条按哪个 token 算（缺省=当前图上的 token）
+   */
+  _updateTradeFocusUi(state = {}, token = this._lastToken) {
+    const btn = document.getElementById('trade-focus-toggle');
+    if (!btn) return;
+    const on = this._tradeFocus;
+    btn.classList.toggle('bg-gray-600', !on);
+    btn.classList.toggle('hover:bg-gray-500', !on);
+    btn.classList.toggle('bg-amber-600', on);
+    btn.classList.toggle('hover:bg-amber-700', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const padWrap = document.getElementById('trade-focus-pad-wrap');
+    if (padWrap) {
+      padWrap.classList.toggle('hidden', !on);
+      padWrap.classList.toggle('flex', on);
+    }
+    const status = document.getElementById('trade-focus-status');
+    if (!status) return;
+    const text = on ? this._tradeFocusStatusText(state, token) : '';
+    status.textContent = text;
+    status.classList.toggle('hidden', !text);
+    const failed = !!this._tradeFocusError && !state.loading;
+    status.classList.toggle('text-red-400', failed);
+    status.classList.toggle('text-gray-400', !failed);
+  }
+
+  _tradeFocusStatusText(state, token = this._lastToken) {
+    if (!token) return '';
+    const focus = this._tradeFocusWindow(token);
+    if (!focus) return '无成交信号 · 仍显示全部信号窗口';
+    const tradesN = (this._lastTokenTrades || []).length;
+    const head = tradesN > 0
+      ? `成交 ${tradesN} 笔`
+      : `已执行信号 ${this._tradeAnchorTimes(token).length} 条`;
+    const text = `${head} · ${this._fmtClock(focus.trimStart)} ~ ${this._fmtClock(focus.trimEnd)}`;
+    if (state.loading) return `${text} · 补拉成交区间 ticks…`;
+    if (this._tradeFocusError) return `${text} · ⚠ ${this._tradeFocusError}`;
+    return text;
+  }
+
+  /** 时刻 → 本地 HH:mm:ss（状态条用；与图表 X 轴同为浏览器本地时区） */
+  _fmtClock(ms) {
+    const d = new Date(ms);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  /** 三图按当前窗口模式重绘（散点图/K线图/Holder 走势——X 轴同窗） */
+  _rerenderTickCharts() {
+    if (!this._lastTickData || !this._lastToken) return;
+    this.initBubbleChart(this._lastTickData, this._lastToken);
+    this.initCandleChart(this._lastTickData, this._lastToken);
+    this._renderHolderForWindow();
+  }
+
+  /** ticks 按 [startMs, endMs] 闭区间筛选（单趟解析 block_time） */
+  _ticksInRange(ticks, startMs, endMs) {
+    const out = [];
+    for (const t of ticks) {
+      const ms = new Date(t.block_time).getTime();
+      if (Number.isFinite(ms) && ms >= startMs && ms <= endMs) out.push(t);
+    }
+    return out;
+  }
+
+  /**
+   * 🎯 成交聚焦窗口把 X 轴钉死到窗口两端（pad 内无 tick 的空白段照实留白=「这段时间没有
+   * 成交」，不因边缘无数据而收缩）；其余窗口模式=数据驱动（原行为，返回空对象）
+   */
+  _pinnedXRange() {
+    const win = this._lastWindow;
+    return (win && win.pinned) ? { min: win.trimStart, max: win.trimEnd } : {};
   }
 
   async loadData() {
@@ -809,6 +1089,16 @@ class ExperimentSignals {
       this._lastObserveSignals = observeData;
       this._lastCheatDetections = cheatData;
       this._lastNarrativeDetail = narrativeDetail;
+
+      // 🎯 成交聚焦：换票=基数换成单页 ticks（可能被单页上限截断）、区间补拉缓存作废；聚焦
+      // 开启中先保证新票成交窗口有 ticks（基数未覆盖才按时间范围补拉），等待期间又换票则
+      // 交给新票的加载链渲染
+      const tickTotal = tickResponse?.pagination?.total;
+      this._tickDataComplete = Number.isFinite(tickTotal)
+        ? tickTotal <= (tickResponse.data || []).length
+        : false;
+      this._tradeFocusTicks = null;
+      if (!(await this._prepareTradeFocus(token, tickResponse.data))) return;
 
       if (!tickResponse?.success || !tickResponse?.data?.length) {
         console.warn('⚠️ 没有 tick 数据，隐藏图表');
@@ -1431,7 +1721,12 @@ class ExperimentSignals {
     const windowed = win
       ? all.filter(p => Number.isFinite(p.t) && p.t >= win.trimStart && p.t <= win.trimEnd)
       : all;
-    this.initHolderChart(windowed.length > 0 ? windowed : all, this._lastToken, win || undefined);
+    if (windowed.length > 0) {
+      this.initHolderChart(windowed, this._lastToken, win || undefined);
+      return;
+    }
+    // 回退全量：成交聚焦的 X 轴钉窗一并解除（钉了=空图）；信号标注仍按窗过滤
+    this.initHolderChart(all, this._lastToken, win ? { ...win, pinned: false } : undefined);
   }
 
   /**
@@ -1605,12 +1900,18 @@ class ExperimentSignals {
           scales: {
             x: {
               type: 'time',
+              // 🎯 成交聚焦窗口钉轴（_renderHolderForWindow 窗口内无点回退全量时置 pinned=false）
+              ...(win && win.pinned ? { min: win.trimStart, max: win.trimEnd } : {}),
               time: {
+                // 秒级刻度格式与散点图/K线图同款（短窗不落 date-fns 默认「HH:mm:ss a」）
                 displayFormats: {
+                  second: 'HH:mm:ss',
                   minute: 'HH:mm',
                   hour: 'MM-dd HH:mm'
                 }
               },
+              // 钉轴短窗刻度上限（同散点图/K线图 12 个；不设=秒级刻度斜排挤满轴）
+              ...(win && win.pinned ? { ticks: { maxTicksLimit: 12, autoSkip: true } } : {}),
               title: {
                 display: true,
                 text: '时间'
@@ -1966,6 +2267,7 @@ class ExperimentSignals {
           scales: {
             x: {
               type: 'time',
+              ...this._pinnedXRange(), // 🎯 成交聚焦窗口钉轴（其余窗口模式=空对象）
               time: {
                 tooltipFormat: 'HH:mm:ss',
                 displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm' },
@@ -2158,6 +2460,8 @@ class ExperimentSignals {
 
   /**
    * 窗口裁剪：决定散点图/K线图实际展示的 tick 子集与时间范围（两者同口径）
+   *   ★) 成交聚焦开启（_tradeFocus）→ 窗口 = 首末成交锚 ± pad（成交锚=已执行信号 ∪ 成交
+   *      记录；未成交信号不撑窗），X 轴钉窗（_lastWindow.pinned）；无成交锚=本模式不生效
    *   0) 全量模式（_fullTickRange，点「加载全量」）→ 窗口 = ticks ∪ 全部信号时间范围（首末信号±5分钟）
    *   1) 用户设了 tickWindowSec → 只保留代币发出后 [0, N秒] 内的 ticks
    *   2) 否则有信号 → 以首次信号为中心 ±5 分钟（不足 10 条放宽到 ±10 分钟）
@@ -2168,6 +2472,20 @@ class ExperimentSignals {
     const tokenSignals = (this.signals || []).filter(s =>
       (s.token_address || s.tokenAddress) === token.address
     );
+
+    // 🎯 成交聚焦模式优先于下方三种窗口（见构造器注释）：窗口=首末成交锚 ± pad。
+    // ticks 来源=区间补拉缓存（key 与当前窗口一致才用）；基数未覆盖而缓存未到=先用基数里
+    // 已有的部分画（_prepareTradeFocus 补拉完成后重绘）
+    if (this._tradeFocus) {
+      const focus = this._tradeFocusWindow(token);
+      if (focus) {
+        const cached = this._tradeFocusTicks;
+        const source = (cached && cached.key === this._tradeFocusKey(token, focus)) ? cached.ticks : tickData;
+        const trimmed = this._ticksInRange(source, focus.trimStart, focus.trimEnd);
+        this._lastWindow = { trimStart: focus.trimStart, trimEnd: focus.trimEnd, pinned: true };
+        return { trimmed, trimStart: focus.trimStart, trimEnd: focus.trimEnd, tokenSignals };
+      }
+    }
     // 观察信号时刻也是本 token 的信号时刻：并入窗口框架（首末信号±5min）——
     // action 筛选视图 this.signals 无 OBSERVE 行，不并入则观察标注会被窗口过滤剔掉
     const observeTimes = (this._lastObserveSignals || [])
@@ -2298,9 +2616,25 @@ class ExperimentSignals {
   }
 
   /**
+   * 成交记录在时间轴上的时刻（ms），按实验模式取列：
+   *   回测 → created_at（虚拟时钟=信号 tick 时刻）。回测 trades 的 executed_at=落库墙钟（跑回测
+   *     当天，非虚拟时钟），与 ticks/信号不同轴——取它会让成交标注全部落在窗口外被窗口门剔掉
+   *     （回测票图上 ▲▼ 成交价标记与成交细点线恒缺失，b285…7777 案实证）
+   *   虚拟/实盘 → executed_at 优先（原行为不动）。⚠实盘 created_at=信号时刻（Trade.createdAt 取
+   *     metadata.timestamp），executed_at=真实成交时刻（v74 实测 34 笔：中位晚 3.0s、最大晚 10.0s）
+   *     ——一律 created_at 优先会把成交标记画回信号时刻、「信号→成交延迟」恒 0
+   */
+  _tradeTimeMs(trade) {
+    const t = this._isBacktest
+      ? (trade.created_at || trade.executed_at)
+      : (trade.executed_at || trade.created_at);
+    return new Date(t).getTime();
+  }
+
+  /**
    * 生成成交标注（2026-10-15 双口径裁定）：成交时刻细点线 + 成交价点位（▲买/▼卖）。
-   * 时刻 = executed_at || created_at（回测/虚拟 executed_at=NULL → created_at=回放
-   * 历史时间；不可用 metadata.executed_at=回测墙钟）。窗口外剔除（防撑开 X 轴，
+   * 时刻 = _tradeTimeMs（按实验模式取列：回测 created_at=回放历史时间 / 虚拟·实盘 executed_at=
+   * 成交当刻；metadata.executed_at 回测=墙钟不可用）。窗口外剔除（防撑开 X 轴，
    * 与信号标注同门）。返回 {annotations, buyPoints, sellPoints}——点位 y=unit_price
    * （USD，与散点图气泡/K线价格轴同刻度）；Holder 图 Y 轴是 holders 数，只取
    * annotations（细线）不放点位。
@@ -2322,7 +2656,7 @@ class ExperimentSignals {
     const PAD = 5 * 60 * 1000;
 
     trades.forEach(trade => {
-      const execMs = new Date(trade.executed_at || trade.created_at).getTime();
+      const execMs = this._tradeTimeMs(trade);
       if (!Number.isFinite(execMs)) return;
       if (trimStart != null && execMs < trimStart - PAD) return;
       if (trimEnd != null && execMs > trimEnd + PAD) return;
@@ -2534,7 +2868,8 @@ class ExperimentSignals {
           } },
         },
         scales: {
-          x: { type: 'time', time: { tooltipFormat: 'HH:mm:ss', displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm' } },
+          // 🎯 _pinnedXRange()：成交聚焦窗口钉轴（主图/量图同钉保持上下对齐；其余窗口模式=空对象）
+          x: { type: 'time', ...this._pinnedXRange(), time: { tooltipFormat: 'HH:mm:ss', displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm' } },
                // candlestick 控制器给 x 轴泄漏 ticks.source:'data'/major/autoSkipPadding:75（刻度=数据点时间戳，跳选后轴末端整段无刻度），
                // 显式恢复 time 轴默认整刻度，保证铺满全轴（与散点图同口径）
                ticks: { font: { size: 10 }, maxTicksLimit: 12, source: 'auto', major: { enabled: false }, autoSkipPadding: 3 },
@@ -2563,7 +2898,7 @@ class ExperimentSignals {
           } },
         },
         scales: {
-          x: { type: 'time', stacked: true, time: { displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm' } },
+          x: { type: 'time', stacked: true, ...this._pinnedXRange(), time: { displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm' } },
                ticks: { font: { size: 10 }, maxTicksLimit: 12 }, grid: { display: false } },
           y: { stacked: true, title: { display: true, text: 'Vol (BNB)' }, ticks: { font: { size: 10 } } },
         },
