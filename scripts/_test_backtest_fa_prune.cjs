@@ -25,6 +25,7 @@ const fs = require('fs');
 
 const FA_PATH = path.join(__dirname, '..', 'src', 'services', 'FourMemeFactorAggregator.js');
 const BE_PATH = path.join(__dirname, '..', 'src', 'trading-engine', 'implementations', 'BacktestEngine.js');
+const { createReplayYielder } = require(path.join(__dirname, '..', 'src', 'trading-engine', 'core', 'replay-yield.js'));
 
 // ── 测试基建 ──────────────────────────────────────────────────────────────
 let passed = 0, failed = 0;
@@ -353,6 +354,7 @@ console.log('H. 复流重锚（prune 后复流首 tick 权威锚重注册）');
         _stopLossEnabled: false, _stopLossScanMs: null, _lastStopLossScanTs: null,
         _consumeGraduationEvents: async () => {},
         _inflightEvals: new Set(),
+        _replayYield: createReplayYielder(), // T253 主循环事件循环让出器（构造器字段，原型桩须自带）
         _forceSellAllRemaining: async () => {},
         _writeBufferEnabled: false, _writeBuffer: null,
         _portfolioManager: { getPortfolio: () => ({ totalValue: 100 }) },

@@ -17,8 +17,11 @@
  *    尾部/停机两处保留 await（红线 13：事故现场源码断言锁定防线）
  *  H update 跨批独立：insert 已被 swap 走后 addSignalUpdate → 独立 update
  *    分支（与旧版「insert 已 flush」路径行为 bit 一致——不合并、原样发）
- *  J metadata 重表分批（T253）：strategy_signals 100 行/批（500 行≈12~15MB 单请求在
- *    182 对拍稳定超时）；其余表维持 500
+ *  J metadata 重表分批：strategy_signals 100 行/批（单行 20~30KB），其余表维持 500。
+ *    ⚠归因更正（2026-11-28）：该分批当初当作「段边界 flush 72s 超时丢行」的修复提交
+ *    （227b78c1），第三轮对拍挂同一位置=归因不成立；真根因=回放主循环饿死事件循环
+ *    （修复=core/replay-yield.js，单测 _test_replay_yield.cjs）。本段只锁「分批行数」
+ *    这一无害加固的现状，不作为写库挂起的反证。
  */
 
 const fs = require('fs');
@@ -250,7 +253,7 @@ const sig = (id, metadata = {}) => ({ id, experiment_id: 'exp', metadata });
     assert('好行的单条 insert 无错误日志（点名只落在坏行）', !errs.some(m => m.includes('id=t-good')));
   }
 
-  // ═══ J metadata 重表分批（T253：500 行信号单请求在 182 对拍稳定超时的事故现场反证） ═══
+  // ═══ J metadata 重表分批（T253：只锁分批行数现状——不是写库挂起的修复，见文件头归因更正） ═══
   {
     console.log('\n[J] 分批行数：strategy_signals 100 行/批，其余表维持 500');
     const db = makeMockDb();

@@ -29,6 +29,7 @@ const path = require('path');
 
 const FA_PATH = path.join(__dirname, '..', 'src', 'services', 'FourMemeFactorAggregator.js');
 const BE_PATH = path.join(__dirname, '..', 'src', 'trading-engine', 'implementations', 'BacktestEngine.js');
+const { createReplayYielder } = require(path.join(__dirname, '..', 'src', 'trading-engine', 'core', 'replay-yield.js'));
 
 let passed = 0, failed = 0;
 function ok(cond, label) {
@@ -206,6 +207,7 @@ console.log('B. 主循环行为（打桩驱动）');
       _stopLossHit: () => null,
       _consumeGraduationEvents: async () => {},
       _inflightEvals: new Set(),
+      _replayYield: createReplayYielder(), // T253 主循环事件循环让出器（构造器字段，原型桩须自带）
       _forceSellAllRemaining: async () => {},
       _writeBufferEnabled: false,
       _writeBuffer: null,

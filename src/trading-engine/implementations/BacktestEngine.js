@@ -29,6 +29,7 @@ const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { isStallSellLeg, DEFAULT_STALLED_SCAN_AFTER_SEC, stallTriggerContext } = require('../core/stall-sell-leg');
 const { BURST_COOLDOWN_DEFAULTS, evaluateBurstCooldown } = require('../core/burst-cooldown-exit');
+const { createReplayYielder } = require('../core/replay-yield');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const { ExperimentStatsService } = require('../../web/services/ExperimentStatsService');
 const Logger = require('../../services/logger');
@@ -211,6 +212,9 @@ class BacktestEngine extends AbstractTradingEngine {
     this._routerGateState = new Map();  // router 门观察史 tokenAddress → { lowSideSeen, outCount }（pre-check/router-gate-state.js；回放逐 fire 累计与实时同源）
     this._lastSnapshotTs = null;        // 上一个组合快照的虚拟时刻
     this._inflightEvals = new Set();    // 回放中 fire-and-forget 的评估 promise（买评估/卖去抖 fire；drain 用）
+    // 回放主循环事件循环协同让出（T253 写库挂起事故修复：纯微任务链饿死事件循环，
+    // 挂起的落库 fetch/定时器排不上 → 72s 超时丢行；机制与事故现场见 core/replay-yield.js）
+    this._replayYield = createReplayYielder();
     this._finalStatusSet = false;       // 回放终态已写（stop 保护用）
 
     // T117 signalGateReal 门链字段（2026-11-07 受控解禁；_initializeDataSources
@@ -1769,6 +1773,12 @@ class BacktestEngine extends AbstractTradingEngine {
       for (const tick of this._ticks) {
         const tickTs = tick.timestamp;
 
+        // T253 事件循环协同让出（事故根因=主循环纯微任务链饿死事件循环，见 core/replay-yield.js）：
+        // tick 体最顶=先于本函数内一切 continue 路径，每 tick 必经；未到时间片返回
+        // undefined 零 await 开销。决策中性——墙钟只决定何时让出，不进任何回放判定
+        const _yieldP = this._replayYield.tick();
+        if (_yieldP) await _yieldP;
+
         // T233 stall 断流卖腿驱动（虚拟时钟 1s 节流，stallClose 同位同摆位）。
         // T246（2026-11-27 bt-v337 GLEAF 案修复）：
         // ①断流期零 tick=驱动停摆——实时 1s setInterval 照常评估，回测 tick 驱动
@@ -2017,6 +2027,8 @@ class BacktestEngine extends AbstractTradingEngine {
       }
 
       const duration = Date.now() - startTime;
+      // 让出观测量（T253）：次数 + 相邻两次让出间最长墙钟占用——饿死事故的运行期反证指标
+      const _ry = this._replayYield.stats();
 
       const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
       const finalBalance = portfolio?.totalValue || this.initialBalance;
@@ -2034,6 +2046,7 @@ class BacktestEngine extends AbstractTradingEngine {
         ` | earlyReplayHit=${this._preBuyCheckService.earlyParticipantService.getReplayHits()}` +
         ` | preFilterSkipped=${this._factorAggregator.getPreFilterSkipped()}` +
         ` | faPruned=${this._faPrunedTotal}` +
+        ` | 事件循环让出=${_ry.yields}次(最长占用${_ry.maxGapMs}ms)` +
         (this._tokenPositionAnalyzer
           ? ` | TPA: ${JSON.stringify(this._tokenPositionAnalyzer.getStats())}` +
             (this._tokenPositionAnalyzer.getProfileStats()
