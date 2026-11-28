@@ -123,15 +123,19 @@ async function main() {
       ok(c.pullTokenTicks('0xunknown') === null, `A6[${name}] 未跟踪 token → null`);
     }
 
-    // A7 断流清扫：>10min 无 push 的票环清除；活跃票（新 push）永不清（protected 语义）
+    // A7 断流清扫（T253 D4：保留窗 10min→60min——门层纯内存取数后无 DB 兜底）：断流 <60min
+    //    的票环**保留**（0x4509 案断流 12 分 10 秒须保全史）；>60min 无 push 的票环清除；
+    //    活跃票（新 push）永不清（protected 语义）
     {
       const c = makeCollector(name, cfgKey, Ctor);
+      c._pushTickRow(tick(0, { token: '0xdormant' }));
+      c._tokenRing.get('0xdormant').lastPushAt = Date.now() - 59 * 60 * 1000; // 断流 59min：保留
       c._pushTickRow(tick(0, { token: '0xdead' }));
       const e = c._tokenRing.get('0xdead');
-      e.lastPushAt = Date.now() - 11 * 60 * 1000;
+      e.lastPushAt = Date.now() - 61 * 60 * 1000;
       c._ringLastSweepAt = 0; // 强制下轮 push 触发 sweep
       c._pushTickRow(tick(1, { token: '0xalive' }));
-      ok(!c._tokenRing.has('0xdead') && c._tokenRing.has('0xalive'), `A7[${name}] 断流 11min 清环/活跃票保留`);
+      ok(c._tokenRing.has('0xdormant') && !c._tokenRing.has('0xdead') && c._tokenRing.has('0xalive'), `A7[${name}] 断流 59min 保留 / 61min 清环 / 活跃票保留`);
       ok(c.stats.ringSwept === 1, `A7[${name}] ringSwept 计数`);
     }
 
@@ -161,6 +165,48 @@ async function main() {
       c._pushTickRow(tick(0));
       await c.stop();
       ok(c._tokenRing.size === 0 && c.pullTokenTicks('0xtok') === null, `A10[${name}] stop 清环`);
+    }
+
+    // ── T253 D4：行环完整性（条目完整 ⇔ 由 TokenCreate 播种且未被清扫）──
+    // A11 播种条目=历史完整：_handleTokenCreate 建的环 partial=false，pull 透出 partial:false
+    {
+      const c = makeCollector(name, cfgKey, Ctor);
+      const registered = [];
+      c._factorAggregator.registerToken = (addr, meta) => registered.push([addr, meta.platform]);
+      c._handleTokenCreate({ token: '0xSEED', blockTimeMs: 1700000000000, totalSupply: 1e9, name: 'S', symbol: 'S', creator: '0xc', txHash: '0xt', blockNumber: 1 });
+      ok(c._tokenRing.get('0xseed') && c._tokenRing.get('0xseed').partial === false, `A11[${name}] TokenCreate 播种条目 partial=false（地址归一小写）`);
+      for (let i = 0; i < 5; i++) c._pushTickRow(tick(i, { token: '0xseed' }));
+      const p = c.pullTokenTicks('0xseed');
+      ok(p.partial === false && c.stats.ringPartialPulls === 0, `A11[${name}] 播种票拉数 partial=false、不计残缺`);
+      // 重复 TokenCreate 不重置已有环（不清空已入行）
+      c._handleTokenCreate({ token: '0xseed', blockTimeMs: 1700000000000, totalSupply: 1e9, name: 'S', symbol: 'S', creator: '0xc' });
+      ok(c._tokenRing.get('0xseed').total === 5, `A11[${name}] 重复 TokenCreate 不重置环`);
+    }
+    // A12 未播种条目（重启前出生的票，tick 惰性建环）=历史可能不完整 → partial=true
+    {
+      const c = makeCollector(name, cfgKey, Ctor);
+      for (let i = 0; i < 5; i++) c._pushTickRow(tick(i, { token: '0xold' }));
+      const p = c.pullTokenTicks('0xold');
+      ok(p.partial === true && c.stats.ringPartialPulls === 1, `A12[${name}] 未播种条目 partial=true + ringPartialPulls 计数`);
+    }
+    // A13 清扫后复活：播种票断流 >60min 被清 → 新 tick 惰性重建 =残缺环 partial:true
+    {
+      const c = makeCollector(name, cfgKey, Ctor);
+      c._handleTokenCreate({ token: '0xrev', blockTimeMs: 1700000000000, totalSupply: 1e9, name: 'R', symbol: 'R', creator: '0xc' });
+      for (let i = 0; i < 4; i++) c._pushTickRow(tick(i, { token: '0xrev' }));
+      ok(c.pullTokenTicks('0xrev').partial === false, `A13[${name}] 前置：复活前完整`);
+      c._tokenRing.get('0xrev').lastPushAt = Date.now() - 61 * 60 * 1000;
+      c._ringLastSweepAt = 0;
+      c._pushTickRow(tick(0, { token: '0xother' })); // 触发 sweep → 0xrev 被清
+      ok(!c._tokenRing.has('0xrev'), `A13[${name}] 断流 61min 后被清环`);
+      c._pushTickRow(tick(4, { token: '0xrev' })); // 复活
+      const p = c.pullTokenTicks('0xrev');
+      ok(p.partial === true && p.rows.length === 1, `A13[${name}] 复活票=残缺环（只剩断流后 tick）partial=true`);
+    }
+    // A14 三 collector 常量同值锁（60min）+ 旧 10min 不回潮
+    {
+      const src = require('fs').readFileSync(require('path').join(__dirname, `../src/collectors/${name}-ankr-ws-collector.js`), 'utf8');
+      ok(/const RING_IDLE_MAX_MS = 60 \* 60 \* 1000;/.test(src) && !/RING_IDLE_MAX_MS = 10 \* 60/.test(src), `A14[${name}] RING_IDLE_MAX_MS=60min（D4）`);
     }
   }
 

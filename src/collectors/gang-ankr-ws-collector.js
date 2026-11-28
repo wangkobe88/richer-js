@@ -96,7 +96,7 @@ const ZERO_ADDRESS = '0x' + '0'.repeat(40);
 const RING_HEAD_LIMIT = 300;   // 出生最早段保底（满帽拼合用，永不滚出=DB head 300 同构）
 const RING_TAIL_LIMIT = 3000;  // FIFO 最近段（=DB tail pullLimit 同构）
 const RING_SWEEP_INTERVAL_MS = 5 * 60 * 1000; // 惰性清扫节流（挂 push，零 timer）
-const RING_IDLE_MAX_MS = 10 * 60 * 1000;      // 无新 tick 超时清环（断流票；门再来拉=miss 回落 DB）
+const RING_IDLE_MAX_MS = 60 * 60 * 1000;      // 无新 tick 超时清环（T253 D4：10min→60min——门层改纯内存取数后无 DB 兜底，断流复活的票须保全史；现行腿最大龄界 20min 的 3 倍；被清过环又复活的票=残缺环→门层按历史不完整拒）
 
 // BSC PancakeSwap V2 Router（BNB/USD 换算：WBNB→USDT getAmountsOut）
 const PANCAKE_V2_ROUTER = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
@@ -291,6 +291,7 @@ class GangAnkrWsCollector {
             routerEventUsers: 0,  // 从事件 topics 提取的用户 EOA 次数
             ringTokens: 0,        // 行环当前 token 数（memSource ②）
             ringSwept: 0,         // 惰性清扫清除的断流票环数（累计）
+            ringPartialPulls: 0,  // T253 D4：残缺环被拉数次数（断流复活/未播种票——门层按历史不完整拒）
         };
     }
 
@@ -1207,6 +1208,14 @@ class GangAnkrWsCollector {
     // ═══════════════ Created：发现 ═══════════════
 
     _handleTokenCreate(info) {
+        // T253 D4 行环播种：由 TokenCreate 建的条目=历史完整（partial:false）。完整性规则
+        // 「条目完整 ⇔ 由 TokenCreate 播种且未被清扫」——非播种条目（重启前出生的票 /
+        // 断流被清扫后复活的票，由 _ringPush 惰性新建）一律 partial:true，门层不拿残缺
+        // 历史冒充完整（用户裁定「复活票拒」）。
+        if (this._tokenRing && !this._tokenRing.has(String(info.token || '').toLowerCase())) {
+            this._tokenRing.set(String(info.token || '').toLowerCase(), { head: [], tail: [], total: 0, lastPushAt: Date.now(), partial: false });
+            this.stats.ringTokens = this._tokenRing.size;
+        }
         // 注册到 FactorAggregator（代币年龄基准 = 创建事件块时间；totalSupply 供 marketCap；
         // graduationThresholdBnb 供 gang 资金口径毕业进度——FA 侧 set-once）
         if (this._factorAggregator) {
@@ -1387,7 +1396,8 @@ class GangAnkrWsCollector {
         if (!tok) return;
         let e = this._tokenRing.get(tok);
         if (!e) {
-            e = { head: [], tail: [], total: 0, lastPushAt: 0 };
+            // T253 D4：非播种条目（未经 _handleTokenCreate）=历史可能不完整 → partial
+            e = { head: [], tail: [], total: 0, lastPushAt: 0, partial: true };
             this._tokenRing.set(tok, e);
             this.stats.ringTokens = this._tokenRing.size;
         }
@@ -1405,9 +1415,10 @@ class GangAnkrWsCollector {
 
     /**
      * 惰性清扫（push 时节流触发，零 timer 零 stop 管理）：清 lastPushAt 超时的断流票环。
-     * 安全论证：清扫条件=10min 无新 tick ⇒ 该票不会再有新买信号（cheat 门唯一拉数入口=
-     * 买信号=factorsUpdated tick 驱动）⇒ 门不会再来拉；即便极端时序下来拉，miss 回落
-     * DB 路径语义等价（重启后环空同款）。多保留无害（多轮 sweep 才清）。
+     * T253 D4 起保留窗 60min（门层纯内存取数、无 DB 兜底）：多数买腿无龄上界，断流复活的
+     * 票（0x4509 案断流 12 分 10 秒）须保全史；超窗被清后复活=残缺环（partial:true），
+     * 门层按历史不完整拒买并计数（ringPartialPulls / insufficientHistory）——不冒充完整。
+     * 内存上限=最近 60min 活跃票的环（重票封顶 head300+tail3000）。
      */
     _sweepTokenRing(now) {
         for (const [tok, e] of this._tokenRing) {
@@ -1431,6 +1442,8 @@ class GangAnkrWsCollector {
     pullTokenTicks(token, pullLimit = RING_TAIL_LIMIT, headLimit = RING_HEAD_LIMIT) {
         const e = this._tokenRing.get(token);
         if (!e || e.total === 0) return null;
+        // T253 D4：残缺环（未播种/清扫后复活）如实透出 partial——门层按历史不完整处理
+        if (e.partial === true) this.stats.ringPartialPulls++;
         const cmp = (a, b) => {
             const ab = a.block_number ?? Number.MAX_SAFE_INTEGER;
             const bb = b.block_number ?? Number.MAX_SAFE_INTEGER;
@@ -1438,12 +1451,13 @@ class GangAnkrWsCollector {
             return (a.log_index ?? 0) - (b.log_index ?? 0);
         };
         const tail = e.tail.slice().sort(cmp);
+        const partial = e.partial === true;
         if (e.total <= pullLimit) {
-            return { rows: tail, anchorTickCount: e.total, capped: false };
+            return { rows: tail, anchorTickCount: e.total, capped: false, partial };
         }
         const seen = new Set(tail.map((r) => `${r.block_number}:${r.log_index}`));
         const headOnly = e.head.filter((r) => !seen.has(`${r.block_number}:${r.log_index}`));
-        return { rows: headOnly.concat(tail), anchorTickCount: tail.length, capped: true };
+        return { rows: headOnly.concat(tail), anchorTickCount: tail.length, capped: true, partial };
     }
 
     /**
