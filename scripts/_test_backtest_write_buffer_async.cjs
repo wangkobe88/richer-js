@@ -17,6 +17,8 @@
  *    尾部/停机两处保留 await（红线 13：事故现场源码断言锁定防线）
  *  H update 跨批独立：insert 已被 swap 走后 addSignalUpdate → 独立 update
  *    分支（与旧版「insert 已 flush」路径行为 bit 一致——不合并、原样发）
+ *  J metadata 重表分批（T253）：strategy_signals 100 行/批（500 行≈12~15MB 单请求在
+ *    182 对拍稳定超时）；其余表维持 500
  */
 
 const fs = require('fs');
@@ -246,6 +248,21 @@ const sig = (id, metadata = {}) => ({ id, experiment_id: 'exp', metadata });
     assert('错误日志点名超 50 字符列与长度', errs.some(m => m.includes('单条插入 trades 失败')
       && m.includes('id=t-bad') && m.includes('超 50 字符列: reason(110)')), JSON.stringify(errs));
     assert('好行的单条 insert 无错误日志（点名只落在坏行）', !errs.some(m => m.includes('id=t-good')));
+  }
+
+  // ═══ J metadata 重表分批（T253：500 行信号单请求在 182 对拍稳定超时的事故现场反证） ═══
+  {
+    console.log('\n[J] 分批行数：strategy_signals 100 行/批，其余表维持 500');
+    const db = makeMockDb();
+    const wb = new BacktestWriteBuffer(db, logger);
+    for (let i = 0; i < 250; i++) wb.addSignalInsert(sig(`j${i}`, { pad: 'x'.repeat(2000) }));
+    for (let i = 0; i < 600; i++) wb.addTradeInsert({ id: `t${i}`, experiment_id: 'exp', reason: 'ok' });
+    const st = await wb.flush('exp');
+    const sigBatches = db.writes.filter(w => w.op === 'insert' && w.table === 'strategy_signals').map(w => w.rows.length);
+    const trBatches = db.writes.filter(w => w.op === 'insert' && w.table === 'trades').map(w => w.rows.length);
+    assert('250 条信号分 3 批 100/100/50（单请求 ≤ ~3MB）', JSON.stringify(sigBatches) === JSON.stringify([100, 100, 50]), JSON.stringify(sigBatches));
+    assert('600 条 trades 仍按 500/100 分批（轻行表不变）', JSON.stringify(trBatches) === JSON.stringify([500, 100]), JSON.stringify(trBatches));
+    assert('行数守恒：全部落库', st.signalsInserted === 250 && st.tradesInserted === 600);
   }
 
   console.log('\n══════════════════════════════');

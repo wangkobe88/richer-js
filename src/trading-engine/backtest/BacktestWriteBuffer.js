@@ -4,6 +4,14 @@
  */
 
 const BATCH_INSERT_LIMIT = 500;
+// T253（2026-11-28）：metadata 重表的每批行数——strategy_signals 单行 metadata 20~30KB
+// （T245 起全量因子表落库 + 门层五段恒在场），500 行/批≈12~15MB 单请求：两轮 182 对拍
+// （t253-parity-btv350 / t253-parity2-btv350）在段边界 flush 稳定复现「批量插入
+// strategy_signals 失败: 请求超时（超过 72 秒）」+ 并发更新 fetch failed（同批行数、旧
+// metadata 体量的 bt-v350 基线通过；旧码 bt-v348 当日亦撞 statement timeout——大批量
+// INSERT 本就在临界）。信号行降到 100 行/批（≈2.5~3MB）；其余轻行表维持 500。
+const BATCH_INSERT_LIMIT_BY_TABLE = Object.freeze({ strategy_signals: 100 });
+const batchLimitFor = (table) => BATCH_INSERT_LIMIT_BY_TABLE[table] || BATCH_INSERT_LIMIT;
 
 class BacktestWriteBuffer {
   constructor(supabase, logger) {
@@ -292,14 +300,15 @@ class BacktestWriteBuffer {
    */
   async _batchInsert(table, records, experimentId) {
     let inserted = 0;
-    for (let i = 0; i < records.length; i += BATCH_INSERT_LIMIT) {
-      const batch = records.slice(i, i + BATCH_INSERT_LIMIT);
+    const limit = batchLimitFor(table);
+    for (let i = 0; i < records.length; i += limit) {
+      const batch = records.slice(i, i + limit);
       const { error } = await this._supabase
         .from(table)
         .insert(batch);
 
       if (error) {
-        const msg = `批量插入 ${table} 失败: ${error.message} (batch ${Math.floor(i / BATCH_INSERT_LIMIT) + 1})`;
+        const msg = `批量插入 ${table} 失败: ${error.message} (batch ${Math.floor(i / limit) + 1})`;
         if (this._logger) {
           this._logger.error(experimentId, 'BacktestWriteBuffer', msg);
         }
