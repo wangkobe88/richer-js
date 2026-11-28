@@ -210,7 +210,7 @@ console.log('E. 探针收键 + now 注入防前视');
   check('E2 读点源码无 Date.now（now 由 buildFactorMap 传入）', () => {
     const src = require('fs').readFileSync(require('path').join(__dirname, '../src/services/FourMemeFactorAggregator.js'), 'utf8');
     // 提取 _activityFactors 函数体（粗略：方法名到下一个方法）
-    const m = src.match(/_activityFactors\(state, now\) \{[\s\S]{0,4000}?\n    \}/);
+    const m = src.match(/_activityFactors\(state, now\) \{[\s\S]{0,8000}?\n    \}/);
     assert.ok(m && !m[0].includes('Date.now'), '_activityFactors 内禁 Date.now');
   });
 }

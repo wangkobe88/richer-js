@@ -88,6 +88,20 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // （校准带 [5,60]）——新 pointType/腿条件主键，信号复盘需落库；旧 FA/前窗空
     // → null 不掩盖
     priceMa60SlopePct: factorResults.priceMa60SlopePct ?? null,
+    // T245 上涨趋势认知 7 键（2026-11-28 计划）：zigzag 摆动派生——趋势长度/均匀性/
+    // 发出后回调/明确性；信号复盘需落库（新判据条件臂主键）；缺证据 → null 不掩盖
+    riseLegSec: factorResults.riseLegSec ?? null,
+    riseLegAmplPct: factorResults.riseLegAmplPct ?? null,
+    riseConcentrationPct: factorResults.riseConcentrationPct ?? null,
+    launchPullbackN: factorResults.launchPullbackN ?? null,
+    launchMaxPullbackPct: factorResults.launchMaxPullbackPct ?? null,
+    riseLegStartVsFirstPct: factorResults.riseLegStartVsFirstPct ?? null,
+    swingDirSwitchN: factorResults.swingDirSwitchN ?? null,
+    // T245 上涨趋势认知密度三键（2026-11-28 计划）：10s 窗钱包密度——「密度超高」
+    // 散户抢筹 vs「低密度」庄对倒；信号复盘需落库；缺证据 → null 不掩盖
+    actTradersPerBnb: factorResults.actTradersPerBnb ?? null,
+    actNewTradersRatio: factorResults.actNewTradersRatio ?? null,
+    actAvgTradeBnb: factorResults.actAvgTradeBnb ?? null,
     // T142 破发豁免锚（2026-11-15）：现价 vs 平台常量发行价（纯常量不吃地板）——
     // T145 起退出 ladder 门串改纯观察（语义修正：「经历过破发」移交
     // launchMinVsFloorPct），信号复盘仍落库；旧 FA/无常量平台 → null 不掩盖

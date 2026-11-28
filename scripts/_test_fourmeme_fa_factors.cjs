@@ -760,6 +760,22 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-11-25 存量补登：priceMa60SlopePct（T239 steady_trend_climb 斜率键，
         // 落键时未同步本白名单）
         'priceMa60SlopePct',
+        // T245 上涨趋势认知十键（2026-11-28 计划：zigzag 七键+密度三键）
+        'riseLegSec', 'riseLegAmplPct', 'riseConcentrationPct', 'launchPullbackN',
+        'launchMaxPullbackPct', 'riseLegStartVsFirstPct', 'swingDirSwitchN',
+        'actTradersPerBnb', 'actNewTradersRatio', 'actAvgTradeBnb',
+        // 2026-11-28 存量补登 16 键（历轮落键时未同步本白名单，T245 落键时一并
+        // 核对补登——T238 先例同款）：chg3Pct/chg60Pct/chg300Pct（T240 v6 长窗
+        // 趋势三键）、lifetime{Buy,Sell,Trade}VolumeBnb（T239 V2 三键）、
+        // freshWalletHoldPct（T239 V3.2 新钱包持仓刀）、boughtByPointType
+        // （T240 做市形态破位卖腿）、gmgnProfiledBuyerPct（T240 PT69 散户画像
+        // 保护）、tradesPerSecSinceLaunch/blockGapLe1Pct64（T240 节奏两键）、
+        // burst 波五键（T244 activity_burst 类型判据键）
+        'chg3Pct', 'chg60Pct', 'chg300Pct',
+        'lifetimeBuyVolumeBnb', 'lifetimeSellVolumeBnb', 'lifetimeTradeVolumeBnb',
+        'freshWalletHoldPct', 'boughtByPointType', 'gmgnProfiledBuyerPct',
+        'tradesPerSecSinceLaunch', 'blockGapLe1Pct64',
+        'burstStallMs', 'burstWaveSec', 'burstWaveBuyBnb', 'burstWaveSellBnb', 'burstWaveBuyN',
         'cheatSameBlockHoldCircPct', 'cheatEqualBandHoldCircPct', 'cheatBuyerWalletCount',
         'bpHolderConcentration',
         // 2026-11-23 T222 臭名昭著钱包总流通持仓占比（用户点名 bf00 大割集合合计

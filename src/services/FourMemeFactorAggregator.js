@@ -84,6 +84,10 @@ const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggrega
 const { CHEAT_LEVEL_SCORES: _CHEAT_LEVEL_SCORES } = require('../market-analysis/cheat-grade');
 const { resolveLaunchPriceBnb: _resolveLaunchPriceBnb, floorLaunchPriceBnb: _floorLaunchPriceBnb } = require('../market-analysis/launch-price');
 const { BURST_COOLDOWN_DEFAULTS, BURST_CREW_RING_MAX, buildBurstCooldownView } = require('../trading-engine/core/burst-cooldown-exit');
+// 上涨趋势认知因子族（T245 计划「上涨趋势认知」）：zigzag 摆动检测纯函数复用（BP8
+// 圣诞树同款事实原料——阈值化峰谷交替，纯事实不判形状；无环：buy-point-snapshot
+// 不反向 require FA）
+const { detectSwings } = require('../market-analysis/buy-point-snapshot');
 // PROTOCOL_ADDRS import 已随 earlyTrades* top1 剔除删除（T71 2026-10-26）——FA 内
 // 已无消费者；legacy preBuy 层自持引用（sniper-detector 单一真相源不动）
 
@@ -109,6 +113,20 @@ const CHG_TREND_WINDOW_MS = 65 * 1000;
 // 需要 300s 前窗（_relPriceTrend 保留窗 2× 本常量）；年轻票无前窗 → _chgOfWindow
 // 回落首可靠价=「出生以来趋势」（拒绝破发/首价以下的接刀盘）
 const CHG_LONG_TREND_WINDOW_MS = 300 * 1000;
+
+// ── 上涨趋势认知因子族常量（T245 计划 2026-11-28 用户裁定「对上涨趋势进行更加全面
+// 的理解与描述」；steady_trend_climb 趋势质量维度真空补齐）──
+// 趋势分段 zigzag 摆动阈值 %（BP 圣诞树 20 对 steady 趋势过粗；初值 10，标签对齐
+// 分析扫 {5,8,10,12,15,20} 校准后定格）
+const TREND_SWING_PCT = 10;
+// 均匀性浓度桶宽（秒）：当前上涨腿按 10s 桶分桶算「最大桶涨幅占比」
+const TREND_CONC_BUCKET_SEC = 10;
+// 均匀性出值下限：当前上涨腿总涨幅 <5% 时浓度无意义（防除零噪声）→ null
+const TREND_CONC_MIN_LEG_RISE_PCT = 5;
+// 明确性方向切换计数窗（秒）：swingDirSwitchN 只数最近 300s 内的段
+const TREND_SWITCH_WIN_SEC = 300;
+// 钱包密度分母下限（BNB）：10s 窗成交额 <0.05B 时比值失真 → null（缺证据）
+const ACT_DENSITY_MIN_BNB = 0.05;
 
 /**
  * T185 短窗价格动量（纯函数）：arr=[{ts,price}] 链序可靠价时序，返回末价相对
@@ -176,6 +194,19 @@ function _priceMaSlopeOf(arr) {
     const maNow = sumNow / nNow, maPrev = sumPrev / nPrev;
     if (!(maPrev > 0)) return null;
     return parseFloat(((maNow / maPrev - 1) * 100).toFixed(2));
+}
+
+/**
+ * 上涨趋势认知（T245 计划 2026-11-28）：zigzag 摆动检测适配器——_relPriceTrend
+ * {ts,price} → detectSwings 入参 {dt,priceBnb}（字段名唯一差异，map 一次）。
+ * detectSwings 语义依赖（buy-point-snapshot.js:151-182）：lastDir==1 时 points 末
+ * 元素必为 kind='low' 的确认低点=当前上升腿起点；legs 含未完成段（末候选 ext）；
+ * dir==0 未定向期首摆点由 rel[0] 起双向追踪。纯读零副作用。
+ */
+function _trendSwingsOf(arr) {
+    if (!arr || arr.length < 2) return { points: [], legs: [], lastDir: null, ext: null };
+    const rel = arr.map((p) => ({ dt: p.ts, priceBnb: p.price }));
+    return detectSwings(rel, TREND_SWING_PCT);
 }
 // T147 锚后等额捆绑买入簇检测（Echo 二案 2026-11-16 用户裁定「买入后又出现异常现象
 // （大量捆绑买入），需要立即卖出」）：卖臂 bundle-wave-exit 原料——同 block 内等额
@@ -4011,7 +4042,122 @@ class FourMemeFactorAggregator extends EventEmitter {
             actBuyers: buyers.size,
             actSellers: sellers.size,
             actNewTraders: newTraders,
+            // T245 上涨趋势认知密度三键（2026-11-28 计划：钱包密度真空补齐；同环
+            // 单趟零额外扫描——T218 多粒度先例）。null=缺证据 fail-closed：
+            // ①actTradersPerBnb=10s 窗每 BNB 独立钱包数（量<0.05B 比值失真→null；
+            //   「密度超高」=小额多钱包散户抢筹、「低密度」=大额少钱包庄对倒）
+            // ②actNewTradersRatio=窗内新钱包占比 %（「过热钱包太多」标签；无独立
+            //   钱包→null；有量零钱包的 null-wallet 行被 traders 过滤）
+            // ③actAvgTradeBnb=窗内笔均成交额 BNB（无交易→null；与①互补的两口径）
+            actTradersPerBnb: (buyBnb + sellBnb) >= ACT_DENSITY_MIN_BNB
+                ? parseFloat((traders.size / (buyBnb + sellBnb)).toFixed(2)) : null,
+            actNewTradersRatio: traders.size > 0
+                ? parseFloat((newTraders / traders.size * 100).toFixed(2)) : null,
+            actAvgTradeBnb: trades > 0
+                ? parseFloat(((buyBnb + sellBnb) / trades).toFixed(4)) : null,
         };
+    }
+
+    /**
+     * 上涨趋势认知 7 键（T245 计划 2026-11-28 用户裁定「对上涨趋势进行更加全面的
+     * 理解与描述」——steady_trend_climb 趋势质量真空补齐：趋势长度/均匀性/发出后
+     * 回调/明确性强化）。纯读聚合零新状态：原料=_relPriceTrend 链序可靠价环
+     * （{ts,price}；defer 只迟 wallet 段、价格段 WSS 到达即喂 → zigzag 序无关
+     * 免疫）+ _relFirstPriceBnb；一次 detectSwings 派生全部。
+     * 可见历史=_relPriceTrend 保留窗 2×CHG_LONG_TREND_WINDOW_MS=600s——长度四桶
+     * （超长≥300s/长/中/短）全在封顶内；老票超长腿起点被裁剪→读数封顶≈600s。
+     * ★防前视红线：禁 Date.now——now 由 buildFactorMap(state, asOf) 传入（quiet/
+     * burst 同款：断流期腿龄随虚拟钟走，与「趋势仍在」语义一致）。
+     * null 语义=缺证据 fail-closed；有证据零值（下跌腿/从无回调/300s 单向）照出。
+     */
+    _trendCognitionFactors(state, now) {
+        const arr = state._relPriceTrend;
+        const sw = _trendSwingsOf(arr);
+        const out = {
+            riseLegSec: null,
+            riseLegAmplPct: null,
+            riseConcentrationPct: null,
+            launchPullbackN: null,
+            launchMaxPullbackPct: null,
+            riseLegStartVsFirstPct: null,
+            swingDirSwitchN: null,
+        };
+        if (arr.length < 2 || sw.lastDir === null) return out;
+        // dir==0 未定向（detectSwings 单调序列无中间价时永不确认首摆点——纯涨/纯跌
+        // 序列 lastDir 恒 0）：整体上涨（末价>首价）→ 视为早期上涨趋势，腿起点=序列
+        // 最低点（首摆未确认前的谷）；整体不涨 → 全 null（无上涨证据）。
+        const lastP = arr[arr.length - 1];
+        let legStart = null;
+        if (sw.lastDir === 1) {
+            const lp = sw.points[sw.points.length - 1]; // 最近确认低点 {dt,price,kind}
+            legStart = { ts: lp.dt, price: lp.price };
+        } else if (sw.lastDir === 0) {
+            if (!(lastP.price > arr[0].price)) return out;
+            let minP = arr[0];
+            for (const p of arr) if (p.price < minP.price) minP = p;
+            legStart = minP;
+        } else {
+            // lastDir==-1：当前处于下跌腿 → riseLegSec=0 有证据零值（无进行中上涨）；
+            // 回调族/切换计数照算（历史腿统计与当前方向无关）
+            out.riseLegSec = 0;
+        }
+        // ①riseLegSec/②riseLegAmplPct/⑥riseLegStartVsFirstPct：当前上涨腿族
+        if (legStart) {
+            out.riseLegSec = Math.max(0, parseFloat(((now - legStart.ts) / 1000).toFixed(2)));
+            if (legStart.price > 0) {
+                out.riseLegAmplPct = parseFloat(((lastP.price / legStart.price - 1) * 100).toFixed(2));
+                if (state._relFirstPriceBnb > 0) {
+                    out.riseLegStartVsFirstPct = parseFloat(((legStart.price / state._relFirstPriceBnb - 1) * 100).toFixed(2));
+                }
+            }
+            // ③riseConcentrationPct：腿内按 10s 桶分桶的最大桶涨幅占比（均匀性主键）
+            if (out.riseLegAmplPct !== null && out.riseLegAmplPct >= TREND_CONC_MIN_LEG_RISE_PCT) {
+                const legStartTs = legStart.ts;
+                const lastTs = lastP.ts;
+                let maxBucketRise = null;
+                // 桶 k = 半开区间 (legStartTs + k*W, legStartTs + (k+1)*W]；桶涨幅=
+                // (桶末价/桶起价-1)×100，桶起价=该桶起点前的最近价（首桶回落 legStart 价）
+                for (let k = 0; ; k++) {
+                    const lo = legStartTs + k * TREND_CONC_BUCKET_SEC * 1000;
+                    const hi = lo + TREND_CONC_BUCKET_SEC * 1000;
+                    if (lastTs <= lo) break;
+                    let base = legStart.price;
+                    let end = null;
+                    for (const p of arr) {
+                        if (p.ts <= lo) base = p.price; // 链序取 ≤lo 最近价
+                        if (p.ts <= hi) end = p.price;
+                    }
+                    if (end === null) break;
+                    // 桶末端价取 ≤hi 的最近价（上面 end）；最后一桶半窗截断也照算
+                    if (base > 0) {
+                        const rise = parseFloat(((end / base - 1) * 100).toFixed(2));
+                        if (maxBucketRise === null || rise > maxBucketRise) maxBucketRise = rise;
+                    }
+                    if (hi >= lastTs) break;
+                }
+                if (maxBucketRise !== null && out.riseLegAmplPct > 0) {
+                    out.riseConcentrationPct = parseFloat((maxBucketRise / out.riseLegAmplPct * 100).toFixed(2));
+                }
+            }
+        }
+        // ④launchPullbackN/⑤launchMaxPullbackPct：发出后回调族（全可见 legs）
+        let pullN = 0, maxPull = null;
+        for (const leg of sw.legs) {
+            if (leg.amplPct <= -TREND_SWING_PCT) {
+                pullN++;
+                const depth = Math.abs(leg.amplPct);
+                if (maxPull === null || depth > maxPull) maxPull = depth;
+            }
+        }
+        out.launchPullbackN = pullN; // 0=从无回调（有证据零值）
+        out.launchMaxPullbackPct = maxPull === null ? 0 : parseFloat(maxPull.toFixed(2));
+        // ⑦swingDirSwitchN：最近 300s 方向切换次数（明确性强化；0=单向明确）
+        let switchN = 0;
+        for (const leg of sw.legs) {
+            if (leg.fromDt >= now - TREND_SWITCH_WIN_SEC * 1000) switchN++;
+        }
+        out.swingDirSwitchN = switchN;
+        return out;
     }
 
     /**
@@ -5135,6 +5281,9 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         // 交易活跃度滑窗（act* 8 键，2026-10-15；取代已删的 cycle 分桶路由）
         const activity = this._activityFactors(state, now);
+        // T245 上涨趋势认知 7 键（2026-11-28 计划）：纯读聚合零新状态——一次 zigzag
+        // 摆动检测派生（趋势长度/均匀性/发出后回调/明确性强化）；null=缺证据 fail-closed
+        const trendCog = this._trendCognitionFactors(state, now);
 
         // 滚动净买窗两键（T77 MUSK2028 案 W=10s；OR 臂早进场载体）
         const netBuyWin = this._netBuyWinFactors(state);
@@ -5506,6 +5655,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             // <5=太平、>60=垂直发射）；前窗空=未见足量可靠价 null fail-closed
             // （新类型条件恒不命中）。详见 _priceMaSlopeOf
             priceMa60SlopePct: _priceMaSlopeOf(state._relPriceTrend),
+            // ── T245 上涨趋势认知 7 键（2026-11-28 计划；口径/null 语义见
+            // _trendCognitionFactors；TREND_SWING_PCT=10 摆动阈值 phase 2 校准）──
+            riseLegSec: trendCog.riseLegSec,
+            riseLegAmplPct: trendCog.riseLegAmplPct,
+            riseConcentrationPct: trendCog.riseConcentrationPct,
+            launchPullbackN: trendCog.launchPullbackN,
+            launchMaxPullbackPct: trendCog.launchMaxPullbackPct,
+            riseLegStartVsFirstPct: trendCog.riseLegStartVsFirstPct,
+            swingDirSwitchN: trendCog.swingDirSwitchN,
             // T142 破发豁免锚（2026-11-15 ASTER 0x31e2…7777 案，用户裁定「价格已经
             // 完全破发，这种情况理应豁免」）：现价 vs 平台常量发行价——**纯常量、
             // 刻意不吃 T130/T134 地板**（地板锚被砸穿后反弹会掩盖「已破发」事实：
@@ -5709,6 +5867,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             actBuyers: activity.actBuyers,
             actSellers: activity.actSellers,
             actNewTraders: activity.actNewTraders,
+            // ── T245 上涨趋势认知密度三键（2026-11-28 计划；快变量 10s 窗——
+            // 分析用落库 fire 因子现算，线值以引擎 A/B 定）──
+            actTradersPerBnb: activity.actTradersPerBnb,
+            actNewTradersRatio: activity.actNewTradersRatio,
+            actAvgTradeBnb: activity.actAvgTradeBnb,
 
             // ── T236 缓慢发育点位两键（2026-11-24 用户提案「前期币没涨过，慢速的
             //    相对大额交易」pointType slow_develop_early 三刀之②③）：
