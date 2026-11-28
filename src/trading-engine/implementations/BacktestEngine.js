@@ -1760,6 +1760,34 @@ class BacktestEngine extends AbstractTradingEngine {
       for (const tick of this._ticks) {
         const tickTs = tick.timestamp;
 
+        // T233 stall 断流卖腿驱动（虚拟时钟 1s 节流，stallClose 同位同摆位）。
+        // T246（2026-11-27 bt-v337 GLEAF 案修复）：
+        // ①断流期零 tick=驱动停摆——实时 1s setInterval 照常评估，回测 tick 驱动
+        //   把 stall 卖出推迟到复活 tick（GLEAF 23:17:45 断流 → 23:23:16 复活 tick
+        //   才触发，卖点拖 331s）。改为逐秒追赶：从上次扫描时刻逐秒推进到 tickTs，
+        //   断流跳变段每虚拟秒评估一次与实时对齐；密集 tick（<1s 间隔）不推进=
+        //   现状节流行为不变。评估量有界：stall 55s/90s 两臂覆盖全 curVs 域 →
+        //   断流持仓 ≤90s 内必触发（被 famous/smart 拦最长 180s 衰减），预扫门
+        //   未过的空转秒零 buildFactorMap（O(持仓) 纯 JS 检查）。
+        // ②摆位必须在本 tick 的 _advanceDebouncer **之前**（processTick 之前还不够）：
+        //   复活 tick 的 advance 会先走卖确认窗 maxWait 强制门（GLEAF 案：23:17:44
+        //   P2 破发后不管辖 touch、断流 332s ≥ maxWait 120s → 复活 tick advance
+        //   先 force fire 卖掉，追赶段的 stall 早卖面被抢）——先追赶后 advance，
+        //   断流期 stall 触发（虚拟时刻=断流+55/90s）先于一切去抖 fire。
+        if (this._stalledSellLegScanEnabled) {
+          let scanTs = this._lastStalledSellLegScanTs;
+          if (scanTs === null) {
+            scanTs = tickTs;
+            await this._scanStalledSellLegs(scanTs);
+          } else {
+            while (scanTs + 1000 <= tickTs) {
+              scanTs += 1000;
+              await this._scanStalledSellLegs(scanTs);
+            }
+          }
+          this._lastStalledSellLegScanTs = scanTs;
+        }
+
         // 虚拟时钟推进：fire 到期的买评估（用截至上一笔 tick 的状态 + 本 tick 时刻）
         _p0 = Date.now();
         await this._advanceDebouncer(tickTs);
@@ -1812,30 +1840,6 @@ class BacktestEngine extends AbstractTradingEngine {
           });
         }
         perf.other += Date.now() - _p0;
-
-        // T233 stall 断流卖腿驱动（虚拟时钟 1s 节流，stallClose 同位同摆位——
-        // processTick 之前）：预扫门超时持仓 buildFactorMap(tickTs) → 卖腿全链。
-        // T246（2026-11-27 bt-v337 GLEAF 案修复）：断流期零 tick=驱动停摆——实时
-        // 1s setInterval 照常评估，回测 tick 驱动把 stall 卖出推迟到复活 tick
-        //（GLEAF 23:17:45 断流 → 23:23:16 复活 tick 才触发，卖点拖 331s）。改为
-        // 逐秒追赶：从上次扫描时刻逐秒推进到 tickTs，断流跳变段每虚拟秒评估
-        // 一次与实时对齐；密集 tick（<1s 间隔）不推进=现状节流行为不变。
-        // 评估量有界：stall 55s/90s 两臂覆盖全 curVs 域 → 断流持仓 ≤90s 内必
-        // 触发（被 famous/smart 拦最长 180s 衰减），预扫门未过的空转秒零
-        // buildFactorMap（O(持仓) 纯 JS 检查）。
-        if (this._stalledSellLegScanEnabled) {
-          let scanTs = this._lastStalledSellLegScanTs;
-          if (scanTs === null) {
-            scanTs = tickTs;
-            await this._scanStalledSellLegs(scanTs);
-          } else {
-            while (scanTs + 1000 <= tickTs) {
-              scanTs += 1000;
-              await this._scanStalledSellLegs(scanTs);
-            }
-          }
-          this._lastStalledSellLegScanTs = scanTs;
-        }
 
         // T189 burst 承接冷盘（虚拟时钟扫描，stallClose 同位同节流）：必须在
         // processTick 之前（本 token 观测窗边缘的 tick 到达顺序与判定无关——
