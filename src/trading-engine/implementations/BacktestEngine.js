@@ -2667,6 +2667,7 @@ class BacktestEngine extends AbstractTradingEngine {
             strategyName: strategy.name,
             signalCreatedAt: nowTs,
             pointTypePolicy,
+            fireFactors: factorResults,
           });
         _fp4Dt = Date.now() - _fp4T0;
         if (!factorGate.pass) {

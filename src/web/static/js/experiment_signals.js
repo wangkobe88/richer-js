@@ -129,6 +129,7 @@ const FACTOR_GATE_CATEGORIES = [
   { id: 'entry', label: '点位形态', question: '这个买点是不是在接刀' },
   { id: 'famous', label: 'famous / 聪明钱行为', question: '名单钱包在这个盘做了什么' },
   { id: 'pathway', label: '通路', question: '好票形状（命中 = 豁免放行，不拦截）' },
+  { id: 'trend', label: '上涨趋势', question: '这个上涨趋势是健康持续还是出货集中' },
 ];
 /* FACTOR_GATE_CATEGORIES:END */
 /* FACTOR_GATE_CATEGORY_BY_ID:BEGIN */

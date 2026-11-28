@@ -1106,6 +1106,10 @@ const FACTOR_GATE_CATEGORIES = Object.freeze([
   Object.freeze({ id: 'entry', label: '点位形态', question: '这个买点是不是在接刀' }),
   Object.freeze({ id: 'famous', label: 'famous / 聪明钱行为', question: '名单钱包在这个盘做了什么' }),
   Object.freeze({ id: 'pathway', label: '通路', question: '好票形状（命中 = 豁免放行，不拦截）' }),
+  // T245 上涨趋势认知（2026-11-28 用户指令「把上涨趋势因子作为因子门中的一个类别，
+  // 在信号页面中作为因子门的子块展示」）：十键观察门（observe 不拦截——买侧拒绝臂
+  // fire 点扫描全负不成立，键作观察+卖侧原料；值经 opts.trendFactors 从 fire 因子表透传）
+  Object.freeze({ id: 'trend', label: '上涨趋势', question: '这个上涨趋势是健康持续还是出货集中' }),
 ]);
 
 /** 门 id → 类别 id（键集 = 门链全部因子门：①因子门门行 + ⑤BP 门 stuffing_gate / crash_form） */
@@ -1137,9 +1141,33 @@ function factorGateCategory(gateId) {
     ? FACTOR_GATE_CATEGORY_BY_ID[gateId] : null;
 }
 
+/**
+ * T245 上涨趋势十键观察门（2026-11-28 用户指令「把上涨趋势因子作为因子门中的一个
+ * 类别」）：observe=true 不拦截——买侧拒绝臂 fire 点扫描全负不成立（右尾同构），
+ * 十键作观察展示+卖侧原料。值经 opts.trendFactors 透传（fire 因子表直取，无则 '-'）。
+ */
+function buildTrendObserveGates(trend) {
+  const t = trend || {};
+  const v = (x, unit = '') => (x === null || x === undefined ? '-' : `${x}${unit}`);
+  return [
+    { category: 'trend', id: 'riseLegSec', label: '上涨腿时长', value: v(t.riseLegSec, 's'), observe: true, hit: false, line: '当前上涨腿已持续（下跌腿=0；未定向=缺证据）' },
+    { category: 'trend', id: 'riseLegAmplPct', label: '上涨腿涨幅', value: v(t.riseLegAmplPct, '%'), observe: true, hit: false, line: '当前腿自确认低点累计涨幅' },
+    { category: 'trend', id: 'riseConcentrationPct', label: '拉升集中度', value: v(t.riseConcentrationPct, '%'), observe: true, hit: false, line: '腿内最大 10s 桶涨幅占比（均匀≈低、突然一波≈高）' },
+    { category: 'trend', id: 'launchPullbackN', label: '历史回调次数', value: v(t.launchPullbackN, ' 次'), observe: true, hit: false, line: '发出后 ≥10% 回调次数（0=从无回调）' },
+    { category: 'trend', id: 'launchMaxPullbackPct', label: '最大回调深度', value: v(t.launchMaxPullbackPct, '%'), observe: true, hit: false, line: '历史最大单腿回调深度（0=从无回调）' },
+    { category: 'trend', id: 'riseLegStartVsFirstPct', label: '腿起点vs首价', value: v(t.riseLegStartVsFirstPct, '%'), observe: true, hit: false, line: '当前腿起点价较首可靠价（≈0=趋势含发出点）' },
+    { category: 'trend', id: 'swingDirSwitchN', label: '300s方向切换', value: v(t.swingDirSwitchN, ' 次'), observe: true, hit: false, line: '最近 300s 摆动方向切换次数（0=单向明确）' },
+    { category: 'trend', id: 'actTradersPerBnb', label: '钱包密度', value: v(t.actTradersPerBnb, '/B'), observe: true, hit: false, line: '10s 窗每 BNB 独立钱包数（高=散户抢筹、低=大额对倒）' },
+    { category: 'trend', id: 'actNewTradersRatio', label: '新钱包占比', value: v(t.actNewTradersRatio, '%'), observe: true, hit: false, line: '10s 窗新钱包占比（过热钱包太多标签）' },
+    { category: 'trend', id: 'actAvgTradeBnb', label: '笔均成交额', value: v(t.actAvgTradeBnb, 'B'), observe: true, hit: false, line: '10s 窗笔均成交额（与密度互补）' },
+  ];
+}
+
 function buildFactorGates(parts) {
   const d = (v, unit = '') => (v === null || v === undefined ? '-' : `${v}${unit}`);
   const g = [];
+  // T245 上涨趋势十键观察门（类别分块首位——观察键不拦截，恒附加）
+  if (parts.trend) g.push(...buildTrendObserveGates(parts.trend));
   // PVP
   {
     const t = parts.pvp.trace || {};
@@ -2237,7 +2265,9 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     arms, pvpReason: pvp.reason, actLevel: activity.level,
     tailReason: tail.reason, famousReason: famous.reason,
   }, armClass, opts.armExempt);
-  const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, bd: snapshot.buyDerived || {}, armHits: effArms, stallRestart, md: _md, crash: _crash, crashForm: _crashForm });
+  const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, bd: snapshot.buyDerived || {}, armHits: effArms, stallRestart, md: _md, crash: _crash, crashForm: _crashForm,
+    // T245 上涨趋势十键观察门（fire 因子表透传；缺省 undefined=零行 bit 不变）
+    ...(opts.trendFactors ? { trend: opts.trendFactors } : {}) });
   return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, tail, famous, arms: effArms,
     ...(armClass ? { armClass } : {}),
     gates,

@@ -89,8 +89,8 @@ console.log('\nB. 后端分类完备');
   check('B4 每条门行都在映射里', r.gates.filter((g) => !mapKeys.includes(g.id)).map((g) => g.id), []);
   const catIds = new Set(FP.FACTOR_GATE_CATEGORIES.map((c) => c.id));
   check('B5 映射值都是类别表里的 id', mapKeys.filter((k) => !catIds.has(FP.FACTOR_GATE_CATEGORY_BY_ID[k])), []);
-  check('B6 每个类别都至少有一道门',
-    FP.FACTOR_GATE_CATEGORIES.filter((c) => !mapKeys.some((k) => FP.FACTOR_GATE_CATEGORY_BY_ID[k] === c.id)).map((c) => c.id), []);
+  check('B6 每个类别都至少有一道门（trend 观察类除外——T245 十键观察门由 buildFactorGates 动态附加，不经 BY_ID 映射）',
+    FP.FACTOR_GATE_CATEGORIES.filter((c) => c.id !== 'trend' && !mapKeys.some((k) => FP.FACTOR_GATE_CATEGORY_BY_ID[k] === c.id)).map((c) => c.id), []);
   check('B7 未登记门 → null（不冒充归类）', FP.factorGateCategory('nope_gate'), null);
   check('B8 塞单门归类 / crash 形态归类', [FP.factorGateCategory('stuffing_gate'), FP.factorGateCategory('crash_form')], ['organized', 'entry']);
   // 代表性臂：命中 → 对应门行 hit=true 且落在预期类别

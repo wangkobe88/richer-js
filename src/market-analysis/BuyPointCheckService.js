@@ -249,6 +249,8 @@ class BuyPointCheckService {
         // T217 pointType 臂差集（如 retail 去 slow_pump_unload）
         ...(opts.armClass === 'cheat' ? { armClass: 'cheat' } : {}),
         ...(Array.isArray(opts.armExempt) && opts.armExempt.length ? { armExempt: opts.armExempt } : {}),
+        // T245 上涨趋势十键观察门（fire 因子表透传；缺省 undefined=零行 bit 不变）
+        ...(opts.trendFactors ? { trendFactors: opts.trendFactors } : {}),
       });
       this.stats.factorAssessed++;
       if (!verdict.pass) this.stats.factorBlocked++;

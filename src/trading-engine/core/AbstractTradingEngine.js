@@ -1658,6 +1658,7 @@ class AbstractTradingEngine extends ITradingEngine {
       firePriceBnb: factors.currentPriceBnb || 0,
       strategyName: p.strategyName,
       signalCreatedAt: nowMs,
+      fireFactors: factors,
       ...fpCtx,
     });
     const rec = tr.recordResult(tokenAddress, gate.pass === true, gate.pass ? null : gate.reason, nowMs);
@@ -2200,6 +2201,8 @@ class AbstractTradingEngine extends ITradingEngine {
           ...(ctx.pointTypePolicy?.factorCheckArms === 'cheatOnly' ? { armClass: 'cheat' } : {}),
           ...(Array.isArray(ctx.pointTypePolicy?.factorCheckArmExempt) && ctx.pointTypePolicy.factorCheckArmExempt.length
             ? { armExempt: ctx.pointTypePolicy.factorCheckArmExempt } : {}),
+          // T245 上涨趋势十键观察门（fire 因子表透传——信号页「上涨趋势」子块展示）
+          ...(ctx.fireFactors ? { trendFactors: ctx.fireFactors } : {}),
         });
         const _fp4Dt = Date.now() - _fp4T0;
         if (_fp4Dt > 300) this.logger.info(this._experimentId, 'SignalGate',

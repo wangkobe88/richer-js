@@ -2154,6 +2154,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             strategyName: strategy.name,
             signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
             pointTypePolicy,
+            fireFactors: factorResults,
           });
         if (!factorGate.pass) {
           await this._fpRetryOnReject(tokenAddress, strategy, signalId, {
