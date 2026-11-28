@@ -408,7 +408,7 @@ async function testE() {
           mcapFromPeakPct: 10, launchMinVsFloorPct: 5, lifetimeBuyVolumeBnb: 6,
           sinceLastFamousBigBuySec: null, quietSpanMs: 0, actTotalBnb300s: 2,
           maxBlockBuyCircPct: 5, tradesRouterPct: 40, freshWalletHoldPct: 30,
-          riseLegSec: 40, chg5Pct: 3, surgeStartSec: 40, tradedBlkConcPct: 20,
+          riseLegSec: 40, chg5Pct: 3, surgeStartSec: 40, tradedBlkConcPct: 20, tradedBlkChg5Pct: 10,
         };
         check('E1f 无覆盖时引擎分类走类型（steady_trend_climb 夹具）', classify(self, TREND).type === 'steady_trend_climb');
 
