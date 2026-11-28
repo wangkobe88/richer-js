@@ -79,7 +79,7 @@ const HolderTrendDetector = require('../trading-engine/HolderTrendDetector');
 const { HOLDING_FACTOR_KEYS, FA_TPA_KEYS } = require('./tpa-factor-keys');
 // 公共聚合路由地址集（GMGN 等）——_walletRoutedBuyBnb（GMGN 用户判定）的写入判据，
 // 与 EarlyParticipantCheckService routerPct 因子同层同源（trader=msg.sender 层）
-const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
+const { AGGREGATOR_ROUTER_ADDRS, GMGN_ROUTER_ADDR } = require('../trading-engine/pre-check/aggregator-routers');
 // G1 作弊盘因子化：grade 档位→数值出口映射（levelsFromObservation 同源表；无环——market-analysis 不反向 require FA）
 const { CHEAT_LEVEL_SCORES: _CHEAT_LEVEL_SCORES } = require('../market-analysis/cheat-grade');
 const { resolveLaunchPriceBnb: _resolveLaunchPriceBnb, floorLaunchPriceBnb: _floorLaunchPriceBnb } = require('../market-analysis/launch-price');
@@ -1473,6 +1473,12 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (isBuy && tick.trader_address
             && AGGREGATOR_ROUTER_ADDRS.has(String(tick.trader_address).toLowerCase())) {
             state.totalRouterBuyBnb += bnbAmount;
+            // T251b 纯 GMGN 形状门（2026-11-28 用户裁定「=100 纯 GMGN 的干掉」）：
+            // GMGN 主路由买入额（gmgnRouterBuySharePct 分子）——router 买入全走
+            // GMGN=单一入口包场（=100 形状，51 票零和烂票）；trader 层同源同写点
+            if (String(tick.trader_address).toLowerCase() === GMGN_ROUTER_ADDR) {
+                state.gmgnRouterBuyBnb += bnbAmount;
+            }
         }
 
         // （earlyTrades* trader 层原料已随 T71 2026-10-26 删除——冻结窗慢热票失真，
@@ -2881,6 +2887,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             totalBuyTokens: 0,
             totalSellTokens: 0,
             totalRouterBuyBnb: 0, // 全史聚合路由买入 BNB（tradesRouterPct 分子；T70 与 early 冻结版对照的实时层）
+            gmgnRouterBuyBnb: 0, // T251b 全史 GMGN 主路由买入 BNB（gmgnRouterBuySharePct 分子）
             uniqueTraders: new Set(),
             _walletNetTokens: new Map(), // wallet(sender||trader) → 净持仓（holders/holderTrend/P 组集中度原料；GMGN 合并修正）
             _walletMaxNetTokens: new Map(), // wallet → 建仓峰值净持仓（running max 单调不减；TPA retention 基准，二期 2026-10-10 键域随 TPA 整链切 sender）
@@ -5938,6 +5945,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             //    全史：路由占比无「砸盘拖低」形状，分子分母同源无时漂）──
             tradesRouterPct: state.totalBuyBnb > 0
                 ? parseFloat((state.totalRouterBuyBnb / state.totalBuyBnb * 100).toFixed(2)) : 0,
+            // ── T251b GMGN 路由占 router 买入比（2026-11-28 用户裁定「=100 纯 GMGN
+            //    的干掉」——router 买入全部走 GMGN 主路由=单一入口包场形状；fire 前
+            //    全史累计，与 tradesRouterPct 同写点同口径；null=无 router 买入
+            //    fail-open 放行；0=有 router 买零 GMGN 有证据零值）──
+            gmgnRouterBuySharePct: state.totalRouterBuyBnb > 0
+                ? parseFloat((state.gmgnRouterBuyBnb / state.totalRouterBuyBnb * 100).toFixed(2)) : null,
             // ── T77→T87→T88 净买窗三键（T77 立短窗；T87 0xdf7a 案换轨最近 N 笔；
             //    T88 全史键断代换长窗 M 笔——用户裁定「全量买卖比没必要，检测一个
             //    趋势」）。ShortWin=尾 20 笔即时流；LongWin=尾 100 笔主趋势（环空

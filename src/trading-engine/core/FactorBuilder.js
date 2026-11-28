@@ -105,6 +105,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     tradedBlkChg20Pct: factorResults.tradedBlkChg20Pct ?? null,
     tradedBlkConcPct: factorResults.tradedBlkConcPct ?? null,
     tradedBlkCount: factorResults.tradedBlkCount ?? null,
+    gmgnRouterBuySharePct: factorResults.gmgnRouterBuySharePct ?? null,
     // T245 上涨趋势认知密度三键（2026-11-28 计划）：10s 窗钱包密度——「密度超高」
     // 散户抢筹 vs「低密度」庄对倒；信号复盘需落库；缺证据 → null 不掩盖
     actTradersPerBnb: factorResults.actTradersPerBnb ?? null,

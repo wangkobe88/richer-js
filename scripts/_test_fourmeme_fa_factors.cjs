@@ -779,6 +779,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 2026-11-28 T249 有交易块窗族五键（用户裁定「不能只看时间」——块窗涨幅
         // 三键+块版集中度+块数观察键；详见 _test_traded_block_chg.cjs）
         'tradedBlkChg5Pct', 'tradedBlkChg10Pct', 'tradedBlkChg20Pct', 'tradedBlkConcPct', 'tradedBlkCount',
+        'gmgnRouterBuySharePct',
         'cheatSameBlockHoldCircPct', 'cheatEqualBandHoldCircPct', 'cheatBuyerWalletCount',
         'bpHolderConcentration',
         // 2026-11-23 T222 臭名昭著钱包总流通持仓占比（用户点名 bf00 大割集合合计

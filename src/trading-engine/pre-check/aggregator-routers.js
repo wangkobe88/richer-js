@@ -29,4 +29,8 @@ const AGGREGATOR_ROUTER_ADDRS = new Set([
   '0x168303a96a767e2a6b2e00cb862eb95e416f72fa', // 同批补录
 ]);
 
-module.exports = { AGGREGATOR_ROUTER_ADDRS };
+
+// T251b 纯 GMGN 形状门（2026-11-28 用户裁定「=100 纯 GMGN 的干掉」）：GMGN 主路由地址
+const GMGN_ROUTER_ADDR = '0x1de460f363af910f51726def188f9004276bf4bc';
+
+module.exports = { AGGREGATOR_ROUTER_ADDRS, GMGN_ROUTER_ADDR };
