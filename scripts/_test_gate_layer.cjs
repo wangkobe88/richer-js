@@ -639,7 +639,9 @@ console.log('\nC. 决策核 gate-layer.js：与旧门链有效结论穷举对拍
   const byGroup = (rows) => rows.reduce((m, r) => { m[r.group] = (m[r.group] || 0) + 1; return m; }, {});
   check('C3a 全过信号的门行全集：趋势值门 11 + 因子臂 40 + 活跃度门 1 + 作弊门 1 + 塞单门 1 = 54 行', [rows0.length, byGroup(rows0)], [54, { trend: 11, fp: 40, af: 1, cheat: 1, bp: 1 }]);
   const afRow = rows0.find((r) => r.id === 'af_act_level');
-  check('C3b 活跃度门行：mid_full → 未命中、已激活、值带 act/arm/sbw/path、类别 liquidity', [afRow.hit, afRow.activated, afRow.blocked, afRow.value, afRow.category, afRow.source, afRow.trace], [false, true, false, 'act=mid arm=near_alive sbw=none path=mid_full', 'liquidity', 'gate', { idlePct: 12 }]);
+  check('C3b 活跃度门行：mid_full → 未命中、已激活、值带 act/arm/sbw/path、类别 liquidity；判序锚 trace 只在 actFrontGate 段留一份（门行不带——防 metadata 双份）',
+    [afRow.hit, afRow.activated, afRow.blocked, afRow.value, afRow.category, afRow.source, 'trace' in afRow, dec0.sections.actFrontGate.trace, dec0.sections.actFrontGate.arm],
+    [false, true, false, 'act=mid arm=near_alive sbw=none path=mid_full', 'liquidity', 'gate', false, { idlePct: 12 }, 'near_alive']);
   const cheatRow = rows0.find((r) => r.id === 'cheat_factor');
   check('C3c 作弊门行：CF1 恒放行（hit 假）、已激活、如实标「无专属判据」', [cheatRow.hit, cheatRow.activated, cheatRow.blocked, cheatRow.value, cheatRow.category], [false, true, false, '恒放行（无专属判据）', 'organized']);
   const stuffRow = rows0.find((r) => r.id === 'stuffing_gate');
@@ -663,13 +665,19 @@ console.log('\nC. 决策核 gate-layer.js：与旧门链有效结论穷举对拍
   check('C4c 全豁类型的决策留痕：四段有效 status = policy_pass ×3 + assessed；computed 留原始判定',
     [decS.sections.factorCheck.status, decS.sections.factorCheck.computed.reason, decS.sections.actFrontGate.status, decS.sections.actFrontGate.computed.path, decS.sections.cheatCheck.status, decS.sections.buyPoint.status, decS.sections.buyPoint.computed === undefined],
     ['policy_pass', 'cd400_dump_no_absorption', 'policy_pass', 'reject_low', 'policy_pass', 'assessed', true]);
-  const glS = GL.buildGateLayerSection({ activation: actSteady, prep: PREPS.ok, rows: rowsS, primary: decS.primary, pass: decS.pass });
+  const glS = GL.buildGateLayerSection({ activation: actSteady, prep: PREPS.ok, rows: rowsS, primary: decS.primary, pass: decS.pass,
+    pointTypeInfo: { type: 'steady_trend_climb', label: '趋势成形', version: 'PT81', policy: steady, snapshot: {} } });
+  check('C4e gateLayer.pointType 记本次评估所用类型（首评=触发时刻类型）', glS.pointType, { type: 'steady_trend_climb', label: '趋势成形', version: 'PT81' });
   check('C4d 汇总：命中 2（cd400+活跃度门原始命中）/ 拦 0 / 激活 1（仅塞单门）', glS.summary, { total: 54, activated: 1, hit: 2, blocked: 0, valueGates: 11 });
 
   // ── 让位与未到达 ──
   const decB = GL.decideGateLayer({ activation: activation0, prep: PREPS.ok, fp: FP_RAW.pass, af: AF_RAW.burst_exempt, cheat: CHEAT_RAW.healthy, bp: BP_RAW.neutral, trendFactors: {} });
   check('C5a 活跃度门 burst 路由 → 作弊门让位：skipped_by_act_front（与旧挂点合成 info 同构）+ sbw=burst → burst 资格',
-    [decB.pass, decB.skipCheat, decB.sections.cheatCheck, decB.t189SbwBurst], [true, true, { status: 'skipped_by_act_front', path: 'burst_exempt', act: 'low', sbw: 'burst', wash: null, version: 'AF3', levels: { stallBurstWave: 1 }, computed: GL.cheatGateInfo(CHEAT_RAW.healthy) }, true]);
+    [decB.pass, decB.skipCheat, decB.sections.cheatCheck, decB.t189SbwBurst], [true, true, { status: 'skipped_by_act_front', path: 'burst_exempt', act: 'low', sbw: 'burst', wash: null, version: 'AF3', levels: { stallBurstWave: 1 }, computed: { status: 'analyzed', grade: 'healthy', model: 'factor@CF1' } }, true]);
+  // computed 紧凑化：CF1 的全空 levels/buckets/anchors 样板不落（每信号省 ~2KB）；有值的键照留
+  const decNB = GL.decideGateLayer({ activation: activation0, prep: PREPS.ok, fp: FP_RAW.rejectCd, af: AF_RAW.mid_full, cheat: CHEAT_RAW.healthyBurst, bp: BP_RAW.neutral, trendFactors: {} });
+  check('C5a2 computed 紧凑化：有值的 levels（stallBurstWave=1）保留、全空的 buckets/anchors 不落；到达门的正式段仍是完整形状',
+    [decNB.sections.cheatCheck.computed, dec0.sections.cheatCheck], [{ status: 'analyzed', grade: 'healthy', levels: { stallBurstWave: 1 }, model: 'factor@CF1' }, GL.cheatGateInfo(CHEAT_RAW.healthy)]);
   const decR = GL.decideGateLayer({ activation: activation0, prep: PREPS.ok, fp: FP_RAW.rejectCd, af: AF_RAW.reject_low, cheat: CHEAT_RAW.cheat, bp: BP_RAW.poorStuffing, trendFactors: {} });
   check('C5b 因子门先拒：后续三门恒算留痕 not_reached（computed 带原始判定），不参与决策',
     [decR.pass, decR.primary, decR.sections.actFrontGate.status, decR.sections.actFrontGate.computed.path, decR.sections.cheatCheck.status, decR.sections.cheatCheck.computed.grade, decR.sections.buyPoint.status, decR.sections.buyPoint.computed.assessment.bucket, decR.writeBpRow, decR.faProjection],
@@ -850,9 +858,29 @@ console.log('\nD. 引擎编排器：_gateLayerEvaluate + fpRetry 重评');
     [false, 0, 1, 'reject', true]);
   const unifiedRun = await retryRun(true);
   check('D7b 统一门层重评带类型 policy（修 F6）：豁免臂不拦 → 重评通过 → 续跑并携带本次评估（零二次取数）',
-    [unifiedRun.resumed, unifiedRun.dispatched.length, !!unifiedRun.dispatched[0].gateLayer, unifiedRun.dispatched[0].gateLayer.pass, unifiedRun.tr.pendingOf('0xtok') === null, unifiedRun.h.metas.some((m) => m.pointType && m.pointType.type === 'famous_holder_cold_pit')],
-    [true, 1, true, true, true, true]);
+    [unifiedRun.resumed, unifiedRun.dispatched.length, !!unifiedRun.dispatched[0].gateLayer, unifiedRun.dispatched[0].gateLayer.pass, unifiedRun.tr.pendingOf('0xtok') === null,
+      unifiedRun.h.metas.some((m) => m.gateLayer && m.gateLayer.pointType && m.gateLayer.pointType.type === 'famous_holder_cold_pit'), unifiedRun.h.metas.some((m) => m.pointType)],
+    [true, 1, true, true, true, true, false]);
   check('D7c 重评只取数一次（续跑复用重评结果=零二次取数）', unifiedRun.h.pulls(), 1);
+  // 重评仍被拒：同样不覆写 metadata.pointType（信号终态保持触发时刻类型——与旧链一致，
+  // 按类型统计的口径不随重评漂移）；本次重评所用类型只随 gateLayer.pointType 留痕
+  {
+    const h = mkEng({ ticks: normalTicks });
+    h.eng._buyPointCheckService.evaluateFactorPreBuy = async () => ({ status: 'assessed', pass: false, reason: 'act_low', arms: ['act_low'], rawHits: ['act_low'], gates: FP.evaluateFactorPreBuy(base(), { trendFactors: {} }).gates, trace: {}, pvp: {}, version: 'FP48' });
+    const tr = new FpRetryTracker();
+    tr.register('0xtok', { legId: 'p16', signalId: 'sig-f6r', budget: 2, nowMs: T0, strategyName: 'p16' });
+    Object.assign(h.eng, {
+      _gateLayerUnified: true, _fpRetryEnsure: () => tr,
+      _strategyEngine: { getAllStrategies: () => [{ id: 'p16', action: 'buy', signalGate: { maxTriggers: 1, fpRetry: 2 } }] },
+      _factorAggregator: { getTokenState: () => ({}) },
+      _classifyPointType: () => ({ type: 'famous_holder_cold_pit', label: 'x', policy: GOLDEN, version: 'PT81', snapshot: {} }),
+    });
+    const dispatched = [];
+    const resumed = await h.eng.__fpRetryTickInner('0xtok', TOK, { currentPriceBnb: 1e-8 }, T0 + 500, (r) => dispatched.push(r), {}, tr, tr.tickCheck('0xtok', T0 + 500), tr.pendingOf('0xtok'));
+    check('D7d 重评仍拒：不续跑、不覆写 metadata.pointType（只写五段+gateLayer）、gateLayer.pointType 记重评时刻类型',
+      [resumed, dispatched.length, h.metas.some((m) => m.pointType), h.metas.some((m) => m.gateLayer && m.gateLayer.pointType && m.gateLayer.pointType.type === 'famous_holder_cold_pit' && m.gateLayer.pass === false), tr.pendingOf('0xtok') !== null],
+      [false, 0, false, true, true]);
+  }
 
   // ── D8 源码锁：两引擎分派 + 原门链保留 + 续跑复用 ──
   const fs = require('fs');
@@ -867,7 +895,8 @@ console.log('\nD. 引擎编排器：_gateLayerEvaluate + fpRetry 重评');
     ok(`D8d ${nm}引擎：统一门层不传 legacy 四挂点专用入参（awaitMs/cheatBurst），原挂点方法原样在场`, ['_factorGateEvaluate(', '_actFrontGateEvaluate(', '_cheatGateEvaluateBinary(', '_bpGateEvaluate('].every((m) => src.includes(m)));
   }
   ok('D8e 编排器零 Date.now（决策时钟全由入参/回测虚拟时刻承载；日志计时除外）', !/Date\.now\(/.test(absSrc.slice(absSrc.indexOf('async _gateLayerEvaluate('), absSrc.indexOf('T117 信号源门链·作弊门——**因子代挂点**'))));
-  ok('D8f fpRetry 重评：统一分支带 pointTypePolicy、旧分支原样', /_gateLayerUnified === true\) \{[\s\S]{0,700}pointTypePolicy: _ptInfo \? _ptInfo\.policy : null,[\s\S]{0,400}\} else \{[\s\S]{0,300}await this\._factorGateEvaluate\(tokenAddress/.test(absSrc));
+  ok('D8f fpRetry 重评：统一分支带 pointTypePolicy+pointTypeInfo、旧分支原样', /_gateLayerUnified === true\) \{[\s\S]{0,1100}pointTypePolicy: _ptInfo \? _ptInfo\.policy : null,[\s\S]{0,120}pointTypeInfo: _ptInfo,[\s\S]{0,900}\} else \{[\s\S]{0,300}await this\._factorGateEvaluate\(tokenAddress/.test(absSrc));
+  ok('D8h 重评路径不覆写 metadata.pointType（信号终态保持触发时刻类型）', !/if \(_ptInfo && p\.signalId\) \{\s*\n\s*try \{ await this\._updateSignalMetadata\(p\.signalId, \{ pointType: _ptInfo \}\)/.test(absSrc));
   ok('D8g 两引擎 service 构造未改（factorMode 注入各两处=cheatCheck/buyPointCheck 各一，未新增——G5 锁同源）', [(liveSrc.match(/factorMode:\s*_packFactor\(/g) || []).length, (btSrc.match(/factorMode:\s*_packFactor\(/g) || []).length], [2, 2]);
   void FourMemeWssTradingEngine; void BacktestEngine;
 }

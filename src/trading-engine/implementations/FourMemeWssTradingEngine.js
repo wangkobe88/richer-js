@@ -2540,6 +2540,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               signalCreatedAt: signal.timestamp instanceof Date ? signal.timestamp.getTime() : null,
               pointTypePolicy,
               fireFactors: factorResults,
+              pointTypeInfo: _ptInfo,
             });
           t189SbwBurst = gl.t189SbwBurst === true;
           if (!gl.pass) {

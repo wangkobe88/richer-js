@@ -4337,7 +4337,7 @@ class ExperimentSignals {
       if (unifiedGate) {
         // T253：每个信号都渲染因子过滤门卡（含全豁类型、前门已拒的信号）——全部门行 +
         // 算/拦状态；取代原「👁 观察因子」区（那是触发层 fire 因子表的原样 dump，不是门）
-        factorGateHtml = this._unifiedGateCardHtml(factorCheckInfo, gateLayerInfo, pointTypeInfo);
+        factorGateHtml = this._unifiedGateCardHtml(factorCheckInfo, gateLayerInfo, pointTypeInfo, actFrontGateInfo);
       } else if (factorCheckInfo && factorCheckInfo.status !== 'disabled'
           && (factorCheckInfo.status !== 'policy_pass' || hasTrendObserve)) {
         const fStatus = factorCheckInfo.status || '';
@@ -5598,13 +5598,24 @@ class ExperimentSignals {
    * （后端门层编排器产出的全集）与 metadata.gateLayer（层汇总）。取代原「👁 观察因子」区
    * （那是触发层 fire 因子表的原样 dump，不是门——2026-11-28 用户裁定）。
    */
-  _unifiedGateCardHtml(fc, gl, pt) {
+  _unifiedGateCardHtml(fc, gl, pt, actFrontInfo) {
     const rows = Array.isArray(fc.gates) ? fc.gates : [];
     const sm = gl.summary || {};
     const pass = gl.pass === true;
     const primary = gl.primary || null;
     const snap = gl.snapshot || {};
-    const typeName = pt ? (pt.label || pt.type || '?') : 'normal（未分类·全门现行）';
+    // 门层评估所用的类型：gateLayer.pointType（本次评估的激活集来源）。fpRetry 重评仍被拒时
+    // 它=重评时刻类型，而 metadata.pointType 保持触发时刻类型（信号身份）——两者不同时注明
+    const evalType = gl.pointType || null;
+    const fireType = pt || null;
+    const typeName = evalType ? (evalType.label || evalType.type || '?') : (fireType ? (fireType.label || fireType.type || '?') : 'normal（未分类·全门现行）');
+    const typeNote = evalType && fireType && evalType.type && fireType.type && evalType.type !== fireType.type
+      ? `<div class="text-xs text-amber-300 mb-1">↻ fpRetry 重评：门层按重评时刻类型「${this._escapeHtml(evalType.label || evalType.type)}」的激活集评估（信号触发时刻类型=「${this._escapeHtml(fireType.label || fireType.type)}」）</div>`
+      : '';
+    // 活跃度门判序锚（只在 actFrontGate 段留一份：到达=顶层 trace；未到达/直通=computed.trace）
+    const afSection = actFrontInfo || {};
+    const afTrace = (afSection.trace && typeof afSection.trace === 'object') ? afSection.trace
+      : (afSection.computed && afSection.computed.trace && typeof afSection.computed.trace === 'object' ? afSection.computed.trace : null);
     const badge = pass
       ? '<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full font-bold">✅ 放行</span>'
       : `<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 拒 ${this._escapeHtml(primary ? primary.code : '')}</span>`;
@@ -5615,8 +5626,8 @@ class ExperimentSignals {
     const gateRows = rows.filter((r) => r.group !== 'trend');
     const rowHtml = (r) => {
       const st = this._gateRowState(r);
-      const trace = r.id === 'af_act_level' && r.trace && typeof r.trace === 'object'
-        ? `<tr><td colspan="4" class="px-2 pb-1 border-t border-gray-700"><details><summary class="text-xs text-gray-400 cursor-pointer select-none">判序锚（${Object.keys(r.trace).length} 项）</summary><div class="mt-1 flex flex-wrap gap-1">${Object.keys(r.trace).map((k) => this._observeChipHtml(k, r.trace[k])).join('')}</div></details></td></tr>`
+      const trace = r.id === 'af_act_level' && afTrace
+        ? `<tr><td colspan="4" class="px-2 pb-1 border-t border-gray-700"><details><summary class="text-xs text-gray-400 cursor-pointer select-none">判序锚（${Object.keys(afTrace).length} 项）</summary><div class="mt-1 flex flex-wrap gap-1">${Object.keys(afTrace).map((k) => this._observeChipHtml(k, afTrace[k])).join('')}</div></details></td></tr>`
         : '';
       return `<tr class="${st.cls}"><td class="px-2 py-0.5 border-t border-gray-600 whitespace-nowrap">${this._escapeHtml(r.label || r.id)}</td><td class="px-2 py-0.5 border-t border-gray-600 font-mono whitespace-nowrap">${this._escapeHtml(r.value || '—')}</td><td class="px-2 py-0.5 border-t border-gray-600 text-gray-400 w-full">${this._escapeHtml(r.line || '')}</td><td class="px-2 py-0.5 border-t border-gray-600 whitespace-nowrap ${st.tcls}" title="${this._escapeHtml(st.title || '')}">${st.text}</td></tr>${trace}`;
     };
@@ -5646,6 +5657,7 @@ class ExperimentSignals {
               ${badge}
             </div>
             <div class="text-xs text-gray-300 mb-1">共 ${sm.total ?? rows.length} 门 · 本类型激活 ${sm.activated ?? '-'} · 命中 ${sm.hit ?? '-'} · 拦 ${sm.blocked ?? '-'} · ${dataLine}</div>
+            ${typeNote}
             ${trendHtml}
             ${catBlocks.map(blockHtml).join('')}
             ${unclassified.length ? `<div class="mt-1 text-xs text-amber-300">⚠ 未归类的门：${unclassified.map((row) => this._escapeHtml(row.id)).join(', ')}（分类表未登记）</div>` : ''}

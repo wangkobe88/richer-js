@@ -1673,11 +1673,13 @@ class AbstractTradingEngine extends ITradingEngine {
         signalCreatedAt: nowMs,
         pointTypePolicy: _ptInfo ? _ptInfo.policy : null,
         fireFactors: factors,
+        pointTypeInfo: _ptInfo,
         ...fpCtx,
       });
-      if (_ptInfo && p.signalId) {
-        try { await this._updateSignalMetadata(p.signalId, { pointType: _ptInfo }); } catch (e) { /* 留痕失败不阻断 */ }
-      }
+      // 刻意不在这里覆写 metadata.pointType：重评仍拒=信号终态，类型留痕保持触发时刻的
+      // 分类（与旧链一致——按类型统计的口径不随重评漂移）；本次重评所用的类型随
+      // gateLayer.pointType 留痕。重评通过→续跑路径照旧重分类并覆写（成交挂钩
+      // markBoughtByPointType 依赖续跑时刻的分类）
       fpPass = !(gateLayerEval.primary && gateLayerEval.primary.gate === 'fp');
       fpReason = fpPass ? null : `因子门拒买（${gateLayerEval.sections.factorCheck.reason}）`;
     } else {
@@ -1832,7 +1834,8 @@ class AbstractTradingEngine extends ITradingEngine {
    *      + 终态；副作用（FA 投影 / BP 落行 / burst 资格）与旧挂点同规则。
    * 续跑（ctx 无、opts.resume.gateLayer 在场）由调用方直传重评结果，零二次取数。
    * @param {Object} strategy 触发腿（bpPassLevels 取 signalGate.bpPassLevels）
-   * @param {Object} ctx { anchorMs?, firePriceBnb, strategyName, signalCreatedAt, pointTypePolicy, fireFactors }
+   * @param {Object} ctx { anchorMs?, firePriceBnb, strategyName, signalCreatedAt, pointTypePolicy, fireFactors,
+   *   pointTypeInfo? }（pointTypeInfo=本次评估所用的分类结果，落 gateLayer.pointType）
    * @returns {Promise<{pass:boolean, reason:string|null, primary:{gate,code}|null,
    *   t189SbwBurst:boolean, activation:Object, gateLayer:Object, sections:Object}>}
    */
@@ -1903,6 +1906,7 @@ class AbstractTradingEngine extends ITradingEngine {
     // ④ 落痕：一次写五段 + 终态 + FA 投影
     const gateLayer = GL.buildGateLayerSection({
       activation, prep, rows: dec.sections.factorCheck.gates, primary: dec.primary, pass: dec.pass,
+      pointTypeInfo: ctx.pointTypeInfo || null,
     });
     if (signalId) {
       try {

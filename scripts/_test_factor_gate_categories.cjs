@@ -344,11 +344,12 @@ console.log('\nC. 信号页渲染');
   const bpNeutral = { status: 'assessed', assessment: { bucket: 'neutral', prob: null, rule: 'gates_passed' }, anchors: { exactEqualBlockMaxWallets: 2 }, model: 'factor@BPF3', usage: null };
   const PREP_OK = { ok: true, token: '0xtok', pull: { anchorTickCount: 12, capped: false }, meta: {} };
   /** 统一门层 metadata（五段，与引擎写入同形） */
-  const unifiedMd = ({ policy = null, pt = null, fpSnap = base(), cheat = cf1, af = afMid, prep = PREP_OK, bp = bpNeutral } = {}) => {
-    const activation = GL.resolveGateActivation(policy);
+  const unifiedMd = ({ policy = null, pt = null, fpSnap = base(), cheat = cf1, af = afMid, prep = PREP_OK, bp = bpNeutral, evalPt = null } = {}) => {
+    // evalPt：fpRetry 重评场景下本次门层评估所用的类型（激活集按它算）；metadata.pointType 仍是触发时刻的 pt
+    const activation = GL.resolveGateActivation(evalPt ? evalPt.policy : policy);
     const fp = prep.ok ? Object.assign({ status: 'assessed' }, FPmod.evaluateFactorPreBuy(fpSnap, { trendFactors: TREND })) : null;
     const dec = GL.decideGateLayer({ activation, prep, fp, af: prep.ok ? af : null, cheat, bp: prep.ok ? bp : null, trendFactors: TREND });
-    const gateLayer = GL.buildGateLayerSection({ activation, prep, rows: dec.sections.factorCheck.gates, primary: dec.primary, pass: dec.pass });
+    const gateLayer = GL.buildGateLayerSection({ activation, prep, rows: dec.sections.factorCheck.gates, primary: dec.primary, pass: dec.pass, pointTypeInfo: evalPt || pt });
     return Object.assign({ signalGate: sgBase, pointType: pt, strategyId: 'pack-1' }, dec.sections, { gateLayer });
   };
   const ptOf = (t) => ({ type: t.id, label: t.label, policy: t.policy, version: 'PT81', snapshot: {} });
@@ -389,6 +390,14 @@ console.log('\nC. 信号页渲染');
   const partial = render(unifiedMd({ pt: ptNormal, prep: { ok: false, status: 'insufficient_history', reason: 'ring_partial', anchorTickCount: 12 } }));
   ok('C8d 行环残缺：取数失败 insufficient_history（ring_partial）· 🚫 拒 bp_gate_insufficient_history · 趋势值门 11 行照常 · 三门行值标历史不完整',
     [has(partial, '取数失败 insufficient_history（ring_partial）'), has(partial, '🚫 拒 bp_gate_insufficient_history'), has(partial, '共 14 门'), has(partial, '历史不完整（ring_partial）'), not(partial, '观察因子')], [true, true, true, true, true]);
+
+  // C8d2 fpRetry 重评仍拒：metadata.pointType=触发时刻类型（信号身份），门层按重评时刻类型的激活集
+  // 评估——卡头用 gateLayer.pointType 并注明；活跃度门判序锚取自 actFrontGate.computed.trace
+  const retried = render(unifiedMd({ pt: ptNormal, fpSnap: base({}, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }), af: afLow }),
+    {}, { evalPt: ptOf(STEADY) });
+  ok('C8d2 重评仍拒卡：门卡头=重评时刻类型 + ↻ 注明（信号触发时刻类型=…）；活跃度门判序锚取自 computed.trace',
+    [has(retried, '🧮 因子过滤门 · 判断层「趋势成形-中低速持续拉盘-低位域入场-持续上涨币」'), has(retried, '↻ fpRetry 重评：门层按重评时刻类型'), has(retried, '信号触发时刻类型=「普通点位'), has(retried, '判序锚（1 项）'), has(retried, 'idlePct</span><span class="font-mono font-semibold">70</span>')],
+    [true, true, true, true, true]);
 
   // C8e 历史信号（无 gateLayer）保持原渲染：四层流水线、无三层表述、无观察因子
   const fcLegacy = (gates) => ({ status: 'assessed', pass: true, version: 'FP48', trace: {}, arms: [], gates });

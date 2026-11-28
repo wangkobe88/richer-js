@@ -2683,6 +2683,7 @@ class BacktestEngine extends AbstractTradingEngine {
               signalCreatedAt: nowTs,
               pointTypePolicy,
               fireFactors: factorResults,
+              pointTypeInfo: _ptInfo,
             });
           _fp4Dt = Date.now() - _glT0;
           if (_preGl + _fp4Dt > 400) {

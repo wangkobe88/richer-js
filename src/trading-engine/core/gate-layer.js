@@ -67,6 +67,28 @@ const isAfReject = (af) => !!(af && af.status === 'assessed' && AF_REJECT_PATHS.
 const isAfSkipCheat = (af) => !!(af && af.status === 'assessed' && AF_SKIP_CHEAT_PATHS.has(af.path));
 const isCheatReject = (cheat) => !!(cheat && (cheat.grade === 'cheat' || cheat.grade === 'unhealthy'));
 
+/**
+ * 作弊门「computed」留痕的紧凑版（未到达/直通/让位时嵌在 computed 里的那份）：因子代 CF1
+ * 的 levels/buckets/anchors 是几十个 null 键的样板（每信号 ~2KB，全门恒算后每个被前门
+ * 拒的信号都带一份）——全空的 map / 空数组 / 缺省旗标不落，有值才留。到达门的正式段
+ * （cheatCheck 顶层）仍是与旧挂点同形的完整形状，不走本函数。
+ */
+function compactCheatComputed(info) {
+  const out = { status: info.status, grade: info.grade ?? null };
+  if (info.reasons && info.reasons.length) out.reasons = info.reasons;
+  for (const k of ['levels', 'buckets', 'anchors']) {
+    const v = info[k];
+    if (v && typeof v === 'object' && Object.values(v).some((x) => x !== null && x !== undefined)) out[k] = v;
+  }
+  if (info.cached) out.cached = true;
+  if (info.unhealthyGrades) out.unhealthyGrades = info.unhealthyGrades;
+  if (info.strongbackerLike) out.strongbackerLike = info.strongbackerLike;
+  if (info.exempt) out.exempt = info.exempt;
+  if (info.unblocked) out.unblocked = true;
+  if (info.model) out.model = info.model;
+  return out;
+}
+
 /** 取数失败段（FP/AF 共用：fail-open 放行的留痕形状） */
 function prepFailSection(prep) {
   const out = { status: prep.status, anchorTickCount: prep.anchorTickCount ?? 0 };
@@ -128,6 +150,7 @@ function decideGateLayer(input) {
   const cheat = input.cheat || null;
   const bp = prepOk ? input.bp : null;
   const cheatComputed = cheat ? cheatGateInfo(cheat) : { status: 'fail', reason: 'no_result' };
+  const cheatCompact = compactCheatComputed(cheatComputed); // computed 留痕用紧凑版
 
   // ── ① 因子门 FP（门链最前）──
   let factorCheck;
@@ -184,16 +207,16 @@ function decideGateLayer(input) {
   let cheatCheck;
   let cheatPass = true;
   if (!fpPass || !afPass) {
-    cheatCheck = { status: 'not_reached', computed: cheatComputed };
+    cheatCheck = { status: 'not_reached', computed: cheatCompact };
   } else if (activation.cheat === 'skip') {
-    cheatCheck = { status: 'policy_pass', policy: 'cheatCheck:skip', levels: { stallBurstWave: null }, computed: cheatComputed };
+    cheatCheck = { status: 'policy_pass', policy: 'cheatCheck:skip', levels: { stallBurstWave: null }, computed: cheatCompact };
   } else if (plan.skipCheat) {
     cheatCheck = {
       status: 'skipped_by_act_front', path: actFrontGate.path ?? null,
       act: actFrontGate.act ?? null, sbw: actFrontGate.sbw ?? null, wash: actFrontGate.wash ?? null,
       version: actFrontGate.version ?? null,
       levels: { stallBurstWave: actFrontGate.sbw === 'burst' ? 1 : null },
-      computed: cheatComputed,
+      computed: cheatCompact,
     };
   } else {
     cheatCheck = cheatComputed;
@@ -323,7 +346,7 @@ function afGateRow(activation, af, prep) {
     activated: activation.af !== 'pass',
     blocked: hit && activation.af !== 'pass',
     code: hit ? `act_front_${af.path.replace('reject_', '')}` : null,
-    ...(assessed && af.trace ? { trace: af.trace } : {}),
+    // 判序锚 trace 只在 actFrontGate 段留一份（顶层或 computed），门行不重复携带
   };
 }
 
@@ -385,12 +408,17 @@ function summarizeGateLayer(rows, primary) {
 }
 
 /** metadata.gateLayer 段（层级留痕：来源/取数/激活集/汇总/主拒门） */
-function buildGateLayerSection({ activation, prep, rows, primary, pass }) {
+function buildGateLayerSection({ activation, prep, rows, primary, pass, pointTypeInfo }) {
   const p = normPrep(prep);
   return {
     v: GATE_LAYER_VERSION,
     source: 'memory',
     pass,
+    // 本次门层评估所用的 pointType（激活集的来源）。通常=信号触发时刻的类型；fpRetry 重评
+    // 仍被拒时=重评时刻的类型（此时 metadata.pointType 保持触发时刻类型不覆写——与旧链一致）
+    pointType: pointTypeInfo
+      ? { type: pointTypeInfo.type ?? null, label: pointTypeInfo.label ?? null, version: pointTypeInfo.version ?? null }
+      : null,
     snapshot: p.ok === true
       ? { anchorTickCount: p.pull.anchorTickCount, capped: p.pull.capped === true, complete: true }
       : { status: p.status, reason: p.reason ?? null, anchorTickCount: p.anchorTickCount ?? 0, complete: false },
