@@ -122,6 +122,10 @@ const CHG_LONG_TREND_WINDOW_MS = 300 * 1000;
 // 上涨」=回调 −23.5% 后 +8.7% 缓爬段——10% 阈值首摆不确认恒判下跌腿，5% 识别为
 // 38s 上涨腿与用户视角吻合）
 const TREND_SWING_PCT = 5;
+// T249 有交易块窗键族（2026-11-28 用户裁定「要看买点之前有交易的 10 个块增长情况……不能只看时间」）：
+// 块链保留上限/摊销触发线（chg20 需 21 块，40 留 2× 余量；>60 才裁防高频 splice）
+const TRADED_BLOCK_KEEP = 40;
+const TRADED_BLOCK_PRUNE_AT = 60;
 // 均匀性浓度桶宽（秒）：当前上涨腿按 10s 桶分桶算「最大桶涨幅占比」
 const TREND_CONC_BUCKET_SEC = 10;
 // 均匀性出值下限：当前上涨腿总涨幅 <5% 时浓度无意义（防除零噪声）→ null
@@ -1622,6 +1626,26 @@ class FourMemeFactorAggregator extends EventEmitter {
             //    chg5Pct/chg10Pct/chg30Pct；_pruneRelPriceTrend 摊销裁剪（65s 窗
             //    三键共用原料，2× 窗余量）──
             state._relPriceTrend.push({ ts, price: priceBnb });
+            // ── T249 有交易块末价链（2026-11-28 用户裁定「要看买点之前有交易的 10 个块
+            //    增长情况……不能只看时间」——时间窗对冷票失真：0x5287 案 fire 前 30s
+            //    只有 3 笔买、时间窗 chg30=+13.9 照过，块窗键 null fail-closed 拦）：
+            //    同块多笔只更新末价、新块 push；末价语义=块内到达序最后一笔可靠价
+            //    （与 _relPriceTrend 到达序同款——defer 价格段 WSS 到达即喂≈链序）；
+            //    摊销裁剪保留最近 TRADED_BLOCK_KEEP 块（chg20 需 21 块，2× 余量）──
+            {
+                const blkChain = state._tradedBlockPrices;
+                const lastB = blkChain.length ? blkChain[blkChain.length - 1] : null;
+                if (lastB && lastB.blockNumber === blockNumber) {
+                    lastB.ts = ts;
+                    lastB.price = priceBnb;
+                } else {
+                    blkChain.push({ blockNumber, ts, price: priceBnb });
+                    state._tradedBlockCount++;
+                    if (blkChain.length > TRADED_BLOCK_PRUNE_AT) {
+                        blkChain.splice(0, blkChain.length - TRADED_BLOCK_KEEP);
+                    }
+                }
+            }
             // PT45 陡升历史最大（写点单调 max——历史陡升不随窗滑出回退）
             state._max5sRisePct = _max5sRiseOf(state._relPriceTrend, state._max5sRisePct);
             this._pruneRelPriceTrend(state, ts);
@@ -2839,6 +2863,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             _recentPrices: [],   // 最近 5 笔已接受价（离群中位基准）
             _priceSeries: [],    // 10s 桶价格序列（trend* 因子，8 点）
             _relPriceTrend: [],  // 可靠价时序 {ts,price}（T185 chg5/10/30 短窗动量原料；链序 push+摊销裁剪，见 _pruneRelPriceTrend）
+            _tradedBlockPrices: [], // T249 有交易块末价链 {blockNumber,ts,price}（块窗键原料；同块末笔更新/push 新块；保留最近 40 块）
+            _tradedBlockCount: 0, // T249 全史有交易块数（观察键——「撑不起趋势」的块数不足形状）
             _max5sRisePct: 0,  // PT45 陡升历史最大（5s 窗 min→max 涨幅单调 max——开源圣人 2s +74% 垂直拉案；famous 主导豁免原料）
             _earlyBuyBnb: 0,   // PT45 前 10s 总买额（famous 早期占比分母）
             _earlyFamousBuyBnb: 0, // PT45 前 10s famous 买额（占比分子）
@@ -4102,6 +4128,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             launchMaxPullbackPct: null,
             riseLegStartVsFirstPct: null,
             swingDirSwitchN: null,
+            tradedBlkConcPct: null,
         };
         if (arr.length < 2 || sw.lastDir === null) {
             // 回调族=drawdown 写点累计（与 zigzag 无关）：点数不足时仍有证据零值
@@ -4220,6 +4247,61 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (leg.fromDt >= now - TREND_SWITCH_WIN_SEC * 1000) switchN++;
         }
         out.swingDirSwitchN = switchN;
+        // ⑧tradedBlkConcPct：块版集中度（T249 用户裁定「集中度等指标的计算，也要
+        //   基于这个新理念搞一下」——时间桶对活跃度不均的票失真：0x732b 案 9s
+        //   +42.7% 时间版 conc=80.1 虚高，块口径下最大单块只占 25.7%）。口径=当前
+        //   zigzag 腿（legStart 起）对应的块段内「单块涨幅 / 腿总涨幅」×100；块段
+        //   首块前价=腿起点价；单块段=100（全部涨幅在一个块=真集中）；无腿
+        //   （dir==-1 下跌腿）或无块段/腿涨幅≤0 = null（无证据不评）
+        if (legStart) {
+            const blkChain = state._tradedBlockPrices;
+            const seg = blkChain.filter(b => b.ts >= legStart.ts);
+            if (seg.length >= 1 && out.riseLegAmplPct !== null && out.riseLegAmplPct > 0) {
+                let maxBlkRise = null;
+                let prev = legStart.price;
+                for (const b of seg) {
+                    if (prev > 0 && b.price > 0) {
+                        const r = parseFloat(((b.price / prev - 1) * 100).toFixed(2));
+                        if (maxBlkRise === null || r > maxBlkRise) maxBlkRise = r;
+                    }
+                    prev = b.price;
+                }
+                if (maxBlkRise !== null) {
+                    out.tradedBlkConcPct = parseFloat((maxBlkRise / out.riseLegAmplPct * 100).toFixed(2));
+                }
+            }
+        }
+        return out;
+    }
+
+    /**
+     * T249 有交易块窗涨幅族（2026-11-28 用户裁定「要看买点之前有交易的 10 个块增长
+     * 情况……不能只看时间」+「集中度等指标的计算，也要基于这个新理念」）：时间窗
+     * （chg5/10/30s）对冷票失真——0x5287 案 fire 前 30s 仅 3 笔买、chg30=+13.9 照过
+     * 「撑不起上涨趋势」；块窗=按有交易的块计数，交易稀薄的票块数不足=null
+     * fail-closed。三键 chg5/10/20 = 最近 5/10/20 个有交易块的区间涨幅（N 块区间
+     * 需 N+1 个点；链尾=最后有交易块末价≈fire 价）；tradedBlkCount=全史有交易块数
+     * （观察键）。纯读零副作用。
+     */
+    _tradedBlockChgFactors(state) {
+        const chain = state._tradedBlockPrices;
+        const out = {
+            tradedBlkChg5Pct: null,
+            tradedBlkChg10Pct: null,
+            tradedBlkChg20Pct: null,
+            tradedBlkCount: state._tradedBlockCount,
+        };
+        if (!chain.length) return out;
+        const last = chain[chain.length - 1].price;
+        const chgOf = (N) => {
+            if (chain.length < N + 1) return null;
+            const base = chain[chain.length - 1 - N].price;
+            if (!(base > 0) || !(last > 0)) return null;
+            return parseFloat(((last / base - 1) * 100).toFixed(2));
+        };
+        out.tradedBlkChg5Pct = chgOf(5);
+        out.tradedBlkChg10Pct = chgOf(10);
+        out.tradedBlkChg20Pct = chgOf(20);
         return out;
     }
 
@@ -5347,6 +5429,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         // T245 上涨趋势认知 7 键（2026-11-28 计划）：纯读聚合零新状态——一次 zigzag
         // 摆动检测派生（趋势长度/均匀性/发出后回调/明确性强化）；null=缺证据 fail-closed
         const trendCog = this._trendCognitionFactors(state, now);
+        const blkChg = this._tradedBlockChgFactors(state);
 
         // 滚动净买窗两键（T77 MUSK2028 案 W=10s；OR 臂早进场载体）
         const netBuyWin = this._netBuyWinFactors(state);
@@ -5728,6 +5811,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             launchMaxPullbackPct: trendCog.launchMaxPullbackPct,
             riseLegStartVsFirstPct: trendCog.riseLegStartVsFirstPct,
             swingDirSwitchN: trendCog.swingDirSwitchN,
+            tradedBlkConcPct: trendCog.tradedBlkConcPct,
+            // ── T249 有交易块窗族（2026-11-28 用户裁定「不能只看时间」）：块窗
+            // 涨幅三键+块数观察键——口径/null 语义见 _tradedBlockChgFactors ──
+            tradedBlkChg5Pct: blkChg.tradedBlkChg5Pct,
+            tradedBlkChg10Pct: blkChg.tradedBlkChg10Pct,
+            tradedBlkChg20Pct: blkChg.tradedBlkChg20Pct,
+            tradedBlkCount: blkChg.tradedBlkCount,
             // T142 破发豁免锚（2026-11-15 ASTER 0x31e2…7777 案，用户裁定「价格已经
             // 完全破发，这种情况理应豁免」）：现价 vs 平台常量发行价——**纯常量、
             // 刻意不吃 T130/T134 地板**（地板锚被砸穿后反弹会掩盖「已破发」事实：

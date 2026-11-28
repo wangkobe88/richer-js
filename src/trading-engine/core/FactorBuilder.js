@@ -98,6 +98,13 @@ function buildFactorValuesForTimeSeries(factorResults) {
     launchMaxPullbackPct: factorResults.launchMaxPullbackPct ?? null,
     riseLegStartVsFirstPct: factorResults.riseLegStartVsFirstPct ?? null,
     swingDirSwitchN: factorResults.swingDirSwitchN ?? null,
+    // T249 有交易块窗族（2026-11-28 用户裁定「不能只看时间」）：块窗涨幅三键+块版
+    // 集中度+块数观察键——冷票交易稀薄时块数不足=null 不掩盖
+    tradedBlkChg5Pct: factorResults.tradedBlkChg5Pct ?? null,
+    tradedBlkChg10Pct: factorResults.tradedBlkChg10Pct ?? null,
+    tradedBlkChg20Pct: factorResults.tradedBlkChg20Pct ?? null,
+    tradedBlkConcPct: factorResults.tradedBlkConcPct ?? null,
+    tradedBlkCount: factorResults.tradedBlkCount ?? null,
     // T245 上涨趋势认知密度三键（2026-11-28 计划）：10s 窗钱包密度——「密度超高」
     // 散户抢筹 vs「低密度」庄对倒；信号复盘需落库；缺证据 → null 不掩盖
     actTradersPerBnb: factorResults.actTradersPerBnb ?? null,
