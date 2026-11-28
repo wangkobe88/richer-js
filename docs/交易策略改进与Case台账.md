@@ -2901,3 +2901,15 @@ N=15 依据=粗筛 579 executed 信号 riseLegSec 分布〔0-5 桶 49 票/5-10 1
 **五连胜累计（T247~T251）**：v58 579 票/44.56%/+6.0237B → v64 504 票/47.4%/+7.9609B = **总 Δ+1.937B、胜率+2.84pt**。
 
 **单测**：router 96/96（F8g c5 带门 8 断言+F8h slot 门 3 断言+F8i 深破发豁免 3 断言+PT79）；pack 82/82。
+
+## T251b 纯 GMGN 门（2026-11-28 用户裁定「=100 纯 GMGN 的干掉（看了一下都是些烂票）」+「<20 先不动吧」）
+
+**案源与裁定链**：作弊票研究（0x1361b38f/0xe3771477 两案）沿用户问题链展开——形态（T239 追加段）→ 钱包画像（gmgnProfiledBuyerPct/tradesRouterPct/freshWalletHoldPct/actNewTradersRatio/actTradersPerBnb/bundledAvg/maxBlockBuyCircPct 七维全无分离、作弊票全落盈利主体桶）→ router 集中度（top1 占比/HHI/独立 router 数——**方向反着**：top1 90-100% 82 票均 0.036、HHI 0.7-0.9 94 票均 0.035 最好；「单 router 非 GMGN」22 票均 0.023 胜率 77% 也是好形状）→ router 身份（GMGN 占 router 买入比：**80-100 桶 145 票 +4.959 均 0.034 最好=GMGN 主导是热度**；=100 桶 51 票 +0.005 零和）。**信息论边界第四次确认**：作弊票在四个聚合统计维度全部与赢家重叠。用户 review =100 桶 17 页后裁定砍。
+
+**实现**：新键 `gmgnRouterBuySharePct`=GMGN 主路由买入额÷router 总买入额×100（trader 层、fire 前全史累计、只计买腿；写点=tradesRouterPct 同源同写点 state.totalRouterBuyBnb/gmgnRouterBuyBnb；GMGN_ROUTER_ADDR 从 aggregator-routers.js 导出单一真相源）。null=无 router 买入 fail-open 放行；0=有 router 买零 GMGN 有证据零值。门：尾门 `AND (gmgnRouterBuySharePct < 100 OR gmgnRouterBuySharePct IS NULL)`（包 v65 + PT80 判据同步）。<20 桶（105 票 +1.130）内部细分全正无负子桶（gmgnShare 细分四档全正、routerBuyPct<5 仅 3 票）——用户裁定先不动。
+
+**引擎 A/B（case 集合通道）**：A=bt-v348（v64）504 票/47.4%/+7.9609B/+7.90% vs B=bt-v349（v65）**482 票/48.5%/+8.0145B/+8.31% = Δ+0.0536B、胜率+1.1pt、票−22**——被砍 22 票逐票：7 正（合计 +0.540，最大 0x7e14 +0.385〔routerBuyPct 仅 4.9% 偶然路过形状，review 时已预告知情接受〕）＋2 零＋13 负（−0.577）；直接账 −0.037、正贡献全来自换点/路径连锁 +0.09；胜率 +1.1pt=砍掉的 22 票里 15 张 ≤0 低质票。
+
+**六连胜累计（T247~T251b）**：v58 579 票/44.56%/+6.0237B → v65 482 票/48.5%/+8.0145B = **总 Δ+1.9908B、胜率+3.94pt**。
+
+**单测**：_test_gmgn_router_share.cjs 7/7（写点三态+空链/卖腿不累计+探针白名单+常量在集）；router 97/97（F8j 纯 GMGN 门 4 断言+PT80）；pack 82/82；fourmeme_fa_factors（ADDED_KEYS+1）。
