@@ -4380,11 +4380,13 @@ class ExperimentSignals {
           </div>
           `;
         } else if (fStatus === 'policy_pass') {
-          // T245 上涨趋势观察子块（policy 直通例外渲染——只有 trend 观察行，紧凑 chips）
+          // T245 上涨趋势观察子块（policy 直通例外渲染——只有 trend 观察行，紧凑 chips；
+          // 2026-11-28 用户指令「上涨趋势相关因子的展示跟其它因子风格保持一致」：chip
+          // 标签用因子键名（g.id），与 👁 观察因子/📊 因子值 chip 同款「键 值」形状）
           const trendRows = (Array.isArray(factorCheckInfo.gates) ? factorCheckInfo.gates : [])
             .filter((g) => g && g.category === 'trend');
           const trendChips = trendRows.length
-            ? `<details class="mt-1" open><summary class="text-xs text-emerald-800 cursor-pointer select-none">🧩 上涨趋势 · ${this._escapeHtml((FACTOR_GATE_CATEGORIES.find((c) => c.id === 'trend') || {}).question || '')}（${trendRows.length} 键）</summary><div class="mt-1 flex flex-wrap gap-1">${trendRows.map((g) => this._observeChipHtml(g.label, g.value)).join('')}</div></details>`
+            ? `<details class="mt-1" open><summary class="text-xs text-emerald-800 cursor-pointer select-none">🧩 上涨趋势 · ${this._escapeHtml((FACTOR_GATE_CATEGORIES.find((c) => c.id === 'trend') || {}).question || '')}（${trendRows.length} 键）</summary><div class="mt-1 flex flex-wrap gap-1">${trendRows.map((g) => this._observeChipHtml(g.id, g.value)).join('')}</div></details>`
             : '';
           factorGateHtml = `
           <div class="mt-2 pt-2 border-t border-emerald-300">

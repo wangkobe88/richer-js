@@ -246,6 +246,28 @@ function render(md, extra) {
   ok(inst.experimentConfig.strategiesConfig.buyStrategies.length === 4, 'G4c 审计段在但无停用腿：全量物化');
   global.fetch = _fetch;
 
+  // H policy_pass 上涨趋势子块 chip 标签=因子键名（2026-11-28 用户指令「上涨趋势相关
+  // 因子的展示跟其它因子风格保持一致」——事故现场：9f19 P19 票 chip 用中文 label
+  // 「上涨腿时长」而整卡其余因子（📊 因子值/👁 观察因子）全是键名）
+  {
+    const h = render({
+      signalGate: sgBase,
+      factorCheck: {
+        status: 'policy_pass', policy: 'factorCheckArms:skip',
+        gates: [
+          { id: 'riseLegSec', label: '上涨腿时长', value: '4.2s', observe: true, category: 'trend' },
+          { id: 'surgeStartSec', label: '拉升段起点', value: '4.2s前', observe: true, category: 'trend' },
+        ],
+      },
+      trendFactors: { riseLegSec: 4.2 },
+    });
+    ok(h.includes('🧩 上涨趋势'), 'H: policy_pass 带 trend 观察行渲染上涨趋势子块');
+    ok(h.includes('riseLegSec</span><span class="font-mono font-semibold">4.2s</span>'), 'H: chip 标签=因子键名 riseLegSec（键 值 形状与观察因子同款）');
+    ok(h.includes('surgeStartSec</span><span class="font-mono font-semibold">4.2s前</span>'), 'H: surgeStartSec 同款键名 chip');
+    // 卡片内 metadata 原样 JSON 段会带 label 字段——只反证 chip 标签位不再用中文 label
+    ok(!h.includes('上涨腿时长</span><span class="font-mono'), 'H: chip 标签位不用中文 label（修前用 g.label）');
+  }
+
   console.log(`\n${failed === 0 ? '✅' : '❌'} 四层展示冒烟：${passed} 通过 / ${failed} 失败`);
   process.exit(failed === 0 ? 0 : 1);
 })();
