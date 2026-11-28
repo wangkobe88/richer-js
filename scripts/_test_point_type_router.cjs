@@ -412,7 +412,10 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     assert.strictEqual(classifyPointType({ ...TREND, tradedBlkChg5Pct: 0 }).type, 'steady_trend_climb', 'c5=0 恰过（含 0）');
     assert.strictEqual(classifyPointType({ ...TREND, tradedBlkChg5Pct: 39.9 }).type, 'steady_trend_climb', 'c5=39.9 过');
     assert.strictEqual(classifyPointType({ ...TREND, tradedBlkChg5Pct: -0.1 }).type, 'normal', 'c5<0 最近 5 块在跌砍（0x5287 案）');
-    assert.strictEqual(classifyPointType({ ...TREND, tradedBlkChg5Pct: 40 }).type, 'normal', 'c5 恰 40 暴拉尾端砍');
+    assert.strictEqual(classifyPointType({ ...TREND, tradedBlkChg5Pct: 40 }).type, 'steady_trend_climb', 'c5=40 但 bc=20<60 放行（T250 二修：0x209e 长腿均匀票形状）');
+    assert.strictEqual(classifyPointType({ ...TREND, tradedBlkChg5Pct: 40, tradedBlkConcPct: 60 }).type, 'normal', 'c5≥40 且 bc≥60 才砍（块集中且暴拉真尾端）');
+    assert.strictEqual(classifyPointType({ ...TREND, tradedBlkChg5Pct: 100, tradedBlkConcPct: 100 }).type, 'normal', '0x71fe 型 bc=100 拦');
+    assert.strictEqual(classifyPointType({ ...TREND, tradedBlkChg5Pct: 50, tradedBlkConcPct: null }).type, 'normal', 'bc null 时 c5≥40 拦（fail-closed）');
     assert.strictEqual(classifyPointType({ ...TREND, tradedBlkChg5Pct: null }).type, 'steady_trend_climb', 'IS NULL（块数<6）放行——cnt<6 群体 +0.382');
   });
   check('F9 类型注册形状：active:true 且位于 famous 系之后/slow_develop_early 之前', () => {
@@ -570,8 +573,8 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
   const HIGH = { actTotalBnb30s: 1.2, actTraders: 5 };
   const MID = { actTotalBnb30s: 0.6, actTraders: 2 };
   const BURST = { actTotalBnb30s: 0.3, actTraders: 3, burstStallMs: 45000, burstWaveSec: 4, burstWaveBuyBnb: 0.35, burstWaveBuyN: 3, burstWaveSellBnb: 0 };
-  check('H1 版本 PT76；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
-    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT76');
+  check('H1 版本 PT77；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
+    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT77');
     assert.deepStrictEqual(IDS.slice(-4), [...ACT, 'normal']);
     for (const id of ACT) assert.strictEqual(R.POINT_TYPES.find((t) => t.id === id).active, true, `${id} 须激活`);
     assert.ok(IDS.indexOf('activity_high') > IDS.indexOf('market_maker_rhythm_pit'), '须排在做市节奏之后');
