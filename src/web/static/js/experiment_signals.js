@@ -5150,7 +5150,7 @@ class ExperimentSignals {
    */
   _observeChipHtml(label, value) {
     const v = (value === null || value === undefined) ? '—' : String(value);
-    return `<span class="inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded border border-gray-400 bg-white text-gray-900 leading-tight"><span class="text-gray-700">${this._escapeHtml(label)}</span><span class="font-mono font-semibold">${this._escapeHtml(v)}</span></span>`;
+    return `<span class="inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded border border-gray-300 leading-tight"><span>${this._escapeHtml(label)}</span><span class="font-mono font-semibold">${this._escapeHtml(v)}</span></span>`;
   }
 
   /** T245 观察因子前缀域分组（全键紧凑网格的分块） */
@@ -5188,7 +5188,7 @@ class ExperimentSignals {
     }
     const blocks = [...domains.entries()].map(([d, keys]) => {
       const chips = keys.map((k) => this._observeChipHtml(k, tf[k])).join('');
-      return `<div class="mt-1"><span class="text-xs font-semibold text-gray-900">${this._escapeHtml(d)}</span><div class="mt-0.5 flex flex-wrap gap-1">${chips}</div></div>`;
+      return `<div class="mt-1"><span class="text-xs font-semibold">${this._escapeHtml(d)}</span><div class="mt-0.5 flex flex-wrap gap-1">${chips}</div></div>`;
     }).join('');
     return `
             <details class="mt-1">
