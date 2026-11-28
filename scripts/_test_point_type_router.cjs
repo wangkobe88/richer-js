@@ -423,6 +423,11 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     assert.strictEqual(classifyPointType({ ...TREND, famousFollowSlotMaxWallets: 9 }).type, 'normal', 'slot 9 跟单挤爆拦');
     assert.strictEqual(classifyPointType({ ...TREND, famousFollowSlotMaxWallets: 0 }).type, 'steady_trend_climb', 'slot 0=无 famous 买（FA 恒 0 语义非 null）放行');
   });
+  check('F8i T251 深破发豁免臂（PT79）：slot≥9 但 launchMinVsFloorPct < -10 豁免', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, famousFollowSlotMaxWallets: 9, launchMinVsFloorPct: -10.1 }).type, 'steady_trend_climb', '深破发豁免');
+    assert.strictEqual(classifyPointType({ ...TREND, famousFollowSlotMaxWallets: 9, launchMinVsFloorPct: -10 }).type, 'normal', '恰 −10 不豁免（严格小于）');
+    assert.strictEqual(classifyPointType({ ...TREND, famousFollowSlotMaxWallets: 9, launchMinVsFloorPct: -5 }).type, 'normal', '浅破发 −10~0 不豁免');
+  });
   check('F9 类型注册形状：active:true 且位于 famous 系之后/slow_develop_early 之前', () => {
     const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
     const ids = POINT_TYPES.map((t) => t.id);
@@ -578,8 +583,8 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
   const HIGH = { actTotalBnb30s: 1.2, actTraders: 5 };
   const MID = { actTotalBnb30s: 0.6, actTraders: 2 };
   const BURST = { actTotalBnb30s: 0.3, actTraders: 3, burstStallMs: 45000, burstWaveSec: 4, burstWaveBuyBnb: 0.35, burstWaveBuyN: 3, burstWaveSellBnb: 0 };
-  check('H1 版本 PT78；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
-    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT78');
+  check('H1 版本 PT79；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
+    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT79');
     assert.deepStrictEqual(IDS.slice(-4), [...ACT, 'normal']);
     for (const id of ACT) assert.strictEqual(R.POINT_TYPES.find((t) => t.id === id).active, true, `${id} 须激活`);
     assert.ok(IDS.indexOf('activity_high') > IDS.indexOf('market_maker_rhythm_pit'), '须排在做市节奏之后');
