@@ -1625,6 +1625,19 @@ class FourMemeFactorAggregator extends EventEmitter {
             // PT45 陡升历史最大（写点单调 max——历史陡升不随窗滑出回退）
             state._max5sRisePct = _max5sRiseOf(state._relPriceTrend, state._max5sRisePct);
             this._pruneRelPriceTrend(state, ts);
+            // T245 回调族增量（drawdown 口径，写点单调累计——zigzag legs 依赖
+            // _relPriceTrend 保留窗（600s），币安伙伴案 4 段回调发生在 fire 前
+            // 11 小时早被裁剪致 pullN=0；本累计不随窗滑出）：峰回撤 ≥TREND_SWING_PCT
+            // 计一次回调并重置峰=当前价（下次创新高再开新峰）
+            if (state._trendRunMaxPrice > 0 && priceBnb < state._trendRunMaxPrice) {
+                const dd = ((state._trendRunMaxPrice - priceBnb) / state._trendRunMaxPrice) * 100;
+                if (dd >= TREND_SWING_PCT) {
+                    state._trendPullbackN++;
+                    if (dd > state._trendMaxPullbackPct) state._trendMaxPullbackPct = Math.round(dd * 100) / 100;
+                    state._trendRunMaxPrice = priceBnb;
+                }
+            }
+            if (priceBnb > state._trendRunMaxPrice) state._trendRunMaxPrice = priceBnb;
 
             // ── 名单因子（回迁批 3.3）：smart_bot 名单内地址的可靠买额累计
             //   （参与=累计 buyBnb ≥ smartBotMinBuyBnb，对齐挖掘 qualify 口径；母版 _smartBotBuySol→BNB。
@@ -3055,6 +3068,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             _burstWaveBuyBnb: 0,         // 当前波累计买入 BNB / 笔数 / 卖出 BNB（新静默段清零）
             _burstWaveSellBnb: 0,
             _burstWaveBuyN: 0,
+            // T245 回调族 drawdown 累计（写点单调；0=从无 ≥5% 回调的有证据零值）
+            _trendRunMaxPrice: 0,
+            _trendPullbackN: 0,
+            _trendMaxPullbackPct: 0,
             _quietExitPriceBnb: null,   // T214：最近静默段出口行（苏醒第一笔）可靠价——
                                          //   quietExitVsLaunchPct 分子；null=从未定格/出口行
                                          //   无可靠价（价格族仅可靠价，宁 null 不冒充）
@@ -4078,6 +4095,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         const sw = _trendSwingsOf(arr);
         const out = {
             riseLegSec: null,
+            surgeStartSec: null,
             riseLegAmplPct: null,
             riseConcentrationPct: null,
             launchPullbackN: null,
@@ -4085,7 +4103,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             riseLegStartVsFirstPct: null,
             swingDirSwitchN: null,
         };
-        if (arr.length < 2 || sw.lastDir === null) return out;
+        if (arr.length < 2 || sw.lastDir === null) {
+            // 回调族=drawdown 写点累计（与 zigzag 无关）：点数不足时仍有证据零值
+            out.launchPullbackN = state._trendPullbackN;
+            out.launchMaxPullbackPct = state._trendMaxPullbackPct;
+            return out;
+        }
         // dir==0 未定向（detectSwings 单调序列无中间价时永不确认首摆点——纯涨/纯跌
         // 序列 lastDir 恒 0）：整体上涨（末价>首价）→ 视为早期上涨趋势，腿起点=序列
         // 最低点（首摆未确认前的谷）；整体不涨 → 全 null（无上涨证据）。
@@ -4095,7 +4118,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             const lp = sw.points[sw.points.length - 1]; // 最近确认低点 {dt,price,kind}
             legStart = { ts: lp.dt, price: lp.price };
         } else if (sw.lastDir === 0) {
-            if (!(lastP.price > arr[0].price)) return out;
+            if (!(lastP.price > arr[0].price)) {
+                out.launchPullbackN = state._trendPullbackN;
+                out.launchMaxPullbackPct = state._trendMaxPullbackPct;
+                return out;
+            }
             let minP = arr[0];
             for (const p of arr) if (p.price < minP.price) minP = p;
             legStart = minP;
@@ -4143,17 +4170,50 @@ class FourMemeFactorAggregator extends EventEmitter {
                 }
             }
         }
-        // ④launchPullbackN/⑤launchMaxPullbackPct：发出后回调族（全可见 legs）
-        let pullN = 0, maxPull = null;
-        for (const leg of sw.legs) {
-            if (leg.amplPct <= -TREND_SWING_PCT) {
-                pullN++;
-                const depth = Math.abs(leg.amplPct);
-                if (maxPull === null || depth > maxPull) maxPull = depth;
+        // surgeStartSec：最近拉升段起点距今秒数（2026-11-28 用户语义校准——「腿」=
+        // 最近明显拉升段而非技术谷：-32° 案 32 分钟横盘后 11:00:25 放量突破=腿起点
+        // （突破前 50s 静默=苏醒首笔）；中国龙案连续缓爬 38s=腿起点）。口径=从 fire
+        // 往回找「最近苏醒首笔」（与前一笔 gap ≥30s 且至末价涨幅 ≥8%）与「苏醒前的
+        // 最近阶段低点」（价 ≤ 其后所有点 ∧ 至末价涨幅 ≥8%），取更晚者——苏醒段内
+        // 的低点让位给苏醒首笔（-32° 案 7.3923 次低点不抢 7.1755 苏醒首笔）。
+        {
+            const last = arr[arr.length - 1];
+            // ①最近苏醒首笔
+            let wakeTs = null;
+            for (let i = 1; i < arr.length; i++) {
+                const p = arr[i];
+                const gap = p.ts - arr[i - 1].ts;
+                if (gap >= 30000 && p.price > 0 && last.price > 0
+                    && ((last.price / p.price - 1) * 100) >= 8) {
+                    wakeTs = p.ts;
+                }
             }
+            // ②苏醒点之前的最近局部谷（倒扫维护后缀 min；只扫 wakeTs 之前）——
+            // 「局部谷」=前一笔价更高（或序列首点）且价 ≤ 其后所有点（A2 案 106
+            // 是阶段低点但非谷——其前 100 更低，不让位）
+            let lowTs = null;
+            const hiBound = wakeTs !== null ? wakeTs : last.ts;
+            let afterMin = last.price;
+            for (let i = arr.length - 2; i >= 0; i--) {
+                const p = arr[i];
+                if (p.ts >= hiBound) { if (p.price < afterMin) afterMin = p.price; continue; }
+                const isValley = i === 0 || arr[i - 1].price > p.price;
+                if (isValley && p.price <= afterMin && p.price > 0 && last.price > 0
+                    && ((last.price / p.price - 1) * 100) >= 8) {
+                    lowTs = p.ts;
+                    break;
+                }
+                if (p.price < afterMin) afterMin = p.price;
+            }
+            const startTs = wakeTs !== null && (lowTs === null || wakeTs > lowTs) ? wakeTs : lowTs;
+            if (startTs !== null) out.surgeStartSec = Math.max(0, parseFloat(((now - startTs) / 1000).toFixed(2)));
         }
-        out.launchPullbackN = pullN; // 0=从无回调（有证据零值）
-        out.launchMaxPullbackPct = maxPull === null ? 0 : parseFloat(maxPull.toFixed(2));
+        // ④launchPullbackN/⑤launchMaxPullbackPct：发出后回调族——**写点单调累计**
+        // （drawdown 口径，见可靠价写点；不再从 legs 算——zigzag legs 依赖 600s
+        // 保留窗，币安伙伴案 fire 前 11 小时的 4 段回调被裁剪致 0）。0=从无回调
+        // （有证据零值）；点数 <2 时无可靠价证据=累计也必为 0（首点无峰可回撤）。
+        out.launchPullbackN = state._trendPullbackN;
+        out.launchMaxPullbackPct = state._trendMaxPullbackPct;
         // ⑦swingDirSwitchN：最近 300s 方向切换次数（明确性强化；0=单向明确）
         let switchN = 0;
         for (const leg of sw.legs) {
@@ -5661,6 +5721,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             // ── T245 上涨趋势认知 7 键（2026-11-28 计划；口径/null 语义见
             // _trendCognitionFactors；TREND_SWING_PCT=10 摆动阈值 phase 2 校准）──
             riseLegSec: trendCog.riseLegSec,
+            surgeStartSec: trendCog.surgeStartSec,
             riseLegAmplPct: trendCog.riseLegAmplPct,
             riseConcentrationPct: trendCog.riseConcentrationPct,
             launchPullbackN: trendCog.launchPullbackN,

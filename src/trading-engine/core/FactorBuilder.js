@@ -91,6 +91,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // T245 上涨趋势认知 7 键（2026-11-28 计划）：zigzag 摆动派生——趋势长度/均匀性/
     // 发出后回调/明确性；信号复盘需落库（新判据条件臂主键）；缺证据 → null 不掩盖
     riseLegSec: factorResults.riseLegSec ?? null,
+    surgeStartSec: factorResults.surgeStartSec ?? null,
     riseLegAmplPct: factorResults.riseLegAmplPct ?? null,
     riseConcentrationPct: factorResults.riseConcentrationPct ?? null,
     launchPullbackN: factorResults.launchPullbackN ?? null,

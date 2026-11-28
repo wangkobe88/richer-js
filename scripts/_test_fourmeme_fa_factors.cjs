@@ -761,7 +761,7 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 落键时未同步本白名单）
         'priceMa60SlopePct',
         // T245 上涨趋势认知十键（2026-11-28 计划：zigzag 七键+密度三键）
-        'riseLegSec', 'riseLegAmplPct', 'riseConcentrationPct', 'launchPullbackN',
+        'riseLegSec', 'surgeStartSec', 'riseLegAmplPct', 'riseConcentrationPct', 'launchPullbackN',
         'launchMaxPullbackPct', 'riseLegStartVsFirstPct', 'swingDirSwitchN',
         'actTradersPerBnb', 'actNewTradersRatio', 'actAvgTradeBnb',
         // 2026-11-28 存量补登 16 键（历轮落键时未同步本白名单，T245 落键时一并

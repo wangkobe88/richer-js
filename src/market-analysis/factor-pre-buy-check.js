@@ -1151,6 +1151,7 @@ function buildTrendObserveGates(trend) {
   const v = (x, unit = '') => (x === null || x === undefined ? '-' : `${x}${unit}`);
   return [
     { category: 'trend', id: 'riseLegSec', label: '上涨腿时长', value: v(t.riseLegSec, 's'), observe: true, hit: false, line: '当前上涨腿已持续（下跌腿=0；未定向=缺证据）' },
+    { category: 'trend', id: 'surgeStartSec', label: '拉升段起点', value: v(t.surgeStartSec, 's前'), observe: true, hit: false, line: '最近明显拉升段起点距今（阶段低点∧涨幅≥8%）' },
     { category: 'trend', id: 'riseLegAmplPct', label: '上涨腿涨幅', value: v(t.riseLegAmplPct, '%'), observe: true, hit: false, line: '当前腿自确认低点累计涨幅' },
     { category: 'trend', id: 'riseConcentrationPct', label: '拉升集中度', value: v(t.riseConcentrationPct, '%'), observe: true, hit: false, line: '腿内最大 10s 桶涨幅占比（均匀≈低、突然一波≈高）' },
     { category: 'trend', id: 'launchPullbackN', label: '历史回调次数', value: v(t.launchPullbackN, ' 次'), observe: true, hit: false, line: '发出后 ≥10% 回调次数（0=从无回调）' },

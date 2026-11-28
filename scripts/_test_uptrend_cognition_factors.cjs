@@ -60,7 +60,7 @@ function feedPrice(fa, seq) {
     for (const [ts, price] of seq) fa.processTick(mkTick({ timestamp: ts, price_bnb: price }));
 }
 const cog = (f) => ({
-    sec: f.riseLegSec, ampl: f.riseLegAmplPct, conc: f.riseConcentrationPct,
+    sec: f.riseLegSec, surge: f.surgeStartSec, ampl: f.riseLegAmplPct, conc: f.riseConcentrationPct,
     pullN: f.launchPullbackN, pullMax: f.launchMaxPullbackPct,
     startVsFirst: f.riseLegStartVsFirstPct, switchN: f.swingDirSwitchN,
 });
@@ -72,7 +72,7 @@ console.log('A. zigzag 状态机（TREND_SWING_PCT=10）');
     const fa = newFA();
     feedPrice(fa, [[T0 + 1000, P(100)]]);
     let f = fa.buildFactorMap('0xtoken', T0 + 1000);
-    check('A1 单点 <2：zigzag 七键全 null', () => assert.deepStrictEqual(cog(f), { sec: null, ampl: null, conc: null, pullN: null, pullMax: null, startVsFirst: null, switchN: null }));
+    check('A1 单点 <2：zigzag 键全 null；回调族 drawdown 累计=0（有证据零值）', () => assert.deepStrictEqual(cog(f), { sec: null, surge: null, ampl: null, conc: null, pullN: 0, pullMax: 0, startVsFirst: null, switchN: null }));
 
     // 匀速爬升：100→120（+20%，每 5s 一步）→ dir=0 单调无中间价不确认首摆点
     // → 早期趋势语义（腿起点=序列最低点 100）
@@ -86,6 +86,7 @@ console.log('A. zigzag 状态机（TREND_SWING_PCT=10）');
         assert.strictEqual(cog(f).pullMax, 0);
         assert.strictEqual(cog(f).switchN, 0);
     });
+    check('A2s surgeStartSec：连续爬升 +20% 无静默 → 阶段低点起算（=riseLegSec 同 15）', () => assert.strictEqual(cog(f).surge, 15));
     check('A2b riseLegSec 随 now 推进（虚拟钟；断流腿龄照走）', () => {
         const f2 = fa2.buildFactorMap('0xtoken', T0 + 20000);
         assert.strictEqual(cog(f2).sec, 19);
@@ -115,8 +116,32 @@ console.log('A. zigzag 状态机（TREND_SWING_PCT=10）');
     const fa3 = newFA();
     feedPrice(fa3, [[T0 + 1000, P(100)], [T0 + 6000, P(99)], [T0 + 11000, P(98)]]);
     f = fa3.buildFactorMap('0xtoken', T0 + 11000);
-    check('A5 未定向整体下跌：全 null（无上涨证据）', () => assert.deepStrictEqual(cog(f), { sec: null, ampl: null, conc: null, pullN: null, pullMax: null, startVsFirst: null, switchN: null }));
+    check('A5 未定向整体下跌：zigzag 键 null（无上涨证据）；回调族 drawdown=2（100→99 −1<5 不计？）', () => {
+    // 序列 100→99→98：−1%/−1.01% 均 <5 → 回调累计 0
+    assert.deepStrictEqual(cog(f), { sec: null, surge: null, ampl: null, conc: null, pullN: 0, pullMax: 0, startVsFirst: null, switchN: null });
+  });
 }
+
+  // A6 surge 苏醒首笔（-32° 案型）：横盘 + 50s 静默 + 苏醒突破——苏醒首笔优先于段内次低点
+  check('A6 surge 苏醒首笔（-32° 案型）：50s 静默后苏醒突破 → surge=苏醒首笔距 fire 19s', () => {
+    const faw = newFA();
+    faw.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: P(5.5) }));
+    faw.processTick(mkTick({ timestamp: T0 + 2000000, price_bnb: P(6.9707) }));
+    faw.processTick(mkTick({ timestamp: T0 + 2000000 + 50000, price_bnb: P(7.1755) }));
+    faw.processTick(mkTick({ timestamp: T0 + 2000000 + 51000, price_bnb: P(7.3923) }));
+    faw.processTick(mkTick({ timestamp: T0 + 2000000 + 69000, price_bnb: P(8.8253) }));
+    const fw = faw.buildFactorMap('0xtoken', T0 + 2000000 + 69000);
+    assert.strictEqual(fw.surgeStartSec, 19);
+  });
+  check('A6b surge 苏醒但涨幅不足 8% → 回落阶段低点（苏醒首笔不达标不算拉升段）', () => {
+    const faw = newFA();
+    faw.processTick(mkTick({ timestamp: T0 + 1000, price_bnb: P(9.1161) }));
+    faw.processTick(mkTick({ timestamp: T0 + 11000, price_bnb: P(9.2) }));
+    faw.processTick(mkTick({ timestamp: T0 + 20000, price_bnb: P(9.6) }));
+    faw.processTick(mkTick({ timestamp: T0 + 39000, price_bnb: P(9.8977) }));
+    const fw = faw.buildFactorMap('0xtoken', T0 + 39000);
+    assert.strictEqual(fw.surgeStartSec, 38);
+  });
 
 console.log('B. 浓度桶数学（10s 桶半开）');
 {
@@ -164,9 +189,9 @@ console.log('C. 回调族 / 明确性');
         [T0 + 17000, P(97)], [T0 + 19000, P(94)],
     ]);
     let f = fa.buildFactorMap('0xtoken', T0 + 19000);
-    check('C1 两段深回调：pullN=2、pullMax=20、switchN=4（300s 内全部段）', () => {
-        assert.strictEqual(cog(f).pullN, 2);
-        assert.strictEqual(cog(f).pullMax, 20);
+    check('C1 drawdown 回调累计：pullN=4、pullMax=13.64、switchN=4（300s 内全部段）', () => {
+        assert.strictEqual(cog(f).pullN, 4);
+        assert.strictEqual(cog(f).pullMax, 13.64);
         assert.strictEqual(cog(f).switchN, 4);
     });
     check('C2 当前上涨腿（谷@88 ts=15000）：riseLegSec=4（19000−15000）、startVsFirst=−12（88/100−1）', () => {
