@@ -305,7 +305,7 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     mcapFromPeakPct: 10, launchMinVsFloorPct: 5, lifetimeBuyVolumeBnb: 6,
     sinceLastFamousBigBuySec: null, quietSpanMs: 0, actTotalBnb300s: 2,
     maxBlockBuyCircPct: 5, tradesRouterPct: 40, freshWalletHoldPct: 30,
-    riseLegSec: 40, chg5Pct: 3, surgeStartSec: 40, tradedBlkConcPct: 20, tradedBlkChg5Pct: 10,
+    riseLegSec: 40, chg5Pct: 3, surgeStartSec: 40, tradedBlkConcPct: 20, tradedBlkChg5Pct: 10, famousFollowSlotMaxWallets: 3,
   };
   check('F1 形状命中 → steady_trend_climb + 全豁 policy', () => {
     const r = classifyPointType(TREND);
@@ -315,7 +315,7 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     assert.strictEqual(r.version, POINT_TYPE_VERSION);
     assert.deepStrictEqual(Object.keys(r.snapshot).sort(), [
       'actTotalBnb', 'actTotalBnb300s', 'actTotalBnb30s', 'anchorTickIsBuy', 'athVsFloorPct', 'chg10Pct', 'chg30Pct',
-      'chg5Pct', 'currentVsLaunchPct', 'freshWalletHoldPct', 'launchMinVsFloorPct', 'lifetimeBuyVolumeBnb',
+      'chg5Pct', 'currentVsLaunchPct', 'famousFollowSlotMaxWallets', 'freshWalletHoldPct', 'launchMinVsFloorPct', 'lifetimeBuyVolumeBnb',
       'maxBlockBuyCircPct', 'mcapFromPeakPct', 'priceMa60SlopePct', 'quietSpanMs', 'riseLegSec',
       'sinceLastFamousBigBuySec', 'surgeStartSec', 'tokenAgeSec', 'tradedBlkChg5Pct', 'tradedBlkConcPct', 'tradesRouterPct',
     ]);
@@ -418,6 +418,11 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     assert.strictEqual(classifyPointType({ ...TREND, tradedBlkChg5Pct: 50, tradedBlkConcPct: null }).type, 'normal', 'bc null 时 c5≥40 拦（fail-closed）');
     assert.strictEqual(classifyPointType({ ...TREND, tradedBlkChg5Pct: null }).type, 'steady_trend_climb', 'IS NULL（块数<6）放行——cnt<6 群体 +0.382');
   });
+  check('F8h T251 famous 跟单簇门（PT78）：slot≤8 过；9 拦（0xbee13de0 跟单太狠案）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, famousFollowSlotMaxWallets: 8 }).type, 'steady_trend_climb', 'slot 恰 8 过');
+    assert.strictEqual(classifyPointType({ ...TREND, famousFollowSlotMaxWallets: 9 }).type, 'normal', 'slot 9 跟单挤爆拦');
+    assert.strictEqual(classifyPointType({ ...TREND, famousFollowSlotMaxWallets: 0 }).type, 'steady_trend_climb', 'slot 0=无 famous 买（FA 恒 0 语义非 null）放行');
+  });
   check('F9 类型注册形状：active:true 且位于 famous 系之后/slow_develop_early 之前', () => {
     const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
     const ids = POINT_TYPES.map((t) => t.id);
@@ -444,7 +449,7 @@ console.log('G. T242 实验级点位类型激活（2026-11-26 用户指令「将
     mcapFromPeakPct: 10, launchMinVsFloorPct: 5, lifetimeBuyVolumeBnb: 6,
     sinceLastFamousBigBuySec: null, quietSpanMs: 0, actTotalBnb300s: 2,
     maxBlockBuyCircPct: 5, tradesRouterPct: 40, freshWalletHoldPct: 30,
-    riseLegSec: 40, chg5Pct: 3, surgeStartSec: 40, tradedBlkConcPct: 20, tradedBlkChg5Pct: 10,
+    riseLegSec: 40, chg5Pct: 3, surgeStartSec: 40, tradedBlkConcPct: 20, tradedBlkChg5Pct: 10, famousFollowSlotMaxWallets: 3,
   };
 
   check('G1 无覆盖段（undefined/null）→ null（存量实验零变化）', () => {
@@ -573,8 +578,8 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
   const HIGH = { actTotalBnb30s: 1.2, actTraders: 5 };
   const MID = { actTotalBnb30s: 0.6, actTraders: 2 };
   const BURST = { actTotalBnb30s: 0.3, actTraders: 3, burstStallMs: 45000, burstWaveSec: 4, burstWaveBuyBnb: 0.35, burstWaveBuyN: 3, burstWaveSellBnb: 0 };
-  check('H1 版本 PT77；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
-    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT77');
+  check('H1 版本 PT78；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
+    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT78');
     assert.deepStrictEqual(IDS.slice(-4), [...ACT, 'normal']);
     for (const id of ACT) assert.strictEqual(R.POINT_TYPES.find((t) => t.id === id).active, true, `${id} 须激活`);
     assert.ok(IDS.indexOf('activity_high') > IDS.indexOf('market_maker_rhythm_pit'), '须排在做市节奏之后');
@@ -670,7 +675,7 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
       mcapFromPeakPct: 10, launchMinVsFloorPct: 5, lifetimeBuyVolumeBnb: 6,
       sinceLastFamousBigBuySec: null, quietSpanMs: 0, actTotalBnb300s: 2,
       maxBlockBuyCircPct: 5, tradesRouterPct: 40, freshWalletHoldPct: 30,
-      riseLegSec: 40, chg5Pct: 3, surgeStartSec: 40, tradedBlkConcPct: 20, tradedBlkChg5Pct: 10, tradedBlkChg5Pct: 10, tradedBlkConcPct: 20,
+      riseLegSec: 40, chg5Pct: 3, surgeStartSec: 40, tradedBlkConcPct: 20, tradedBlkChg5Pct: 10, famousFollowSlotMaxWallets: 3, famousFollowSlotMaxWallets: 3, tradedBlkChg5Pct: 10, tradedBlkConcPct: 20,
     };
     assert.strictEqual(classifyPointType(TR).type, 'steady_trend_climb');
   });
