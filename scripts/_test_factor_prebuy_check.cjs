@@ -508,7 +508,7 @@ console.log('K. FP6 famous 高控+砸落观察臂 + 门/值对 gates（btv140 BP
     const r = M.judgeFamousDominanceFall(TS({}, {}));
     assert.strictEqual(r.observe, false); assert.strictEqual(r.branch, 'anchors_missing');
   });
-  check('K4 gates 门/值对结构：17 门齐全、命中门 hit=true、观察门 observe 标记', () => {
+  check('K4 gates 门/值对结构：17 门齐全、命中门 hit=true、FP6 值门原始命中且恒不激活', () => {
     const full = M.evaluateFactorPreBuy(TS({
       chg30Pct: -31.92, athVsLaunchPct: 233.7, totalVolumeBnb: 47.29,
       win: { 30: WIN(0.2475, 0.4879), 120: WIN(0.2475, 0.5861) }, // FP5 尾声同中
@@ -521,7 +521,12 @@ console.log('K. FP6 famous 高控+砸落观察臂 + 门/值对 gates（btv140 BP
     assert.strictEqual(tailGate.hit, true); // FP5 拦截门 hit
     assert.ok(tailGate.value.includes('ath233.7%'), tailGate.value);
     const domGate = full.gates.find((x) => x.id === 'fam_dom_fall');
-    assert.strictEqual(domGate.hit, false); assert.strictEqual(domGate.observe, true);
+    // T253 因子过滤门层：observe 标记退役——FP6 是零臂码值门：hit=原始判定（高控+砸落形状
+    // 在场=true）、任何 pointType 都不激活（activated/blocked 恒 false=只展示不拦）
+    assert.strictEqual(domGate.hit, true);
+    assert.strictEqual(domGate.activated, false); assert.strictEqual(domGate.blocked, false);
+    assert.ok(!('observe' in domGate), 'observe 标记须退役');
+    assert.strictEqual(domGate.code, null); assert.strictEqual(domGate.group, 'fp'); assert.strictEqual(domGate.source, 'gate');
     assert.ok(domGate.value.includes('dom100%'), domGate.value);
     // 门结构完整：每门有 id/label/value/line
     for (const gate of full.gates) {

@@ -1107,8 +1107,11 @@ const FACTOR_GATE_CATEGORIES = Object.freeze([
   Object.freeze({ id: 'famous', label: 'famous / 聪明钱行为', question: '名单钱包在这个盘做了什么' }),
   Object.freeze({ id: 'pathway', label: '通路', question: '好票形状（命中 = 豁免放行，不拦截）' }),
   // T245 上涨趋势认知（2026-11-28 用户指令「把上涨趋势因子作为因子门中的一个类别，
-  // 在信号页面中作为因子门的子块展示」）：十键观察门（observe 不拦截——买侧拒绝臂
-  // fire 点扫描全负不成立，键作观察+卖侧原料；值经 opts.trendFactors 从 fire 因子表透传）
+  // 在信号页面中作为因子门的子块展示」）：十一键**值门**（T253 因子过滤门层归位——
+  // 用户裁定「上涨趋势检查门也属于因子过滤门的一部分」+「值门·全类型不激活」：不设
+  // 判据线、所有 pointType 都不激活，每信号恒算恒展示；买侧拒绝臂 fire 点扫描全负
+  // 不成立，键作展示+卖侧原料；值经 opts.trendFactors 从 fire 因子表透传=继承触发层
+  // 因子的门，零取数）
   Object.freeze({ id: 'trend', label: '上涨趋势', question: '这个上涨趋势是健康持续还是出货集中' }),
 ]);
 
@@ -1142,33 +1145,118 @@ function factorGateCategory(gateId) {
 }
 
 /**
- * T245 上涨趋势十键观察门（2026-11-28 用户指令「把上涨趋势因子作为因子门中的一个
- * 类别」）：observe=true 不拦截——买侧拒绝臂 fire 点扫描全负不成立（右尾同构），
- * 十键作观察展示+卖侧原料。值经 opts.trendFactors 透传（fire 因子表直取，无则 '-'）。
+ * T245 上涨趋势十一键**值门**（T253 因子过滤门层归位：用户裁定「上涨趋势检查门也属于
+ * 因子过滤门的一部分」+「值门·全类型不激活」）：hit=null=未设判据线（买侧拒绝臂 fire
+ * 点扫描全负不成立，右尾同构），activated=false=任何 pointType 都不激活——每信号恒算
+ * 恒展示（仅展示不拦），键同时是卖侧原料。source='trigger'：值经 opts.trendFactors
+ * 从 fire 因子表直取（继承触发层因子的门，零取数；无则不出行）。
  */
-function buildTrendObserveGates(trend) {
+function buildTrendValueGates(trend) {
   const t = trend || {};
   const v = (x, unit = '') => (x === null || x === undefined ? '-' : `${x}${unit}`);
   return [
-    { category: 'trend', id: 'riseLegSec', label: '上涨腿时长', value: v(t.riseLegSec, 's'), observe: true, hit: false, line: '当前上涨腿已持续（下跌腿=0；未定向=缺证据）' },
-    { category: 'trend', id: 'surgeStartSec', label: '拉升段起点', value: v(t.surgeStartSec, 's前'), observe: true, hit: false, line: '最近明显拉升段起点距今（阶段低点∧涨幅≥8%）' },
-    { category: 'trend', id: 'riseLegAmplPct', label: '上涨腿涨幅', value: v(t.riseLegAmplPct, '%'), observe: true, hit: false, line: '当前腿自确认低点累计涨幅' },
-    { category: 'trend', id: 'riseConcentrationPct', label: '拉升集中度', value: v(t.riseConcentrationPct, '%'), observe: true, hit: false, line: '腿内最大 10s 桶涨幅占比（均匀≈低、突然一波≈高）' },
-    { category: 'trend', id: 'launchPullbackN', label: '历史回调次数', value: v(t.launchPullbackN, ' 次'), observe: true, hit: false, line: '发出后 ≥10% 回调次数（0=从无回调）' },
-    { category: 'trend', id: 'launchMaxPullbackPct', label: '最大回调深度', value: v(t.launchMaxPullbackPct, '%'), observe: true, hit: false, line: '历史最大单腿回调深度（0=从无回调）' },
-    { category: 'trend', id: 'riseLegStartVsFirstPct', label: '腿起点vs首价', value: v(t.riseLegStartVsFirstPct, '%'), observe: true, hit: false, line: '当前腿起点价较首可靠价（≈0=趋势含发出点）' },
-    { category: 'trend', id: 'swingDirSwitchN', label: '300s方向切换', value: v(t.swingDirSwitchN, ' 次'), observe: true, hit: false, line: '最近 300s 摆动方向切换次数（0=单向明确）' },
-    { category: 'trend', id: 'actTradersPerBnb', label: '钱包密度', value: v(t.actTradersPerBnb, '/B'), observe: true, hit: false, line: '10s 窗每 BNB 独立钱包数（高=散户抢筹、低=大额对倒）' },
-    { category: 'trend', id: 'actNewTradersRatio', label: '新钱包占比', value: v(t.actNewTradersRatio, '%'), observe: true, hit: false, line: '10s 窗新钱包占比（过热钱包太多标签）' },
-    { category: 'trend', id: 'actAvgTradeBnb', label: '笔均成交额', value: v(t.actAvgTradeBnb, 'B'), observe: true, hit: false, line: '10s 窗笔均成交额（与密度互补）' },
-  ];
+    { category: 'trend', id: 'riseLegSec', label: '上涨腿时长', value: v(t.riseLegSec, 's'), hit: null, line: '当前上涨腿已持续（下跌腿=0；未定向=缺证据）' },
+    { category: 'trend', id: 'surgeStartSec', label: '拉升段起点', value: v(t.surgeStartSec, 's前'), hit: null, line: '最近明显拉升段起点距今（阶段低点∧涨幅≥8%）' },
+    { category: 'trend', id: 'riseLegAmplPct', label: '上涨腿涨幅', value: v(t.riseLegAmplPct, '%'), hit: null, line: '当前腿自确认低点累计涨幅' },
+    { category: 'trend', id: 'riseConcentrationPct', label: '拉升集中度', value: v(t.riseConcentrationPct, '%'), hit: null, line: '腿内最大 10s 桶涨幅占比（均匀≈低、突然一波≈高）' },
+    { category: 'trend', id: 'launchPullbackN', label: '历史回调次数', value: v(t.launchPullbackN, ' 次'), hit: null, line: '发出后 ≥10% 回调次数（0=从无回调）' },
+    { category: 'trend', id: 'launchMaxPullbackPct', label: '最大回调深度', value: v(t.launchMaxPullbackPct, '%'), hit: null, line: '历史最大单腿回调深度（0=从无回调）' },
+    { category: 'trend', id: 'riseLegStartVsFirstPct', label: '腿起点vs首价', value: v(t.riseLegStartVsFirstPct, '%'), hit: null, line: '当前腿起点价较首可靠价（≈0=趋势含发出点）' },
+    { category: 'trend', id: 'swingDirSwitchN', label: '300s方向切换', value: v(t.swingDirSwitchN, ' 次'), hit: null, line: '最近 300s 摆动方向切换次数（0=单向明确）' },
+    { category: 'trend', id: 'actTradersPerBnb', label: '钱包密度', value: v(t.actTradersPerBnb, '/B'), hit: null, line: '10s 窗每 BNB 独立钱包数（高=散户抢筹、低=大额对倒）' },
+    { category: 'trend', id: 'actNewTradersRatio', label: '新钱包占比', value: v(t.actNewTradersRatio, '%'), hit: null, line: '10s 窗新钱包占比（过热钱包太多标签）' },
+    { category: 'trend', id: 'actAvgTradeBnb', label: '笔均成交额', value: v(t.actAvgTradeBnb, 'B'), hit: null, line: '10s 窗笔均成交额（与密度互补）' },
+  ].map((row) => ({ ...row, activated: false, blocked: false, source: 'trigger', group: 'trend', code: null }));
+}
+
+/**
+ * 门 id → 臂码（T253 因子过滤门层：门行三元组 hit/activated/blocked 的单一真相源）。
+ * 同一门行可对应多个臂码（fam_holding 两法 / fam_early_flip 双支 / act_low 四分支）；
+ * 通路行与值门无臂码（恒不激活）。
+ */
+const GATE_ARM_CODES = Object.freeze({
+  pvp: ['pvp_no_big_participation'],
+  launch_squad: ['launch_squad_dominance'],
+  big_buy_defer: ['big_buy_defer'],
+  holder_scatter: ['holder_scatter'],
+  even_split_crew: ['even_split_crew'],
+  tail_dip_knife: ['tail_dip_knife'],
+  stall_restart: [],
+  act_idle: ['act_low'], act_sparse: ['act_low'], act_dust: ['act_low'], act_near_dead: ['act_low'],
+  act_ultra_sell: ['act_ultra'], act_ultra_density: ['act_ultra'],
+  cd400: ['cd400_dump_no_absorption'], cd403: ['cd403_dump_low_absorption'],
+  dump_pair: ['dump_pair_low_absorption'],
+  cd401: ['cd401_burst_exit_sell_pressure'], cd405: ['cd405_burst_bundled_wave'],
+  burst_weak: ['burst_weak_wave'],
+  lifecycle_burst: ['lifecycle_burst_residual'], lifecycle_sell: ['lifecycle_sell_residual'],
+  cd412: ['cd412_extreme_dump_sellers'], cd414: ['cd414_dense_dump'],
+  tail_no_buyer: ['tail_no_buyer_pressure'],
+  launch_fail_dead: ['launch_fail_dead'],
+  oversell_residual: ['oversell_residual'], arb_bot_holdings: ['arb_bot_holdings'],
+  holder_quiet_unload: ['holder_quiet_unload'],
+  fam_holding: ['fam_holding_thin', 'fam_holding_dumping'],
+  fam_harvest: ['fam_harvested_dump'],
+  tail_activity: ['act_tail_flat'],
+  fam_dom_fall: [],
+  slow_pump: ['slow_pump_unload'], fam_harvest_final: ['fam_harvested_final'],
+  fam_burst_wave: ['fam_burst_wave'], fam_low_exit: ['fam_low_exit_cooldown'],
+  fam_early_flip: ['fam_early_flip_partial', 'fam_early_flip_exit'],
+  malicious_dump: ['malicious_dump'], crash_numeric: ['crash_numeric'], crash_form: ['crash_form'],
+});
+
+/** famous 族 reason 码（filterArmsByClass 的 famousReason 通道） */
+const FAMOUS_REASON_CODES = new Set(['fam_holding_thin', 'fam_holding_dumping', 'fam_harvested_dump']);
+
+/**
+ * 门在本信号 pointType policy 下是否**激活**（静态，与命中与否无关——T253「不同的
+ * pointType 激活的因子过滤门并不一致」）：把该门的臂码喂给决策核 filterArmsByClass
+ * 同一个过滤（armClass 作弊类过滤 + 臂差集），能产出拒因=激活。多码门任一臂码存活
+ * 即激活（独舞豁免 fam_holding_thin 后 dumping 仍可拦）。零臂码门（通路/值门）恒 false。
+ */
+function gateActivated(gateId, armClass, exempt) {
+  const codes = GATE_ARM_CODES[gateId];
+  if (!codes || codes.length === 0) return false;
+  return filterArmsByClass({
+    arms: codes.slice(),
+    actLevel: codes.includes('act_ultra') ? 'ultra' : (codes.includes('act_low') ? 'low' : null),
+    pvpReason: codes.includes('pvp_no_big_participation') ? 'pvp_no_big_participation' : null,
+    tailReason: codes.includes('act_tail_flat') ? 'act_tail_flat' : null,
+    famousReason: codes.find((c) => FAMOUS_REASON_CODES.has(c)) || null,
+  }, armClass, exempt ? [...exempt] : []).reason !== null;
+}
+
+/**
+ * 门行三元组收口（T253）：hit=原始判定（臂自身判据含臂内豁免腿，与 policy 无关）；
+ * activated=本类型 policy 下该门是否有可拦臂码；blocked=hit ∧ 命中码在本信号有效拦截
+ * 集内（effArms ∪ {reason}——pvp 的码只经 reason 通道拦截）。不变式
+ * `pass === !gates.some(r => r.blocked)`。趋势值门（group trend）不经此（hit 恒 null）。
+ */
+function finalizeGateRows(rows, gatePolicy) {
+  const policy = gatePolicy || {};
+  const blocking = Array.isArray(policy.blocking) ? policy.blocking : [];
+  const reason = policy.reason ?? null;
+  return rows.map((row) => {
+    if (row.group === 'trend') return row;
+    const codes = GATE_ARM_CODES[row.id] || [];
+    const { hitCode, ...rest } = row;
+    const hit = rest.hit === true;
+    return {
+      ...rest,
+      // code：单码门=该码；多码门=实际命中的那一支（未命中 null）
+      code: codes.length === 1 ? codes[0] : (hit ? (hitCode || codes[0] || null) : null),
+      activated: gateActivated(row.id, policy.armClass ?? null, policy.exempt ?? null),
+      blocked: hit && codes.some((c) => c === reason || blocking.includes(c)),
+      source: 'gate',
+      group: 'fp',
+    };
+  });
 }
 
 function buildFactorGates(parts) {
   const d = (v, unit = '') => (v === null || v === undefined ? '-' : `${v}${unit}`);
   const g = [];
-  // T245 上涨趋势十键观察门（类别分块首位——观察键不拦截，恒附加）
-  if (parts.trend) g.push(...buildTrendObserveGates(parts.trend));
+  // T245 上涨趋势十一键值门（类别分块首位——继承触发层因子，恒不激活）
+  if (parts.trend) g.push(...buildTrendValueGates(parts.trend));
   // PVP
   {
     const t = parts.pvp.trace || {};
@@ -1221,11 +1309,11 @@ function buildFactorGates(parts) {
     g.push({
       id: 'tail_dip_knife', label: 'T182·尾部接刀',
       value: `ath${d(bdk.athVsLaunchPct, '%')} curVs${d(bdk.currentVsLaunchPct, '%')} chg5${d(bdk.chg5Pct, '%')} chg30${d(bdk.chg30Pct, '%')} 卖30s${d(w30s, 'B')} 破发${d(bdk.launchMinVsFloorPct, '%')}`,
-      line: '域(ath≥40∧curVs≤28.5) ∧ chg5<-5 ∧ chg30<-5（崩塌进行时非插针；T205 量腿=卖30s≥0.3B 有量才拦，灰度；FP39 深破<−10 豁免）', hit: parts.armHits.includes('tail_dip_knife'),
+      line: '域(ath≥40∧curVs≤28.5) ∧ chg5<-5 ∧ chg30<-5（崩塌进行时非插针；T205 量腿=卖30s≥0.3B 有量才拦，灰度；FP39 深破<−10 豁免）', hit: !!parts.C.tailDip,
     });
   }
   // T210 停滞再启动通路（命中=低活跃臂与弱波臂让位+活跃度前置门 restart_exempt；
-  // exempt=true 渲染为通路徽标——hit 在本表语义=拦截，通路命中不是拦截）
+  // exempt=true 渲染为通路徽标——通路不是门：hit 恒 false、activated 恒 false）
   {
     const sr = parts.stallRestart || null;
     const L = sr ? sr.legs : {};
@@ -1277,12 +1365,12 @@ function buildFactorGates(parts) {
     g.push({
       id: 'cd400', label: 'CD400·贴锚砸出零承接',
       value: `达标块${d(cd.nearDumpQualBlocks)} 最恶承接${d(cd.nearDumpMinAbsorbBnb, 'B')}`,
-      line: '≥1块 ∧ 承接<0.05B', hit: parts.armHits.includes('cd400_dump_no_absorption'),
+      line: '≥1块 ∧ 承接<0.05B', hit: !!parts.C.cd400,
     });
     g.push({
       id: 'cd403', label: 'CD403·捆绑砸盘低承接',
       value: `卖方${d(cd.nearDumpWorstSellers)} 承接比${(typeof cd.nearDumpMinAbsorbBnb === 'number' && typeof cd.nearDumpWorstSellBnb === 'number' && cd.nearDumpWorstSellBnb > 0) ? (cd.nearDumpMinAbsorbBnb / cd.nearDumpWorstSellBnb).toFixed(2) : '-'}`,
-      line: '卖方≥8 ∧ 比<0.3', hit: parts.armHits.includes('cd403_dump_low_absorption'),
+      line: '卖方≥8 ∧ 比<0.3', hit: !!parts.C.cd403,
     });
     // FP23 相邻双块捆绑砸盘尾承接（T190——CD403 单块口径跨块分摊盲区）
     {
@@ -1293,56 +1381,56 @@ function buildFactorGates(parts) {
       g.push({
         id: 'dump_pair', label: 'FP23·双块捆绑砸盘尾承接',
         value: d2 ? `卖方${d(d2.sellers)} 卖${d(d2.sellBnb, 'B')} 跌${d(d2.dropPct, '%')} 距锚${d(d2.secToAnchor, 's')} 承接${d2Ratio !== null ? (d2Ratio * 100).toFixed(1) + '%' : '-'} 龄${d(parts.bd && parts.bd.tokenAgeSec, 's')}` : '-',
-        line: '前期龄≤600s ∧ 卖方≥8 ∧ 卖≥0.5B ∧ 跌≤10% ∧ 距锚≤60s ∧ 承接<30%（总额≥20B豁免；后期下跌段不评）', hit: parts.armHits.includes('dump_pair_low_absorption'),
+        line: '前期龄≤600s ∧ 卖方≥8 ∧ 卖≥0.5B ∧ 跌≤10% ∧ 距锚≤60s ∧ 承接<30%（总额≥20B豁免；后期下跌段不评）', hit: !!parts.C.dumpPair,
       });
     }
     g.push({
       id: 'cd401', label: 'CD401·burst出口卖压',
       value: `簇卖占${d(cd.burstWaveSegSellPct, '%')} 卖额${d(cd.burstWaveSegSellBnb, 'B')}`,
-      line: '≥30% ∧ ≥0.3B（sbw=1 资格）', hit: parts.armHits.includes('cd401_burst_exit_sell_pressure'),
+      line: '≥30% ∧ ≥0.3B（sbw=1 资格）', hit: !!parts.C.cd401,
     });
     g.push({
       id: 'cd405', label: 'CD405·burst捆绑收割',
       value: `单块${d(cd.burstWaveBundleMaxWallets, '户')} 相邻slot${d(cd.burstWaveBundleAdjPairSum, '户')}`,
-      line: '去尘捆绑≥7户', hit: parts.armHits.includes('cd405_burst_bundled_wave'),
+      line: '去尘捆绑≥7户', hit: !!parts.C.cd405,
     });
     g.push({
       id: 'burst_weak', label: 'FP15·burst弱波（无大户+无压箱）',
       value: `波内大户${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.whaleWallets, '实体')}(合并${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.whaleMergedGroups, '组')}) 压箱${d(parts.bd && parts.bd.burstWaveQuality && parts.bd.burstWaveQuality.preWaveBuyBnb, 'B')}`,
-      line: '联立：大户=0 ∧ 压箱<1B（同块∨同额并为一个钱包；无段不拦）', hit: parts.armHits.includes('burst_weak_wave'),
+      line: '联立：大户=0 ∧ 压箱<1B（同块∨同额并为一个钱包；无段不拦）', hit: !!parts.C.burstWeak,
     });
     g.push({
       id: 'lifecycle_burst', label: 'FP16·大周期burst残局',
       value: `ath${d(parts.bd && parts.bd.athVsLaunchPct, '%')} 总额${d(parts.bd && parts.bd.totalVolumeBnb, 'B')} 静默${d(cd.burstLastGapSec, 's')} 波买${d(cd.burstWaveSegBuyBnb, 'B')}`,
-      line: 'ath≥100% ∧ 总额≥11B ∧ burst结构（静默≥30s∧波近锚∧波买≥0.3B）；深破<−10豁免', hit: parts.armHits.includes('lifecycle_burst_residual'),
+      line: 'ath≥100% ∧ 总额≥11B ∧ burst结构（静默≥30s∧波近锚∧波买≥0.3B）；深破<−10豁免', hit: !!parts.C.lifecycleBurst,
     });
     g.push({
       id: 'lifecycle_sell', label: 'T192·大周期卖压残局',
       value: `ath${d(parts.bd && parts.bd.athVsLaunchPct, '%')} 总额${d(parts.bd && parts.bd.totalVolumeBnb, 'B')} 静默${d(cd.burstLastGapSec, 's')} 簇距${d(cd.burstSecSinceSegEnd, 's')} 簇卖占${d(cd.burstWaveSegSellPct, '%')} 卖${d(cd.burstWaveSegSellBnb, 'B')}`,
-      line: 'ath≥100% ∧ 总额≥11B ∧ 静默≥30s ∧ 簇距≤60s ∧ 簇卖占≥50% ∧ 卖≥0.3B；深破<−10豁免', hit: parts.armHits.includes('lifecycle_sell_residual'),
+      line: 'ath≥100% ∧ 总额≥11B ∧ 静默≥30s ∧ 簇距≤60s ∧ 簇卖占≥50% ∧ 卖≥0.3B；深破<−10豁免', hit: !!parts.C.lifecycleSell,
     });
     g.push({
       id: 'cd412', label: 'CD412·极端捆绑砸盘',
       value: `卖方${d(cd.nearDumpWorstSellers)} 块卖${d(cd.nearDumpWorstSellBnb, 'B')}`,
-      line: '≥15户 ∧ ≥1B（破发豁免）', hit: parts.armHits.includes('cd412_extreme_dump_sellers'),
+      line: '≥15户 ∧ ≥1B（破发豁免）', hit: !!parts.C.cd412,
     });
     const w30g = (parts.bd && parts.bd.win && parts.bd.win[30]) || null;
     const actTailG = (parts.bd && parts.bd.activity) || null;
     g.push({
       id: 'cd414', label: 'CD414·短窗持续密集砸盘',
       value: `30s卖方${d(w30g && w30g.sellers)} 卖${d(w30g && w30g.sellBnb, 'B')} 净${d(w30g && w30g.netBnb, 'B')}`,
-      line: '≥15户 ∧ ≥2B ∧ 净≤−1.5B（observe 命中票除外）', hit: parts.armHits.includes('cd414_dense_dump'),
+      line: '≥15户 ∧ ≥2B ∧ 净≤−1.5B（FP6 famous 高控砸落命中票让位）', hit: !!parts.C.cd414,
     });
     g.push({
       id: 'tail_no_buyer', label: 'FP26·尾段买力枯竭+卖压在场',
       value: `尾5s买${d(actTailG && actTailG.nearTail5BuyN)}笔 30s卖${d(w30g && w30g.sellN)}笔 破发${d(parts.bd && parts.bd.launchMinVsFloorPct, '%')}`,
-      line: '尾5s买≤1 ∧ 30s卖单≥5（卖压假活跃——货在砸、接盘者已走；FP40 深破<−10 豁免）', hit: parts.armHits.includes('tail_no_buyer_pressure'),
+      line: '尾5s买≤1 ∧ 30s卖单≥5（卖压假活跃——货在砸、接盘者已走；FP40 深破<−10 豁免）', hit: !!parts.C.tailNoBuyer,
     });
     const ldLfd = (parts.bd && parts.bd.launchDefer) || null;
     g.push({
       id: 'launch_fail_dead', label: 'FP28·早窗启动失败死盘',
       value: `ath${d(parts.bd && parts.bd.athVsLaunchPct, '%')} 龄${d(parts.bd && parts.bd.tokenAgeSec, 's')} 尾7s买${d(actTailG && actTailG.nearTail7BuyN)}笔${ldLfd ? ` 首波清仓${ldLfd.firstWaveCleared === true ? '✓' : ldLfd.firstWaveCleared === false ? '✗' : '-'} 后波持${ldLfd.laterHolders ?? '-'} famous同块${d(ldLfd.famBlockPct, '%')}` : ''}`,
-      line: 'ath<40 ∧ 龄<90s ∧ 尾7s买≤2（没拉起来过+尾段没人买=启动失败；FP43 换手豁免=首波清仓∧后波≥2家持∧famous同块<15%）', hit: parts.armHits.includes('launch_fail_dead'),
+      line: 'ath<40 ∧ 龄<90s ∧ 尾7s买≤2（没拉起来过+尾段没人买=启动失败；FP43 换手豁免=首波清仓∧后波≥2家持∧famous同块<15%）', hit: !!parts.C.launchFailDead,
     });
     g.push({
       id: 'oversell_residual', label: 'T197·分仓出货残局盘',
@@ -1357,7 +1445,7 @@ function buildFactorGates(parts) {
     g.push({
       id: 'holder_quiet_unload', label: 'FP27·大户静默卸货',
       value: `top5卖${d(parts.bd && parts.bd.bigHolderSellBnb60, 'B')} ath${d(parts.bd && parts.bd.athVsLaunchPct, '%')}`,
-      line: '60s top5卖∈[0.1,0.3)B ∧ ath<80%（未走完周期庄提前离场；≥0.3=换手完成放行；T230 换手豁免=卖出大户均为窗内净买入者不拦）', hit: parts.armHits.includes('holder_quiet_unload'),
+      line: '60s top5卖∈[0.1,0.3)B ∧ ath<80%（未走完周期庄提前离场；≥0.3=换手完成放行；T230 换手豁免=卖出大户均为窗内净买入者不拦）', hit: !!parts.C.holderQuietUnload,
     });
   }
   // FP3 famous 两法
@@ -1367,6 +1455,7 @@ function buildFactorGates(parts) {
       id: 'fam_holding', label: 'FP3·famous持重危险',
       value: `自卖比${d(t.soldRatio)} 总买${d(t.totalBuyBnb, 'B')} chg30${d(t.chg30Pct, '%')}`,
       line: '自卖比<0.7 ∧（总买<3B ∨ chg30<-15%）', hit: parts.famous.reason === 'fam_holding_thin' || parts.famous.reason === 'fam_holding_dumping',
+      hitCode: parts.famous.reason || null,
     });
     g.push({
       id: 'fam_harvest', label: 'FP3·famous收割砸盘',
@@ -1383,14 +1472,14 @@ function buildFactorGates(parts) {
       line: 'ath≥100% ∧ 总额≥20B ∧（吞吐<1B/min ∨ 延伸买<0.1B ∨ 砸穿发行价 minVs≤3%）', hit: !!parts.tail.reason,
     });
   }
-  // FP6 famous 高控+砸落（观察门——不拦截）
+  // FP6 famous 高控+砸落（T253：observe 标记退役——普通门行，hit=原始判定；零臂码=
+  // 任何 pointType 都不激活〔仅展示〕；其唯一消费=CD414 臂让位）
   {
     const t = parts.domFall.trace || {};
     g.push({
-      id: 'fam_dom_fall', label: 'FP6·famous高控+砸落（观察）',
+      id: 'fam_dom_fall', label: 'FP6·famous高控+砸落',
       value: `dom${d(t.domPct, '%')} chg30${d(t.chg30Pct, '%')}`,
-      line: 'dom≥90% ∧ chg30≤−20%（标记不拦截，留待找方案）', hit: false,
-      observe: parts.domFall.observe === true,
+      line: 'dom≥90% ∧ chg30≤−20%（值门：恒不激活，命中时 CD414 让位）', hit: parts.domFall.observe === true,
     });
   }
   // FP8a 慢拉卸货（键源 cd.pumpStable*+bd.secSinceAth+win120）
@@ -1400,7 +1489,7 @@ function buildFactorGates(parts) {
     g.push({
       id: 'slow_pump', label: 'FP8a·慢拉卸货',
       value: `稳定段${d(cd2.pumpStablePoints, '点')} R²${d(cd2.pumpStableR2)} 峰后${d(parts.bd && parts.bd.secSinceAth, 's')} 吞吐${d(w120g ? (w120g.buyBnb + w120g.sellBnb) / 2 : null, 'B/min')}`,
-      line: '≥30点 ∧ R²≥0.95 ∧ 峰后≥600s ∧ 吞吐<1B/min', hit: parts.armHits.includes('slow_pump_unload'),
+      line: '≥30点 ∧ R²≥0.95 ∧ 峰后≥600s ∧ 吞吐<1B/min', hit: !!parts.C.slowPump,
     });
   }
   // FP8b famous 收割完残局
@@ -1410,7 +1499,7 @@ function buildFactorGates(parts) {
     g.push({
       id: 'fam_harvest_final', label: 'FP8b·famous收割完残局',
       value: `ath${d(parts.bd && parts.bd.athVsLaunchPct, '%')} 自卖比${d(sr)} 占买${d(ft && ft.groupBuyPct, '%')} chg30${d(parts.bd && parts.bd.chg30Pct, '%')}`,
-      line: 'ath≥100% ∧ 自卖比≥0.9 ∧ 占买≥10% ∧ chg30≤−20%', hit: parts.armHits.includes('fam_harvested_final'),
+      line: 'ath≥100% ∧ 自卖比≥0.9 ∧ 占买≥10% ∧ chg30≤−20%', hit: !!parts.C.famHarvestFinal,
     });
   }
   // FP9 famous 系突发波
@@ -1419,7 +1508,7 @@ function buildFactorGates(parts) {
     g.push({
       id: 'fam_burst_wave', label: 'FP9·famous系burst波',
       value: `静默${d(w && w.stallSec, 's')} 波买${d(w && w.waveBuyBnb, 'B')} famous系${d(w && w.famSysSharePct, '%')} 首进${w && w.famousFirstInWave ? '波内' : '否'}`,
-      line: '静默≥30s ∧ 波买≥0.3B ∧ famous系≥80% ∧ 首进波内', hit: parts.armHits.includes('fam_burst_wave'),
+      line: '静默≥30s ∧ 波买≥0.3B ∧ famous系≥80% ∧ 首进波内', hit: !!parts.C.famBurstWave,
     });
   }
   // FP10 famous 低价全清冷却
@@ -1432,7 +1521,7 @@ function buildFactorGates(parts) {
     g.push({
       id: 'fam_low_exit', label: 'FP10·famous低价全清冷却',
       value: `末卖@+${d(ft2 && ft2.lastSellVsLaunchPct, '%')} 距锚${d(ft2 && ft2.lastSellToAnchorSec, 's')} 买${d(ft2 && ft2.groupBuyBnb, 'B')} 残仓${d(ft2 && ft2.presenceNetBnb, 'B')} 破深${d(breach !== null ? +breach.toFixed(1) : null, '%')} 谷值${d(ft2 && ft2.postSellTroughPct, '%')}${exempted ? '→破发豁免' : ''}`,
-      line: '买≥0.2B ∧ 自卖比≥0.9 ∧ 残仓≤0.05B ∧ 卖价≤+40% ∧ 距锚≤120s ∧ 破深<20%（深破≥20%∧末卖后流通谷值≤9%=抛压已出清豁免）', hit: parts.armHits.includes('fam_low_exit_cooldown'),
+      line: '买≥0.2B ∧ 自卖比≥0.9 ∧ 残仓≤0.05B ∧ 卖价≤+40% ∧ 距锚≤120s ∧ 破深<20%（深破≥20%∧末卖后流通谷值≤9%=抛压已出清豁免）', hit: !!parts.C.famLowExit,
     });
   }
   // FP11 famous 早窗快闪双支
@@ -1446,7 +1535,7 @@ function buildFactorGates(parts) {
       id: 'fam_early_flip', label: 'FP11·famous早窗快闪',
       value: `首@+${d(ft3 && ft3.groupFirstBuyDt, 's')} 位${d(ft3 && ft3.groupFirstBuyRank)} 买${d(ft3 && ft3.groupBuyBnb, 'B')} 卖比${sr} 残仓${d(ft3 && ft3.presenceNetBnb, 'B')}(比${pr})`,
       line: '首@≤10s∨顺位≤5 ∧ 买≥0.2B ∧ (A:卖比≥0.7∧残仓比≥0.15 ∨ B:残仓≤0.01B∧卖比≥1.0)',
-      hit: parts.armHits.includes('fam_early_flip_partial') || parts.armHits.includes('fam_early_flip_exit'),
+      hit: !!parts.C.earlyFlip, hitCode: parts.C.earlyFlipCode || null,
     });
   }
   // FP47a/b 两条数值臂的门行（T241b 分类补齐：每条因子臂都有门行；两者只在命中时
@@ -1460,7 +1549,7 @@ function buildFactorGates(parts) {
         ? `块${mdt.row === 'pair' ? '双' : '单'} 卖${d(mdt.sellBnb, 'B')} 跌${d(mdt.dropPct, '%')} 卖方${d(mdt.sellers)} 承接比${d(mdt.followBuyRatio)} 距锚${d(mdt.secToAnchor, 's')}`
         : (md && md.exempt ? `总额${d(mdt.totalVolumeBnb, 'B')}→豁免` : '-'),
       line: '卖≥0.5B ∧ 块内跌≥10% ∧ 卖方≥4（剔路由）∧ 承接比<0.5（单鲸版 / 相邻两块 / 贴锚臂；总额≥20B 豁免）',
-      hit: parts.armHits.includes('malicious_dump'),
+      hit: !!parts.C.md,
     });
   }
   {
@@ -1472,7 +1561,7 @@ function buildFactorGates(parts) {
         ? `分支${cr.branch} chg5${d(crt.chg5Pct, '%')} chg10${d(crt.chg10Pct, '%')}${crt.recentDip5UnrecoveredPct != null ? ` 未收复${d(crt.recentDip5UnrecoveredPct, '%')}` : ''}`
         : '-',
       line: '急跌进行时（chg5≤-10 ∧ chg5≈chg10）∨ 趋势打断三口 ∨ 臂B（深段未收复 ∧ 买力不在场）∨ 臂A（尾段买归零 ∧ 卖≥0.4B）',
-      hit: parts.armHits.includes('crash_numeric'),
+      hit: !!parts.C.crash,
     });
   }
   // FP48 crash 形态门行（T243：自 BP 因子应答器 BPF2 迁入——此前是信号页按 metadata.buyPoint
@@ -1489,10 +1578,11 @@ function buildFactorGates(parts) {
         ? `${FORM_BRANCH[cf.branch]} chg5${d(cft.chg5Pct, '%')} vsAth${d(cft.currentVsAthPct, '%')} chg30${d(cft.chg30Pct, '%')} 近5s跌${d(cft.nearMaxDn5Pct, '%')} 贴底${d(cft.curVsMinGapPct, 'pt')} 尾10s买${d(cft.nearTail10BuyN, '笔')} 卖${d(cft.nearTail10SellBnb, 'B')}`
         : (cf && cf.branch === 'anchors_missing' ? '锚缺席不判' : '-'),
       line: '提示臂（vsAth≤-25 ∨ chg30≤-25 ∨ 近段5s跌≤-15 ∨ 贴锚窗最低≤2pt）∧ chg5≤-1.5（无回调）∧ 尾10s买=0（无换手）∧ 尾10s卖>0',
-      hit: parts.armHits.includes('crash_form'),
+      hit: !!parts.C.crashForm,
     });
   }
-  return g.map((row) => ({ category: factorGateCategory(row.id), ...row }));
+  // T253 门行三元组收口（hit 原始判定 / activated 本类型激活 / blocked 有效拦截）
+  return finalizeGateRows(g.map((row) => ({ category: factorGateCategory(row.id), ...row })), parts.gatePolicy);
 }
 
 // ═══════════════ CD 四臂升格（CD408；判据=cheat 侧 _exemptDeniedReason 数值照抄） ═══════════════
@@ -2157,6 +2247,14 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
   // factorCheck.tailDipVolumeLeg 透传）
   const enableActStageCold = opts.enableActStageCold === true;
   const enableTailDipVolumeLeg = opts.enableTailDipVolumeLeg === true;
+  // T253 全臂恒算的链条件表（惰性求值器 _c：谓词闭包在下方预计算量定义完成后才被调用）
+  const C = {};
+  let chainClaimed = false;
+  const _c = (k, pred) => {
+    if (chainClaimed) { try { C[k] = !!pred(); } catch { C[k] = false; } return; }
+    C[k] = !!pred();
+    if (C[k]) chainClaimed = true;
+  };
   const pvp = enablePvp
     ? judgeRetailPvp(snapshot)
     : { hit: 0, branch: 'disabled', reason: null, trace: {} };
@@ -2209,37 +2307,67 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     if (armEvenSplitCrew(snapshot.buyDerived)) arms.push('even_split_crew'); // T188/FP22 持仓均等作弊仓（HHI<0.10 团伙分仓指纹）
     if (armOversellResidual(snapshot.buyDerived)) arms.push('oversell_residual'); // T197/FP29 分仓出货残局盘（独立 if 不进互斥链——结构证据臂与 launchSquad 同族；四窗 9 票与 FP26/27/28 命中面零重叠）
     if (armArbBotHoldings(snapshot.buyDerived)) arms.push('arb_bot_holdings'); // T198/FP30 机器持筹垄断（独立 if——存量口径与流量臂正交；null=钱包集未注入容缺不拦）
-    if (armDumpNoAbsorption(cd)) arms.push('cd400_dump_no_absorption');
-    else if (armDumpLowAbsorption(cd)) arms.push('cd403_dump_low_absorption');
-    else if (armDumpPairLowAbsorption(snapshot.buyDerived)) arms.push('dump_pair_low_absorption'); // FP23 相邻双块捆绑砸盘尾承接（T190/0x2b63 案——CD403 单块口径的跨块分摊盲区补集）
-    else if (armBurstExitSellPressure(cd)) arms.push('cd401_burst_exit_sell_pressure');
-    else if (armBurstBundledWave(cd)) arms.push('cd405_burst_bundled_wave');
-    else if (_mdHit) arms.push('malicious_dump'); // FP47a BP69 恶意砸盘桶因子化（四腿/单鲸/贴锚臂/BP78 豁免；Jev 题面不动兜底）
-    else if (_crashHit) arms.push('crash_numeric'); // FP47b BP69 crash 数值判序因子化（急跌进行时/打断三口/臂A/臂B；形态复核留 Jev 兜底）
-    else if (!stallRestart.hit && armBurstWeakWave(snapshot.buyDerived)) arms.push('burst_weak_wave'); // FP13 burst 弱波（无大户认可+无压箱，T174 联立线）；T210：停滞再启动命中时让位（弱波与低活跃同一逻辑=小流量推不翻低活跃）
-    else if (armLifecycleBurstResidual(snapshot.buyDerived, cd)) arms.push('lifecycle_burst_residual'); // FP16 大周期 burst 残局（走过一轮+burst 不买，2026-11-18）
-    else if (armLifecycleSellResidual(snapshot.buyDerived, cd)) arms.push('lifecycle_sell_residual'); // T192 大周期卖压残局（走过一轮+静默后卖簇主导不接——FP16 卖出方向对称臂，2026-11-19）
-    else if (_tdArmHit && !tailDipExempted) arms.push('tail_dip_knife'); // FP18 尾部接刀（T182：域内崩塌进行时不接刀——域腿不可去掉，对照组接刀是肥尾机会；FP33 有机盘豁免见 tailDipExempted）
-    else if (armExtremeDumpSellers(cd, snapshot.buyDerived)) arms.push('cd412_extreme_dump_sellers');
-    else if (armDenseDump(snapshot.buyDerived) && !domFall.observe) arms.push('cd414_dense_dump'); // FP7 短窗持续密集砸盘（observe 命中票排除——famous 场景归观察）
-    else if (_tnbArmHit && !tailNoBuyerExempted) arms.push('tail_no_buyer_pressure'); // FP26 尾段买力枯竭+卖压在场（卖压假活跃——act 族死寂线的方向性补集，cd414 重砸盘线外轻量阴跌；FP34 有机盘豁免同款=与 tail_dip 同域围堵臂）
-    else if (armLaunchFailDead(snapshot.buyDerived)) arms.push('launch_fail_dead'); // FP28 早窗启动失败死盘（从没拉起来过+早龄+尾7s没人买——FP18「涨过又崩」的镜像盲区；FP26 卖压带外）
-    else if (armHolderQuietUnload(snapshot.buyDerived)) arms.push('holder_quiet_unload'); // FP27 大户静默卸货（未走完周期 ath<80 的 top5 轻量出货带——与 FP16/FP25 残局门成生命周期两方向闭环；FP26 先认领断流族）
-    else if (armSlowPumpUnload(snapshot)) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）
-    else if (armFamousHarvestFinal(snapshot)) arms.push('fam_harvested_final'); // FP8b famous 收割完残局（大涨过+已离场+已砸落）
-    else if (armFamousBurstWave(snapshot.buyDerived)) arms.push('fam_burst_wave'); // FP9 famous 系突发波（burst 纯 famous 带起来的）
-    else if (armFamousLowExit(snapshot)) { // FP10 famous 低价全清冷却（立马接盘 → 拒；豁免=破深≥20 ∧ 末卖后在外流通谷值≤9%，T167b/T167d/28ad 案）
+    // ── T253 因子过滤门层「全门恒算」：臂链各判定**全部求值**（纯函数，同链序）──
+    // 门行 hit 取**原始判定**（信号页展示「命中·未激活」），决策仍=链序首命中（下方
+    // else-if 链改读 C，逐位不变：同函数同参同序，仅不再短路）。
+    // 短路等价守卫：链序更早的臂已命中时，原 else-if 链不会求值后续判定——此时后续
+    // 判定若抛错一律吞掉按未命中（只有「原链可达」的判定抛错才上抛=原链行为），全臂
+    // 恒算对决策与留痕零扰动。
+    _c('cd400', () => armDumpNoAbsorption(cd));
+    _c('cd403', () => armDumpLowAbsorption(cd));
+    _c('dumpPair', () => armDumpPairLowAbsorption(snapshot.buyDerived));
+    _c('cd401', () => armBurstExitSellPressure(cd));
+    _c('cd405', () => armBurstBundledWave(cd));
+    _c('md', () => _mdHit);
+    _c('crash', () => _crashHit);
+    _c('burstWeak', () => !stallRestart.hit && armBurstWeakWave(snapshot.buyDerived));
+    _c('lifecycleBurst', () => armLifecycleBurstResidual(snapshot.buyDerived, cd));
+    _c('lifecycleSell', () => armLifecycleSellResidual(snapshot.buyDerived, cd));
+    _c('tailDip', () => _tdArmHit && !tailDipExempted);
+    _c('cd412', () => armExtremeDumpSellers(cd, snapshot.buyDerived));
+    _c('cd414', () => armDenseDump(snapshot.buyDerived) && !domFall.observe);
+    _c('tailNoBuyer', () => _tnbArmHit && !tailNoBuyerExempted);
+    _c('launchFailDead', () => armLaunchFailDead(snapshot.buyDerived));
+    _c('holderQuietUnload', () => armHolderQuietUnload(snapshot.buyDerived));
+    _c('slowPump', () => armSlowPumpUnload(snapshot));
+    _c('famHarvestFinal', () => armFamousHarvestFinal(snapshot));
+    _c('famBurstWave', () => armFamousBurstWave(snapshot.buyDerived));
+    _c('famLowExit', () => {
+      if (!armFamousLowExit(snapshot)) return false;
+      // T167d 豁免换轨：出清谷值足够小才算「famous 流量已清场」（null 不豁免保持拦）
       const ftLow = snapshot.buyDerived && snapshot.buyDerived.famousTraces;
       const breach = famousBreachExemptPct(ftLow);
-      // T167d 豁免换轨：出清谷值足够小才算「famous 流量已清场」（null 不豁免保持拦）
       const troughOk = typeof ftLow.postSellTroughPct === 'number' && ftLow.postSellTroughPct <= FAM_LOW_EXIT_TROUGH_EXEMPT_MAX_PCT;
-      if (breach === null || breach < FAM_LOW_EXIT_BREACH_EXEMPT_PCT || !troughOk) arms.push('fam_low_exit_cooldown');
-    }
+      return breach === null || breach < FAM_LOW_EXIT_BREACH_EXEMPT_PCT || !troughOk;
+    });
+    _c('crashForm', () => _crashFormHit);
+    C.earlyFlipCode = null;
+    _c('earlyFlip', () => { C.earlyFlipCode = armFamousEarlyFlip(snapshot); return !!C.earlyFlipCode; });
+    if (C.cd400) arms.push('cd400_dump_no_absorption');
+    else if (C.cd403) arms.push('cd403_dump_low_absorption');
+    else if (C.dumpPair) arms.push('dump_pair_low_absorption'); // FP23 相邻双块捆绑砸盘尾承接（T190/0x2b63 案——CD403 单块口径的跨块分摊盲区补集）
+    else if (C.cd401) arms.push('cd401_burst_exit_sell_pressure');
+    else if (C.cd405) arms.push('cd405_burst_bundled_wave');
+    else if (C.md) arms.push('malicious_dump'); // FP47a BP69 恶意砸盘桶因子化（四腿/单鲸/贴锚臂/BP78 豁免；Jev 题面不动兜底）
+    else if (C.crash) arms.push('crash_numeric'); // FP47b BP69 crash 数值判序因子化（急跌进行时/打断三口/臂A/臂B；形态复核留 Jev 兜底）
+    else if (C.burstWeak) arms.push('burst_weak_wave'); // FP13 burst 弱波（无大户认可+无压箱，T174 联立线）；T210：停滞再启动命中时让位（弱波与低活跃同一逻辑=小流量推不翻低活跃）
+    else if (C.lifecycleBurst) arms.push('lifecycle_burst_residual'); // FP16 大周期 burst 残局（走过一轮+burst 不买，2026-11-18）
+    else if (C.lifecycleSell) arms.push('lifecycle_sell_residual'); // T192 大周期卖压残局（走过一轮+静默后卖簇主导不接——FP16 卖出方向对称臂，2026-11-19）
+    else if (C.tailDip) arms.push('tail_dip_knife'); // FP18 尾部接刀（T182：域内崩塌进行时不接刀——域腿不可去掉，对照组接刀是肥尾机会；FP33 有机盘豁免见 tailDipExempted）
+    else if (C.cd412) arms.push('cd412_extreme_dump_sellers');
+    else if (C.cd414) arms.push('cd414_dense_dump'); // FP7 短窗持续密集砸盘（observe 命中票排除——famous 场景归观察）
+    else if (C.tailNoBuyer) arms.push('tail_no_buyer_pressure'); // FP26 尾段买力枯竭+卖压在场（卖压假活跃——act 族死寂线的方向性补集，cd414 重砸盘线外轻量阴跌；FP34 有机盘豁免同款=与 tail_dip 同域围堵臂）
+    else if (C.launchFailDead) arms.push('launch_fail_dead'); // FP28 早窗启动失败死盘（从没拉起来过+早龄+尾7s没人买——FP18「涨过又崩」的镜像盲区；FP26 卖压带外）
+    else if (C.holderQuietUnload) arms.push('holder_quiet_unload'); // FP27 大户静默卸货（未走完周期 ath<80 的 top5 轻量出货带——与 FP16/FP25 残局门成生命周期两方向闭环；FP26 先认领断流族）
+    else if (C.slowPump) arms.push('slow_pump_unload'); // FP8a 慢拉卸货（长直线缓推+峰后远端+尾声死）
+    else if (C.famHarvestFinal) arms.push('fam_harvested_final'); // FP8b famous 收割完残局（大涨过+已离场+已砸落）
+    else if (C.famBurstWave) arms.push('fam_burst_wave'); // FP9 famous 系突发波（burst 纯 famous 带起来的）
+    else if (C.famLowExit) arms.push('fam_low_exit_cooldown'); // FP10 famous 低价全清冷却（立马接盘 → 拒；豁免=破深≥20 ∧ 末卖后在外流通谷值≤9%，T167b/T167d/28ad 案——豁免腿在 C.famLowExit 判定内）
     // FP48 crash 形态臂挂臂链末位（T243）：前面各臂都没命中才轮到——原 BP 门位置
     //（因子门全过后才评）可达的就是这批形状；与更具体的臂同时命中时仍报前臂的码
     else if (_crashFormHit) arms.push('crash_form');
     else { // FP11 famous 早窗快闪双支（T171 거침없이/SI 案；FP10 子集形状已被上面更具体码认领）
-      const earlyFlip = armFamousEarlyFlip(snapshot);
+      const earlyFlip = C.earlyFlipCode;
       if (earlyFlip) arms.push(earlyFlip);
     }
   }
@@ -2259,19 +2387,26 @@ function evaluateFactorPreBuy(snapshot, opts = {}) {
     ? judgeFamousDanger(snapshot)
     : { hit: 0, branch: 'disabled', reason: null, trace: {} };
   if (famous.hit === 1) arms.push(famous.reason);
-  // FP6 famous 高控+砸落观察臂（标记不拦截——留待找方案；判定已前移 CD414 排除消费）
-  // T213b armClass 策略：'cheat' → 效果提升类臂全撤（决策与展示同步用 effArms）
+  // FP6 famous 高控+砸落值门（T253：不拦截——零臂码恒不激活；判定已前移 CD414 让位消费）
+  // T213b armClass 策略：'cheat' → 效果提升类臂全撤（决策用 effArms/reason；T253 起展示
+  // 改用门行三元组 hit/activated/blocked——被撤的臂照算照显，只是不拦）
   const armClass = opts.armClass === 'cheat' ? 'cheat' : null;
   const { arms: effArms, reason } = filterArmsByClass({
     arms, pvpReason: pvp.reason, actLevel: activity.level,
     tailReason: tail.reason, famousReason: famous.reason,
   }, armClass, opts.armExempt);
-  const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, bd: snapshot.buyDerived || {}, armHits: effArms, stallRestart, md: _md, crash: _crash, crashForm: _crashForm,
-    // T245 上涨趋势十键观察门（fire 因子表透传；缺省 undefined=零行 bit 不变）
+  // T253 门行三元组：hit=原始判定（armHits 传**过滤前**的全量命中码；链臂读 C）、
+  // activated/blocked 由 gatePolicy（armClass+臂差集+有效拦截集）在 buildFactorGates 内收口
+  const gates = buildFactorGates({ pvp, activity, famous, tail, domFall, cd, bd: snapshot.buyDerived || {}, armHits: arms, C,
+    gatePolicy: { armClass, exempt: Array.isArray(opts.armExempt) && opts.armExempt.length ? new Set(opts.armExempt) : null, blocking: effArms, reason },
+    stallRestart, md: _md, crash: _crash, crashForm: _crashForm,
+    // T245 上涨趋势十一键值门（fire 因子表透传=继承触发层因子；缺省 undefined=零行 bit 不变）
     ...(opts.trendFactors ? { trend: opts.trendFactors } : {}) });
+  // rawHits：全臂恒算下的全部原始命中码（含被链序前臂遮蔽/被 policy 去活的臂）——展示与研究用，不进决策
+  const rawHits = [...new Set(gates.filter((r) => r.hit === true && r.code).map((r) => r.code))];
   return { pass: reason === null, reason, version: FACTOR_PREBUY_VERSION, pvp, activity, tail, famous, arms: effArms,
     ...(armClass ? { armClass } : {}),
-    gates,
+    gates, rawHits,
     observe: domFall.observe ? { code: 'fam_dominance_fall', ...domFall.trace } : null,
     // T210 停滞再启动通路留痕（命中才注=未命中票返回形状不变；FP33 豁免留痕同款）
     ...(stallRestart.hit ? { stallRestart: { code: 'stall_restart_path', version: FACTOR_PREBUY_VERSION, hit: true, ...stallRestart.legs } } : {}),
@@ -2333,7 +2468,7 @@ module.exports = {
   FAM_THIN_FOLLOW_EXEMPT_MIN_BNB, FAM_THIN_FOLLOW_EXEMPT_MAX_BNB,
   FAM_HARVEST_SOLD_RATIO, FAM_HARVEST_BUY_PCT, FAM_HARVEST_SELL_PCT,
   judgeRetailPvp, judgeActivityLevel, judgeFamousDanger, judgeTailPhaseActivity,
-  judgeFamousDominanceFall, buildFactorGates, buildTrendObserveGates,
+  judgeFamousDominanceFall, buildFactorGates, buildTrendValueGates, GATE_ARM_CODES, gateActivated,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
   judgeMaliciousDump, judgeCrashNumeric, judgeCrashForm,
   CRASHFORM_VS_ATH_MAX, CRASHFORM_CHG30_MAX, CRASHFORM_NEAR_DN5_MAX, CRASHFORM_MIN_GAP_MAX,

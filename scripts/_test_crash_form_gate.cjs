@@ -220,8 +220,14 @@ console.log('\nE. 引擎级：真快照 → service 因子门命中（零 DB：d
   const { svc: svcD } = mk(dense);
   const fgD = await svcD.evaluateFactorPreBuy('0xtok', META, {}, {});
   check('E4 卖单加密到 30s ≥5 笔 → FP26 尾段买力枯竭先认领（拒因 tail_no_buyer_pressure；crash_form 仍命中留痕）',
-    [fgD.pass, fgD.reason, fgD.arms, fgD.trace.crashForm && fgD.trace.crashForm.branch, fgD.gates.find((x) => x.id === 'crash_form').hit],
-    [false, 'tail_no_buyer_pressure', ['tail_no_buyer_pressure'], 'crash_form', false]);
+    [fgD.pass, fgD.reason, fgD.arms, fgD.trace.crashForm && fgD.trace.crashForm.branch],
+    [false, 'tail_no_buyer_pressure', ['tail_no_buyer_pressure'], 'crash_form']);
+  // T253 全臂恒算：前臂 FP26 认领后 crash_form 仍被求值——门行 hit=原始判定 true（信号页
+  // 如实展示「命中」），blocked=false（链序首命中是 FP26，它不是有效拒因）、决策不变
+  check('E4a 门行三元组：crash_form hit=true（原始判定）/ blocked=false（前臂已认领）/ 全门不变式 pass === !gates.some(blocked)',
+    [fgD.gates.find((x) => x.id === 'crash_form').hit, fgD.gates.find((x) => x.id === 'crash_form').blocked,
+     fgD.gates.find((x) => x.id === 'tail_no_buyer').blocked, fgD.pass === !fgD.gates.some((x) => x.blocked), fgD.rawHits.includes('crash_form')],
+    [true, false, true, true, true]);
   ok('E4b 门行如实：进了复核（值显示分支与判据）但未进 arms（前臂 FP26 已认领）',
     fgD.gates.find((x) => x.id === 'crash_form').value.includes('无回调+无换手'), fgD.gates.find((x) => x.id === 'crash_form').value);
   const { svc: svcN, calls: callsN } = mk(normalTicks);

@@ -17,7 +17,7 @@ const baseConfig = require('../../../config/default.json');
 // T157 因子卖出过滤门：famousHold 纯函数判定（两引擎卖腿评估点共用单一真相源）
 const { judgeFactorSellFilter } = require('./factor-sell-filter');
 // T245 上涨趋势十键观察门（policy skip 分支附加；market-analysis 纯函数——无环）
-const { buildTrendObserveGates } = require('../../market-analysis/factor-pre-buy-check');
+const { buildTrendValueGates } = require('../../market-analysis/factor-pre-buy-check');
 
 // 延迟导入以避免循环依赖
 let TokenPool = null;
@@ -2168,9 +2168,9 @@ class AbstractTradingEngine extends ITradingEngine {
     if (ctx.pointTypePolicy && ctx.pointTypePolicy.factorCheckArms === 'skip') {
       const info = {
         status: 'policy_pass', policy: 'factorCheckArms:skip',
-        // T245 上涨趋势十键观察门（观察与拦截解耦——policy skip 直通但观察行
-        // 照常附加，信号页「上涨趋势」子块展示；缺省 undefined=形状不变）
-        ...(ctx.fireFactors ? { gates: buildTrendObserveGates(ctx.fireFactors) } : {}),
+        // T245 上涨趋势十一键值门（T253：继承触发层因子的门，与拦截解耦——policy skip
+        // 直通但值门行照常附加，信号页「上涨趋势」子块展示；缺省 undefined=形状不变）
+        ...(ctx.fireFactors ? { gates: buildTrendValueGates(ctx.fireFactors) } : {}),
       };
       if (signalId) {
         try { await this._updateSignalMetadata(signalId, { factorCheck: info }); } catch (e) {
