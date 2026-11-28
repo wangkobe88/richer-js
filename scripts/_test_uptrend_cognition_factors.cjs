@@ -4,7 +4,7 @@
  * ——零 DB 零网络。
  *
  * 十键（FourMemeFactorAggregator，zigzag detectSwings 复用 + act 环密度派生）：
- *   zigzag 7 键（原料=_relPriceTrend 链序可靠价，TREND_SWING_PCT=10 摆动阈值）：
+ *   zigzag 7 键（原料=_relPriceTrend 链序可靠价，TREND_SWING_PCT=5 摆动阈值（2026-11-28 全票校准 5/8/10/12/15 定 5））：
  *   - riseLegSec：当前上涨腿已持续秒数（下跌腿=0 有证据零值；未定向/点数<2=null）
  *   - riseLegAmplPct：当前上涨腿累计涨幅 %（无腿=null）
  *   - riseConcentrationPct：腿内最大 10s 桶涨幅占比 %（均匀性主键；腿涨幅<5%=null）
@@ -92,21 +92,21 @@ console.log('A. zigzag 状态机（TREND_SWING_PCT=10）');
     });
     check('A2c startVsFirst：腿起点=首可靠价 100 → 0（趋势含发出点）', () => assert.strictEqual(cog(f).startVsFirst, 0));
 
-    // 8% 浅回调不分段：120 → 110.4（-8% <10）仍在上涨腿
-    fa2.processTick(mkTick({ timestamp: T0 + 21000, price_bnb: P(110.4) }));
+    // 4.7% 浅回调不分段：120 → 114.4（-4.7% <5 不切峰；fromMin=+14.4 ≥5 确认谷@100、dir=1）
+    fa2.processTick(mkTick({ timestamp: T0 + 21000, price_bnb: P(114.4) }));
     f = fa2.buildFactorMap('0xtoken', T0 + 21000);
-    check('A3 8% 浅回调：不切段（sec 照走、N=0）', () => {
+    check('A3 4.7% 浅回调：确认谷不切峰（sec 照走、N=0）', () => {
         assert.strictEqual(cog(f).sec, 20);
         assert.strictEqual(cog(f).pullN, 0);
     });
 
-    // 12% 深回调：先爬回 120 再跌 12%（107.04 即 120×0.892）→ 确认峰@120、dir=-1
+    // 10% 深回调：先爬回 120 再跌 10%（108 = 120×0.9 ≥5 切峰@120、dir=-1）
     fa2.processTick(mkTick({ timestamp: T0 + 26000, price_bnb: P(120) }));
-    fa2.processTick(mkTick({ timestamp: T0 + 31000, price_bnb: P(105.6) }));
+    fa2.processTick(mkTick({ timestamp: T0 + 31000, price_bnb: P(108) }));
     f = fa2.buildFactorMap('0xtoken', T0 + 31000);
-    check('A4 12% 深回调：切段 pullN=1/max=12、下跌腿 riseLegSec=0（有证据零值）、ampl=null', () => {
+    check('A4 10% 深回调：切段 pullN=1/max=10、下跌腿 riseLegSec=0（有证据零值）、ampl=null', () => {
         assert.strictEqual(cog(f).pullN, 1);
-        assert.strictEqual(cog(f).pullMax, 12);
+        assert.strictEqual(cog(f).pullMax, 10);
         assert.strictEqual(cog(f).sec, 0);
         assert.strictEqual(cog(f).ampl, null);
     });
@@ -154,14 +154,14 @@ console.log('B. 浓度桶数学（10s 桶半开）');
 console.log('C. 回调族 / 明确性');
 {
     // 三跌腿序列：100→120（+20，dir0 单调）→107（-10.83 确认峰@120、dir=-1）→96（续跌）
-    // →110（+14.58 确认谷@96、dir=1）→107（-2.7 不切）→95（-11.2 从 110 确认峰@110）
-    // →88（续跌）→97（+10.23 确认谷@88）→91（不切）
-    // legs：120→96(-20)、96→110(+14.58)、110→88(-20)、88→97(+10.23) —— 下跌腿 2 段（-20、-20）
+    // →110（+14.58 确认谷@96、dir=1）→107（-2.7 <5 不切）→95（-11.2 从 110 确认峰@110）
+    // →88（续跌）→97（+10.23 确认谷@88）→94（-3.1 <5 不切）
+    // legs：120→96(-20)、96→110(+14.58)、110→88(-20)、88→94(+6.82) —— 下跌腿 2 段（-20、-20）
     const fa = newFA();
     feedPrice(fa, [
         [T0 + 1000, P(100)], [T0 + 3000, P(120)], [T0 + 5000, P(107)], [T0 + 7000, P(96)],
         [T0 + 9000, P(110)], [T0 + 11000, P(107)], [T0 + 13000, P(95)], [T0 + 15000, P(88)],
-        [T0 + 17000, P(97)], [T0 + 19000, P(91)],
+        [T0 + 17000, P(97)], [T0 + 19000, P(94)],
     ]);
     let f = fa.buildFactorMap('0xtoken', T0 + 19000);
     check('C1 两段深回调：pullN=2、pullMax=20、switchN=4（300s 内全部段）', () => {
@@ -171,7 +171,7 @@ console.log('C. 回调族 / 明确性');
     });
     check('C2 当前上涨腿（谷@88 ts=15000）：riseLegSec=4（19000−15000）、startVsFirst=−12（88/100−1）', () => {
         assert.strictEqual(cog(f).sec, 4);
-        assert.strictEqual(cog(f).ampl, 3.41);
+        assert.strictEqual(cog(f).ampl, 6.82);
         assert.strictEqual(cog(f).startVsFirst, -12);
     });
     // switchN 300s 窗外不计：now 推到 300s 后，legs 全部出窗
@@ -237,7 +237,7 @@ console.log('E. 探针 + 快照 + 源码口径');
     const faSrc = fs.readFileSync(path.join(ROOT, 'src', 'services', 'FourMemeFactorAggregator.js'), 'utf8');
     const fbSrc = fs.readFileSync(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'), 'utf8');
     check('E3 源码口径：TREND_SWING_PCT=10 / require detectSwings / _trendCognitionFactors 禁 Date.now', () => {
-        assert.ok(/const TREND_SWING_PCT = 10;/.test(faSrc), '摆动阈值常量');
+        assert.ok(/const TREND_SWING_PCT = 5;/.test(faSrc), '摆动阈值常量');
         assert.ok(/require\('\.\.\/market-analysis\/buy-point-snapshot'\)/.test(faSrc), 'detectSwings require');
         const body = faSrc.slice(faSrc.indexOf('_trendCognitionFactors(state, now)'), faSrc.indexOf('净买窗三键'));
         assert.ok(!/Date\.now/.test(body), '禁 Date.now');
