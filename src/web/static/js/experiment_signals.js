@@ -3931,7 +3931,13 @@ class ExperimentSignals {
       // 不渲染（灰度关零痕迹）；error=异常放行（fail-open——检测层故障方向对齐 cheat 门）
       let factorGateHtml = '';
       // T243b：类型 policy 直通不渲染因子门卡（整门跳过无可展示；流水线段标「类型直通」）
-      if (factorCheckInfo && factorCheckInfo.status !== 'disabled' && factorCheckInfo.status !== 'policy_pass') {
+      // ——T245 例外（2026-11-28 用户指令「把上涨趋势因子作为因子门中的一个类别，
+      // 在信号页面中作为因子门的子块展示」）：policy_pass 但 gates 带 trend 观察行时
+      // 渲染「上涨趋势」子块（观察门与拦截解耦）
+      const hasTrendObserve = !!factorCheckInfo && Array.isArray(factorCheckInfo.gates)
+        && factorCheckInfo.gates.some((g) => g && g.category === 'trend');
+      if (factorCheckInfo && factorCheckInfo.status !== 'disabled'
+          && (factorCheckInfo.status !== 'policy_pass' || hasTrendObserve)) {
         const fStatus = factorCheckInfo.status || '';
         if (fStatus === 'assessed') {
           const fPass = factorCheckInfo.pass === true;
@@ -4035,6 +4041,35 @@ class ExperimentSignals {
             ${catBlocks.filter((b) => b.rows.some((ge) => ge.hit)).length ? `<div class="flex flex-wrap items-center gap-1 mb-1 text-xs"><span class="text-red-800">命中类别：</span>${catBlocks.filter((b) => b.rows.some((ge) => ge.hit)).map((b) => `<span class="px-1.5 py-0.5 rounded border border-red-300 bg-red-100 text-red-900">${this._escapeHtml(b.label)}（${b.rows.filter((ge) => ge.hit).length}）</span>`).join(' ')}</div>` : ''}
             ${gatesTable}
             ${traceRows ? `<details class="mt-1"><summary class="text-xs text-emerald-800 cursor-pointer select-none">📐 PVP 判定树计数（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-5">${traceRows}</div></details>` : ''}
+          </div>
+          `;
+        } else if (fStatus === 'policy_pass') {
+          // T245 上涨趋势观察子块（policy 直通例外渲染——只有 trend 观察行）
+          const trendRows = (Array.isArray(factorCheckInfo.gates) ? factorCheckInfo.gates : [])
+            .filter((g) => g && g.category === 'trend');
+          const trendGateRowHtml = (ge) => `
+              <tr class="${ge.observe ? 'bg-amber-100' : ''}">
+                <td class="px-2 py-0.5 border-t border-gray-300 whitespace-nowrap">${this._escapeHtml(ge.label || ge.id)}${ge.observe ? ' 👁' : ''}</td>
+                <td class="px-2 py-0.5 border-t border-gray-300 font-mono">${this._escapeHtml(ge.value || '—')}</td>
+                <td class="px-2 py-0.5 border-t border-gray-300 text-gray-600">${this._escapeHtml(ge.line || '')}</td>
+              </tr>`;
+          const trendBlock = FACTOR_GATE_CATEGORIES
+            .filter((c) => c.id === 'trend')
+            .map((c) => ({ ...c, rows: trendRows.filter((row) => factorGateCategoryOf(row) === c.id) }))
+            .filter((b) => b.rows.length);
+          const trendTable = trendBlock.length ? trendBlock.map((b) => `
+            <details class="mt-1" open>
+              <summary class="text-xs text-emerald-800 cursor-pointer select-none">🧩 ${this._escapeHtml(b.label)} · ${this._escapeHtml(b.question)}（${b.rows.length} 门 · 标记 ${b.rows.length}）</summary>
+              <div class="mt-1 overflow-x-auto"><table class="w-full text-xs border border-gray-400"><thead><tr class="bg-gray-200"><th class="text-left px-2 py-0.5">门</th><th class="text-left px-2 py-0.5">值</th><th class="text-left px-2 py-0.5">线</th></tr></thead><tbody>${b.rows.map(trendGateRowHtml).join('')}</tbody></table></div>
+            </details>`).join('') : '';
+          factorGateHtml = `
+          <div class="mt-2 pt-2 border-t border-emerald-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-emerald-800">🧮 因子购买前检查门（第 1 层 · 纯代码零 Jev）</div>
+              <span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full font-bold">✅ 类型直通</span>
+            </div>
+            <div class="text-xs text-gray-700 mb-1">点位类型 policy：因子门整门跳过（${this._escapeHtml(factorCheckInfo.policy || '')}）——上涨趋势因子为观察门（不拦截）</div>
+            ${trendTable}
           </div>
           `;
         } else if (fStatus === 'insufficient_ticks') {
