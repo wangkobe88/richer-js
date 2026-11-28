@@ -401,7 +401,15 @@ async function testE() {
             && self._strategyResolved.pointTypes.active[0] !== 'normal'
             && self._strategyResolved.pointTypes.active[self._strategyResolved.pointTypes.active.length - 1] === 'normal');
         check('E1e 写回 config 携带 pointTypes 审计', writeCfg.strategyResolved.pointTypes === self._strategyResolved.pointTypes);
-        const TREND = { tokenAgeSec: 120, currentVsLaunchPct: 55, priceMa60SlopePct: 20, actTotalBnb30s: 1.2, athVsFloorPct: 100 };
+        // PT73 判据对齐腿条件：夹具补全 p19 腿全部键
+        const TREND = {
+          tokenAgeSec: 120, currentVsLaunchPct: 55, priceMa60SlopePct: 20, actTotalBnb30s: 1.2, athVsFloorPct: 100,
+          actTotalBnb: 0.5, chg10Pct: 5, chg30Pct: 12, anchorTickIsBuy: 1,
+          mcapFromPeakPct: 10, launchMinVsFloorPct: 5, lifetimeBuyVolumeBnb: 6,
+          sinceLastFamousBigBuySec: null, quietSpanMs: 0, actTotalBnb300s: 2,
+          maxBlockBuyCircPct: 5, tradesRouterPct: 40, freshWalletHoldPct: 30,
+          riseLegSec: 40, chg5Pct: 3,
+        };
         check('E1f 无覆盖时引擎分类走类型（steady_trend_climb 夹具）', classify(self, TREND).type === 'steady_trend_climb');
 
         // E2 只激活 normal（用户指令「此处只激活 normal 这一个 pointType」）
