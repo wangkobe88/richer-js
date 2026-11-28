@@ -2332,7 +2332,7 @@ module.exports = {
   FAM_THIN_FOLLOW_EXEMPT_MIN_BNB, FAM_THIN_FOLLOW_EXEMPT_MAX_BNB,
   FAM_HARVEST_SOLD_RATIO, FAM_HARVEST_BUY_PCT, FAM_HARVEST_SELL_PCT,
   judgeRetailPvp, judgeActivityLevel, judgeFamousDanger, judgeTailPhaseActivity,
-  judgeFamousDominanceFall, buildFactorGates,
+  judgeFamousDominanceFall, buildFactorGates, buildTrendObserveGates,
   armDumpNoAbsorption, armDumpLowAbsorption, armBurstExitSellPressure, armBurstBundledWave,
   judgeMaliciousDump, judgeCrashNumeric, judgeCrashForm,
   CRASHFORM_VS_ATH_MAX, CRASHFORM_CHG30_MAX, CRASHFORM_NEAR_DN5_MAX, CRASHFORM_MIN_GAP_MAX,
