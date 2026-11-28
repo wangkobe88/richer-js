@@ -4051,7 +4051,6 @@ class ExperimentSignals {
               <tr class="${ge.observe ? 'bg-amber-100' : ''}">
                 <td class="px-2 py-0.5 border-t border-gray-300 whitespace-nowrap text-gray-900 font-semibold">${this._escapeHtml(ge.label || ge.id)}${ge.observe ? ' 👁' : ''}</td>
                 <td class="px-2 py-0.5 border-t border-gray-300 font-mono text-gray-900">${this._escapeHtml(ge.value || '—')}</td>
-                <td class="px-2 py-0.5 border-t border-gray-300 text-gray-700">${this._escapeHtml(ge.line || '')}</td>
               </tr>`;
           const trendBlock = FACTOR_GATE_CATEGORIES
             .filter((c) => c.id === 'trend')
@@ -4060,7 +4059,7 @@ class ExperimentSignals {
           const trendTable = trendBlock.length ? trendBlock.map((b) => `
             <details class="mt-1" open>
               <summary class="text-xs text-emerald-800 cursor-pointer select-none">🧩 ${this._escapeHtml(b.label)} · ${this._escapeHtml(b.question)}（${b.rows.length} 门 · 标记 ${b.rows.length}）</summary>
-              <div class="mt-1 overflow-x-auto"><table class="w-full text-xs border border-gray-400"><thead><tr class="bg-gray-200"><th class="text-left px-2 py-0.5 text-gray-900">门</th><th class="text-left px-2 py-0.5 text-gray-900">值</th><th class="text-left px-2 py-0.5 text-gray-900">线</th></tr></thead><tbody>${b.rows.map(trendGateRowHtml).join('')}</tbody></table></div>
+              <div class="mt-1 overflow-x-auto"><table class="w-full text-xs border border-gray-400"><thead><tr class="bg-gray-200"><th class="text-left px-2 py-0.5 text-gray-900">门</th><th class="text-left px-2 py-0.5 text-gray-900">值</th></tr></thead><tbody>${b.rows.map(trendGateRowHtml).join('')}</tbody></table></div>
             </details>`).join('') : '';
           factorGateHtml = `
           <div class="mt-2 pt-2 border-t border-emerald-300">
