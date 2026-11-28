@@ -305,7 +305,7 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     mcapFromPeakPct: 10, launchMinVsFloorPct: 5, lifetimeBuyVolumeBnb: 6,
     sinceLastFamousBigBuySec: null, quietSpanMs: 0, actTotalBnb300s: 2,
     maxBlockBuyCircPct: 5, tradesRouterPct: 40, freshWalletHoldPct: 30,
-    riseLegSec: 40, chg5Pct: 3,
+    riseLegSec: 40, chg5Pct: 3, surgeStartSec: 40,
   };
   check('F1 形状命中 → steady_trend_climb + 全豁 policy', () => {
     const r = classifyPointType(TREND);
@@ -317,7 +317,7 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
       'actTotalBnb', 'actTotalBnb300s', 'actTotalBnb30s', 'anchorTickIsBuy', 'athVsFloorPct', 'chg10Pct', 'chg30Pct',
       'chg5Pct', 'currentVsLaunchPct', 'freshWalletHoldPct', 'launchMinVsFloorPct', 'lifetimeBuyVolumeBnb',
       'maxBlockBuyCircPct', 'mcapFromPeakPct', 'priceMa60SlopePct', 'quietSpanMs', 'riseLegSec',
-      'sinceLastFamousBigBuySec', 'tokenAgeSec', 'tradesRouterPct',
+      'sinceLastFamousBigBuySec', 'surgeStartSec', 'tokenAgeSec', 'tradesRouterPct',
     ]);
   });
   check('F2 域上界恰 80 过线 / 80.1 → normal（用户裁定「最多接受上涨 80% 的点位」）', () => {
@@ -392,6 +392,15 @@ console.log('F. T239 steady_trend_climb（趋势成形-中低速持续拉盘，2
     assert.strictEqual(classifyPointType({ ...TREND, riseLegSec: null }).type, 'steady_trend_climb', 'riseLegSec null 主门假、chg 全正豁免仍过');
     assert.strictEqual(classifyPointType({ ...TREND, riseLegSec: null, chg5Pct: null }).type, 'normal', '两臂全 null fail-closed');
   });
+  check('F8e T248 豁免臂 surge 门槛（PT74）：chg 全正豁免再 AND surgeStartSec>=15——短脉冲起点不豁免（恶心票 0x9f196c surge=4.2 案）', () => {
+    assert.strictEqual(classifyPointType({ ...TREND, riseLegSec: 14.9, surgeStartSec: 15 }).type, 'steady_trend_climb', 'surge 恰 15 豁免过');
+    assert.strictEqual(classifyPointType({ ...TREND, riseLegSec: 14.9, surgeStartSec: 14.9 }).type, 'normal', 'surge 14.9 短脉冲起点不豁免');
+    assert.strictEqual(classifyPointType({ ...TREND, riseLegSec: 0, surgeStartSec: 4.2 }).type, 'normal', '恶心票形状（rl=0+surge=4.2）拦');
+    assert.strictEqual(classifyPointType({ ...TREND, riseLegSec: 0, surgeStartSec: 35.2 }).type, 'steady_trend_climb', '范德彪形状（rl=0+surge=35.2）豁免过');
+    assert.strictEqual(classifyPointType({ ...TREND, riseLegSec: 0, surgeStartSec: 132.2 }).type, 'steady_trend_climb', '蝴蝶形状（rl=0+surge=132.2）豁免过');
+    assert.strictEqual(classifyPointType({ ...TREND, riseLegSec: 14.9, surgeStartSec: null }).type, 'normal', 'surge null fail-closed 豁免臂失效');
+    assert.strictEqual(classifyPointType({ ...TREND, riseLegSec: 15, surgeStartSec: null }).type, 'steady_trend_climb', '主门不依赖 surge');
+  });
   check('F9 类型注册形状：active:true 且位于 famous 系之后/slow_develop_early 之前', () => {
     const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
     const ids = POINT_TYPES.map((t) => t.id);
@@ -418,7 +427,7 @@ console.log('G. T242 实验级点位类型激活（2026-11-26 用户指令「将
     mcapFromPeakPct: 10, launchMinVsFloorPct: 5, lifetimeBuyVolumeBnb: 6,
     sinceLastFamousBigBuySec: null, quietSpanMs: 0, actTotalBnb300s: 2,
     maxBlockBuyCircPct: 5, tradesRouterPct: 40, freshWalletHoldPct: 30,
-    riseLegSec: 40, chg5Pct: 3,
+    riseLegSec: 40, chg5Pct: 3, surgeStartSec: 40,
   };
 
   check('G1 无覆盖段（undefined/null）→ null（存量实验零变化）', () => {
@@ -547,8 +556,8 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
   const HIGH = { actTotalBnb30s: 1.2, actTraders: 5 };
   const MID = { actTotalBnb30s: 0.6, actTraders: 2 };
   const BURST = { actTotalBnb30s: 0.3, actTraders: 3, burstStallMs: 45000, burstWaveSec: 4, burstWaveBuyBnb: 0.35, burstWaveBuyN: 3, burstWaveSellBnb: 0 };
-  check('H1 版本 PT73；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
-    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT73');
+  check('H1 版本 PT74；三类型全激活、排位=全部形状类型之后 / normal 之前（首匹配阶梯里形状类型优先认领）', () => {
+    assert.strictEqual(R.POINT_TYPE_VERSION, 'PT74');
     assert.deepStrictEqual(IDS.slice(-4), [...ACT, 'normal']);
     for (const id of ACT) assert.strictEqual(R.POINT_TYPES.find((t) => t.id === id).active, true, `${id} 须激活`);
     assert.ok(IDS.indexOf('activity_high') > IDS.indexOf('market_maker_rhythm_pit'), '须排在做市节奏之后');
@@ -644,7 +653,7 @@ console.log('H. T244 活跃度三类型（2026-11-26 用户指令「之前的 no
       mcapFromPeakPct: 10, launchMinVsFloorPct: 5, lifetimeBuyVolumeBnb: 6,
       sinceLastFamousBigBuySec: null, quietSpanMs: 0, actTotalBnb300s: 2,
       maxBlockBuyCircPct: 5, tradesRouterPct: 40, freshWalletHoldPct: 30,
-      riseLegSec: 40, chg5Pct: 3,
+      riseLegSec: 40, chg5Pct: 3, surgeStartSec: 40,
     };
     assert.strictEqual(classifyPointType(TR).type, 'steady_trend_climb');
   });
