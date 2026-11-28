@@ -2811,3 +2811,18 @@ AND actTotalBnb30s <= 40
 - **顺带修存量显示缺口——「📋 买入条件配置」腿错位**（真实 DOM 实证，非本次引入）：T242 起引擎 `_buildStrategyConfig` 不组装「绑定类型未激活」的买腿，且腿 id `buy_${idx}_${priority}` 按**过滤后**数组编号；信号页 `_loadStrategyPackLegs` 却物化全量腿。PT72 起 P18（famous_participation_pit）缺省停用后，P19/P20 腿信号在页面整体错位一位——bt-v337 P20 信号 `strategyId=buy_17_20` 页面成 `buy_18_20` → 未命中回退首腿，**做市/趋势类型票的买入条件配置被显示成 P1 腿的条件与因子 chips**（console 一直有「未找到策略ID buy_17_20」告警）。修复=物化时按引擎启动审计 `strategyResolved.pointTypes.disabledLegs`（停用专属腿的 priority 列表）同款剔除；无审计段（T242 前实验 / 包未启用 pointType）=全量物化零变化。⚠缺省配置即触发（注册表缺省 active:false），T238 十二修之后启动的实验全部受影响。
 - **验证**：`_test_factor_gate_categories` 61→109（D 段：四类显式降级 / 命中票渲染 / 拉取与 loadData 接线 / **注册表 10 条判据页面全可解析 + 4000 组随机因子表「页面求值 ≡ 引擎求值」**〔首版把 IS NULL 缺键按「无快照」处理，探针 22500 例中 111 例与引擎不一致后修正〕/ 覆盖集语义 13 条 / 共享渲染器默认路径黄金输出逐字节不变）；冒烟 `tmp-signals-five-layer-smoke` 43→50（G4 腿错位事故现场反证）；`_test_point_types_picker` 38→41。变异检验 9 项全被抓住；真实浏览器（本机 Chrome）同票 normal / activity_high / market_maker_rhythm_pit 三信号逐卡核对、三条信号各对上正确的腿。
 - **⚠生效须重启 web-server**：静态 JS 从磁盘即时生效、路由处理函数须进程重启才换新——未重启期间卡片显示「接口未返回判据」提示（本地 3010 进程 11-26 21:45 启动，注册表仍是 PT55）。**余留**：①买入条件配置的 OR 臂仍按原样标红（专属腿条件≡类型判据时同一表达式上下两行颜色不同——是否同样降灰待裁）；②normal 票只给兜底说明，未做「为何没进更高优先级类型」的阶梯复盘（每类型表达式+失败子句，可后续加）；③存量失败待裁（与本次无关，HEAD 上同样失败）：`_test_famous_departure_pit` B1（PT72 停用后「来财 30s 形状命中」断言失效）、`_test_observation_config` A5、`_test_timeseries_removal` A3、`_test_token_pool_buytime` yAdjust 三条源码锁陈旧。
+
+## T246 做市亏损形态失去豁免 + 回测断流驱动停摆修复（2026-11-27 用户裁定，案源 bt-v337 GLEAF 0x691c…7777；「卖出臂，破发+做市形态失去，不能被聪明钱还在场挡住」+「处于亏损就算（措辞改为亏损）」+「famousHold 同豁免」+断流驱动「一并修复」）
+
+**案源机制链（bt-v337 66 票三窗做市集合复盘）**：
+- 23:16:43.2 P20 做市腿买入 0.2B @curVs+192.5%（gap64=90.9）；23:16:46 聪明钱 0.77B 级大买；
+- 23:17:42 P2 卖腿触发 pp=−41.3%（curVs 71.8 未破发）→ smartHold 拦（smart 56s 内大买∧卖出 0.028<0.4）——形态当时未失去（gap64 仍高），维持原判合理；
+- 23:17:44 一笔 1.21B 大卖两秒砸穿地板（curVs 71.8→5.0）；23:17:45 最后一笔足额 tick 后断流 331s（连尘 tick 都无）；
+- **回测断流驱动停摆**：`_scanStalledSellLegs` 挂在回放主循环 tick 到达时（BacktestEngine.js:1821 附近），断流期零 tick=零评估——实时引擎 1s setInterval 每秒钟评估。23:18:40 起 stall 腿本应触发（且破发后 curVs=5.04<10 走 T219 不管辖恒放行，smartHold 本就拦不到），却假死到 23:23:16 复活 tick（一笔 0.148B 卖出）才唤醒触发，pp=−64.1% 全清。
+- 卖点拖尾的直接原因=驱动停摆；smartHold 的拦截面在「亏损+形态失去但价格还在发行价上方（curVs≥10 管辖）」与「有成交阴跌型做市死票」两个形状（破发后 curVs<10 的断流票 T219 已放行）。
+
+**裁定与实现**：
+1. **豁免臂**（`factor-sell-filter.js`，规则五）：`boughtByPointType == 'market_maker_rhythm_pit' AND profitPercent < 0 AND (blockGapLe1Pct64 < 75 OR idleSecSinceLastSubstantialTick >= 55)` → famousHold/smartHold 同豁免（「处于亏损就算」=pp<0 不用 curVs 破发线；gap64<75 与包内做市形态破位卖腿同线、idle≥55 与 stall 55s 臂同线）。null fail-closed 于豁免（证据缺席照常拦）。machine/recovery/pump 不受豁免（裁定范围=famous+smart）。info 留痕四键（bpt/gap64/idle/mmLossBrokenExempt）在任何返回路径都带（摆位=info 构造后，不管辖提前 return 的破发帧也留痕供信号页对拍）。
+2. **回测断流驱动追赶**（BacktestEngine 两处）：①主循环 tick 到达时从上次扫描时刻逐秒推进到 tickTs（断流跳变段每虚拟秒评估与实时对齐；密集 tick <1s 不推进=现状节流不变；评估量有界=stall 55s/90s 两臂覆盖全 curVs 域，断流持仓 ≤90s 必触发、被拦最长 180s 衰减）②收尾追赶：最后 tick 后推进虚拟时钟到 lastTickTs+320s（45s 预扫门+90s stall+180s 衰减+5s 余量），无复活 tick 的断流票由 stall 腿触发而非强平腿（价格=断流前冻结价，P&L 不变、卖出时刻/留痕与实时对齐）。
+- 单测：`_test_factor_sell_filter` 254（T246a~n 真值表：断流帧豁免/GLEAF 破发帧不管辖留痕/gap64 臂/盈利不豁免 pp=0 严格线/非做市票不豁免/线值边界 gap64=75∧idle=54 照拦/双键缺席照拦/machine+recovery 不受豁免/info 留痕/famous 状态臂同豁免）。
+- **对拍**：（待跑——bt-v327 p20 集合与 bt-v337 三窗集合修复版重跑，预期 P&L 基本不变〔断流冻结价〕、stall 卖出时刻提前到断流+55/90s、有成交做市死票的豁免面 P&L 可见）

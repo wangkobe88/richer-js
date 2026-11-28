@@ -84,6 +84,19 @@
  *   首波拉升）。放行判据（真作弊票「应该卖出」的信号特征）待案例立法后扩键。
  *   pumpArmHold.enabled=false 一键回滚 T183 形态（pump 臂仅 HOLD 证据才拦）。
  *
+ * 规则五 做市亏损形态失去豁免（T246 2026-11-27 用户裁定，案源 bt-v337 GLEAF
+ * 0x691c…7777：23:16:43 P20 做市腿买入，23:17:44 大卖砸穿地板（curVs 71.8→5.0）
+ * 后断流 331s——23:18:40 起 stall 断流卖腿应触发，被 smartHold 压到 180s 衰减；
+ * 「卖出臂，破发+做市形态失去，不能被聪明钱还在场挡住」+「处于亏损就算（措辞
+ * 改为亏损）」+ famousHold 同豁免）：
+ *   豁免（famousHold/smartHold 不拦）= boughtByPointType == 'market_maker_rhythm_pit'
+ *     AND profitPercent < 0（亏损）
+ *     AND (blockGapLe1Pct64 < 75（节奏破位） OR idleSecSinceLastSubstantialTick >= 55（断流）)
+ *   语义：做市形态失去=做市腿自己的退出判据（做市形态破位卖腿 gap64<75+pp≤-20
+ *   正是此形状）——形态已死的票，聪明钱/famous 在场不为卖出背书。
+ *   machineHold/recoveryHold/pumpArmHold 不受本豁免（用户裁定范围=famous+smart）；
+ *   null fail-closed 于豁免：证据缺席不豁免照常拦。
+ *
  * 与 bypass 卖臂的关系（T157c 全臂管辖知情面）：peak-protect 深回撤/famous-
  * entry-exit 等 bypass 腿同样受管（HOLD 证据在场 → 拦截顺延）——「famous/聪明钱
  * 还在入场就不急着卖」的 HOLD 语义一致适用于保命腿；famous-entry-exit 触发域=
@@ -99,6 +112,22 @@
 
 // T233 stall 断流卖腿签名（recoveryHold 对 stall 腿放行——见 judge 内注释）
 const { STALL_SIGNATURE_FACTOR } = require('./stall-sell-leg');
+
+/** T246 做市亏损形态失去豁免（2026-11-27 用户裁定，案源 bt-v337 GLEAF 0x691c…7777：
+ * 破发后断流 331s 形态早已死亡，stall 卖腿被 smartHold 压到 180s 衰减才放行；
+ * 「卖出臂，破发+做市形态失去，不能被聪明钱还在场挡住」+「处于亏损就算
+ * （措辞=亏损）」+ famousHold 同豁免）：
+ * - 亏损线：profitPercent < 0（用户裁定「处于亏损就算」，不用 curVs 破发线——
+ *   贴地板价 23:17:44 起即命中）
+ * - 形态失去两判据（任一命中即形态失去）：
+ *   blockGapLe1Pct64 < 75=做市节奏破位（与包内做市形态破位卖腿同线；断流期
+ *   无新块该键冻结不衰减——GLEAF 案冻结在 84.38 不破位，由下腿接住）
+ *   idleSecSinceLastSubstantialTick >= 55=断流形态失去（与 stall 断流卖腿 55s
+ *   臂同线；GLEAF 案 23:17:45 断流后本腿命中）
+ * - null fail-closed 于豁免：bpt 非做市 / pp null / gap64 与 idle 双缺席 →
+ *   不豁免照常拦（豁免=放行卖出，证据缺席不放宽拦截） */
+const MM_LOSS_BROKEN_GAP64_PCT = 75;
+const MM_LOSS_BROKEN_IDLE_SEC = 55;
 
 /** famousHold/smartHold 默认阈值（T137 研究线 180s + T157 D 修释放线 0.4；T211
  * 管辖线 100→50（2026-11-22，案源 bt-v179 0x4509…7777 pp=92.8 smart 1s 前大买
@@ -463,6 +492,24 @@ function judgeFactorSellFilter(config, factors, leg) {
     // null 语义（fail-open 放行=照卖，与 T157 同向不锁死卖出）：peak null（无仓
     // /无峰）、curVs null（未见可靠价/锚缺失）、chg5 null（未见可靠价）任一
     // 缺席不拦——低位回涨证据不全宁卖不冒充「买点」
+    // T246 做市亏损形态失去豁免（2026-11-27 用户裁定）：做市票亏损 ∧ 形态失去
+    //（节奏破位 gap64<75 ∨ 断流 idle≥55）→ famous/smart 不拦（聪明钱在场不为
+    // 已死形态的卖出背书）。null fail-closed 于豁免：bpt 非做市 / pp null /
+    // gap64 与 idle 双缺席 → 不豁免照常拦。
+    // 摆位=info 构造后（任何返回路径 info 均带豁免判据键——不管辖提前 return
+    // 的 GLEAF 破发帧 curVs≤10 也留痕，信号页可对拍）
+    const boughtPType = factors ? factors.boughtByPointType : undefined;
+    const gap64 = factors ? factors.blockGapLe1Pct64 : undefined;
+    const idleSub = factors ? factors.idleSecSinceLastSubstantialTick : undefined;
+    info.boughtByPointType = boughtPType ?? null;
+    info.blockGapLe1Pct64 = gap64 ?? null;
+    info.idleSecSinceLastSubstantialTick = idleSub ?? null;
+    info.mmLossBrokenExempt = false;
+    const mmLossBrokenExempt = boughtPType === 'market_maker_rhythm_pit'
+        && typeof pp === 'number' && Number.isFinite(pp) && pp < 0
+        && ((typeof gap64 === 'number' && Number.isFinite(gap64) && gap64 < MM_LOSS_BROKEN_GAP64_PCT)
+            || (typeof idleSub === 'number' && Number.isFinite(idleSub) && idleSub >= MM_LOSS_BROKEN_IDLE_SEC));
+    if (mmLossBrokenExempt) info.mmLossBrokenExempt = true;
     let recoveryHit = false;
     if (rh && rh.enabled && !info.stallArmJurisdiction) {
         // T233：stall 断流卖腿不享 recoveryHold 拦截——recoveryHold 三键
@@ -521,7 +568,8 @@ function judgeFactorSellFilter(config, factors, leg) {
     const famousStateHit = fh.releaseNoBuySec > 0
         && typeof famousCirc === 'number' && Number.isFinite(famousCirc) && famousCirc > 0
         && _freshWithin(sinceAnyBuy, fh.releaseNoBuySec);
-    const famousHit = !famousCheapExit
+    const famousHit = !mmLossBrokenExempt
+        && !famousCheapExit
         && (!_released(recentSell, fh.sellReleaseBnb) || famousStateHit)
         && (_freshWithin(sinceLast, fh.maxSinceBuySec) || famousStateHit);
     // smartHold 命中（T183 时间窗臂 + T228 状态臂=T227d 逐行镜像）：时间窗臂=
@@ -539,7 +587,8 @@ function judgeFactorSellFilter(config, factors, leg) {
         && _freshWithin(smartAnyBuy, sh.releaseNoBuySec));
     let smartHit = false;
     if (sh && sh.enabled) {
-        smartHit = (!_released(smartRecentSell, sh.sellReleaseBnb) || smartStateHit)
+        smartHit = !mmLossBrokenExempt
+            && (!_released(smartRecentSell, sh.sellReleaseBnb) || smartStateHit)
             && (_freshWithin(smartSinceLast, sh.maxSinceBuySec) || smartStateHit);
     }
     // T228k machineHold 命中（机器回调吸筹）：180s 机器净买 ≥ minNetBuyBnb ∧

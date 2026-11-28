@@ -1814,11 +1814,27 @@ class BacktestEngine extends AbstractTradingEngine {
         perf.other += Date.now() - _p0;
 
         // T233 stall 断流卖腿驱动（虚拟时钟 1s 节流，stallClose 同位同摆位——
-        // processTick 之前）：预扫门超时持仓 buildFactorMap(tickTs) → 卖腿全链
-        if (this._stalledSellLegScanEnabled &&
-            (this._lastStalledSellLegScanTs === null || tickTs - this._lastStalledSellLegScanTs >= 1000)) {
-          this._lastStalledSellLegScanTs = tickTs;
-          await this._scanStalledSellLegs(tickTs);
+        // processTick 之前）：预扫门超时持仓 buildFactorMap(tickTs) → 卖腿全链。
+        // T246（2026-11-27 bt-v337 GLEAF 案修复）：断流期零 tick=驱动停摆——实时
+        // 1s setInterval 照常评估，回测 tick 驱动把 stall 卖出推迟到复活 tick
+        //（GLEAF 23:17:45 断流 → 23:23:16 复活 tick 才触发，卖点拖 331s）。改为
+        // 逐秒追赶：从上次扫描时刻逐秒推进到 tickTs，断流跳变段每虚拟秒评估
+        // 一次与实时对齐；密集 tick（<1s 间隔）不推进=现状节流行为不变。
+        // 评估量有界：stall 55s/90s 两臂覆盖全 curVs 域 → 断流持仓 ≤90s 内必
+        // 触发（被 famous/smart 拦最长 180s 衰减），预扫门未过的空转秒零
+        // buildFactorMap（O(持仓) 纯 JS 检查）。
+        if (this._stalledSellLegScanEnabled) {
+          let scanTs = this._lastStalledSellLegScanTs;
+          if (scanTs === null) {
+            scanTs = tickTs;
+            await this._scanStalledSellLegs(scanTs);
+          } else {
+            while (scanTs + 1000 <= tickTs) {
+              scanTs += 1000;
+              await this._scanStalledSellLegs(scanTs);
+            }
+          }
+          this._lastStalledSellLegScanTs = scanTs;
         }
 
         // T189 burst 承接冷盘（虚拟时钟扫描，stallClose 同位同节流）：必须在
@@ -1953,6 +1969,22 @@ class BacktestEngine extends AbstractTradingEngine {
       // lastTs + sellDebounceMs 精确到期（fire 重评仍真才卖——强平前最后一次策略卖；
       // 强平走 force_sell 不置闩锁——无策略上下文）
       const lastTickTs = this._ticks[this._ticks.length - 1]?.timestamp || Date.now();
+      // T246 收尾追赶（GLEAF 案第二半）：断流持仓在最后 tick 之后无 tick 可到，
+      // 主循环追赶永不唤醒——实时引擎 setInterval 在数据结束后仍逐秒评估直到
+      // 卖出。此处把虚拟时钟推进到 lastTickTs + 预扫门 45s + stall 90s 臂 +
+      // famous/smart 衰减 180s + 5s 余量：stall 腿触发（价格=断流前冻结价，与
+      // 实时断流形状同价）或 factorSellFilter 拦到衰减完放行；上限外仍持仓的
+      // 票交给 _forceSellAllRemaining 强平兜底。
+      if (this._stalledSellLegScanEnabled && this._lastStalledSellLegScanTs !== null) {
+        const STALL_CATCHUP_HORIZON_MS = (45 + 90 + 180) * 1000 + 5000;
+        const endTs = lastTickTs + STALL_CATCHUP_HORIZON_MS;
+        let scanTs = this._lastStalledSellLegScanTs;
+        while (scanTs + 1000 <= endTs) {
+          scanTs += 1000;
+          await this._scanStalledSellLegs(scanTs);
+        }
+        this._lastStalledSellLegScanTs = scanTs;
+      }
       this._buyDebouncer.advance(lastTickTs + 10 * 60 * 1000);
       this._sellConfirmDebouncer.advance(lastTickTs + this._sellDebounceMs + 1);
       if (this._inflightEvals.size > 0) {

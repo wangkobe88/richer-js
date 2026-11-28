@@ -667,4 +667,60 @@ const CFG = normalizeFactorSellFilterConfig({ enabled: true }).normalized;
         'T233e famous anyBuy 出窗 300s → 放行（自然衰减）');
 }
 
+// ═══════════════ T246 做市亏损形态失去豁免（2026-11-27 bt-v337 GLEAF 案）═══════════════
+// 用户裁定「卖出臂，破发+做市形态失去，不能被聪明钱还在场挡住」+「处于亏损就算
+// （措辞=亏损）」+ famousHold 同豁免。豁免=做市票（boughtByPointType=market_maker_
+// rhythm_pit）∧ pp<0 ∧（gap64<75 节奏破位 ∨ idle≥55 断流）→ famous/smart 不拦。
+// 注意：豁免只在**管辖内**有意义（T219 第二把尺：curVs<10 不管辖恒放行——GLEAF
+// 破发后 stall 帧 curVs=5.04 本就放行，豁免的受益面=「亏损+形态失去但价格还在
+// 发行价上方 curVs≥10」与「有成交阴跌型做市死票」）。machine/recovery/pump 不受
+// 豁免。null fail-closed 于豁免（证据缺席照拦）。
+{
+    const MM = 'market_maker_rhythm_pit';
+    // 双在场基线（famous+smart 都在窗内）——豁免命中的对照靶；curVs=30 进管辖
+    const both = { sinceLastFamousBigBuySec: 60, recentFamousSellBnb: 0, sinceLastSmartBigBuySec: 114, recentSmartSellBnb: 0, currentVsLaunchPct: 30 };
+    // GLEAF 断流形状（价格未破发版）：23:17:45 断流后 curVs 若仍 ≥10 → 55s 臂触发、
+    // 管辖成立、smart 在场 → 豁免救（案源票破发后 curVs=5.04 反而走不管辖放行，
+    // 本帧锁定「断流时价格未破发」的豁免受益面）
+    const g = judgeFactorSellFilter(CFG, { ...both, sinceLastSmartBigBuySec: 149, profitPercent: -64.09, boughtByPointType: MM, blockGapLe1Pct64: 84.38, idleSecSinceLastSubstantialTick: 90 }, { id: 'stall', name: 'stall', condition: '(idleSecSinceLastSubstantialTick >= 55)' });
+    ok(g.blocked === false && g.info.mmLossBrokenExempt === true, 'T246a 断流帧（curVs=30 管辖内）：亏损+做市+idle≥55 → smart/famous 同豁免放行');
+    // gap64 臂：有成交做市死票节奏破位
+    ok(judgeFactorSellFilter(CFG, { ...both, profitPercent: -30, boughtByPointType: MM, blockGapLe1Pct64: 60, idleSecSinceLastSubstantialTick: 0 }).blocked === false,
+        'T246b gap64<75 节奏破位臂：smart/famous 同豁免放行');
+    // GLEAF 案源真实帧留档：破发后 curVs=5.04<10 → T219 不管辖恒放行（豁免用不上，
+    // 但 info 判据键照常留痕——信号页对拍）
+    const gReal = judgeFactorSellFilter(CFG, { ...both, sinceLastSmartBigBuySec: 149, profitPercent: -64.09, currentVsLaunchPct: 5.04, boughtByPointType: MM, blockGapLe1Pct64: 84.38, idleSecSinceLastSubstantialTick: 90 }, { id: 'stall', name: 'stall', condition: '(idleSecSinceLastSubstantialTick >= 55)' });
+    ok(gReal.blocked === false && gReal.info.boughtByPointType === MM && gReal.info.mmLossBrokenExempt === true,
+        'T246c GLEAF 破发帧：curVs<10 不管辖放行且 info 带豁免判据键（留痕）');
+    // 盈利不豁免（「处于亏损才算」）
+    ok(judgeFactorSellFilter(CFG, { ...both, profitPercent: 5, boughtByPointType: MM, blockGapLe1Pct64: 60, idleSecSinceLastSubstantialTick: 90 }).rule === 'famous_hold',
+        'T246d pp=+5 盈利 → 不豁免照拦');
+    ok(judgeFactorSellFilter(CFG, { ...both, profitPercent: 0, boughtByPointType: MM, blockGapLe1Pct64: 60 }).rule === 'famous_hold',
+        'T246e pp=0 平本 → 不豁免照拦（pp<0 严格线）');
+    // 非做市票不豁免
+    ok(judgeFactorSellFilter(CFG, { ...both, profitPercent: -30, boughtByPointType: 'normal', blockGapLe1Pct64: 60 }).rule === 'famous_hold',
+        'T246f bpt=normal → 不豁免照拦');
+    ok(judgeFactorSellFilter(CFG, { ...both, profitPercent: -30, boughtByPointType: null, blockGapLe1Pct64: 60 }).rule === 'famous_hold',
+        'T246g bpt 缺失 → 不豁免照拦');
+    // 形态未失去不豁免
+    ok(judgeFactorSellFilter(CFG, { ...both, profitPercent: -30, boughtByPointType: MM, blockGapLe1Pct64: 90, idleSecSinceLastSubstantialTick: 10 }).rule === 'famous_hold',
+        'T246h gap64=90∧idle=10 形态未失去 → 照拦');
+    ok(judgeFactorSellFilter(CFG, { ...both, profitPercent: -30, boughtByPointType: MM, blockGapLe1Pct64: 75, idleSecSinceLastSubstantialTick: 54 }).rule === 'famous_hold',
+        'T246i 线值边界（gap64=75 不破位∧idle=54 未达）→ 照拦（<75 与 ≥55 严格线）');
+    // null fail-closed 于豁免：双键缺席
+    ok(judgeFactorSellFilter(CFG, { ...both, profitPercent: -30, boughtByPointType: MM }).rule === 'famous_hold',
+        'T246j gap64/idle 双缺席 → 不豁免照拦（豁免是放行，证据缺席不放宽拦截）');
+    // 豁免域只限 famous/smart：machine/recovery 照拦
+    const mMach = judgeFactorSellFilter(CFG, { profitPercent: -30, currentVsLaunchPct: 30, boughtByPointType: MM, blockGapLe1Pct64: 60, sinceLastSmartBigBuySec: 60, recentSmartSellBnb: 0, machineNetBuy180: 0.5, chg30Pct: -5 });
+    ok(mMach.blocked === true && mMach.rule === 'machine_hold', 'T246k machineHold 不受豁免照拦');
+    const mRec = judgeFactorSellFilter(CFG, { profitPercent: -30, boughtByPointType: MM, blockGapLe1Pct64: 60, sinceLastSmartBigBuySec: 60, recentSmartSellBnb: 0, peakProfitPct: 120, currentVsLaunchPct: 20, chg5Pct: 3 });
+    ok(mRec.blocked === true && mRec.rule === 'recovery_hold', 'T246l recoveryHold 不受豁免照拦');
+    // info 留痕：豁免键+三判据键透传（信号页对拍）
+    ok(g.info.boughtByPointType === MM && g.info.blockGapLe1Pct64 === 84.38 && g.info.idleSecSinceLastSubstantialTick === 90,
+        'T246m info 留痕带 bpt/gap64/idle 判据键');
+    // famous 状态臂（T227d 形状）同豁免：famous 持仓+新入场也被豁免穿透
+    ok(judgeFactorSellFilter(CFG, { profitPercent: -30, currentVsLaunchPct: 30, boughtByPointType: MM, blockGapLe1Pct64: 60, sinceLastFamousBigBuySec: null, recentFamousSellBnb: 0, famousCopyWalletCircPct: 2.5, sinceLastFamousAnyBuySec: 50, sinceLastSmartBigBuySec: null }).blocked === false,
+        'T246n famous 状态臂形状同样被豁免（anyBuy 50s 在窗也不拦）');
+}
+
 console.log(`✅ _test_factor_sell_filter 全部 ${passed} 断言通过`);
