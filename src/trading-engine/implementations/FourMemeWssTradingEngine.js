@@ -1232,6 +1232,368 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    *  确认提醒/防重发锁告警须实时触达用户） */
   async _postTraderInit(_trader) {}
 
+  // ═══════════════ 2026-11-28 恢复：T233 P2 清理（0c748efd）误删的引擎方法块 ═══════════════
+  // 0c748efd「旧机制全删」从本文件误删 700 行，同日 0c0dd640 只恢复了 204 行（采集/wiring
+  // 11 个方法）；下列 8 个方法一直缺失至 2026-11-28——实时/虚拟引擎 start() 调 _runMainLoop
+  // 即抛「必须由子类实现」（=自 11-24 起实时引擎起不来），实盘记账/对账/链上余额/BNB-USD/
+  // 告警方法整段不在。本块逐字取自 0c748efd~1（误删前最后一版），仅两处对齐 P2 现状：
+  //   ① _runMainLoop 不再含旧 stallClose 1s 定时器（T233 腿化=策略包 stall 签名卖腿）；
+  //   ② 断流卖腿 1s 驱动 / burst 承接 / 账号复检 / GMGN 进场四个 interval 与门链配置日志
+  //      P2 已迁入 _initializeDataSources（本文件上方），此处不重复挂。
+  // 其余（组合快照 / 定期统计 / 断流守护 / FA 清理 / 市场截面 / 手工交易消费 / 持仓兜底
+  // 扫描 七个 interval）随本块一并恢复。防线：_test_stall_sell_leg H 段 + 引擎级单测。
+  /**
+   * live 交易器初始化：钱包配置解析（executorId 表加载 | privateKey 直配，二选一）→
+   * 私钥解密 → per-platform trader map（fourmeme→FourMemeDirectTrader / flap→
+   * FlapPortalTrader，双平台 live 2026-10-14 改造：单引擎双 trader 同一钱包，nonce 由
+   * 共享 NonceManager 串行分配）→ 地址一致性校验（私钥推导地址 ≠ 配置地址 =
+   * 配置错误，fail-fast）→ 链上连通性探测 + BNB/USD 启动锚定。
+   *
+   * 钱包双源（实盘前置批 2026-10-13，迁移自 rich-js）：
+   *   - executorId：executors 表集中管理（auth_token 密文解密，私钥单一真相源在表），
+   *     executor 的 reserve_native 覆盖 config 默认（钱包自带 gas 保留值）
+   *   - privateKey：存量实验直配（config.wallet 私钥密文），路径零改动
+   *   - 两源并存 → throw（防歧义）；皆无 → 现行报错
+   */
+  async _initializeLiveTrader() {
+    const walletConfig = this._experiment?.config?.wallet;
+    if (!walletConfig) {
+      throw new Error('live 实验缺少钱包配置 (config.wallet)');
+    }
+    if (walletConfig.executorId && walletConfig.privateKey) {
+      throw new Error('config.wallet.executorId 与 privateKey 互斥（钱包双源只能选一）');
+    }
+
+    const { CryptoUtils } = require('../../utils/CryptoUtils');
+    let privateKey;
+    if (walletConfig.executorId) {
+      // 执行器表加载（service key——executors 表 RLS 对 anon 全拒，红线③）
+      const { dbManager } = require('../../services/dbManager');
+      const { data: executor, error } = await dbManager.getClient()
+        .from('executors')
+        .select('name, address, auth_token, blockchain, reserve_native')
+        .eq('id', walletConfig.executorId)
+        .single();
+      if (error || !executor) {
+        throw new Error(`执行器加载失败: ${walletConfig.executorId} ${error?.message || '不存在'}`);
+      }
+      if (executor.blockchain !== 'bsc') {
+        throw new Error(`执行器区块链不符: ${executor.blockchain}（BSC-only）`);
+      }
+      this._walletAddress = executor.address;
+      this._walletSource = `executor:${executor.name}`;
+      try {
+        privateKey = new CryptoUtils().decrypt(executor.auth_token);
+      } catch (err) {
+        throw new Error(`执行器私钥解密失败（auth_token 可能损坏）: ${err.message}`);
+      }
+      // executor 的 reserve_native 覆盖 config 默认（钱包自带保留值；实验级 live.reserveNative
+      // 显式配置仍最高优先——三级：实验 live 段 > executors 行 > base 默认）
+      if (!(this._wsConfig.live || {}).hasOwnProperty('reserveNative')
+          && executor.reserve_native != null && Number(executor.reserve_native) >= 0) {
+        this._reserveNative = new Decimal(executor.reserve_native);
+      }
+    } else if (walletConfig.address && !walletConfig.privateKey && this._wsPlatforms().includes('gang')) {
+      // BAW 第三形态（2026-10-28 gang live）：address-only 钱包——签名链在 Binance App/
+      // gang CLI 侧（GangBawTrader setWallet 对拍 baw wallet address），无 privateKey 可
+      // 解。仅 gang 平台放行：fourmeme/flap 的 EOA trader 缺 privateKey 必炸，刻意不
+      // 给这两个平台开 address-only 后门（fail-closed）
+      if (!/^0x[0-9a-fA-F]{40}$/.test(walletConfig.address)) {
+        throw new Error(`BAW 钱包地址格式无效: ${walletConfig.address}`);
+      }
+      this._walletAddress = walletConfig.address;
+      this._walletSource = 'baw';
+    } else {
+      if (!walletConfig.address || !walletConfig.privateKey) {
+        throw new Error('live 实验缺少钱包配置 (config.wallet.address / config.wallet.privateKey 或 config.wallet.executorId)');
+      }
+      this._walletAddress = walletConfig.address;
+      this._walletSource = 'config';
+      try {
+        privateKey = new CryptoUtils().decrypt(walletConfig.privateKey);
+      } catch (error) {
+        throw new Error(`钱包私钥解密失败: ${error.message}`);
+      }
+    }
+
+    const traderFactory = require('../traders');
+    const traderConfig = { blockchain: 'bsc', chain: 'bsc' };
+    if (this._walletSource === 'baw') {
+      // BAW 第三形态：GangBawTrader setWallet 的对拍源 + CLI 参数段透传
+      // （gangWs.live.gangCli：bin 路径/超时/轮询间隔，见 config/default.json）
+      traderConfig.address = this._walletAddress;
+      traderConfig.gangCli = (this._wsConfig.live || {}).gangCli || {};
+    }
+    // 发单 RPC（B4）：ANKR_HTTP_RPC_URL 显式 > ANKR_API_KEY > 从 ANKR_WS_URL 末段提取
+    // key 构造（wss://rpc.ankr.com/bsc/ws/<key> → https://rpc.ankr.com/bsc/<key>，与
+    // WSS 同源账号付费连接，免公共节点限流）；皆无则 BaseTrader 内置公共节点
+    const ankrHttpRpc = process.env.ANKR_HTTP_RPC_URL
+      || (process.env.ANKR_API_KEY && `https://rpc.ankr.com/bsc/${process.env.ANKR_API_KEY}`)
+      || (() => {
+        const wsUrl = process.env.ANKR_WS_URL || '';
+        const m = wsUrl.match(/^wss:\/\/rpc\.ankr\.com\/bsc\/ws\/([0-9a-f]+)\/?$/);
+        return m ? `https://rpc.ankr.com/bsc/${m[1]}` : null;
+      })();
+    if (ankrHttpRpc) {
+      traderConfig.network = { rpcUrl: ankrHttpRpc };
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', `发单 RPC: ANKR HTTP（与 WSS 同源账号）`);
+    } else {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', '发单 RPC: 公共节点（未配置 ANKR_HTTP_RPC_URL/ANKR_API_KEY/ANKR_WS_URL，有限流风险）');
+    }
+    // B4 gas 策略透传（'pinned'=恒上限价旧行为回滚开关）
+    const liveGasStrategy = (this._wsConfig.live || {}).gasStrategy;
+    if (liveGasStrategy) traderConfig.gasStrategy = liveGasStrategy;
+    // per-platform trader 构造（2026-10-14 双平台 live）：每平台一枚（fourmeme/flap
+    // 各自合约交互协议不同），同一私钥；首个 trader 建钱包，其余 setWallet 各自跑通
+    // 校验路径后 shareSignerFrom 共享 wallet+NonceManager——同地址进程内单一 nonce
+    // 分配源，双 trader 并发发单不互抢 nonce。this._trader=首个（平台无关读点兼容）
+    this._liveTraderMap = new Map();
+    for (const platform of this._wsPlatforms()) {
+      const trader = traderFactory.createTrader(this._liveTraderTypeFor(platform), traderConfig);
+      trader.txWaitTimeoutMs = this._liveTxWaitTimeoutMs;
+      trader.txSeenSignal = this._txSeenSignal;   // WSS 快速回执（提速①）；null=纯原路径
+      trader.setLogger(this.logger, this._experimentId); // trader 行进实验日志文件（2026-10-16 蓝蛙案：裸 console 落 stdout 重定向文件，现场与引擎行割裂）
+      await this._postTraderInit(trader); // trader 构造后钩子（基类 no-op；gang 注入 TG 告警钩子）
+      await trader.setWallet(privateKey);
+      if (this._liveTraderMap.size > 0) {
+        await trader.shareSignerFrom(this._trader);
+      } else {
+        this._trader = trader;
+      }
+      this._liveTraderMap.set(platform, trader);
+    }
+
+    const derivedAddress = this._trader.wallet?.address;
+    if (!derivedAddress || derivedAddress.toLowerCase() !== this._walletAddress.toLowerCase()) {
+      throw new Error(
+        `钱包地址不一致: 私钥推导 ${derivedAddress} ≠ 配置 ${this._walletAddress}` +
+        `${this._walletSource.startsWith('executor') ? '（执行器表数据损坏，检查 executors 行）' : '（检查 config.wallet）'}`);
+    }
+
+    // 连通性探测 + 启动时 BNB/USD 锚定（collector 尚未启动，getBnbUsd 为 0）
+    const nativeBalance = await this._trader.getNativeBalance();
+    await this._fetchBnbUsdOnce();
+
+    this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+      `✅ live 交易器就绪 | 钱包 ${this._walletAddress} 链上 ${nativeBalance} BNB（reserve ${this._reserveNative}）` +
+      ` BNB/USD≈${this._lastKnownBnbUsd} 滑点 ${this._liveSlippagePct}% gas≤${this._liveMaxGasPriceGwei}gwei`);
+  }
+
+  /** live 紧急告警（Telegram；未启用通知时仅 error 日志——告警通道尽最大努力不阻断交易流） */
+  async _notifyLiveAlert(title, message) {
+    this.logger.error(this._experimentId, 'LiveAlert', `${title} | ${message}`);
+    try {
+      if (this._telegramNotifier) {
+        await this._telegramNotifier.sendMessage(`⚠️ [${this._experimentId}] ${title}\n${message}`);
+      }
+    } catch (error) {
+      this.logger.warn(this._experimentId, 'LiveAlert', `Telegram 推送失败: ${error.message}`);
+    }
+  }
+
+  /** BNB/USD 直读一次（PancakeSwap V2 Router getAmountsOut；live 启动锚定 + 60s interval 接力刷新） */
+  async _fetchBnbUsdOnce() {
+    try {
+      const { ethers } = require('ethers');
+      const router = new ethers.Contract(
+        '0x10ED43C718714eb63d5aA57B78B54704E256024E',
+        ['function getAmountsOut(uint256 amountIn, address[] path) view returns (uint256[] amounts)'],
+        this._trader.provider,
+      );
+      const amounts = await router.getAmountsOut(ethers.parseEther('1'), [
+        '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // WBNB
+        '0x55d398326f99059fF775485246999027B3197955', // USDT (BSC)
+      ]);
+      const rate = Number(ethers.formatUnits(amounts[1], 18));
+      if (rate > 0) this._lastKnownBnbUsd = rate;
+    } catch (error) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine',
+        `BNB/USD 直读失败（沿用缓存 ${this._lastKnownBnbUsd}）: ${error.message}`);
+    }
+  }
+
+  /**
+   * 当前 BNB/USD（collector 60s 自刷优先——price_usd 换算与 live 锚定同源；
+   * live 启动锚定 _fetchBnbUsdOnce 兜底，全部 miss 回落最近已知值）
+   */
+  _getBnbUsd() {
+    for (const c of this._collectors) {
+      const v = c.getBnbUsd();
+      if (v > 0) {
+        this._lastKnownBnbUsd = v;
+        return v;
+      }
+    }
+    return this._lastKnownBnbUsd;
+  }
+
+  /** 链上 ERC20 余额（代币数量；查询失败返回 null） */
+  async _getOnChainTokenBalance(tokenAddress) {
+    try {
+      const { ethers } = require('ethers');
+      const erc20 = new ethers.Contract(
+        tokenAddress,
+        ['function balanceOf(address) view returns (uint256)'],
+        this._trader.provider,
+      );
+      const balance = await erc20.balanceOf(this._trader.wallet.address);
+      return Number(ethers.formatUnits(balance, 18));
+    } catch (error) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine',
+        `链上余额查询失败 | ${tokenAddress} ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * live 现金对账：cashBalance 直设为链上可用 BNB 的 USD 等值。
+   * 现金就是现金——gas/手续费/盈亏在链上余额里都已体现，直设即完成校正。
+   */
+  async _reconcileLiveCash() {
+    const rate = this._getBnbUsd();
+    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+    if (!portfolio || !(rate > 0)) return;
+
+    const native = new Decimal(await this._trader.getNativeBalance());
+    portfolio.cashBalance = Decimal.max(0, native.sub(this._reserveNative)).mul(rate);
+  }
+
+  /** live 记账（fee=0，真实成本已含在实际成交里）：cash 不足（对账 drift）时先对账再重试；仍失败不阻断链上事实 */
+  async _liveRecordTrade(direction, signal, tokenAmount, priceUsd) {
+    try {
+      return await this._portfolioManager.executeTrade(
+        this._portfolioId, signal.tokenAddress, direction, tokenAmount, priceUsd, 0);
+    } catch (firstError) {
+      // P11 幽灵持仓案（GROK 2026-10-15）：qtySold 链上 formatEther→parseEther 往返 …907 vs
+      // 账面 Decimal …906（相对差 ~6e-17）被 PM 以 Insufficient token balance 拒绝——全清后账面
+      // 永久挂账、SyncHoldings 每 5min 误报「外部处置」。卖出方向差值 ≤相对 1e-9 时钳到账面
+      // 持有量（与执行层重放精度钳制同语义；真超卖照常失败）
+      if (direction === 'sell' && /Insufficient token balance/.test(firstError.message || '')) {
+        // 全 Decimal 比较：qtySold 是链上 formatEther 高精度值（…907 vs 账面 …906 差 1e-11），
+        // double 会吞掉该差异（两字面量同 double），Number 化 held 后 Decimal>Number 比较经
+        // valueOf→字符串→double 同样吞 → 钳制静默失效；new Decimal(tokenAmount) 与 PM 内
+        // 同款转换，判断口径与 lt 恒一致
+        const position = this._portfolioManager.getPortfolio(this._portfolioId)
+          ?.positions?.get(String(signal.tokenAddress).toLowerCase());
+        const heldDec = position ? new Decimal(position.amount) : new Decimal(0);
+        const sellDec = new Decimal(tokenAmount);
+        if (heldDec.gt(0) && sellDec.gt(heldDec) && sellDec.minus(heldDec).div(heldDec).lte(1e-9)) {
+          this.logger.warn(this._experimentId, '_liveRecordTrade',
+            `卖出记账数量 ${sellDec.toString()} 略超账面 ${heldDec.toString()}（相对差≤1e-9），钳到账面持有量重试`);
+          tokenAmount = heldDec; // Decimal 原值：executeTrade 内 new Decimal(Decimal) 恒等清零
+        }
+      }
+      this.logger.warn(this._experimentId, '_liveRecordTrade',
+        `记账失败（${firstError.message}），对账修正 cash 后重试`);
+      await this._reconcileLiveCash();
+      try {
+        return await this._portfolioManager.executeTrade(
+          this._portfolioId, signal.tokenAddress, direction, tokenAmount, priceUsd, 0);
+      } catch (secondError) {
+        this.logger.error(this._experimentId, '_liveRecordTrade',
+          `记账失败（链上已成交，持仓账目待 _syncHoldings 对账）: ${secondError.message}`);
+        return null;
+      }
+    }
+  }
+
+  async _runMainLoop() {
+    // 内嵌 collectors 启动（直连架构：WSS 订阅随实验起停；BNB/USD 60s 自刷由 collector 承担，
+    // live 启动锚定在 _initializeLiveTrader 内 _fetchBnbUsdOnce 已做，此处不再挂 interval）
+    for (const c of this._collectors) {
+      c.start();
+    }
+
+    // 30s 组合快照（portfolio_snapshots；experiment_time_series_data 时序表 2026-10-15 停写）
+    this._intervals.portfolioSnapshot = setInterval(() => {
+      this._loopCount++;
+      this._createPortfolioSnapshot().catch(err => {
+        this.logger.error(this._experimentId, 'Portfolio', `组合快照失败: ${err.message}`);
+      });
+    }, this._portfolioSnapshotIntervalMs);
+
+    // 定期统计（experiments.stats，间隔来自实验配置，默认 30min）
+    this._intervals.stats = setInterval(() => {
+      this._checkAndCalculateStats().catch(err => {
+        this.logger.error(this._experimentId, 'Stats', `定期统计失败: ${err.message}`);
+      });
+    }, this._statsInterval || 30 * 60 * 1000);
+
+    // [wss-down-guard] 断流守护（60s）：collector 消息心跳静默 ≥ 5min 踢自愈 / ≥ 15min 置 wss_down
+    this._intervals.wssDownGuard = setInterval(() => {
+      this._checkWssDownGuard().catch(err => {
+        this.logger.error(this._experimentId, 'WssDownGuard', `检查失败: ${err.message}`);
+      });
+    }, 60 * 1000);
+
+    // FA 陈旧状态清理（持仓保护）+ TPA live ticks 缓冲裁剪（批次 3b，默认关）
+    this._intervals.prune = setInterval(() => {
+      try {
+        const held = new Set(this._getAllHoldings().map(h => h.tokenAddress?.toLowerCase()));
+        const pruned = this._factorAggregator.pruneStaleTokens(this._pruneMaxAgeMs, held);
+        if (pruned > 0) {
+          this.logger.info(this._experimentId, 'Prune', `FA 清理陈旧代币状态: ${pruned} 个`);
+        }
+      } catch (err) {
+        this.logger.error(this._experimentId, 'Prune', `FA 清理失败: ${err.message}`);
+      }
+      // TPA live ticks 窗口裁剪（liveTicksRetainHours 缺省 null=no-op；回测引擎无本 interval）
+      if (this._tokenPositionAnalyzer) {
+        try {
+          this._tokenPositionAnalyzer.trimLiveTicksBuffer();
+        } catch (err) {
+          this.logger.error(this._experimentId, 'Prune', `TPA live ticks 裁剪失败: ${err.message}`);
+        }
+      }
+      // TokenPool 监控票淘汰（tokenPoolEvictMinAgeMs 缺省 null=no-op）
+      try {
+        this._evictStaleMonitoringTokens();
+      } catch (err) {
+        this.logger.error(this._experimentId, 'Prune', `监控票淘汰失败: ${err.message}`);
+      }
+    }, this._pruneIntervalMs);
+
+    // 市场截面快照落表（60s，纯观察通道；写失败仅计数不重试不阻塞——显式设计非吞错兜底；
+    // ts=分钟桶键 → PK 幂等 upsert ≈1440 行/天，source=实验 id）
+    this._intervals.marketRegime = setInterval(() => {
+      this._captureMarketRegimeSnapshot().catch(err => {
+        this.logger.error(this._experimentId, 'MarketRegime', `快照采集异常: ${err.message}`);
+      });
+    }, 60 * 1000);
+
+    // live 持仓对账（链上余额 vs 账面，外部处置/偏差告警）
+    if (this._isLive) {
+      this._intervals.liveSync = setInterval(() => {
+        this._syncHoldings().catch(err => {
+          this.logger.error(this._experimentId, 'LiveSync', `live 持仓对账失败: ${err.message}`);
+        });
+      }, this._liveHoldingsSyncMs);
+    }
+
+    // 手工交易命令消费（P0-C；2026-10-22 双支持批移出 _isLive：virtual 模拟盘同消费
+    // ——守卫改 live 才查 _trader，virtual 无 trader 恒可消费；间隔 5s→2s 用户裁定）：
+    // manual_trade_requests 命令队列——web 进程绝不直接建 trader 交易（会与本引擎内存
+    // 账本冲突），命令由本进程 CAS 抢占后走与策略交易同一执行路径；停机期命令滞留
+    // pending（不执行不丢）
+    this._intervals.manualTrade = setInterval(() => {
+      this._consumeManualTrades().catch(err => {
+        this.logger.error(this._experimentId, 'ManualTrade', `手工交易消费异常: ${err.message}`);
+      });
+    }, 2000);
+
+    // 持仓兜底扫描（断流兜底）：断流 token 无 tick → tick 驱动的止损/卖腿全部冻结，
+    // 扫描周期性重建因子判引擎级止损 + 评估卖腿（2026-10-13 裁定：卖腿存在即启用
+    // 扫描，引擎级止损部分维持 stopLoss 段配置语义——配 scanIntervalSec 才扫）
+    if ((this._stopLossEnabled && this._stopLossScanMs != null) || this._sellLegScanEnabled) {
+      const _scanMs = this._stopLossScanMs != null ? this._stopLossScanMs : this._holdingsScanMs;
+      this._intervals.stopLossScan = setInterval(() => {
+        this._scanHoldingsStopLoss().catch(err => {
+          this.logger.error(this._experimentId, 'StopLoss', `持仓兜底扫描异常: ${err.message}`);
+        });
+      }, _scanMs);
+    }
+  }
+
   /** gang 毕业票人工处置拦截：基类恒 false（毕业票照走 PCS 路由）；gang 子类覆盖
    *  （BAW 无 EOA 签名链，PCS trader 不可用——Telegram 告警 + 人工 gang CLI 处置） */
   _graduatedManualIntercept(_signal, _gradInfo) {

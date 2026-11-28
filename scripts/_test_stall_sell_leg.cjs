@@ -349,6 +349,23 @@ const evalCond = (cond, f) => new StrategyEngine({}).evaluateCondition(cond, f);
         ok(/isStallSellLeg\(/.test(live) && /stallTriggerContext\(/.test(live) && /DEFAULT_STALLED_SCAN_AFTER_SEC/.test(live), 'H1 前置：实时引擎确实使用三标识符');
         ok(allThree(namesOf(live)), 'H2 实时引擎模块顶层 import 含 isStallSellLeg / stallTriggerContext / DEFAULT_STALLED_SCAN_AFTER_SEC');
         ok(allThree(namesOf(bt)), 'H3 回测引擎同款（对照）');
+
+        // H4/H5 同一误删事故的第二半（2026-11-28 续查）：0c748efd 误删 700 行里除 import 外
+        // 还有 8 个方法未随 0c0dd640 恢复——_runMainLoop 缺失=实时/虚拟引擎 start() 即抛
+        // 「必须由子类实现」（自 11-24 起实时引擎起不来）；实盘记账/对账/链上余额/BNB-USD/
+        // 告警/trader 初始化整段不在。锁：每个恰定义一次 + 主循环七个 interval 在场。
+        const critical = ['_runMainLoop', '_initializeLiveTrader', '_notifyLiveAlert', '_fetchBnbUsdOnce', '_getBnbUsd',
+            '_getOnChainTokenBalance', '_reconcileLiveCash', '_liveRecordTrade'];
+        const defCount = (src, n) => (src.match(new RegExp(`^\\s+(?:async )?${n}\\(`, 'gm')) || []).length;
+        check('H4 实时引擎 8 个关键方法各恰定义 1 次（主循环 / live 记账·对账·链上余额·BNB-USD·告警·trader 初始化）',
+            () => critical.map((n) => defCount(live, n)), critical.map(() => 1));
+        const loopStart = live.search(/^\s+async _runMainLoop\(/m);
+        const loopBody = loopStart >= 0 ? live.slice(loopStart, live.indexOf('\n  }\n', loopStart)) : '';
+        check('H5 _runMainLoop：组合快照/定期统计/断流守护/FA 清理/市场截面/手工交易消费/持仓兜底扫描 七个 interval 在场；旧 stallClose 定时器不在',
+            () => ['portfolioSnapshot', 'stats', 'wssDownGuard', 'prune', 'marketRegime', 'manualTrade', 'stopLossScan']
+                .map((k) => loopBody.includes(`this._intervals.${k} = setInterval`))
+                .concat([loopBody.includes('c.start()'), !loopBody.includes('_intervals.stallClose'), !loopBody.includes('_scanStallClose')]),
+            [true, true, true, true, true, true, true, true, true, true]);
     }
 
     console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
