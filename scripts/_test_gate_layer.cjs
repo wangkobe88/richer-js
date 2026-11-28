@@ -10,6 +10,9 @@
  *      - 三元组真值表（cheatOnly / 多码门部分豁免 / 双豁免 / cheatOnly+差集）
  *      - 短路等价守卫（原链不可达的判定抛错=吞；可达=上抛，与旧链同向）
  *      - 上涨趋势值门行形状；GATE_ARM_CODES 与门行 id 集合一致
+ *   B. service 层：门层统一取数 prepareGateLayer（纯内存一次取数、零 DB 读、三种短路形状、
+ *      共享快照 cheatDerived ≡ cheat 快照 derived 逐位对锁）+ 因子门/BP/活跃度门判定段
+ *      （prebuilt ≡ 旧入口；落行开关；arm/trace 透出；旧入口形状不变）
  *
  * 用法：node scripts/_test_gate_layer.cjs
  */
@@ -280,5 +283,124 @@ console.log('A. FP 纯函数层：全臂恒算 + 门行三元组');
   ok(`A6b 模糊覆盖：六族臂均有命中样本（${JSON.stringify(familyHit)}），去重命中码 ${hitCodes.size} 种 ≥ 30`, Object.values(familyHit).every(Boolean) && hitCodes.size >= 30, [...hitCodes].sort());
 }
 
-console.log(`\n${'='.repeat(60)}\n因子过滤门层单测：${pass} 通过，${fail} 失败`);
-process.exit(fail > 0 ? 1 : 0);
+
+console.log('\nB. service 层：门层统一取数（纯内存零 DB）+ 判定段拆分');
+(async () => {
+  const { BuyPointCheckService } = require(path.join(ROOT, 'src/market-analysis/BuyPointCheckService.js'));
+  const { CheatCheckService } = require(path.join(ROOT, 'src/market-analysis/CheatCheckService.js'));
+  const FR = require(path.join(ROOT, 'src/market-analysis/factor-responders.js'));
+  const { buildSnapshotFromRows } = require(path.join(ROOT, 'src/market-analysis/cheat-snapshot.js'));
+  const T0 = Date.parse('2026-11-25T10:00:00.000Z');
+  const at = (dt) => new Date(T0 + dt * 1000).toISOString();
+  const w = (n) => '0x' + String(n).padStart(4, '0') + 'aa'.repeat(18);
+  const prow = (i, side, bnb, price, o = {}) => ({
+    block_time: at(i), block_number: o.block ?? 1000 + Math.floor(i / 3), log_index: o.li ?? i % 3,
+    trade_type: side, trader_address: w(o.wallet ?? (i % 10)), sender_address: w(o.wallet ?? (i % 10)),
+    bnb_amount: bnb, token_amount: 1e9 * bnb / price, price_bnb: price, price_outlier: false,
+    tx_hash: '0xtx' + (o.tx ?? i), quote_token: null,
+  });
+  // 健康形状（_test_crash_form_gate normalTicks 同款）：六钱包各一笔买 + 三笔稀疏小卖
+  const normalTicks = [
+    ...[0.22, 0.08, 0.24, 0.09, 0.12, 0.1].map((bnb, k) => prow(k * 2, 'buy', bnb, (1.0 + k * 0.012) * 1e-8, { wallet: 200 + k })),
+    ...[[20, 1.05], [30, 1.04], [40, 1.03]].map(([tt, p], k) => prow(tt, 'sell', 0.03, p * 1e-8, { wallet: 260 + k })),
+  ];
+  // 塞单形状：同块 8 钱包等额买入
+  const stuffingTicks = normalTicks.concat([0, 1, 2, 3, 4, 5, 6, 7].map((i) => prow(50 + i, 'buy', 0.05, 1.03e-8, { wallet: 500 + i, block: 1001, li: i })));
+  const META = { symbol: 'TST', name: 'Test', platform: 'flap', createdAtMs: T0, creatorAddress: '0xcreator', totalSupply: 1e9 };
+  const SILENT = { info() {}, warn() {}, error() {}, debug() {} };
+  const neverLlm = async () => { throw new Error('no llm in factor mode'); };
+  /** DB 桩：记录 from() 调用的表名与 insert 行（select/eq/order/limit 链最小实现） */
+  const mkDb = () => {
+    const tables = [], inserts = [];
+    const client = {
+      from: (t) => {
+        tables.push(t);
+        const q = { select: () => q, eq: () => q, lte: () => q, order: () => q, limit: async () => ({ data: [], error: null }) };
+        q.insert = async (rows) => { inserts.push({ table: t, rows }); return { error: null }; };
+        return q;
+      },
+    };
+    return { client, tables, inserts };
+  };
+  const memPull = (rows, extra = {}) => async () => ({ rows, anchorTickCount: rows.length, capped: false, ...extra });
+  const pullOf = (rows, extra) => async () => ({ rows, anchorTickCount: rows.length, capped: false, ...extra });
+
+  // ── B1 prepareGateLayer：纯内存一次取数，零 DB 读 ──
+  const db1 = mkDb();
+  const bp1 = new BuyPointCheckService({ enabled: true, settleDelayMs: 0, factorCheck: { enabled: true } }, SILENT,
+    { dbClient: db1.client, factorMode: true, loadLlm: neverLlm, now: () => T0, arbBotWallets: new Set(), pullTicks: pullOf(normalTicks) });
+  const prep = await bp1.prepareGateLayer('0xtok', META, {}, { pullTicks: pullOf(normalTicks) });
+  check('B1a prepareGateLayer：ok + 快照/拉数/meta 在场', [prep.ok, prep.token, !!prep.snapshot, prep.pull.anchorTickCount, prep.pull.fromMem, prep.pull.partial], [true, '0xtok', true, normalTicks.length, true, false]);
+  check('B1b 门层取数零 DB 读（from() 零调用）', db1.tables, []);
+  check('B1c 共享快照的 cheatDerived ≡ buildSnapshotFromRows 同 rows 同 meta 的 derived（逐位）——活跃度门可直接复用',
+    JSON.stringify(prep.snapshot.cheatDerived) === JSON.stringify(buildSnapshotFromRows(normalTicks, prep.meta, { capped: false, anchorTickCount: normalTicks.length }).derived), true);
+  // 反证：旧入口（非 prebuilt）经 _loadCreateMeta 读 wss_events——门层读 DB 的现状事实
+  const legacyFp = await bp1.evaluateFactorPreBuy('0xtok', META, {}, {});
+  ok('B1d 反证：旧入口 evaluateFactorPreBuy 会读 wss_events（creator 兜底）——统一门层入口不读', legacyFp.status === 'assessed' && db1.tables.includes('wss_events') && !db1.tables.includes('wss_price_ticks'), db1.tables);
+
+  // ── B2 三种短路形状 ──
+  const db2 = mkDb();
+  const bp2 = new BuyPointCheckService({ enabled: true, settleDelayMs: 0 }, SILENT,
+    { dbClient: db2.client, factorMode: true, loadLlm: neverLlm, now: () => T0, arbBotWallets: new Set() });
+  const rAbsent = await bp2.prepareGateLayer('0xtok', META, {}, {});
+  const rMiss = await bp2.prepareGateLayer('0xtok', META, {}, { pullTicks: async () => null });
+  const rPartial = await bp2.prepareGateLayer('0xtok', META, {}, { pullTicks: pullOf(normalTicks, { partial: true }) });
+  const rFew = await bp2.prepareGateLayer('0xtok', META, {}, { pullTicks: pullOf(normalTicks.slice(0, 3)) });
+  check('B2a pullTicks 未注入 → insufficient_history/pullTicks_absent（绝不回落 DB）', [rAbsent.ok, rAbsent.status, rAbsent.reason], [false, 'insufficient_history', 'pullTicks_absent']);
+  check('B2b 行环无该票 → insufficient_history/ring_miss', [rMiss.ok, rMiss.status, rMiss.reason], [false, 'insufficient_history', 'ring_miss']);
+  check('B2c 行环残缺（被清过环又复活，D4）→ insufficient_history/ring_partial', [rPartial.ok, rPartial.status, rPartial.reason, rPartial.anchorTickCount], [false, 'insufficient_history', 'ring_partial', normalTicks.length]);
+  check('B2d tick 数不足 minTicks → insufficient_ticks（沿用本服务阈值）', [rFew.ok, rFew.status, rFew.anchorTickCount], [false, 'insufficient_ticks', 3]);
+  check('B2e 计数：insufficientHistory ×3 / gateLayerPrepared ×4，全程零 DB', [bp2.stats.insufficientHistory, bp2.stats.gateLayerPrepared, db2.tables], [3, 4, []]);
+
+  // ── B3 因子门判定段：prebuilt 与旧入口同 rows 结论一致 ──
+  const preFp = await bp1.evaluateFactorPreBuy('0xtok', META, {}, { prebuilt: prep });
+  check('B3 因子门 prebuilt 判定 ≡ 旧入口（pass/reason/arms）且不新增 DB 读',
+    [preFp.status, preFp.pass, preFp.reason, preFp.arms, JSON.stringify([preFp.pass, preFp.reason, preFp.arms]) === JSON.stringify([legacyFp.pass, legacyFp.reason, legacyFp.arms]), db1.tables.filter((t) => t === 'wss_events').length],
+    ['assessed', true, null, [], true, 1]);
+
+  // ── B4 BP 判定段：塞单门/全门/落行开关 ──
+  const db4 = mkDb();
+  const bp4 = new BuyPointCheckService({ enabled: true, settleDelayMs: 0 }, SILENT,
+    { dbClient: db4.client, factorMode: true, loadLlm: neverLlm, now: () => T0, arbBotWallets: new Set() });
+  const prepOK = await bp4.prepareGateLayer('0xtok', META, { signalId: 's1', experimentId: 'e1' }, { pullTicks: pullOf(normalTicks) });
+  const prepStuff = await bp4.prepareGateLayer('0xtok', META, { signalId: 's2', experimentId: 'e1' }, { pullTicks: pullOf(stuffingTicks) });
+  ok('B4 前置：塞单形状 eqWallets ≥8', prepStuff.snapshot.buyDerived.exactEqualBlockMaxWallets >= 8, prepStuff.snapshot.buyDerived.exactEqualBlockMaxWallets);
+  const soClear = await bp4.evaluateFactorBp(prepOK, {}, { stuffingOnly: true });
+  const soHit = await bp4.evaluateFactorBp(prepStuff, {}, { stuffingOnly: true });
+  check('B4a stuffingOnly：未命中=neutral/policy_stuffing_only、不落行', [soClear.status, soClear.assessment, soClear.policy, db4.inserts.length], ['assessed', { bucket: 'neutral', prob: null, rule: 'policy_stuffing_only' }, 'stuffingOnly', 0]);
+  check('B4b stuffingOnly：命中=poor/stuffing_gate（与 _chain 同形）+ 携带塞单锚值', [soHit.assessment.rule, soHit.assessment.bucket, soHit.stuffingEqWallets >= 8], ['stuffing_gate', 'poor', true]);
+  const fullClear = await bp4.evaluateFactorBp(prepOK, {}, { writeRow: false });
+  const fullHit = await bp4.evaluateFactorBp(prepStuff, {}, { writeRow: false });
+  check('B4c 全门（BPF3）：塞单未命中=neutral/gates_passed；命中=poor/stuffing_gate——BPF3 唯一拒因', [fullClear.assessment, fullHit.assessment, fullClear.model], [{ bucket: 'neutral', prob: null, rule: 'gates_passed' }, { bucket: 'poor', prob: null, rule: 'stuffing_gate' }, 'factor@BPF3']);
+  check('B4d writeRow=false 不落行；writeRow=true 落一行 buy_point_analyses（model=factor@BPF3、无 participantProfile、signal_id 透传）', [db4.inserts.length, (await bp4.evaluateFactorBp(prepOK, { signalId: 's1', experimentId: 'e1' }, { writeRow: true })).status, db4.inserts.length, db4.inserts[0].table, db4.inserts[0].rows[0].signal_id, db4.inserts[0].rows[0].answers_raw.model, db4.inserts[0].rows[0].snapshot_digest.participantProfile], [0, 'assessed', 1, 'buy_point_analyses', 's1', 'factor@BPF3', null]);
+  const bpNoPersist = new BuyPointCheckService({ enabled: true, settleDelayMs: 0, persist: false }, SILENT,
+    { dbClient: mkDb().client, factorMode: true, loadLlm: neverLlm, now: () => T0, arbBotWallets: new Set() });
+  await bpNoPersist.evaluateFactorBp(prepOK, {}, { writeRow: true });
+  check('B4e persist=false（回测隔离）：writeRow=true 也不落行', bpNoPersist.stats.rowsWritten, 0);
+
+  // ── B5 活跃度门判定段：prebuilt ≡ 旧入口 + arm/trace 透出 ──
+  const db5 = mkDb();
+  const cs = new CheatCheckService({ enabled: true, settleDelayMs: 0 }, SILENT,
+    { dbClient: db5.client, factorMode: true, loadLlm: neverLlm, now: () => T0, pullTicks: memPull(normalTicks) });
+  const afLegacy = await cs.evaluateActFront('0xtok', META, {}, { anchorMs: 1 });
+  const afPre = await cs.evaluateActFront('0xtok', META, {}, { prebuilt: prep });
+  const pick = (o) => JSON.stringify({ status: o.status, act: o.act, sbw: o.sbw, wash: o.wash, path: o.path, version: o.version, model: o.model });
+  check('B5a 活跃度门 prebuilt ≡ 旧入口（status/act/sbw/wash/path/version/model）——本夹具 AF3 判 low（锚前稀疏小卖）', [pick(afPre) === pick(afLegacy), afLegacy.status, afLegacy.act, afLegacy.path], [true, 'assessed', 'low', 'reject_low']);
+  ok('B5b prebuilt 入口多带 arm（命中臂名）与 trace（判序数值锚）', typeof afPre.arm === 'string' && afPre.arm.length > 0 && afPre.trace && typeof afPre.trace === 'object', { arm: afPre.arm, trace: afPre.trace });
+  check('B5c 旧入口形状不变（无 arm/trace 键——G1 深比较锁）', ['arm' in afLegacy, 'trace' in afLegacy], [false, false]);
+  const afFew = await cs.evaluateActFront('0xtok', META, {}, { prebuilt: await bp2.prepareGateLayer('0xtok', META, {}, { pullTicks: pullOf(normalTicks.slice(0, 9)) }) });
+  const db5b = mkDb();
+  const csFew = new CheatCheckService({ enabled: true, settleDelayMs: 0, minTicks: 20 }, SILENT, { dbClient: db5b.client, factorMode: true, loadLlm: neverLlm, now: () => T0, arbBotWallets: new Set() });
+  const afFew20 = await csFew.evaluateActFront('0xtok', META, {}, { prebuilt: prep });
+  check('B5d minTicks 预门用 cheat 服务自身阈值（与 BP 服务各自阈值作用于同一锚计数）：不足=fail_open', [afFew.status, afFew.path ?? null, afFew20.status, afFew20.path], ['assessed', 'reject_low', 'insufficient_ticks', undefined]);
+
+  // ── B6 应答器形状 ──
+  check('B6a judgeActFrontFactor(null) 四键（旧形状）', FR.judgeActFrontFactor(null), { act: null, sbw: null, wash: null, model: 'factor@AF3' });
+  check('B6b judgeActFrontFactorFull(null) 六键', FR.judgeActFrontFactorFull(null), { act: null, sbw: null, wash: null, arm: null, trace: null, model: 'factor@AF3' });
+  const full = FR.judgeActFrontFactorFull({ derived: prep.snapshot.cheatDerived });
+  const four = FR.judgeActFrontFactor({ derived: prep.snapshot.cheatDerived });
+  check('B6c 同一判定：四键版 ≡ 全文版取四键', [four.act === full.act && four.sbw === full.sbw && four.model === full.model, typeof full.arm, typeof full.trace], [true, 'string', 'object']);
+})().catch((e) => { fail++; console.error(e && e.stack || e); }).finally(() => {
+  console.log(`\n${'='.repeat(60)}\n因子过滤门层单测：${pass} 通过，${fail} 失败`);
+  process.exit(fail > 0 ? 1 : 0);
+});

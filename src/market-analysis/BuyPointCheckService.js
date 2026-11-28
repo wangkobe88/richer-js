@@ -174,6 +174,7 @@ class BuyPointCheckService {
       factorAnswered: 0, // 因子代（Jev 退役）答案产出计数
       factorNoted: 0, factorAssessed: 0, factorBlocked: 0, factorInsufficient: 0, factorErrors: 0, // T143 因子门观测
       ppAggregated: 0, ppErrors: 0, ppSkippedDisabled: 0, // T193 参与者画像观察键
+      gateLayerPrepared: 0, insufficientHistory: 0, // T253 统一门层取数观测：取数次数 / 行环缺失或不完整（D4）
     };
   }
 
@@ -212,35 +213,43 @@ class BuyPointCheckService {
     if (!token) return { status: 'error', reason: 'invalid_token' };
     this.stats.factorNoted++;
     try {
-      // settle（waitIdle 双模同 _chain——实时尾部簇落定；回测 settleDelayMs=0 直通）
-      const waitIdle = this._deps.waitIdle;
-      if (waitIdle && this._settleDelayMs > 0) {
-        await Promise.race([
-          Promise.resolve(waitIdle(token)),
-          new Promise((r) => setTimeout(r, this._settleDelayMs)),
-        ]);
-        if (!this._deps.pullTicks) await new Promise((r) => setTimeout(r, this._settleFlushMs));
-      } else if (this._settleDelayMs > 0) {
-        await new Promise((r) => setTimeout(r, this._settleDelayMs));
+      // T253 统一门层：opts.prebuilt（prepareGateLayer 产物）在场 → 跳过 settle/拉数/建
+      // 快照直接判定——四组门共用同一份内存快照（零 DB 读）。缺省 undefined=原路径 bit 不变
+      const prebuilt = opts.prebuilt && opts.prebuilt.ok === true ? opts.prebuilt : null;
+      let snapshot;
+      if (prebuilt) {
+        snapshot = prebuilt.snapshot;
+      } else {
+        // settle（waitIdle 双模同 _chain——实时尾部簇落定；回测 settleDelayMs=0 直通）
+        const waitIdle = this._deps.waitIdle;
+        if (waitIdle && this._settleDelayMs > 0) {
+          await Promise.race([
+            Promise.resolve(waitIdle(token)),
+            new Promise((r) => setTimeout(r, this._settleDelayMs)),
+          ]);
+          if (!this._deps.pullTicks) await new Promise((r) => setTimeout(r, this._settleFlushMs));
+        } else if (this._settleDelayMs > 0) {
+          await new Promise((r) => setTimeout(r, this._settleDelayMs));
+        }
+        const _anchorMs = Number.isFinite(opts.anchorMs) && opts.anchorMs > 0 ? opts.anchorMs : null;
+        const pull = await this._pullTicks(token, _anchorMs);
+        if (pull.anchorTickCount < this._minTicks) {
+          this.stats.factorInsufficient++;
+          return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount };
+        }
+        const createMeta = await this._loadCreateMeta(token);
+        const meta = this._normalizeMeta(token, tokenMeta, pull, createMeta);
+        snapshot = buildBuyPointSnapshot(pull.rows, meta, {
+          capped: pull.capped,
+          anchorTickCount: pull.anchorTickCount,
+          signalInfo: context.signalId
+            ? { signalId: context.signalId, createdAt: context.signalCreatedAt || null, firePriceBnb: context.firePriceBnb ?? null, strategyName: context.strategyName || null }
+            : null,
+          // T198/FP30：arbBot 钱包集注入（实例缓存已解析=零查库；未启用时预热
+          // 未完成 → 空集=键 0 有证据零值恒放行 fail-open）
+          arbBotWallets: await this._loadArbBotWallets(),
+        });
       }
-      const _anchorMs = Number.isFinite(opts.anchorMs) && opts.anchorMs > 0 ? opts.anchorMs : null;
-      const pull = await this._pullTicks(token, _anchorMs);
-      if (pull.anchorTickCount < this._minTicks) {
-        this.stats.factorInsufficient++;
-        return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount };
-      }
-      const createMeta = await this._loadCreateMeta(token);
-      const meta = this._normalizeMeta(token, tokenMeta, pull, createMeta);
-      const snapshot = buildBuyPointSnapshot(pull.rows, meta, {
-        capped: pull.capped,
-        anchorTickCount: pull.anchorTickCount,
-        signalInfo: context.signalId
-          ? { signalId: context.signalId, createdAt: context.signalCreatedAt || null, firePriceBnb: context.firePriceBnb ?? null, strategyName: context.strategyName || null }
-          : null,
-        // T198/FP30：arbBot 钱包集注入（实例缓存已解析=零查库；未启用时预热
-        // 未完成 → 空集=键 0 有证据零值恒放行 fail-open）
-        arbBotWallets: await this._loadArbBotWallets(),
-      });
       const verdict = evaluateFactorPreBuyJudge(snapshot, {
         enableTailDipExempt: this._tailDipOrganicExempt,
         enableActStageCold: this._actStageColdExempt, // T205 fix①：act low 阶段前提
@@ -259,6 +268,128 @@ class BuyPointCheckService {
       this.stats.factorErrors++;
       this._log('warn', `因子门异常（fail-open 放行） | ${token} ${e?.message || e}`);
       return { status: 'error', reason: e?.message || String(e) };
+    }
+  }
+
+  /**
+   * 门层统一取数（T253 因子过滤门层，2026-11-28 用户裁定「共用一次取数，并且不要有任何
+   * 数据库取数，都应该是使用内存中的 ticks」）：四组门（因子门 FP / 活跃度门 AF / 作弊门 /
+   * BP 塞单门）共用的**一次**取数——settle（waitIdle 竞速帽，同 FP 语义；内存行即时可读
+   * 故无 settleFlushMs 尾随等待）→ 内存拉数（opts.pullTicks **必传**：实时=collector 行环
+   * _cheatRingPull / 回测=tick 索引 memPullTicksFromIndex）→ minTicks → 买点快照。
+   * **全程零 DB 读**：不走 _pullTicksDb / _loadCreateMeta（creator 取 tokenMeta，createTxHash
+   * 仅 Jev state 消费=因子代不需要）/ _shadowAudit / participantProfile。
+   * 行环完整性（D4）：条目完整 ⇔ 由 TokenCreate 播种且未被清扫；被清过环又复活的票
+   * pullTicks 返回 partial:true → 历史不完整（出生段/全史键会算错）→ 不冒充、按数据不足拒。
+   * @param {Function} opts.pullTicks (token, anchorMs) → {rows, anchorTickCount, capped, partial?} | null
+   * @returns {Promise<{ok:true, token:string, snapshot:Object, pull:Object, meta:Object}
+   *   | {ok:false, status:'insufficient_history', reason:'pullTicks_absent'|'ring_miss'|'ring_partial', anchorTickCount:number}
+   *   | {ok:false, status:'insufficient_ticks', anchorTickCount:number}
+   *   | {ok:false, status:'error', reason:string}>}
+   */
+  async prepareGateLayer(tokenAddress, tokenMeta = {}, context = {}, opts = {}) {
+    const token = String(tokenAddress || '').toLowerCase();
+    if (!token) return { ok: false, status: 'error', reason: 'invalid_token' };
+    this.stats.gateLayerPrepared++;
+    try {
+      const waitIdle = this._deps.waitIdle;
+      if (waitIdle && this._settleDelayMs > 0) {
+        await Promise.race([
+          Promise.resolve(waitIdle(token)),
+          new Promise((r) => setTimeout(r, this._settleDelayMs)),
+        ]);
+      } else if (this._settleDelayMs > 0) {
+        await new Promise((r) => setTimeout(r, this._settleDelayMs));
+      }
+      if (typeof opts.pullTicks !== 'function') {
+        this.stats.insufficientHistory++;
+        return { ok: false, status: 'insufficient_history', reason: 'pullTicks_absent', anchorTickCount: 0 };
+      }
+      const anchorMs = Number.isFinite(opts.anchorMs) && opts.anchorMs > 0 ? opts.anchorMs : null;
+      const mem = await opts.pullTicks(token, anchorMs);
+      if (!mem || !Array.isArray(mem.rows) || mem.rows.length === 0) {
+        this.stats.insufficientHistory++;
+        return { ok: false, status: 'insufficient_history', reason: 'ring_miss', anchorTickCount: 0 };
+      }
+      if (mem.partial === true) {
+        this.stats.insufficientHistory++;
+        return { ok: false, status: 'insufficient_history', reason: 'ring_partial', anchorTickCount: mem.anchorTickCount ?? mem.rows.length };
+      }
+      const pull = {
+        rows: mem.rows, anchorTickCount: mem.anchorTickCount, capped: !!mem.capped, partial: false, fromMem: true,
+        watermark: this._watermarkOf(mem.rows), quoteToken: this._latestQuoteToken(mem.rows),
+      };
+      if (pull.anchorTickCount < this._minTicks) {
+        this.stats.skippedInsufficientTicks++;
+        return { ok: false, status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount };
+      }
+      const meta = this._normalizeMeta(token, tokenMeta, pull, null);
+      const snapshot = buildBuyPointSnapshot(pull.rows, meta, {
+        capped: pull.capped,
+        anchorTickCount: pull.anchorTickCount,
+        arbBotWallets: await this._loadArbBotWallets(),
+      });
+      return { ok: true, token, snapshot, pull, meta };
+    } catch (e) {
+      this.stats.errors++;
+      this._log('warn', `门层取数异常 | ${token} ${e?.message || e}`);
+      return { ok: false, status: 'error', reason: e?.message || String(e) };
+    }
+  }
+
+  /**
+   * BP 门·统一门层判定段（T253）：在 prepareGateLayer 产物上判定——与 _chain 因子代分支
+   * 同形（stuffingOnly → 塞单门；否则 BPF3 全门=塞单门 + 塞单未命中归 neutral/gates_passed），
+   * 零 settle/拉数/建快照/PP。落行：仅 opts.writeRow ∧ persist（引擎按「BP 为全门 ∧ 未被
+   * 前门有效拒」给旗标——落行集合与旧门链逐位相同）。
+   * @returns {Promise<Object>} 与 _chain 因子代 assessed 返回同形；mapper 异常 → {status:'fail'}
+   */
+  async evaluateFactorBp(prebuilt, context = {}, opts = {}) {
+    try {
+      const { token, meta, pull, snapshot } = prebuilt;
+      // T213b：BP 只评塞单门（盘型/点位/活跃度/筹码全放行）——exactEqualBlockMaxWallets ≥8 拒
+      if (opts.stuffingOnly === true) {
+        const bd = snapshot.buyDerived || {};
+        const eqW = typeof bd.exactEqualBlockMaxWallets === 'number' ? bd.exactEqualBlockMaxWallets : null;
+        const hit = eqW !== null && eqW >= STUFFING_MAX_EQ_WALLETS;
+        this.stats.analyzed++;
+        this._log('info', `BP 塞单门-only（包策略） | eqWallets=${eqW ?? '-'} → ${hit ? '拒' : '放行'} | ${token}`);
+        return {
+          status: 'assessed',
+          assessment: hit
+            ? { bucket: 'poor', prob: null, rule: 'stuffing_gate' }
+            : { bucket: 'neutral', prob: null, rule: 'policy_stuffing_only' },
+          dimensions: null, anchors: null, model: null, usage: null,
+          policy: 'stuffingOnly',
+          ...(eqW !== null ? { stuffingEqWallets: eqW } : {}),
+        };
+      }
+      const res = answerBuyPointQuestions(snapshot);
+      this.stats.factorAnswered++;
+      let obs;
+      try {
+        obs = buildBuyPointObservation(res.answers, snapshot.buyDerived);
+      } catch (e) {
+        this.stats.errors++;
+        this._log('error', `BP 因子代观测组装异常（调用方拒） | ${token} ${e?.message || e}`);
+        return { status: 'fail', reason: 'mapper_error' };
+      }
+      if (opts.writeRow === true && this._persist) {
+        await this._writeRow(token, meta, pull, obs, { answers: res.answers, model: res.model, usage: res.usage, state: null }, context, snapshot, null);
+      }
+      this.stats.analyzed++;
+      return {
+        status: 'assessed',
+        assessment: obs.assessment,
+        dimensions: obs.dimensions,
+        anchors: obs.anchors,
+        model: res.model || null,
+        usage: res.usage || null,
+      };
+    } catch (e) {
+      this.stats.errors++;
+      this._log('error', `BP 统一门层判定异常（已吞，调用方拒） | ${prebuilt && prebuilt.token} ${e?.stack || e}`);
+      return { status: 'fail', reason: 'chain_error' };
     }
   }
 

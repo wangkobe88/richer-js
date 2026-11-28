@@ -93,7 +93,7 @@ const { buildCheatState } = require('./cheat-state-builder');
 const { buildObservation, readActivityLevel, readStallBurst, readPhenomenon } = require('./cheat-result-mapper');
 const { gradeObservation, levelsFromObservation, strongbackerShapeHit, STRONGBACKER_RULE_VERSION, CHEAT_RULESET_IDS } = require('./cheat-grade');
 // 因子代结论源（Jev 退役）：cheat 门 / AF 门在 deps.factorMode 下的唯一答案来源
-const { judgeCheatFactor, judgeActFrontFactor, CHEAT_FACTOR_VERSION, ACT_FRONT_FACTOR_VERSION } = require('./factor-responders');
+const { judgeCheatFactor, judgeActFrontFactor, judgeActFrontFactorFull, CHEAT_FACTOR_VERSION, ACT_FRONT_FACTOR_VERSION } = require('./factor-responders');
 
 const DEFAULTS = {
   timeoutMs: 30000,          // 单次分析整体超时（Jev 调用为主）
@@ -251,6 +251,7 @@ class CheatCheckService {
     // 因子路径不落任何进程态）
     this._factorJudge = deps.factorJudge || judgeCheatFactor;
     this._actFrontFactorJudge = deps.actFrontFactorJudge || judgeActFrontFactor;
+    this._actFrontFactorJudgeFull = deps.actFrontFactorJudgeFull || judgeActFrontFactorFull; // T253 统一门层（prebuilt）入口用
 
     // 进程内状态（重启即清：DB bootstrap 补偿跨进程连续性）
     this._failUntil = new Map();     // token → 冷却截止 ts
@@ -483,6 +484,10 @@ class CheatCheckService {
     // sbw≠burst 经 actFrontRoute 拒（reject_low/reject_ultra）
     if (this._factorMode) {
       this.stats.actFrontFactorJudged++;
+      // T253 统一门层：opts.prebuilt（BuyPointCheckService.prepareGateLayer 产物）在场 →
+      // 免 settle/拉数，在同一份内存快照的 cheatDerived 上判档（与 _actFrontPull 自建的
+      // cheat 快照 derived 同 rows 同 meta 时逐位相同——见 _test_gate_layer B 段对锁）
+      if (opts.prebuilt && opts.prebuilt.ok === true) return this._actFrontFactorFromPrebuilt(opts.prebuilt);
       return this._actFrontFactorChain(token, tokenMeta, context, opts);
     }
 
@@ -678,6 +683,46 @@ class CheatCheckService {
       // 接线级异常：fail-open 放行进 cheat（cheat/BP 门兜底）
       this.stats.errors++;
       this._log('warn', `AF 因子链异常 | ${token} ${e?.message || e}`);
+      this.stats.actFrontRouted.fail_open++;
+      return { status: 'fail', reason: e?.message || String(e) };
+    }
+  }
+
+  /**
+   * AF 因子代·统一门层判定段（T253）：在门层共享快照上判档——判定/分流/留痕与
+   * _actFrontFactorChain 同形（另带 arm/trace），仅拉数段被 prepareGateLayer 取代。
+   * minTicks 预门用本服务阈值（cheatCheck.minTicks），不足=fail-open 放行进 cheat（同旧）。
+   */
+  _actFrontFactorFromPrebuilt(prebuilt) {
+    try {
+      const pull = prebuilt.pull;
+      if (pull.anchorTickCount < this._minTicks) {
+        this.stats.skippedInsufficientTicks++;
+        this.stats.actFrontRouted.fail_open++;
+        return { status: 'insufficient_ticks', anchorTickCount: pull.anchorTickCount };
+      }
+      const derived = (prebuilt.snapshot && prebuilt.snapshot.cheatDerived) || null;
+      if (!derived) {
+        this.stats.actFrontRouted.fail_open++;
+        return { status: 'fail', reason: 'no_cheat_derived' };
+      }
+      const j = this._actFrontFactorJudgeFull({ derived });
+      const stageCold = this._gateActStageCold && isColdStage(
+        typeof derived.athVsLaunchPct === 'number' ? derived.athVsLaunchPct : null);
+      const stallRestart = evaluateStallRestart(derived);
+      const path = actFrontRoute(j.act, j.sbw === 'burst', j.wash, stageCold, j.act === 'low' && stallRestart.hit);
+      this.stats.actFrontRouted[path] = (this.stats.actFrontRouted[path] || 0) + 1;
+      return {
+        status: 'assessed', act: j.act, sbw: j.sbw, wash: j.wash, path,
+        version: ACT_FRONT_FACTOR_VERSION, model: j.model,
+        arm: j.arm ?? null, trace: j.trace ?? null,
+        ...(this._gateActStageCold ? { stageCold, athVsLaunchPct: typeof derived.athVsLaunchPct === 'number' ? derived.athVsLaunchPct : null } : {}),
+        ...(j.act === 'low' ? { stallRestart } : {}),
+      };
+    } catch (e) {
+      // 接线级异常：fail-open 放行进 cheat（cheat/BP 门兜底）
+      this.stats.errors++;
+      this._log('warn', `AF 因子链（统一门层）异常 | ${e?.message || e}`);
       this.stats.actFrontRouted.fail_open++;
       return { status: 'fail', reason: e?.message || String(e) };
     }

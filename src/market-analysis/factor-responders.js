@@ -118,17 +118,29 @@ function judgeCheatFactor(snapshot = null, opts = {}) {
  * wash 暂 null（Jev reject_wash 面极小，标定后单独立项——见 act-judge.js 头注）。
  * 分流仍走 actFrontRoute（low/ultra∧sbw≠burst → reject），由调用方执行。
  * @param {Object|null} snapshot - cheat 快照；null/无锚=act null fail-open（上游放行）
- * @returns {{act:string|null, sbw:'burst'|'none'|null, wash:null, model:string}}
+ * @returns {{act:string|null, sbw:'burst'|'none'|null, wash:null, arm:string|null, trace:Object|null, model:string}}
  */
-function judgeActFrontFactor(snapshot = null) {
+function judgeActFrontFactorFull(snapshot = null) {
   const derived = (snapshot && snapshot.derived) || null;
   if (!derived) {
-    return { act: null, sbw: null, wash: null, model: factorModel(ACT_FRONT_FACTOR_VERSION) };
+    return { act: null, sbw: null, wash: null, arm: null, trace: null, model: factorModel(ACT_FRONT_FACTOR_VERSION) };
   }
   const { judgeActLevel, judgeStallBurstWave } = require('./act-judge');
   const sbw = judgeStallBurstWave(derived);
   const level = judgeActLevel(derived, { sbwBurst: sbw === 'burst' });
-  return { act: level.act, sbw, wash: null, model: factorModel(ACT_FRONT_FACTOR_VERSION) };
+  // T253 因子过滤门层：arm（命中臂名）与 trace（判序数值锚）透出——信号页活跃度门行
+  // 展示「哪个臂命中、各锚值多少」；旧入口 judgeActFrontFactor 只取四键（形状锁不变）
+  return { act: level.act, sbw, wash: null, arm: level.arm ?? null, trace: level.trace ?? null, model: factorModel(ACT_FRONT_FACTOR_VERSION) };
+}
+
+/**
+ * 同一判定的四键版（旧入口形状锁：_actFrontFactorChain / G1 深比较）；T253 起统一门层
+ * 入口消费 judgeActFrontFactorFull（多带 arm/trace 供信号页活跃度门行展示）
+ * @returns {{act:string|null, sbw:'burst'|'none'|null, wash:null, model:string}}
+ */
+function judgeActFrontFactor(snapshot = null) {
+  const { act, sbw, wash, model } = judgeActFrontFactorFull(snapshot);
+  return { act, sbw, wash, model };
 }
 
 /**
@@ -149,6 +161,7 @@ module.exports = {
   buildFactorObservation,
   cheatFactorLevels,
   judgeCheatFactor,
+  judgeActFrontFactorFull,
   judgeActFrontFactor,
   answerBuyPointQuestions,
 };
