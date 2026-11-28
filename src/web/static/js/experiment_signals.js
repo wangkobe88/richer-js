@@ -35,6 +35,7 @@ const GATE_REASON_LABELS = {
   cheat_gate_unhealthy: '作弊门 unhealthy 拒（G17 通道触发；cheatRecheck 腿下个买信号自动重判）',
   bp_gate_assessment: 'BP 门判定拒（点位评估 poor，不在放行档 good/neutral）',
   bp_gate_insufficient_ticks: 'BP 门锚窗 tick 不足拒（数据不足=挡住，BP10 翻案 2026-11-07）',
+  bp_gate_insufficient_history: 'BP 门拒：内存行环历史不完整（断流超保留窗被清后复活 / 未播种票——不拿残缺历史冒充完整，T253）',
 };
 // T143 因子购买前检查门拒因映射（factor_gate_<code> 动态后缀——前缀匹配；
 // FP1 纯代码零 Jev，判定树=judgeRetailPvp 三步+CD 四臂升格门）
@@ -87,6 +88,15 @@ const BP_QUALITY_LABELS = { early_bird: '早鸟题', pullback_entry: '回调题'
 // CF1（无拒臂）/ BPF（塞单门未命中）与类型 policy 直通（policy_pass）四类留痕只留数据
 // 不渲染，活跃度看①因子门「活跃度流动性」分块（带强调行）；真拒买（含历史 BPF2 crash
 // 形态拒）照常显示
+// T253 因子过滤门层（2026-11-28 用户裁定三层模型归位）：买信号链路=① 触发层（买腿
+// condition）→ ② 判断层（同一份因子表归类 pointType，其 policy=门激活集）→ ③ 因子过滤门
+// （每个信号恒算全部门：上涨趋势值门 + 因子臂 + 活跃度门 + 作弊门 + 塞单门；未激活的门
+// 算了只展示不拦）。signal metadata.gateLayer 在场（全因子代包，引擎 _gateLayerEvaluate）
+// 的信号走三层流水线 + 「🧮 因子过滤门」卡（全部门行带 hit/activated/blocked 三元组，
+// 门行五态：拦 / 命中·未激活 / 命中·未参与决策 / 通过 / 值门）——含全豁类型与前门已拒的
+// 信号；旧 AF/作弊/BP 明细卡对其不再渲染。无 gateLayer 的历史信号保持原渲染。
+// 原「👁 观察因子」区已删（那是触发层 fire 因子表的原样 dump，不是门——用户裁定
+// 「当前展示的观察因子不是我想要的，我想要的是因子过滤门的信息」）。
 const isFactorGen = (info) => typeof (info && info.model) === 'string' && info.model.startsWith('factor@');
 const factorGenVersion = (info) => (isFactorGen(info) ? String(info.model).replace(/^factor@/, '') : '');
 // BPF2 crash 形态复核（历史行专用：Jev 题 BP69「无回调 + 无换手」价格拱复核的因子
@@ -4094,6 +4104,12 @@ class ExperimentSignals {
       // T216/T217 点位类型辨别（⓪层——信号 fire 后纯因子分类，类型路由后续门；
       // 段缺席=包未启用 pointType 模块=全门现行）
       const pointTypeInfo = metadata.pointType || null;
+      // T253 因子过滤门层（三层模型归位）：metadata.gateLayer 在场=统一门层信号（全因子代包）
+      // ——买信号链路按「① 触发层 → ② 判断层（点位类型）→ ③ 因子过滤门 → ④ 执行」三层展示，
+      // 每个信号都渲染因子过滤门卡（全部门行带 hit/activated/blocked 三元组）；无该段的历史
+      // 信号（Jev 代 / 旧门链）保持原有渲染
+      const gateLayerInfo = metadata.gateLayer || null;
+      const unifiedGate = !!gateLayerInfo && !!(factorCheckInfo && Array.isArray(factorCheckInfo.gates));
 
       // 门链触发行（2026-11-18 五层化；2026-11-26 四层化：活跃度并入②因子检查层）
       // 现行：⓪类型通路→①信号触发→②因子检查→③作弊→④BP 买点；
@@ -4180,16 +4196,21 @@ class ExperimentSignals {
           // T241：活跃度门 / 作弊门的 policy 文案按层语义写（Jev 代=AF1 直通/跳 Jev 题；
           // 因子代=AF2 不判档/CF1 放行——两种代次下同一条 policy 含义一致）
           actFront: { pass: ['活跃度门：直通', '前置活跃度门直通（坑位天然低活跃）'] },
-          cheatCheck: { g23: ['作弊门：g23 规则集', '作弊门现行 G 语义'], g23NoSlowGrind: ['作弊门：g23NoSlowGrind', '差集规则集：slowGrindPump strong 不拦+去 E 通道（famous 自然带量≠虚假拉盘）'], skip: ['作弊门：跳过', '跳作弊门（拉黑短路保留）'] },
+          cheatCheck: { g23: ['作弊门：g23 规则集', '作弊门现行 G 语义'], g23NoE: ['作弊门：g23NoE', '差集规则集：豁免 E 通道（act=low∧sbw≠burst 不拦——独舞形状本征）'], g23NoSlowGrind: ['作弊门：g23NoSlowGrind', '差集规则集：slowGrindPump strong 不拦+去 E 通道（famous 自然带量≠虚假拉盘）'], skip: ['作弊门：跳过', '跳作弊门（拉黑短路保留）'] },
           buyPoint: { stuffingOnly: ['BP：只评塞单门', 'BP 只评塞单门（≥8 等额同块 stuffing）'], skip: ['BP：直通', 'BP 整门跳过'] },
         };
         const chips = [];
+        if (unifiedGate) {
+          // T253：policy 的含义=本信号的「门激活集」——直接展示每组门激活了几道（算了不拦=未激活）
+          chips.push(this._gateActivationChips(factorCheckInfo.gates));
+        } else {
         for (const [dim, variants] of Object.entries(POLICY_CHIPS)) {
           const v = pol[dim] ? variants[pol[dim]] : null;
           if (v) chips.push(`<span class="px-1.5 py-0.5 rounded border border-indigo-400 bg-indigo-900 text-indigo-100 text-xs" title="${this._escapeHtml(v[1])}">${this._escapeHtml(v[0])}</span>`);
         }
         if (Array.isArray(pol.factorCheckArmExempt) && pol.factorCheckArmExempt.length) {
           chips.push(`<span class="px-1.5 py-0.5 rounded border border-amber-400 bg-amber-100 text-amber-900 text-xs" title="FP 臂差集（T217）：这些臂本类型不拦">FP 臂豁免 ${pol.factorCheckArmExempt.map((c) => this._escapeHtml(c)).join(',')}</span>`);
+        }
         }
         const snapKeys = Object.keys(pt.snapshot || {});
         const snapHtml = snapKeys.length
@@ -4198,7 +4219,7 @@ class ExperimentSignals {
         pointTypeHtml = `
         <div class="mb-2 border-l-4 border-indigo-500 pl-2">
           <div class="flex items-center flex-wrap gap-2 text-xs">
-            <span class="text-indigo-200 font-semibold">🧭 点位类型通路</span>
+            <span class="text-indigo-200 font-semibold">${unifiedGate ? '🧭 判断层 · 点位类型' : '🧭 点位类型通路'}</span>
             <span class="px-2 py-0.5 rounded-full border border-indigo-400 bg-indigo-900 text-indigo-100 font-bold">${this._escapeHtml(pt.label || pt.type || '?')} <code class="text-indigo-300">${this._escapeHtml(pt.type || '')}</code></span>
             <span class="text-gray-500">${this._escapeHtml(pt.version || '')}</span>
             ${chips.join(' ')}
@@ -4231,7 +4252,47 @@ class ExperimentSignals {
       const bpSilent = !!buyPointInfo && buyPointInfo.status === 'assessed' && buyPointInfo.assessment
         && ['good', 'neutral'].includes(String(buyPointInfo.assessment.bucket)) && !buyPointInfo.factorTrace
         && (isFactorGen(buyPointInfo) || buyPointInfo.policy === 'stuffingOnly' || buyPointInfo.assessment.rule === 'policy_stuffing_only');
-      if (signalGateInfo) {
+      if (signalGateInfo && unifiedGate) {
+        // T253 三层表述：① 触发层 → ② 判断层（pointType=门激活集）→ ③ 因子过滤门（全门恒算）
+        // → ④ 执行。活跃度门/作弊门/塞单门是③里的门组，不再各占一个流水线段
+        const sg = signalGateInfo;
+        const gl = gateLayerInfo;
+        const sm = gl.summary || {};
+        const snap = gl.snapshot || {};
+        const gatePass = gl.pass === true;
+        const primaryCode = gl.primary ? gl.primary.code : '';
+        const seg = (cls, text, title) => `<span class="px-1.5 py-0.5 rounded border text-xs ${cls}" title="${this._escapeHtml(title || '')}">${this._escapeHtml(text)}</span>`;
+        const typeName = pointTypeInfo ? (pointTypeInfo.label || pointTypeInfo.type || '?') : 'normal（未分类·全门现行）';
+        const dataNote = snap.complete === false
+          ? `取数失败 ${snap.status || ''}${snap.reason ? `（${snap.reason}）` : ''}`
+          : `内存一次取数 · 锚窗 ${snap.anchorTickCount ?? '—'} ticks`;
+        const execSeg = signal.executed
+          ? seg(PIPE_CLS.ok, '④ 执行 · 已买入', '门层放行后成交')
+          : (isRejected
+            ? seg(PIPE_CLS.rej, '④ 执行 · 未买入', `未成交：${executionReason || '被门层拒'}`)
+            : seg(PIPE_CLS.warn, '④ 执行 · 未成交', '未成交（非门层拒因）'));
+        signalGateHtml = `
+        <div class="mb-2">
+          <div class="flex items-center flex-wrap gap-2 text-xs">
+            <span class="text-amber-200 font-semibold">⚡ 买信号链路（三层）</span>
+            <span class="bg-gray-900 px-2 py-0.5 rounded border border-gray-600">触发腿 <code>${this._escapeHtml(String(sg.legId || '—'))}</code> · 第 ${this._escapeHtml(String(sg.triggerNo ?? '—'))}/${this._escapeHtml(String(sg.maxTriggers ?? 1))} 次触发</span>
+            ${genBadge}
+          </div>
+          <div class="flex items-center flex-wrap gap-1.5 mt-1">
+            ${seg(PIPE_CLS.ok, '① 触发层 · 条件成立', '买腿 condition（FA 因子表达式）成立，信号落库')}
+            <span class="text-gray-600 text-xs">→</span>
+            ${seg(PIPE_CLS.skip, `② 判断层 · ${typeName}`, '与触发层同一份因子表归类 pointType（零重算）；类型 policy 即本信号的门激活集')}
+            <span class="text-gray-600 text-xs">→</span>
+            ${seg(gatePass ? PIPE_CLS.ok : PIPE_CLS.rej, gatePass
+              ? `③ 因子过滤门 · 放行（激活 ${sm.activated}/${sm.total} 门）`
+              : `③ 因子过滤门 · 拒 ${primaryCode}`, gatePass ? '激活的门全部通过（未激活的门算了只展示不拦）' : `主拒门 ${primaryCode}`)}
+            <span class="text-gray-600 text-xs">→</span>
+            ${execSeg}
+          </div>
+          <div class="text-xs text-gray-300 mt-0.5">每个信号恒算全部门：共 ${sm.total} 门 · 激活 ${sm.activated} · 命中 ${sm.hit} · 拦 ${sm.blocked} · ${this._escapeHtml(dataNote)}</div>
+        </div>
+        `;
+      } else if (signalGateInfo) {
         const sg = signalGateInfo;
         const pipeSeg = (n, name, st) => `<span class="px-1.5 py-0.5 rounded border text-xs ${PIPE_CLS[st.cls] || PIPE_CLS.off}" title="${this._escapeHtml(st.title || '')}">${n} ${name} ${st.icon} ${this._escapeHtml(st.text)}</span>`;
         signalGateHtml = `
@@ -4273,7 +4334,11 @@ class ExperimentSignals {
       // 渲染「上涨趋势」子块（观察门与拦截解耦）
       const hasTrendObserve = !!factorCheckInfo && Array.isArray(factorCheckInfo.gates)
         && factorCheckInfo.gates.some((g) => g && g.category === 'trend');
-      if (factorCheckInfo && factorCheckInfo.status !== 'disabled'
+      if (unifiedGate) {
+        // T253：每个信号都渲染因子过滤门卡（含全豁类型、前门已拒的信号）——全部门行 +
+        // 算/拦状态；取代原「👁 观察因子」区（那是触发层 fire 因子表的原样 dump，不是门）
+        factorGateHtml = this._unifiedGateCardHtml(factorCheckInfo, gateLayerInfo, pointTypeInfo);
+      } else if (factorCheckInfo && factorCheckInfo.status !== 'disabled'
           && (factorCheckInfo.status !== 'policy_pass' || hasTrendObserve)) {
         const fStatus = factorCheckInfo.status || '';
         if (fStatus === 'assessed') {
@@ -4377,7 +4442,6 @@ class ExperimentSignals {
             ${armChips ? `<div class="flex flex-wrap gap-1 mb-1">${armChips} ${observeChip}</div>` : (observeChip ? `<div class="flex flex-wrap gap-1 mb-1">${observeChip}</div>` : '')}
             ${catBlocks.filter((b) => b.rows.some((ge) => ge.hit)).length ? `<div class="flex flex-wrap items-center gap-1 mb-1 text-xs"><span class="text-red-800">命中类别：</span>${catBlocks.filter((b) => b.rows.some((ge) => ge.hit)).map((b) => `<span class="px-1.5 py-0.5 rounded border border-red-300 bg-red-100 text-red-900">${this._escapeHtml(b.label)}（${b.rows.filter((ge) => ge.hit).length}）</span>`).join(' ')}</div>` : ''}
             ${gatesTable}
-            ${this._allObserveFactorsHtml(metadata)}
             ${traceRows ? `<details class="mt-1"><summary class="text-xs text-emerald-800 cursor-pointer select-none">📐 PVP 判定树计数（点开展开）</summary><div class="mt-1 grid grid-cols-2 gap-1 text-xs sm:grid-cols-3 lg:grid-cols-5">${traceRows}</div></details>` : ''}
           </div>
           `;
@@ -4398,7 +4462,6 @@ class ExperimentSignals {
             </div>
             <div class="text-xs text-gray-700 mb-1">点位类型 policy：因子门整门跳过（${this._escapeHtml(factorCheckInfo.policy || '')}）</div>
             ${trendChips}
-            ${this._allObserveFactorsHtml(metadata)}
           </div>
           `;
         } else if (fStatus === 'insufficient_ticks') {
@@ -4435,7 +4498,7 @@ class ExperimentSignals {
       const afHasVerdict = !!actFrontGateInfo && actFrontGateInfo.status !== 'disabled'
         && actFrontGateInfo.status !== 'policy_pass'
         && !(isFactorGen(actFrontGateInfo) && actFrontGateInfo.status === 'assessed' && actFrontGateInfo.path === 'mid_full');
-      if (afHasVerdict) {
+      if (afHasVerdict && !unifiedGate) {
         const afStatus = actFrontGateInfo.status || '';
         if (afStatus === 'assessed') {
           const act = actFrontGateInfo.act || null;
@@ -4493,7 +4556,7 @@ class ExperimentSignals {
       // （BP48 两质量题退役——历史行或含质量题区照展示）；insufficient_ticks=锚窗
       // 不足未判定放行；其余状态如实
       let buyPointHtml = '';
-      if (buyPointInfo && !bpSilent) {
+      if (buyPointInfo && !bpSilent && !unifiedGate) {
         const bpStatus = buyPointInfo.status || '';
         // T241/T243：标题按答案来源（Jev 代文案不变）——因子代 BPF3 只评塞单门；历史
         // BPF2 行带 crash 形态复核判据（分支 + 判据八键做成判据块，替代 Jev 代维度题区）
@@ -4834,7 +4897,7 @@ class ExperimentSignals {
       let cheatCheckHtml = '';
       // T243b：恒放行层静默（类型 policy 直通 / 因子代 CF1 无拒臂 healthy）——不渲染明细卡；
       // 因子代若产拒（grade=cheat/unhealthy）照常走下方 grade 分支
-      if (cheatCheckInfo && !cheatSilent) {
+      if (cheatCheckInfo && !cheatSilent && !unifiedGate) {
         const cs = cheatCheckInfo.status || '';
         if (cheatCheckInfo.grade) {
           const g = cheatCheckInfo.grade;
@@ -5484,56 +5547,110 @@ class ExperimentSignals {
   }
 
   /**
-   * T245 观察因子紧凑 chip（2026-11-28 用户指令「观察因子的展示完全可以紧凑一些」）：
-   * 键值对小方块，深色文字；null → '—'
+   * 紧凑「键 值」chip（T245 立；T253 起用于因子过滤门卡的上涨趋势值门行与活跃度门判序锚）：
+   * 深色文字；null → '—'
    */
   _observeChipHtml(label, value) {
     const v = (value === null || value === undefined) ? '—' : String(value);
     return `<span class="inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded border border-gray-300 leading-tight"><span>${this._escapeHtml(label)}</span><span class="font-mono font-semibold">${this._escapeHtml(v)}</span></span>`;
   }
 
-  /** T245 观察因子前缀域分组（全键紧凑网格的分块） */
-  _observeDomainOf(k) {
-    if (k.startsWith('act') || k.startsWith('anchor')) return '活跃度';
-    if (k.startsWith('chg') || k.startsWith('rise') || k.startsWith('swing') || k === 'priceMa60SlopePct' || k === 'max5sRisePct' || k.startsWith('rsi') || k.startsWith('trend') || k.startsWith('earlyReturn') || k.startsWith('recentRise') || k.startsWith('secSincePeak') || k === 'priceBackToAlmostLaunch') return '趋势动量';
-    if (k.startsWith('launch')) return '开盘';
-    if (k.startsWith('bundle') || k.startsWith('evenCluster')) return '捆绑簇';
-    if (k.startsWith('cheat')) return '作弊域';
-    if (k.startsWith('famous') || k.startsWith('smart') || k.startsWith('notorious') || k.startsWith('sybil') || k.startsWith('sniper') || k.startsWith('maxCopy')) return 'famous/名单';
-    if (k.startsWith('holder')) return '持仓';
-    if (k.startsWith('top1') || k.startsWith('top2') || k.startsWith('top3') || k.startsWith('top5')) return '持仓';
-    if (k.startsWith('narrative') || k.startsWith('tweet')) return '叙事';
-    if (k.startsWith('TPA')) return 'TPA';
-    if (k.startsWith('gmgn')) return 'GMGN';
-    if (k.startsWith('quiet') || k.startsWith('burst')) return '静默/波段';
-    if (k.startsWith('fresh') || k.startsWith('boughtBy') || k.startsWith('machine') || k.startsWith('arb') || k.startsWith('counterparty')) return '钱包质量';
-    return '其它';
+  /**
+   * T253 本类型激活的门 chips（判断层⓪卡 / 因子过滤门卡头）：按门组统计 activated 行数——
+   * 「因子臂 10/40 · 活跃度门 0/1 · 作弊门 1/1 · 塞单门 1/1 · 上涨趋势值门 0/11」。
+   * pointType policy 的唯一含义=本信号的「门激活集」：未激活的门算了只展示不拦。
+   */
+  _gateActivationChips(rows) {
+    const GROUPS = [['fp', '因子臂'], ['af', '活跃度门'], ['cheat', '作弊门'], ['bp', '塞单门'], ['trend', '上涨趋势值门']];
+    return GROUPS.map(([g, label]) => {
+      const rs = rows.filter((r) => r && r.group === g);
+      if (!rs.length) return '';
+      const on = rs.filter((r) => r.activated === true).length;
+      const cls = on === 0 ? 'border-gray-500 bg-gray-800 text-gray-400' : 'border-indigo-400 bg-indigo-900 text-indigo-100';
+      return `<span class="px-1.5 py-0.5 rounded border text-xs ${cls}" title="本类型激活的门 ${on}/${rs.length}（未激活=算了只展示不拦）">${this._escapeHtml(label)} ${on}/${rs.length}</span>`;
+    }).filter(Boolean).join(' ');
   }
 
   /**
-   * T245 全量观察因子区（2026-11-28 用户指令「其它因子也全部作为观察键，每个买入
-   * 信号所有的因子都要跑，只是一部分激活罢了」）：数据源=signal metadata.trendFactors
-   * （fire 因子表全量落库，FactorBuilder 白名单外全量透传）——按前缀域分组紧凑网格。
-   * 因子门臂（拦截）只激活部分，观察值全量展示。
+   * T253 门行五态（后端门行三元组 hit=原始判定 / activated=本类型激活 / blocked=有效拦截）：
+   *   🚫 拦          hit ∧ activated ∧ blocked——本信号的有效拒因之一
+   *   命中·未激活     hit ∧ ¬activated——门命中但本类型没激活它：算了只展示不拦
+   *   命中·未参与决策  hit ∧ activated ∧ ¬blocked——链序更靠前的门已认领 / 臂被豁免 / 让位
+   *   ✓ 通过 / —     未命中（— =未激活的门）
+   *   值门           hit=null——未设判据线，只出值
    */
-  _allObserveFactorsHtml(metadata) {
-    const tf = metadata && typeof metadata.trendFactors === 'object' ? metadata.trendFactors : null;
-    if (!tf) return '';
-    const domains = new Map();
-    for (const k of Object.keys(tf)) {
-      const d = this._observeDomainOf(k);
-      if (!domains.has(d)) domains.set(d, []);
-      domains.get(d).push(k);
+  _gateRowState(r) {
+    // 配色按本页深色主题（亮字 + 深色底纹）
+    if (r.blocked === true) return { cls: 'bg-red-900/40', text: '🚫 拦', tcls: 'text-red-300 font-bold', title: '命中且本类型激活=本信号的有效拒因' };
+    if (r.hit === null) return { cls: '', text: '值门', tcls: 'text-gray-400', title: '未设判据线（只出值，恒不激活）' };
+    if (r.hit === true) {
+      if (r.activated !== true) return { cls: 'bg-amber-900/30', text: '命中·未激活', tcls: 'text-amber-300', title: '门命中，但本类型未激活这道门——算了只展示不拦' };
+      return { cls: 'bg-amber-900/30', text: '命中·未参与决策', tcls: 'text-amber-200', title: '命中且本类型激活，但不是有效拒因（链序更靠前的门已认领 / 臂被豁免 / pvp 让位于活跃度拒因）' };
     }
-    const blocks = [...domains.entries()].map(([d, keys]) => {
-      const chips = keys.map((k) => this._observeChipHtml(k, tf[k])).join('');
-      return `<div class="mt-1"><span class="text-xs font-semibold">${this._escapeHtml(d)}</span><div class="mt-0.5 flex flex-wrap gap-1">${chips}</div></div>`;
-    }).join('');
-    return `
-            <details class="mt-1">
-              <summary class="text-xs text-emerald-800 cursor-pointer select-none">👁 观察因子（全量已跑 · 仅部分臂激活拦截）· ${Object.keys(tf).length} 键</summary>
-              ${blocks}
+    if (r.exempt) return { cls: 'bg-indigo-900/40', text: '⏭ 通路命中', tcls: 'text-indigo-300', title: '停滞再启动通路（命中=让位豁免，不是拦截门）' };
+    return { cls: '', text: r.activated === true ? '✓ 通过' : '—', tcls: r.activated === true ? 'text-green-300' : 'text-gray-500', title: r.activated === true ? '未命中' : '未命中（本类型未激活）' };
+  }
+
+  /**
+   * T253 🧮 因子过滤门卡（统一门层信号，每个信号都渲染——含全豁类型、前门已拒的信号）：
+   * 汇总行 + 取数行 + 本类型激活门 + 上涨趋势值门（紧凑 chip）+ 按八类分块的全部门行
+   * （因子臂 40 + 活跃度门 + 作弊门 + 塞单门，各带五态）。数据源=metadata.factorCheck.gates
+   * （后端门层编排器产出的全集）与 metadata.gateLayer（层汇总）。取代原「👁 观察因子」区
+   * （那是触发层 fire 因子表的原样 dump，不是门——2026-11-28 用户裁定）。
+   */
+  _unifiedGateCardHtml(fc, gl, pt) {
+    const rows = Array.isArray(fc.gates) ? fc.gates : [];
+    const sm = gl.summary || {};
+    const pass = gl.pass === true;
+    const primary = gl.primary || null;
+    const snap = gl.snapshot || {};
+    const typeName = pt ? (pt.label || pt.type || '?') : 'normal（未分类·全门现行）';
+    const badge = pass
+      ? '<span class="text-xs px-2 py-1 bg-green-200 text-green-900 rounded-full font-bold">✅ 放行</span>'
+      : `<span class="text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 拒 ${this._escapeHtml(primary ? primary.code : '')}</span>`;
+    const dataLine = snap.complete === false
+      ? `⚠ 门层取数失败：${this._escapeHtml(String(snap.status || '—'))}${snap.reason ? `（${this._escapeHtml(String(snap.reason))}）` : ''}——因子臂/活跃度门无法判定（放行），BP 门 fail-closed`
+      : `取数：内存一次（锚窗 ${this._escapeHtml(String(snap.anchorTickCount ?? '—'))} ticks${snap.capped ? '，封顶' : ''}，四门同一份快照）`;
+    const trendRows = rows.filter((r) => r.group === 'trend');
+    const gateRows = rows.filter((r) => r.group !== 'trend');
+    const rowHtml = (r) => {
+      const st = this._gateRowState(r);
+      const trace = r.id === 'af_act_level' && r.trace && typeof r.trace === 'object'
+        ? `<tr><td colspan="4" class="px-2 pb-1 border-t border-gray-700"><details><summary class="text-xs text-gray-400 cursor-pointer select-none">判序锚（${Object.keys(r.trace).length} 项）</summary><div class="mt-1 flex flex-wrap gap-1">${Object.keys(r.trace).map((k) => this._observeChipHtml(k, r.trace[k])).join('')}</div></details></td></tr>`
+        : '';
+      return `<tr class="${st.cls}"><td class="px-2 py-0.5 border-t border-gray-600 whitespace-nowrap">${this._escapeHtml(r.label || r.id)}</td><td class="px-2 py-0.5 border-t border-gray-600 font-mono whitespace-nowrap">${this._escapeHtml(r.value || '—')}</td><td class="px-2 py-0.5 border-t border-gray-600 text-gray-400 w-full">${this._escapeHtml(r.line || '')}</td><td class="px-2 py-0.5 border-t border-gray-600 whitespace-nowrap ${st.tcls}" title="${this._escapeHtml(st.title || '')}">${st.text}</td></tr>${trace}`;
+    };
+    const blockHtml = (b) => {
+      const blk = b.rows.filter((r) => r.blocked === true).length;
+      const hit = b.rows.filter((r) => r.hit === true).length;
+      const off = b.rows.filter((r) => r.activated !== true && r.hit !== null).length;
+      const summary = `（${b.rows.length} 门${blk ? ` · 🚫 拦 ${blk}` : ''}${hit > blk ? ` · 命中 ${hit}` : ''}${off ? ` · 未激活 ${off}` : ''}）`;
+      return `
+            <details class="mt-1" open>
+              <summary class="text-xs ${blk ? 'text-red-300 font-bold' : 'text-emerald-300'} cursor-pointer select-none">🧩 ${this._escapeHtml(b.label)} · ${this._escapeHtml(b.question)}${summary}</summary>
+              <div class="mt-1 overflow-x-auto"><table class="w-full text-xs border border-gray-600"><thead><tr class="bg-gray-200"><th class="text-left px-2 py-0.5 whitespace-nowrap">门</th><th class="text-left px-2 py-0.5 whitespace-nowrap">值</th><th class="text-left px-2 py-0.5 w-full">线</th><th class="text-left px-2 py-0.5 whitespace-nowrap">算 / 拦</th></tr></thead><tbody>${b.rows.map(rowHtml).join('')}</tbody></table></div>
             </details>`;
+    };
+    const catBlocks = FACTOR_GATE_CATEGORIES
+      .map((c) => ({ ...c, rows: gateRows.filter((row) => factorGateCategoryOf(row) === c.id) }))
+      .filter((b) => b.rows.length);
+    const trendCat = FACTOR_GATE_CATEGORIES.find((c) => c.id === 'trend') || {};
+    const trendHtml = trendRows.length
+      ? `<details class="mt-1" open><summary class="text-xs text-emerald-300 cursor-pointer select-none">🧩 ${this._escapeHtml(trendCat.label || '上涨趋势')} · ${this._escapeHtml(trendCat.question || '')}（${trendRows.length} 键 · 值门 · 全类型不激活）</summary><div class="mt-1 flex flex-wrap gap-1">${trendRows.map((g) => this._observeChipHtml(g.id, g.value)).join('')}</div></details>`
+      : '';
+    const unclassified = gateRows.filter((row) => !factorGateCategoryOf(row));
+    return `
+          <div class="mt-2 pt-2 border-t border-emerald-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-emerald-300">🧮 因子过滤门 · 判断层「${this._escapeHtml(typeName)}」</div>
+              ${badge}
+            </div>
+            <div class="text-xs text-gray-300 mb-1">共 ${sm.total ?? rows.length} 门 · 本类型激活 ${sm.activated ?? '-'} · 命中 ${sm.hit ?? '-'} · 拦 ${sm.blocked ?? '-'} · ${dataLine}</div>
+            ${trendHtml}
+            ${catBlocks.map(blockHtml).join('')}
+            ${unclassified.length ? `<div class="mt-1 text-xs text-amber-300">⚠ 未归类的门：${unclassified.map((row) => this._escapeHtml(row.id)).join(', ')}（分类表未登记）</div>` : ''}
+          </div>
+          `;
   }
 
   /**

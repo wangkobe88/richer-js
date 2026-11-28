@@ -164,6 +164,9 @@ const mkSig = (md, extra = {}) => ({
 });
 const sgBase = { legId: 't0', triggerNo: 1, maxTriggers: 2, bpPassLevels: ['good', 'neutral'] };
 const render = (md, extra) => { try { return inst.createSignalCard(mkSig(md, extra)).innerHTML || ''; } catch (e) { return `__RENDER_ERROR__ ${e.stack}`; } };
+// C8 用：后端分类表（A 段已对锁与前端镜像逐项相等）+ 与页面 factorGateCategoryOf 同款的归类
+const FACTOR_GATE_CATEGORIES_JS = FP.FACTOR_GATE_CATEGORIES;
+const factorGateCategoryOf = (row) => (row && row.category) || FP.FACTOR_GATE_CATEGORY_BY_ID[row && row.id] || null;
 const nulls = (keys) => Object.fromEntries(keys.map((k) => [k, null]));
 const LVL = ['equalAmountSplit', 'coordinatedSellBack', 'sellDispersion', 'stallBurstWave', 'amountTiering', 'sameBlockBuyWave', 'insiderSupplySell', 'slowGrindPump', 'washPair', 'activityLevel'];
 // 因子代三段 metadata（service 返回形状）
@@ -324,6 +327,76 @@ console.log('\nC. 信号页渲染');
 }
 
 (async () => {
+// ═══════════ C8. 统一门层信号（T253：metadata.gateLayer 在场）——三层流水线 + 因子过滤门卡 ═══════════
+// 夹具用真后端产物（factor-pre-buy-check 全臂 + gate-layer decideGateLayer）拼 metadata，
+// 与引擎 _gateLayerEvaluate 一次写入的五段同形——页面只读不推导
+{
+  const FPmod = require(path.join(ROOT, 'src/market-analysis/factor-pre-buy-check.js'));
+  const GL = require(path.join(ROOT, 'src/trading-engine/core/gate-layer.js'));
+  const { POINT_TYPES } = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));
+  const STEADY = POINT_TYPES.find((t) => t.id === 'steady_trend_climb');
+  const base = (bd = {}, cd = {}) => ({ ticks: [{ dt: 400 }], wallets: [{ maxBuyBnb: 0.2994 }],
+    buyDerived: Object.assign({ activity: { nearTail10BuyN: 3, nearTail10SellBnb: 0.2 } }, bd), cheatDerived: Object.assign({}, cd) });
+  const TREND = { riseLegSec: 4.2, surgeStartSec: null };
+  const afMid = { status: 'assessed', act: 'mid', sbw: 'none', wash: null, path: 'mid_full', version: 'AF3', model: 'factor@AF3', arm: 'near_alive', trace: { idlePct: 12, nearSegBnbPerMin: 0.5 } };
+  const afLow = { status: 'assessed', act: 'low', sbw: 'none', wash: null, path: 'reject_low', version: 'AF3', model: 'factor@AF3', arm: 'near_dead', trace: { idlePct: 70 } };
+  const cf1 = { status: 'analyzed', grade: 'healthy', reasons: [], levels: { stallBurstWave: null }, buckets: {}, anchors: {}, model: 'factor@CF1' };
+  const bpNeutral = { status: 'assessed', assessment: { bucket: 'neutral', prob: null, rule: 'gates_passed' }, anchors: { exactEqualBlockMaxWallets: 2 }, model: 'factor@BPF3', usage: null };
+  const PREP_OK = { ok: true, token: '0xtok', pull: { anchorTickCount: 12, capped: false }, meta: {} };
+  /** 统一门层 metadata（五段，与引擎写入同形） */
+  const unifiedMd = ({ policy = null, pt = null, fpSnap = base(), cheat = cf1, af = afMid, prep = PREP_OK, bp = bpNeutral } = {}) => {
+    const activation = GL.resolveGateActivation(policy);
+    const fp = prep.ok ? Object.assign({ status: 'assessed' }, FPmod.evaluateFactorPreBuy(fpSnap, { trendFactors: TREND })) : null;
+    const dec = GL.decideGateLayer({ activation, prep, fp, af: prep.ok ? af : null, cheat, bp: prep.ok ? bp : null, trendFactors: TREND });
+    const gateLayer = GL.buildGateLayerSection({ activation, prep, rows: dec.sections.factorCheck.gates, primary: dec.primary, pass: dec.pass });
+    return Object.assign({ signalGate: sgBase, pointType: pt, strategyId: 'pack-1' }, dec.sections, { gateLayer });
+  };
+  const ptOf = (t) => ({ type: t.id, label: t.label, policy: t.policy, version: 'PT81', snapshot: {} });
+  const ptNormal = { type: 'normal', label: '普通点位（低活跃 / 未进活跃度类型）', policy: {}, version: 'PT81', snapshot: {} };
+  const has = (html, needle) => html.includes(needle);
+  const not = (html, needle) => !html.includes(needle);
+
+  // C8a 全过（normal）：三层流水线 + 因子过滤门卡（54 门行齐全）+ ⓪判断层卡激活摘要
+  const ok_ = render(unifiedMd({ pt: ptNormal }), { executed: true, execution_status: 'executed', failure_message: null });
+  ok('C8a 全过：三层流水线（① 触发层 → ② 判断层 → ③ 因子过滤门·放行 → ④ 执行·已买入），不再出现旧四层表述',
+    [has(ok_, '买信号链路（三层）'), has(ok_, '① 触发层 · 条件成立'), has(ok_, '② 判断层 · 普通点位'), has(ok_, '③ 因子过滤门 · 放行（激活 41/54 门）'), has(ok_, '④ 执行 · 已买入'),
+      not(ok_, '信号源门链（四层）'), not(ok_, '观察因子'), not(ok_, '因子购买前检查门')], [true, true, true, true, true, true, true, true]);
+  ok('C8a 卡头：🧮 因子过滤门 · 判断层 + 放行徽章 + 汇总行（共 54 门·激活 41·命中 0·拦 0）+ 取数行（内存一次·锚窗 12 ticks）',
+    [has(ok_, '🧮 因子过滤门 · 判断层「普通点位'), has(ok_, '✅ 放行'), has(ok_, '共 54 门 · 本类型激活 41 · 命中 0 · 拦 0'), has(ok_, '取数：内存一次（锚窗 12 ticks')], [true, true, true, true]);
+  ok('C8a 本类型激活的门 chips（⓪判断层卡与门卡头各一份）：因子臂 38/40 · 活跃度门 1/1 · 作弊门 1/1 · 塞单门 1/1 · 上涨趋势值门 0/11',
+    [has(ok_, '因子臂 38/40'), has(ok_, '活跃度门 1/1'), has(ok_, '作弊门 1/1'), has(ok_, '塞单门 1/1'), has(ok_, '上涨趋势值门 0/11'), has(ok_, '🧭 判断层 · 点位类型')], [true, true, true, true, true, true]);
+  const blocksOf = (html) => (html.match(/🧩 [^·]+·/g) || []).map((x) => x.replace('🧩 ', '').replace(/·$/, '').trim());
+  check('C8a 八类分块齐全（上涨趋势值门块在前——继承触发层因子；其余七类按注册表序）', blocksOf(ok_), ['上涨趋势'].concat(FACTOR_GATE_CATEGORIES_JS.filter((c) => c.id !== 'trend').map((c) => c.label)));
+  ok('C8a 上涨趋势值门块：紧凑「键 值」chip + 标「值门 · 全类型不激活」',
+    [has(ok_, '🧩 上涨趋势 · 这个上涨趋势是健康持续还是出货集中（11 键 · 值门 · 全类型不激活）'), /riseLegSec<\/span><span class="font-mono font-semibold">4\.2s<\/span>/.test(ok_), has(ok_, 'surgeStartSec</span><span class="font-mono font-semibold">—</span>')], [true, true, true]);
+  ok('C8a 门行五态列（算 / 拦）：未命中=✓ 通过；活跃度门行带 arm/path + 判序锚可展开；作弊门行如实标 CF1 无判据；塞单门行有锚值',
+    [has(ok_, '<th class="text-left px-2 py-0.5">算 / 拦</th>'), has(ok_, '✓ 通过'), has(ok_, 'AF3·活跃度判档'), has(ok_, 'act=mid arm=near_alive sbw=none path=mid_full'), has(ok_, '判序锚（2 项）'),
+      has(ok_, '作弊门 CF1（因子代）'), has(ok_, '恒放行（无专属判据）'), has(ok_, 'BP77·同块等额塞单'), has(ok_, '同块等额买入最大簇 2 钱包')], [true, true, true, true, true, true, true, true, true]);
+
+  // C8b 因子门拒：后三门恒算留痕（not_reached 的门行照常在表里），终态徽章带拒因码
+  const rej = render(unifiedMd({ pt: ptNormal, fpSnap: base({}, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }) }));
+  ok('C8b 因子门拒：③ 拒 factor_gate_cd400… · 🚫 拒徽章 · cd400 行 🚫 拦 · 活跃度/作弊/塞单门行仍在表（恒算）· ④ 执行·未买入',
+    [has(rej, '③ 因子过滤门 · 拒 factor_gate_cd400_dump_no_absorption'), has(rej, '🚫 拒 factor_gate_cd400_dump_no_absorption'), has(rej, '🚫 拦'), has(rej, 'CD400·贴锚砸出零承接'),
+      has(rej, 'AF3·活跃度判档'), has(rej, '作弊门 CF1（因子代）'), has(rej, 'BP77·同块等额塞单'), has(rej, '④ 执行 · 未买入'), has(rej, '共 54 门 · 本类型激活 41 · 命中 1 · 拦 1')], [true, true, true, true, true, true, true, true, true]);
+
+  // C8c 全豁类型（steady）：原始命中但全不激活——「命中·未激活」而非 🚫；照常放行
+  const exempt = render(unifiedMd({ policy: STEADY.policy, pt: ptOf(STEADY), fpSnap: base({}, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 }), af: afLow }), { executed: true, execution_status: 'executed', failure_message: null });
+  ok('C8c 全豁类型：命中·未激活（算了不拦）×2（cd400+活跃度门）、拦 0、放行；激活 chips 因子臂 0/40 · 活跃度门 0/1 · 作弊门 0/1',
+    [has(exempt, '命中·未激活'), not(exempt, '🚫 拦'), has(exempt, '✅ 放行'), has(exempt, '③ 因子过滤门 · 放行（激活 1/54 门）'), has(exempt, '因子臂 0/40'), has(exempt, '活跃度门 0/1'), has(exempt, '作弊门 0/1'), has(exempt, '塞单门 1/1'),
+      (exempt.match(/命中·未激活/g) || []).length], [true, true, true, true, true, true, true, true, 2]);
+
+  // C8d 取数失败（行环残缺）：取数行显式 + BP fail-closed 拒 + 门行值标「历史不完整」
+  const partial = render(unifiedMd({ pt: ptNormal, prep: { ok: false, status: 'insufficient_history', reason: 'ring_partial', anchorTickCount: 12 } }));
+  ok('C8d 行环残缺：取数失败 insufficient_history（ring_partial）· 🚫 拒 bp_gate_insufficient_history · 趋势值门 11 行照常 · 三门行值标历史不完整',
+    [has(partial, '取数失败 insufficient_history（ring_partial）'), has(partial, '🚫 拒 bp_gate_insufficient_history'), has(partial, '共 14 门'), has(partial, '历史不完整（ring_partial）'), not(partial, '观察因子')], [true, true, true, true, true]);
+
+  // C8e 历史信号（无 gateLayer）保持原渲染：四层流水线、无三层表述、无观察因子
+  const fcLegacy = (gates) => ({ status: 'assessed', pass: true, version: 'FP48', trace: {}, arms: [], gates });
+  const legacy = render({ signalGate: sgBase, factorCheck: fcLegacy(GATES_LEGACY.map((g) => ({ ...g, category: factorGateCategoryOf(g) }))), cheatCheck: CH_F, buyPoint: bpFactor() });
+  ok('C8e 历史行：仍是四层流水线 + 因子购买前检查门，无三层表述/因子过滤门卡/观察因子',
+    [has(legacy, '信号源门链（四层）'), has(legacy, '因子购买前检查门'), not(legacy, '买信号链路（三层）'), not(legacy, '🧮 因子过滤门'), not(legacy, '观察因子')], [true, true, true, true, true]);
+}
+
 console.log('\nD. ⓪点位类型通路卡：判据表达式 + 逐子句因子 chips');
 {
   const PTR = require(path.join(ROOT, 'src/market-analysis/point-type-router.js'));

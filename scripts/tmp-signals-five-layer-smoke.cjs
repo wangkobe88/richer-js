@@ -268,6 +268,57 @@ function render(md, extra) {
     ok(!h.includes('上涨腿时长</span><span class="font-mono'), 'H: chip 标签位不用中文 label（修前用 g.label）');
   }
 
+  // I 统一门层信号（T253 因子过滤门层，2026-11-28 用户裁定三层模型归位）：metadata.gateLayer
+  // 在场=全因子代包——三层流水线（① 触发层 → ② 判断层 → ③ 因子过滤门 → ④ 执行）+ 每个信号
+  // 都渲染的「🧮 因子过滤门」卡；原「👁 观察因子」区（触发层 fire 因子表 dump，不是门）已删。
+  // 夹具用真后端产物（factor-pre-buy-check 全臂 + gate-layer 决策核）拼五段，与引擎写入同形
+  {
+    const FP = require(path.join(__dirname, '../src/market-analysis/factor-pre-buy-check.js'));
+    const GL = require(path.join(__dirname, '../src/trading-engine/core/gate-layer.js'));
+    const { POINT_TYPES } = require(path.join(__dirname, '../src/market-analysis/point-type-router.js'));
+    const base = (bd = {}, cd = {}) => ({ ticks: [{ dt: 400 }], wallets: [{ maxBuyBnb: 0.2994 }],
+      buyDerived: Object.assign({ activity: { nearTail10BuyN: 3, nearTail10SellBnb: 0.2 } }, bd), cheatDerived: Object.assign({}, cd) });
+    const TREND = { riseLegSec: 4.2 };
+    const PREP = { ok: true, token: '0xtok', pull: { anchorTickCount: 12, capped: false }, meta: {} };
+    const cheat = { status: 'analyzed', grade: 'healthy', reasons: [], levels: { stallBurstWave: null }, model: 'factor@CF1' };
+    const bp = { status: 'assessed', assessment: { bucket: 'neutral', prob: null, rule: 'gates_passed' }, anchors: { exactEqualBlockMaxWallets: 2 }, model: 'factor@BPF3' };
+    const md = (policy, pt, fpSnap, af) => {
+      const activation = GL.resolveGateActivation(policy);
+      const fp = Object.assign({ status: 'assessed' }, FP.evaluateFactorPreBuy(fpSnap, { trendFactors: TREND }));
+      const dec = GL.decideGateLayer({ activation, prep: PREP, fp, af, cheat, bp, trendFactors: TREND });
+      const gateLayer = GL.buildGateLayerSection({ activation, prep: PREP, rows: dec.sections.factorCheck.gates, primary: dec.primary, pass: dec.pass });
+      return Object.assign({ signalGate: sgBase, pointType: pt }, dec.sections, { gateLayer });
+    };
+    const ptNormal = { type: 'normal', label: '普通点位（低活跃 / 未进活跃度类型）', policy: {}, version: 'PT81', snapshot: {} };
+    const afHigh = { status: 'assessed', act: 'high', sbw: 'none', wash: null, path: 'high_skip', version: 'AF3', model: 'factor@AF3', arm: 'near_dense', trace: { idlePct: 2 } };
+    const dump = base({}, { nearDumpQualBlocks: 1, nearDumpMinAbsorbBnb: 0.01 });
+
+    const iPass = render(md(null, ptNormal, base(), afHigh), { executed: true, execution_status: 'executed', failure_message: null });
+    ok(iPass.includes('买信号链路（三层）') && iPass.includes('① 触发层 · 条件成立') && iPass.includes('② 判断层 · 普通点位')
+      && iPass.includes('③ 因子过滤门 · 放行') && iPass.includes('④ 执行 · 已买入'), 'I1 全过：三层流水线（触发层 → 判断层 → 因子过滤门·放行 → 执行·已买入）');
+    ok(!iPass.includes('信号源门链（四层）') && !iPass.includes('观察因子') && !iPass.includes('因子购买前检查门'), 'I2 旧四层表述 / 👁 观察因子 / 旧因子门卡标题不再出现');
+    // 激活 40=因子臂 38 + 活跃度门 1 + 塞单门 1；作弊门被活跃度 high_skip 路由让位=未激活
+    ok(iPass.includes('🧮 因子过滤门 · 判断层「普通点位') && iPass.includes('共 54 门 · 本类型激活 40') && iPass.includes('取数：内存一次（锚窗 12 ticks'),
+      'I3 门卡头：判断层类型 + 汇总行（54 门·激活 40——作弊门被活跃度 high_skip 让位未激活）+ 取数行（内存一次）');
+    ok(iPass.includes('🧩 上涨趋势 · 这个上涨趋势是健康持续还是出货集中（11 键 · 值门 · 全类型不激活）')
+      && iPass.includes('riseLegSec</span><span class="font-mono font-semibold">4.2s</span>'), 'I4 上涨趋势值门块：键名 chip + 值门·全类型不激活');
+    ok(iPass.includes('作弊门 CF1（因子代）') && iPass.includes('恒放行（无专属判据）') && iPass.includes('BP77·同块等额塞单')
+      && iPass.includes('AF3·活跃度判档') && iPass.includes('act=high arm=near_dense sbw=none path=high_skip'), 'I5 活跃度门行（带 arm/path）/ 作弊门行如实标 CF1 无判据 / 塞单门行带锚值');
+    ok(iPass.includes('🧭 判断层 · 点位类型') && iPass.includes('因子臂 38/40') && iPass.includes('上涨趋势值门 0/11'), 'I6 ⓪判断层卡：本类型激活的门 chips（因子臂 38/40 · 上涨趋势值门 0/11）');
+
+    const steady = POINT_TYPES.find((t) => t.id === 'steady_trend_climb');
+    const iExempt = render(md(steady.policy, { type: steady.id, label: steady.label, policy: steady.policy, version: 'PT81', snapshot: {} }, dump,
+      { status: 'assessed', act: 'low', sbw: 'none', wash: null, path: 'reject_low', version: 'AF3', model: 'factor@AF3', arm: 'near_dead', trace: {} }),
+      { executed: true, execution_status: 'executed', failure_message: null });
+    ok(iExempt.includes('③ 因子过滤门 · 放行（激活 1/54 门）') && iExempt.includes('命中·未激活') && !iExempt.includes('🚫 拦'),
+      'I7 全豁类型：原始命中显示「命中·未激活」（算了不拦）、拦 0、照常放行');
+
+    const iRej = render(md(null, ptNormal, dump, afHigh));
+    ok(iRej.includes('③ 因子过滤门 · 拒 factor_gate_cd400_dump_no_absorption') && iRej.includes('🚫 拒 factor_gate_cd400_dump_no_absorption')
+      && iRej.includes('🚫 拦') && iRej.includes('④ 执行 · 未买入') && iRej.includes('共 54 门 · 本类型激活 40 · 命中 1 · 拦 1'),
+      'I8 因子门拒：③ 拒 + 拒因徽章 + cd400 行 🚫 拦 + 后三门行仍在表（恒算）+ ④ 未买入');
+  }
+
   console.log(`\n${failed === 0 ? '✅' : '❌'} 四层展示冒烟：${passed} 通过 / ${failed} 失败`);
   process.exit(failed === 0 ? 0 : 1);
 })();
